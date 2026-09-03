@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    netstandard2.0 is the constraint, not a preference. This assembly is loaded
+    into Unity 2019.4's Mono runtime (art of rally, via Unity Mod Manager) and
+    into .NET 6 CoreCLR (iRacing Arcade, via BepInEx 6). Targeting anything newer
+    builds fine and then fails to load in one of them. Nothing here may reference
+    Unity, a mod loader, or a game - that is what lets the encoder be unit-tested
+    on modern .NET with no game present, and be shared at all.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Telemetry</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Telemetry</RootNamespace>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <!-- CS1591: TelemetryFrame mirrors the wire format field for field; a doc
+         comment on ~60 self-describing floats would bury the ones that matter. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>
