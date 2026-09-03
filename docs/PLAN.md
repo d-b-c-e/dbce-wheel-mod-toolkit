@@ -67,17 +67,17 @@ next session's starting point.*
 
 ## Step 4 — Managed FFB library `dotnet/Dbce.Wheel.Ffb`
 
-- [ ] `WheelFfbNative`: P/Invoke binding, loads by absolute path
+- [x] `WheelFfbNative`: P/Invoke binding, loads by absolute path
       (`LoadLibraryW` preload; CoreCLR resolver via reflection when present).
-- [ ] `ForceShaper`: normalise, gain, invert, clamp, dual-rate EMA, slew
+- [x] `ForceShaper`: normalise, gain, invert, clamp, dual-rate EMA, slew
       with event bypass, low-speed fade, warm-up ramp.
-- [ ] `ForceModel`: composable terms over `TelemetryFrame` — spring, damper,
+- [x] `ForceModel`: composable terms over `TelemetryFrame` — spring, damper,
       lateral load × grip factor, weight transfer, texture, events — with
       `Arcade` (OutRun constants) and `SimLite` (lateral force × trail)
       presets, and **input validators** (liveness, range, sign-by-speed-band).
-- [ ] `DevicePreference`: VID:PID / name / index parsing; virtual-pad list.
-- [ ] `FfbDiagnostics`: peak logger, 5 Hz trace line, support-bundle section.
-- [ ] Tests for shaper and model (pure math).
+- [x] `DevicePreference`: VID:PID / name / index parsing; virtual-pad list.
+- [x] `FfbDiagnostics`: peak logger, 5 Hz trace line, support-bundle section.
+- [x] Tests for shaper and model (pure math).
 
 ## Step 5 — Tools, packaging, release
 

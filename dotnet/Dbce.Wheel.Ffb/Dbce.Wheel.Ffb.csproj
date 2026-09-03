@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    netstandard2.0, no Unity or loader references: loads unchanged into Unity
+    2019.4 Mono (Unity Mod Manager) and .NET 6 CoreCLR (BepInEx 6), and is unit
+    tested on modern .NET. The native side is WheelFfb.dll (native/wheelffb),
+    loaded by absolute path at runtime - see WheelFfbNative.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Ffb</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Ffb</RootNamespace>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dbce.Wheel.Telemetry\Dbce.Wheel.Telemetry.csproj" />
+  </ItemGroup>
+
+</Project>
