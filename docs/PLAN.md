@@ -49,21 +49,21 @@ next session's starting point.*
 
 ## Step 3 — Native FFB core `native/wheelffb`
 
-- [ ] Seed from art-of-sim-rally's `UnityForceFeedback.cpp` (superset).
+- [x] Seed from art-of-sim-rally's `UnityForceFeedback.cpp` (superset).
       Output `WheelFfb.dll`; consumers rename at vendor time if a game
       dictates the file name. All existing exports kept.
-- [ ] Log path parameterised: `DBCE_FFB_LOG_PATH` env var, default
+- [x] Log path parameterised: `DBCE_FFB_LOG_PATH` env var, default
       `%LOCALAPPDATA%\DbceWheel\ffb.log`, `SetLogPath()` export.
-- [ ] OutRun lifecycle rules: `PanicStop()` (zero → stop → `STOPALL` →
+- [x] OutRun lifecycle rules: `PanicStop()` (zero → stop → `STOPALL` →
       `SETACTUATORSOFF` → `RESET` → unacquire → autocentre restore last);
       `InstallExitGuards()` window subclass on `WM_CLOSE` /
       `WM_QUERYENDSESSION` / `WM_DESTROY`; recreate-and-ramp (from zero over
       ~250 ms) instead of stepping back after an effect recreation.
-- [ ] cruisn hold watchdog: `SetHoldTimeoutMs()` releases force when no
+- [x] cruisn hold watchdog: `SetHoldTimeoutMs()` releases force when no
       update arrives in time (off by default).
-- [ ] `GetLastHResult()`, `GetVersion()` exports. `build.ps1` verifies the
+- [x] `GetLastHResult()`, `GetWheelFfbVersion()` exports (`GetVersion` collides with Win32). `build.ps1` verifies the
       full export list.
-- [ ] Smoke: P/Invoke from PowerShell enumerates devices with the MOZA on.
+- [x] Smoke: P/Invoke from PowerShell enumerates devices with the MOZA on.
 
 ## Step 4 — Managed FFB library `dotnet/Dbce.Wheel.Ffb`
 
