@@ -34,16 +34,16 @@ next session's starting point.*
 
 ## Step 2 — Knowledge base
 
-- [ ] `DIRECTINPUT-FFB.md`, `FFB-SIGNAL-DESIGN.md`, `DEVICE-QUIRKS.md`,
+- [x] `DIRECTINPUT-FFB.md`, `FFB-SIGNAL-DESIGN.md`, `DEVICE-QUIRKS.md`,
       `TELEMETRY-FORZA.md`, `REWIRED.md`, `UNATTENDED-TESTING.md` — written
       from first-hand material with provenance.
-- [ ] Engine modding pages, so the next game on the same engine starts from
+- [x] Engine modding pages, so the next game on the same engine starts from
       the lessons: `UNITY-MODDING.md` (Mono vs IL2CPP, UMM vs BepInEx, Harmony
       patterns, finding the car, cameras, input libraries, panels, packaging),
       plus per-game case files under `knowledge/games/` (art of rally, iRacing
       Arcade, Cruis'n, OutRun 2006, Gravel): engine, loader, what worked, what
       did not, where the code is.
-- [ ] `UNITY-IL2CPP-BEPINEX.md`, `UNITY-INPUT-SYSTEM.md`, `UE4.md`,
+- [x] `UNITY-IL2CPP-BEPINEX.md`, `UNITY-INPUT-SYSTEM.md`, `UE4.md`,
       `FMOD-AUDIO-AS-TELEMETRY.md`, `MAME.md`, `DINPUT8-PROXY.md`,
       `SUPPORT-BUNDLES.md`, `NEW-GAME-CHECKLIST.md` — from the survey.
 

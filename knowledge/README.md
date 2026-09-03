@@ -1,5 +1,10 @@
 # Knowledge base — index and migration tracker
 
+*2026-09-03: every page below is written (first pass) from the sources
+listed, plus `UNITY-MODDING.md` (engine-level, both runtimes) and per-game case
+files under `games/`. The source column stays as provenance; when a consumer
+repo's CLAUDE.md repeats an item, point it here instead.*
+
 Each page below is to be written from the sources listed, keeping `[repo,
 date]` provenance on every item. Until a page exists, the source column is
 where the knowledge currently lives. Tick items off as they move; then point
