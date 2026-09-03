@@ -55,7 +55,8 @@ try {
             tools     = Join-Path $LocalRepo 'tools'
             knowledge = Join-Path $LocalRepo 'knowledge'
         }
-        $ver = (git -C $LocalRepo describe --tags --always 2>$null); if (-not $ver) { $ver = 'local' }
+        $ver = 'local'
+        try { $ErrorActionPreference = 'Continue'; $v = & git -C $LocalRepo describe --tags --always 2>$null; if ($LASTEXITCODE -eq 0 -and $v) { $ver = "$v" } } catch { } finally { $ErrorActionPreference = 'Stop' }
     } else {
         if (-not $Version) { throw "Pass -Version vX.Y.Z or -LocalRepo <path>" }
         Write-Host "Downloading $Repo $Version" -ForegroundColor Cyan

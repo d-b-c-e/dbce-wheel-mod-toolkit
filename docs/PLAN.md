@@ -92,10 +92,10 @@ next session's starting point.*
 
 ## Step 6 — Consumer integration
 
-- [ ] art-of-sim-rally: vendor `Dbce.Wheel.Telemetry.dll`, retarget
+- [x] art-of-sim-rally: vendor `Dbce.Wheel.Telemetry.dll`, retarget
       `TelemetryPump` usings, drop the local Telemetry project and its tests
       (they live here now), update `package.ps1`. Build, test, smoke launch.
-- [ ] art-of-sim-rally: vendor `WheelFfb.dll` as `UnityForceFeedback.dll`
+- [x] art-of-sim-rally: vendor `WheelFfb.dll` as `UnityForceFeedback.dll`
       (the P/Invoke name the mod uses), keep the log path via `SetLogPath`.
       Smoke launch: FFB initialised, three devices read.
 - [ ] Message the iracing-arcade-wheel session with the consumption recipe.
