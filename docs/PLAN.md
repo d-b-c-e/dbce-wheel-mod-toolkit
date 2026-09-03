@@ -98,8 +98,8 @@ next session's starting point.*
 - [x] art-of-sim-rally: vendor `WheelFfb.dll` as `UnityForceFeedback.dll`
       (the P/Invoke name the mod uses), keep the log path via `SetLogPath`.
       Smoke launch: FFB initialised, three devices read.
-- [ ] Message the iracing-arcade-wheel session with the consumption recipe.
-- [ ] abm-personal: status cards for the five repos and this one.
+- [x] Consumption recipe written as `docs/CONSUMING.md` (the iracing-arcade-wheel session had ended; per-game notes there).
+- [x] abm-personal: status cards for the five repos and this one (`projects/*.md`).
 
 ## Deferred
 
