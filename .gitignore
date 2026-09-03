@@ -726,3 +726,4 @@ dist/
 lib/
 *.user
 .claude/worktrees/
+dist/

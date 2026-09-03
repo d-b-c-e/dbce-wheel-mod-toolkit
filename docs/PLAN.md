@@ -81,14 +81,14 @@ next session's starting point.*
 
 ## Step 5 — Tools, packaging, release
 
-- [ ] `tools/ffbprobe/` standalone DirectInput probe (from the art of rally
+- [x] `tools/ffbprobe/` standalone DirectInput probe (from the art of rally
       session) with build script.
-- [ ] `tools/dev/` unattended-test helpers (`press.ps1`, `shot.ps1`).
-- [ ] `tools/Sync-Toolkit.ps1` template for consumers (pinned version →
+- [x] `tools/dev/` unattended-test helpers (`press.ps1`, `shot.ps1`).
+- [x] `tools/Sync-Toolkit.ps1` template for consumers (pinned version →
       `lib/toolkit/`).
-- [ ] `tools/package/package.ps1` → `dist/dbce-wheel-mod-toolkit-<ver>.zip`
+- [x] `tools/package/package.ps1` → `dist/dbce-wheel-mod-toolkit-<ver>.zip`
       (native DLL, managed DLLs, tools, knowledge).
-- [ ] Tag `v0.1.0`, GitHub release with artifacts.
+- [x] Tag `v0.1.0`, GitHub release with artifacts.
 
 ## Step 6 — Consumer integration
 
