@@ -121,6 +121,11 @@ byte pushes right and a positive SDL steering-axis level turns the R12 left
 - Calibrate relative to observed **rest** and **far** values, extend far as
   the control is used; pedals that idle at the top of their range then work
   without a polarity setting. `[art-of-sim-rally WheelInput, 2026-09-03]`
+- **Steering: +1 is right, and the X axis increases to the right on every
+  DirectInput wheel** — so a steering assignment must take the increasing side
+  as far, not the side the user happened to turn. Assigning with a left turn
+  made left positive and the car steered inverted. Offer a Flip anyway.
+  `[art-of-sim-rally, 2026-09-03]`
 - `c_dfDIJoystick` is 32 buttons; `c_dfDIJoystick2` is 128. Shifters and
   button boxes above button 32 need the latter. `[cruisn-collection, milestone-wheel-tools]`
 - Some devices need `Poll()` before `GetDeviceState`; `DI_NOEFFECT` from
