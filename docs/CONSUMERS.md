@@ -11,9 +11,16 @@ consumer's real pin off disk:
 .\tools\Get-ConsumerStatus.ps1
 ```
 
-It exits non-zero and prints the exact `Sync-Toolkit.ps1` command for anything
-behind. This page carries what the script cannot know: which parts each
-consumer takes, where its pin lives, and what breaks if you get it wrong.
+It distinguishes **behind** from **needs to move**: for each consumer it diffs
+the toolkit tree between that consumer's pinned tag and the current one, maps
+the changed paths to vendored parts, and only demands action when a part that
+consumer actually vendors was touched. A release that only changed the
+PowerShell module leaves three of the four alone, and saying so is the
+difference between a check people run and one they learn to ignore. It exits
+non-zero and prints the exact `Sync-Toolkit.ps1` command for whoever must move.
+
+This page carries what the script cannot know: which parts each consumer takes,
+where its pin lives, and what breaks if you get it wrong.
 
 ---
 
@@ -86,7 +93,7 @@ What each consumer last took, and when. Add a row when you bump one.
 | 2026-09-04 | v0.2.0 | OutRun2006Tweaks-FFB | the whole FFB device layer via the C ABI, 543 lines removed for 139 |
 | 2026-09-04 | v0.2.0 | iracing-arcade-wheel | bumped for the `Start()` / `DIEP_START` fix |
 | 2026-09-04 | v0.2.0 | art-of-sim-rally | bumped in a separate session |
-| 2026-09-04 | v0.2.1 | milestone-wheel-tools | `Set-IniValueCrlf` no longer duplicates a `key = value` line |
+| 2026-09-04 | v0.2.1 | milestone-wheel-tools | `Set-IniValueCrlf` no longer duplicates a `key = value` line. The only consumer 0.2.1 obliged to move; the other three vendor nothing it changed |
 
 ## Adding a consumer
 
