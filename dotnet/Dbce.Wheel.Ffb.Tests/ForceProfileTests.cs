@@ -335,6 +335,66 @@ shaper.invert         = true
             Assert.Equal(p.Shaper.PeakLimit, flatCrash, 5);
         }
 
+        /// <summary>
+        /// Recorded, not fixed: raising <c>shaper.strength</c> past about 60
+        /// destroys the crash-versus-corner distinction that soft saturation
+        /// exists to create. Gain is applied at step 7, AFTER the soft saturation
+        /// at step 3, so it re-inflates an already-compressed value into the hard
+        /// clamp - the same defect 0.7.0 fixed at the model boundary, reappearing
+        /// one stage later.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Measured on <c>arcade-outrun@1</c>, model output 1.0 (a hard corner)
+        /// against 3.0 (a crash), at 60 km/h:
+        /// </para>
+        /// <code>
+        ///   strength 50   0.7616 vs 0.9951   difference 0.2335
+        ///   strength 60   0.9139 vs 1.0000   difference 0.0861
+        ///   strength 75   1.0000 vs 1.0000   difference 0.0000
+        /// </code>
+        /// <para>
+        /// Every shipped profile sets strength 50, where gain is exactly 1.0 and
+        /// the ordering cannot be observed - which is why this is a test and not a
+        /// golden-file row. The conformance sequence would show a zero-line diff
+        /// for a fix, exactly as it did for the 0.7.0 clamp change.
+        /// </para>
+        /// <para>
+        /// The fix is to apply gain before the soft saturation, so strength drives
+        /// INTO the knee instead of past it. Deferred deliberately: it changes feel
+        /// for anyone who has already moved the dial, and that is a decision to make
+        /// between test sessions rather than before one. Raised by art-of-sim-rally
+        /// as an ordering caveat behind the simlite@2 equivalence.
+        /// </para>
+        /// </remarks>
+        [Fact]
+        public void RaisingStrengthPastSixtyDefeatsSoftSaturation()
+        {
+            var p = ForceProfile.Parse(File.ReadAllText(ShippedPath()), "arcade-outrun@1");
+            Assert.True(p.Shaper.SoftSaturation > 0f, "this test is about the soft knee");
+
+            Func<int, float, float> at = (strength, model) =>
+            {
+                var sh = Fresh(p);
+                sh.Strength = strength;
+                return sh.Shape(model, 60f, 1f / 60f, true);
+            };
+
+            // At the shipped setting the knee works: a crash outweighs a corner.
+            Assert.True(at(50, 3.0f) - at(50, 1.0f) > 0.2f,
+                "at strength 50 a crash must still outweigh a hard corner");
+
+            // At 75 it is gone. If this starts failing the ordering was fixed -
+            // update the note on shaper.strength in profiles/force-profiles.ini,
+            // which currently warns players about exactly this.
+            Assert.True(at(75, 3.0f) - at(75, 1.0f) < 0.001f,
+                "strength 75 no longer flattens the distinction - was the gain moved " +
+                "before the soft saturation? If so this test and the profile note are stale");
+
+            // The bound itself always holds; it is the shape that is lost.
+            Assert.True(at(100, 3.0f) <= p.Shaper.PeakLimit + 1e-6f);
+        }
+
         /// <summary>A copy of a profile's shaper with no filter state carried over.</summary>
         private static ForceShaper Fresh(ForceProfile p) => new ForceShaper
         {
