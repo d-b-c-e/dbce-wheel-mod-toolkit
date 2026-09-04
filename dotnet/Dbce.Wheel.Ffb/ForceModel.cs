@@ -74,11 +74,34 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Amplitude of the symmetric gear-shift double pulse.</summary>
         public float ShiftPulseStrength = 0f;
 
+        // ---- shape of each term -------------------------------------------------
+        // These were constants inside Compute. They change how the model FEELS, so
+        // they belong in the profile like everything else; the defaults are the
+        // values that were hardcoded, so an unset profile behaves as before.
+
+        /// <summary>Damper authority at a standstill, as a fraction of its authority at speed. 1 = speed-independent.</summary>
+        public float DamperStaticFraction = 0.4f;
+        /// <summary>Multiple of the ideal slip angle at which the trail reaches <see cref="TrailFloor"/>.</summary>
+        public float TrailSlipSpan = 2f;
+        /// <summary>Bounds on the weight-transfer multiplier: how much braking may add and throttle may shed.</summary>
+        public float WeightTransferMin = -0.20f, WeightTransferMax = 0.30f;
+        /// <summary>Texture oscillator frequency in Hz. Above ~15 the zero-order hold at 60 Hz eats it.</summary>
+        public float TextureHz = 12f;
+        /// <summary>Duration of the decaying impact impulse, seconds.</summary>
+        public float ImpactSeconds = 0.12f;
+        /// <summary>Duration of the positive half of the gear-shift pulse, seconds.</summary>
+        public float ShiftPulseSeconds = 0.04f;
+
         /// <summary>
         /// The sim-like preset: lateral tyre force through a pneumatic trail that
         /// shrinks toward the limit; no virtual spring. art-of-sim-rally's shipped
         /// model (2026-09-02), where the game exposes per-wheel lateral force.
         /// </summary>
+        /// <remarks>
+        /// Equivalent to the profile <c>simlite@1</c>. Prefer loading a named,
+        /// versioned profile (<see cref="ForceProfile"/>): a profile can be swapped
+        /// or A/B tested without rebuilding the game, and it pins what was tuned.
+        /// </remarks>
         public static ForceModelSettings SimLite() => new ForceModelSettings
         {
             SpringStrength = 0f, DamperStrength = 0f, SteeringWeight = 1f,
@@ -90,6 +113,11 @@ namespace Dbce.Wheel.Ffb
         /// damper + lateral load lightening in a drift, weight transfer, events.
         /// Starting values, not truth; every game retunes.
         /// </summary>
+        /// <remarks>
+        /// This is <b>not</b> OutRun's shipped tuning; several constants differ.
+        /// <c>arcade-outrun@1</c> in <c>profiles/force-profiles.ini</c> is the one
+        /// that matches the game, and is what OutRun2006Tweaks-FFB loads.
+        /// </remarks>
         public static ForceModelSettings Arcade() => new ForceModelSettings
         {
             SpringStrength = 0.45f, DamperStrength = 0.10f, SteeringWeight = 0.9f,
@@ -153,7 +181,7 @@ namespace Dbce.Wheel.Ffb
             if (i.HasSlip && s.TrailFloor < 1f)
             {
                 float ideal = Math.Max(0.5f, i.IdealSlipAngleDeg);
-                float t = Math.Min(1f, Math.Abs(i.FrontSlipAngleDeg) / (2f * ideal));
+                float t = Math.Min(1f, Math.Abs(i.FrontSlipAngleDeg) / Math.Max(0.1f, s.TrailSlipSpan * ideal));
                 lateral *= 1f - (1f - s.TrailFloor) * t;
             }
             if (i.HasDrift && s.GripLoss > 0f) lateral *= 1f - s.GripLoss * Math.Max(0f, Math.Min(1f, i.DriftAmount));
@@ -162,11 +190,12 @@ namespace Dbce.Wheel.Ffb
 
             // --- spring and damper (arcade) ----------------------------------------
             float fSpring = i.HasSteer ? -i.Steer * s.SpringStrength * speedNorm : 0f;
-            float fDamper = i.HasSteerRate ? -i.SteerRate * s.DamperStrength * (0.4f + 0.6f * speedNorm) : 0f;
+            float k = Math.Max(0f, Math.Min(1f, s.DamperStaticFraction));
+            float fDamper = i.HasSteerRate ? -i.SteerRate * s.DamperStrength * (k + (1f - k) * speedNorm) : 0f;
 
             float loadMod = 1f;
             if (i.HasLongitudinalG && s.WeightTransfer != 0f)
-                loadMod = 1f + Math.Max(-0.20f, Math.Min(0.30f, -i.LongitudinalG * s.WeightTransfer));
+                loadMod = 1f + Math.Max(s.WeightTransferMin, Math.Min(s.WeightTransferMax, -i.LongitudinalG * s.WeightTransfer));
 
             float structural = (fSpring + fLat) * loadMod + fDamper;
             LastStructural = structural;
@@ -175,7 +204,7 @@ namespace Dbce.Wheel.Ffb
             float texture = 0f;
             if (s.TextureStrength > 0f && i.Texture > 0f && dt > 0f)
             {
-                _texturePhase += dt * 12f * (float)Math.PI * 2f;   // 12 Hz, under the 15 Hz ceiling
+                _texturePhase += dt * Math.Max(0.1f, s.TextureHz) * (float)Math.PI * 2f;
                 texture = (float)Math.Sin(_texturePhase) * s.TextureStrength * Math.Min(1f, i.Texture);
             }
 
@@ -185,10 +214,10 @@ namespace Dbce.Wheel.Ffb
             if (i.Impact > 0f) { _impactT = 0f; _impactMag = Math.Min(1f, i.Impact); _impactSign = i.ImpactDirection != 0f ? Math.Sign(i.ImpactDirection) : (i.HasSteer ? -Math.Sign(i.Steer) : 1f); }
             if (_impactT >= 0f)
             {
-                // 120 ms decaying impulse
-                float k = Math.Max(0f, 1f - _impactT / 0.12f);
-                ev += _impactSign * _impactMag * s.ImpactStrength * k;
-                _impactT += dt; if (_impactT > 0.12f) _impactT = -1f;
+                float span = Math.Max(0.001f, s.ImpactSeconds);
+                float decay = Math.Max(0f, 1f - _impactT / span);
+                ev += _impactSign * _impactMag * s.ImpactStrength * decay;
+                _impactT += dt; if (_impactT > span) _impactT = -1f;
                 isEvent = true;
             }
             if (i.GearShift && s.ShiftPulseStrength > 0f) { _shiftPulseT = 0f; _shiftEmitted = 0f; }
@@ -197,10 +226,11 @@ namespace Dbce.Wheel.Ffb
                 // Symmetric double pulse: +K for ~40 ms, then exactly what was emitted
                 // comes back negative, so the pulse nets to zero at any tick rate and
                 // reads as a jolt, not the game yanking the wheel sideways.
-                if (_shiftPulseT < 0.04f) { ev += s.ShiftPulseStrength; _shiftEmitted += s.ShiftPulseStrength; }
+                float half = Math.Max(0.001f, s.ShiftPulseSeconds);
+                if (_shiftPulseT < half) { ev += s.ShiftPulseStrength; _shiftEmitted += s.ShiftPulseStrength; }
                 else if (_shiftEmitted > 0f) { float back = Math.Min(s.ShiftPulseStrength, _shiftEmitted); ev -= back; _shiftEmitted -= back; }
                 _shiftPulseT += dt;
-                if (_shiftPulseT >= 0.04f && _shiftEmitted <= 0f) _shiftPulseT = -1f;
+                if (_shiftPulseT >= half && _shiftEmitted <= 0f) _shiftPulseT = -1f;
                 isEvent = true;
             }
 

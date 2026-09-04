@@ -6,7 +6,8 @@
     Contents (all built artifacts, no source):
       native\WheelFfb.dll                       the DirectInput FFB and device layer (x64)
       native\x86\WheelFfb.dll                   the same for 32-bit games
-      native\include\wheelffb.h, forza_packet.h C ABI header + loader; header-only Forza encoder
+      native\include\*.h                        C ABI + loader, Forza encoder, force model + profiles
+      profiles\force-profiles.ini               the versioned force-feedback tunes, deployed beside the game
       tools\powershell\DbceWheel.psm1           Steam discovery, DirectInput enumeration, CRLF-safe INI
       dotnet\Dbce.Wheel.Telemetry.dll (+xml)    Forza encoder, idle keeper, RPM synth
       dotnet\Dbce.Wheel.Ffb.dll (+xml)          binding, shaper, model, diagnostics
@@ -42,6 +43,10 @@ Write-Host "== DbceWheel.psm1 ==" -ForegroundColor Cyan
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "DbceWheel.psm1 tests failed" }
 
+Write-Host "== force model conformance (C++ vs the golden file) ==" -ForegroundColor Cyan
+& cmd.exe /c (Join-Path $root 'native\forcemodel\build_conformance.bat') | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "force model conformance failed" }
+
 Write-Host "== forza_packet.h conformance ==" -ForegroundColor Cyan
 & cmd.exe /c (Join-Path $root 'native\forza\build_test.bat') | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "forza_packet.h test failed" }
@@ -62,12 +67,15 @@ $name  = "dbce-wheel-mod-toolkit-$Version"
 $dist  = Join-Path $root 'dist'
 $stage = Join-Path $dist $name
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
-New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native\x86'), (Join-Path $stage 'native\include'), (Join-Path $stage 'dotnet'), (Join-Path $stage 'tools\forza'), (Join-Path $stage 'tools\dev'), (Join-Path $stage 'tools\ffbprobe'), (Join-Path $stage 'tools\powershell'), (Join-Path $stage 'knowledge'), (Join-Path $stage 'docs\adr') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native\x86'), (Join-Path $stage 'native\include'), (Join-Path $stage 'dotnet'), (Join-Path $stage 'tools\forza'), (Join-Path $stage 'tools\dev'), (Join-Path $stage 'tools\ffbprobe'), (Join-Path $stage 'tools\powershell'), (Join-Path $stage 'profiles'), (Join-Path $stage 'knowledge'), (Join-Path $stage 'docs\adr') | Out-Null
 
 Copy-Item $native (Join-Path $stage 'native')
 Copy-Item $nativeX86 (Join-Path $stage 'native\x86')
 Copy-Item (Join-Path $root 'native\wheelffb\include\wheelffb.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forza\forza_packet.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'native\forcemodel\force_model.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'native\forcemodel\force_profile.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'profiles\force-profiles.ini') (Join-Path $stage 'profiles')
 Copy-Item (Join-Path $root 'tools\powershell\DbceWheel.psm1') (Join-Path $stage 'tools\powershell')
 Copy-Item (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') (Join-Path $stage 'tools\powershell')
 $ffbBin = Join-Path $root 'dotnet\Dbce.Wheel.Ffb\bin\Release\netstandard2.0'
