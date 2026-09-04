@@ -36,10 +36,16 @@ content. Those stay in each game's repo and consume this one.
 ## Consumers
 
 - [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally) — art of rally, Unity 2019 Mono, Unity Mod Manager
-- iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6
+- iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6 *(on 0.1.0)*
 - cruisn-collection — Cruis'n USA / World / Off Road / Exotica, MAME fork
-- OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy
-- milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy
+- OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy *(on 0.2.0, C ABI)*
+- milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy *(on 0.2.0, C header + PowerShell)*
+
+A managed mod references `Dbce.Wheel.*.dll`; a native mod includes
+`native/wheelffb/include/wheelffb.h` and loads `WheelFfb.dll` at runtime, so a
+missing file costs force feedback rather than stopping the game from starting.
+Either way the consumer vendors a **built, pinned** version under `lib/toolkit`
+(`tools/Sync-Toolkit.ps1`) — see [docs/CONSUMING.md](docs/CONSUMING.md).
 
 ## Migration order
 
@@ -57,8 +63,15 @@ content. Those stay in each game's repo and consume this one.
 
 ```powershell
 dotnet test Dbce.Wheel.sln
-.\native\wheelffb\build.ps1
+.\native\wheelffb\build.ps1                     # x64, verifies every export
+.\native\wheelffb\build.bat x86                 # 32-bit games
+.\native\wheelffb\test\build_smoke.bat x86     # then build\x86\smoke.exe
+.\native\forza\build_test.bat                   # packet conformance
+.\tools\powershell\Test-DbceWheel.ps1
 ```
+
+`smoke.exe` walks the whole C ABI against a real wheel and applies no torque
+unless given `--force`, so it is safe to run beside a live direct-drive base.
 
 Needs the .NET SDK and Visual Studio Build Tools with the C++ workload and the
 Windows SDK (`dinput8.lib`). No game needs to be installed.

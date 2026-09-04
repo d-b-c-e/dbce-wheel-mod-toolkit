@@ -4,7 +4,7 @@
 |---|---|
 | Repos | `E:\Source\OutRun2006Tweaks-FFB` (fork of `emoose/OutRun2006Tweaks`; the injected DLL) + `E:\Source\outrun2006\outrun2006-redux` (config tool, SimHub plugin, installer, **the FFB design docs**) |
 | Game | OutRun 2006 (2006, Sumo Digital), proprietary engine, 32-bit x86, D3D9; DRM-stripped replacement EXE from upstream |
-| Approach | `DINPUT8.dll` wrapper proxy + safetyhook inline hooks on game functions (`GamePlCar_Ctrl` exe+0xA8330 etc.); C++20 |
+| Approach | `DINPUT8.dll` wrapper proxy + safetyhook inline hooks on game functions (`GamePlCar_Ctrl` exe+0xA8330 etc.); C++20. FFB device layer is `WheelFfb.dll` (toolkit 0.2.0) since 2026-09-04 |
 | State | validated at a MOZA R12 2026-08-11 (422-line drive log); deployed binary post-dates that drive by 31 minutes — one lap closes it |
 
 ## What the mod does
@@ -39,10 +39,23 @@
 
 ## Known debt (recorded, not fixed)
 
-- **Steer input `field_1D0` reads zero through corners** — the spring and damper
-  terms produce almost nothing; the lateral term does the work the redesign
-  meant to demote. Recorded as a telemetry bug; its FFB consequence unnoticed.
-  Fix the offset before comparing feel.
+- **The steering field is mis-scaled, or mislabelled — measured, not guessed.**
+  Recorded originally as "field_1D0 reads zero through corners". The 2026-08-11
+  validation log is more specific: across 170 samples |1D0| never exceeds 0.011
+  and sits at or below 0.001 in 92% of them, while field_1D4 — which the code
+  calls its derivative — reaches 0.54 when tracked as a true min/max. A
+  derivative cannot outrun its own integral by fifty times, so at least one
+  label is wrong. Either way the spring and damper terms have been running on
+  roughly 1% of the signal they were tuned for, which is why the lateral term
+  still does all the work the redesign meant to demote.
+  An `FFB STEERSCAN` line (2026-09-04) now prints the observed min/max of the
+  six candidate floats (1C8, 1CC, 1D0, 1D4, 1DC, 1E0). One lap with
+  `FFBDiagnosticLog` identifies the field that reaches about ±1, changes sign
+  with the corner and returns to zero on the straights.
+  Method note: the old diagnostic sampled steer once every two seconds while
+  tracking min/max for the rate. That asymmetry is what let a signal a hundred
+  times too small pass for a quiet one — track min/max for anything you intend
+  to reason about.
 - Speed over-reads ~2×; three dead INI settings; four INI sections read by code
   but absent from the shipped template; README describes the removed SDL3
   engine and a torque table that no longer exists; no CLAUDE.md; no tests.

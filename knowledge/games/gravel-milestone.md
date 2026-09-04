@@ -4,7 +4,7 @@
 |---|---|
 | Repo | `E:\Source\milestone-wheel-tools` |
 | Game | Gravel (Steam 558260, delisted — offsets are permanent), UE 4.17. MXGP3, MXGP PRO, MotoGP 18/19, Monster Energy Supercross listed as untested targets |
-| Approach | `dinput8.dll` proxy (C++17, MinGW), observe-only except one field; PowerShell installer and bind wizard; Python tools; INI config read once at start |
+| Approach | `dinput8.dll` proxy (C++17, MinGW), observe-only except one field; PowerShell installer and bind wizard; Python tools; INI config read once at start. Forza encoder and installer helpers are the toolkit's since 2026-09-04 |
 | State | Gravel verified on a MOZA R12: wheel fix, inputs, FFB tap, telemetry, physics-from-audio, impacts |
 
 ## What was wrong

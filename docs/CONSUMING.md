@@ -57,6 +57,42 @@ Or use the managed binding: `Dbce.Wheel.Ffb.WheelFfbNative.Load(dir)` then
 (with capability labels), `OpenRead`/`Read` for shifters and pedals. It imports
 the module name `WheelFfb`, so a mod using it ships the DLL as `WheelFfb.dll`.
 
+## 3b. Native consumers (a dinput8 proxy, an emulator fork)
+
+Vendor `include` and the build for your architecture, then include the header
+and load the DLL at runtime — never import it, or a missing file stops the game
+from starting instead of merely costing force feedback:
+
+```powershell
+.\tools\Sync-Toolkit.ps1 -LocalRepo E:\Source\dbce-wheel-mod-toolkit -Parts include,native-x86
+```
+
+```c
+#include "wheelffb.h"                 // lib/toolkit/include
+static WheelFfbApi ffb;
+if (WheelFfb_LoadBeside(&ffb, myModule, L"WheelFfb.dll")) {
+    ffb.SetLogPath(logPathBesideTheGame);          // optional
+    ffb.SetPreferredDeviceGuid(&guidFromMyInputLayer);   // or ...Index / ...Device
+    if (ffb.InitDirectInput((int)(INT_PTR)hwnd)) {
+        int road = ffb.CreatePeriodicEffect(25);   // -1: no periodics, synthesise <=15 Hz
+        ffb.SetDeviceForcesXY(magnitude, 0);       // -10000..10000
+        ffb.UpdatePeriodicEffect(road, mag10000, freqMilliHz);
+    }
+} else log("WheelFfb.dll: %s missing", WheelFfb_MissingExport(&ffb));
+```
+
+Copy the DLL next to your own binary as a post-build step; a missing
+`WheelFfb.dll` is a silent loss of all force feedback. Do **not** call
+`WheelFfb_Unload` from `DllMain` — `FreeLibrary` under the loader lock is
+forbidden. At exit, `PanicStop()` is the call that matters.
+
+`native/forza/forza_packet.h` is the Forza encoder for the same audience:
+header-only, `dbce::forza::build(layout, sled, dash, out, size, sentinel)`.
+
+Installers and setup wizards take `-Parts powershell` and import
+`DbceWheel.psm1` for Steam discovery, DirectInput enumeration and CRLF-safe
+INI edits.
+
 ## 4. Force shaping and the model (optional)
 
 `ForceShaper` is the conditioning chain (deadzone, dual-rate EMA, soft
@@ -84,9 +120,9 @@ new `lib/toolkit` with a changelog line. The C ABI only ever gains exports.
   reading) — both slices are mechanical. Before trusting its slip × load FFB
   proxy at the base, log sign(force) vs sign(steer) by speed band
   (`knowledge/FFB-SIGNAL-DESIGN.md`).
-- **OutRun2006Tweaks-FFB**: consume the C ABI from the proxy in place of
-  `hooks_dinputffb.cpp`'s device code; use `Fm7Dash311`; fix the dead steer
-  input first.
-- **milestone-wheel-tools**: Forza encoder as a C header when one exists;
-  the proxy scaffold moves here later.
+- **OutRun2006Tweaks-FFB**: done for 0.2.0 — the C ABI replaced its device
+  code, and `forza_packet.h` its 311-byte encoder. Outstanding: the steering
+  field. Drive one lap with `FFBDiagnosticLog` and read `FFB STEERSCAN`.
+- **milestone-wheel-tools**: done for 0.2.0 — `forza_packet.h` and
+  `DbceWheel.psm1`. The proxy scaffold still has not moved here.
 - **cruisn-collection**: Python tools now; the SDL2 backend later.

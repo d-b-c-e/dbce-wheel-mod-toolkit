@@ -101,9 +101,32 @@ next session's starting point.*
 - [x] Consumption recipe written as `docs/CONSUMING.md` (the iracing-arcade-wheel session had ended; per-game notes there).
 - [x] abm-personal: status cards for the five repos and this one (`projects/*.md`).
 
+## Step 7 - the native consumers (0.2.0, 2026-09-04)
+
+- [x] Hardware periodic effects in the native core, from OutRun's
+      implementation: slot API, driver update-strategy probe, recreate
+      hold-off, change gate.
+- [x] `include/wheelffb.h` - the C ABI as one macro list plus a runtime
+      loader, so a missing DLL costs force feedback and not the launch.
+      `build.ps1` fails if it disagrees with the `.def`.
+- [x] `SetPreferredDeviceGuid`, for a consumer whose own input layer already
+      chose a device.
+- [x] x86 build (`build.bat x86`) for 32-bit games.
+- [x] `native/forza/forza_packet.h` + conformance test.
+- [x] `tools/powershell/DbceWheel.psm1` + tests.
+- [x] `native/wheelffb/test/smoke.c` - the whole ABI against a real wheel,
+      no torque unless asked. Found the `Start` / `DIEP_START` bug on its
+      first run.
+- [x] milestone-wheel-tools and OutRun2006Tweaks-FFB consume it.
+
 ## Deferred
 
 - SDL2 backend in `native/wheelffb` (seed: cruisn `mvffb`).
 - Direct-read input kit and Unity Input System kit (`dotnet/Dbce.Wheel.Input`).
-- dinput8 proxy scaffold merge; InputBridge dedupe.
+- dinput8 proxy scaffold merge; InputBridge dedupe. Now the largest piece of
+  duplicated native code left: milestone-wheel-tools and OutRun2006Tweaks-FFB
+  each carry their own proxy.
 - Templates.
+- OutRun's force model as the `ForceModel.Arcade` reference - it stayed in
+  OutRun deliberately, since the C++ side has no equivalent of the managed
+  `ForceModel` yet.

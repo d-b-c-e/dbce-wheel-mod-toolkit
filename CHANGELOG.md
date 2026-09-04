@@ -5,6 +5,64 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.2.0] - 2026-09-04
+
+The native half. 0.1.0 could serve a Unity mod; this release is what a native
+mod - a dinput8 proxy - needs, and the three consumers that needed it are on it.
+
+### Added
+
+- **Hardware periodic effects** in `native/wheelffb`: `CreatePeriodicEffect`
+  (returns a slot), `UpdatePeriodicEffect` (envelope, safe to call every frame),
+  `ReleasePeriodicEffects`. Road texture and tyre slip rendered by the wheelbase
+  instead of synthesised through the constant force, which loses ~26% to
+  zero-order-hold roll-off at 60 Hz and another 30-60% to soft saturation when
+  it rides on steering load. Carries OutRun2006Tweaks-FFB's driver
+  update-strategy probe (`SetParameters` without `DIEP_START` preferred),
+  its recreate-after-handle-loss hold-off, and its change gate.
+- **`SetPreferredDeviceGuid`**: pick the wheel by DirectInput instance GUID,
+  beating index and name. For a mod whose own input layer already chose a
+  device - matching by name is guesswork when a Fanatec base shows two
+  identically named devices.
+- **`native/wheelffb/include/wheelffb.h`**: the C ABI as one macro list, with a
+  runtime loader (`WheelFfb_LoadBeside`) so a missing DLL disables force
+  feedback rather than stopping the game from starting. `build.ps1` fails if the
+  header and `WheelFfb.def` disagree.
+- **`native/forza/forza_packet.h`**: the Forza encoder as a header-only C++11
+  file for native mods, with a conformance test mirroring the C# one.
+- **x86 build**: `build.bat x86`, for 32-bit games. Both builds verified at 32
+  undecorated exports.
+- **`native/wheelffb/test`**: a smoke test that loads the DLL the way a proxy
+  does and walks every stage against a real wheel, applying no torque unless
+  asked.
+- **`tools/powershell/DbceWheel.psm1`**: registry Steam discovery, DirectInput
+  enumeration with the two COM marshalling workarounds, CRLF-safe INI editing,
+  and a test suite.
+
+### Fixed
+
+- **An effect whose `Start` lost a race with a focus change never played.**
+  `Start` returning `DIERR_NOTEXCLUSIVEACQUIRED` was survivable for the constant
+  force, because every update carries `DIEP_START`, but not for a periodic
+  effect, whose updates deliberately do not. `Start` is now retried through a
+  re-acquire, each slot remembers whether it truly started, and until it has,
+  its updates carry `DIEP_START` whatever the probed strategy says. Found by the
+  new smoke test on its first run.
+- **`DirectInput8Create` is resolved from `system32` by full path.** Inside a
+  game modded with a `dinput8.dll` proxy, an import bound to the proxy beside
+  the game exe - the layer the toolkit is meant to sit alongside, not inside.
+- **`Set-IniValueCrlf` split a CRLF** when appending a key to a file's last
+  section: .NET's `\Z` also matches before a trailing newline. Latent in
+  milestone-wheel-tools, which only ever replaced.
+
+### Consumers
+
+- **iracing-arcade-wheel** on the telemetry library and the native DLL.
+- **milestone-wheel-tools** on `forza_packet.h` and `DbceWheel.psm1`; Steam
+  discovery had been written out three times in that one repo.
+- **OutRun2006Tweaks-FFB** on the C ABI: 543 lines of its own DirectInput code
+  removed, its force model untouched.
+
 ## [0.1.0] - 2026-09-03
 
 First release: the foundation, built while the survey of five racing-mod repos

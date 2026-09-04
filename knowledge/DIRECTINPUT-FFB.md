@@ -84,7 +84,29 @@ byte pushes right and a positive SDL steering-axis level turns the R12 left
    released when the process dies; the base keeps the last torque and the
    next launch reads as "no FFB". Close via `WM_CLOSE`. Recovery: power-cycle
    or the MOZA Stream Deck "Stop FFB" action. `[milestone-wheel-tools, cruisn-collection, 2026-08]`
-8. **Periodic effects update strategy is driver-dependent.** Prefer
+8. **An effect whose `Start()` fails never plays, and only the constant force
+   notices.** `Start(1, 0)` can return `DIERR_NOTEXCLUSIVEACQUIRED` (0x80040205)
+   when it races a focus change: the device is acquired but not exclusively.
+   A constant force survives that, because every update carries `DIEP_START`
+   and re-downloads the effect. A periodic effect does not — the preferred
+   update strategy is `SetParameters` *without* `DIEP_START` — so it silently
+   plays nothing for the rest of the session while its parameters look
+   perfect. Retry `Start` through an unacquire/acquire, and until a slot has
+   genuinely started, force `DIEP_START` on its updates regardless of the
+   probed strategy. Do not let the strategy probe draw a conclusion from an
+   effect that never started; it will read "not started" as "this driver
+   dislikes DIEP_START". [dbce-wheel-mod-toolkit, 2026-09-04, found by a smoke
+   test on its first run]
+
+9. **In a game modded with a `dinput8.dll` proxy, resolve `DirectInput8Create`
+   from `system32` by full path.** An import named `dinput8.dll` binds to the
+   proxy sitting beside the game exe, so a force-feedback layer meant to run
+   *alongside* the proxy ends up running *through* it, inheriting whatever that
+   layer filters or re-types. `LoadLibraryW(L"<system32>\\dinput8.dll")` plus
+   `GetProcAddress` gives a clean instance; the proxies themselves load the real
+   DLL the same way. [OutRun2006Tweaks-FFB / dbce-wheel-mod-toolkit, 2026-09-04]
+
+10. **Periodic effects update strategy is driver-dependent.** Prefer
    `SetParameters` *without* `DIEP_START` (no phase reset); fall back to with.
    Probe once, cache. `[OutRun2006Tweaks-FFB]`
 9. **Do nothing heavy in `DllMain`.** `LoadLibrary`, threads, DirectInput

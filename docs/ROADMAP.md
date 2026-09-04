@@ -4,9 +4,24 @@
 slices; a project is "on the toolkit" when it ships no code this repo also
 ships.*
 
-## Order
+## Status
 
-### 1. art-of-sim-rally — first, and the source of most of the core
+| # | Project | On the toolkit | Still to move |
+|---|---|---|---|
+| 1 | art-of-sim-rally | telemetry, native FFB DLL | force shaping, `WheelInput`, support bundle |
+| 2 | iracing-arcade-wheel | telemetry, native FFB DLL | the Unity Input System kit it would donate |
+| 3 | OutRun2006Tweaks-FFB | Forza encoder, the whole FFB device layer (C ABI) | nothing; its force model stays by design |
+| 4 | milestone-wheel-tools | Forza encoder, PowerShell helpers | the dinput8 proxy scaffold it would donate |
+| 5 | cruisn-collection | — | Python tools now, SDL2 backend later |
+
+Two things are verified only as far as a bench allows and need a drive:
+iracing-arcade-wheel's force feedback has never been judged at a powered base,
+and OutRun's migrated device layer has been proven at a MOZA R12 through the
+toolkit smoke test but not yet in the game.
+
+## Order (and why)
+
+### 1. art-of-sim-rally — DONE (telemetry + native + Fanatec work), 2026-09-04
 
 Why first: it is the superset. Its native DLL is the most complete FFB
 implementation in the family (re-acquire, Fanatec-twin fallback, one
@@ -23,7 +38,11 @@ public users, so every slice is verified against a live install.
 | Direct read | `WheelInput` core moves to `Dbce.Wheel.Input`; the panel stays | assign, drive |
 | Diagnostics | `SupportBundle` sections come from the toolkit | bundle diff |
 
-### 2. iracing-arcade-wheel — second, same lineage, adds the Unity Input System kit
+### 2. iracing-arcade-wheel — DONE (telemetry + native), 2026-09-04
+
+Telemetry and the native DLL are vendored; the input kit extraction is still
+open. Its force feedback has still never been judged at a powered base.
+
 
 Why second: its telemetry encoder is a byte-identical copy and its native DLL
 is the same file three fixes behind, so the first two slices are mechanical.
@@ -36,7 +55,18 @@ System sub-package. Wait for the session currently working in it to land its
 Watch item: its FFB signal is a slip × load proxy that has never been driven
 with the base powered; run the sign-by-speed-band check before trusting it.
 
-### 3. OutRun2006Tweaks-FFB (+ outrun2006-redux) — third, the lifecycle donor
+### 3. OutRun2006Tweaks-FFB — DONE, 2026-09-04
+
+543 lines of DirectInput code removed for 139; the force model untouched. It
+selects its wheel by instance GUID (a new toolkit export) to match its remap
+layer, and loads `WheelFfb.dll` at runtime from beside `dinput8.dll`. Its
+periodic-effect logic went **into** the toolkit on the way past.
+
+Still open, and it needs one drive: the steering input. It was recorded as
+"field_1D0 reads zero"; the validation log actually shows |1D0| below 0.011
+while field_1D4, supposedly its derivative, reaches 0.54. A new FFB STEERSCAN
+diagnostic prints the range of the six candidate floats so one lap settles it.
+
 
 Why third: its FFB lifecycle code (exit-time zeroing, recreate-and-ramp,
 poll rule, separate exclusive handle, periodic effects) is what the native
@@ -50,7 +80,12 @@ through corners, so the spring and damper terms the redesign was built around
 produce almost nothing. The toolkit's input validators exist to catch exactly
 this; fix the offset before comparing feel.
 
-### 4. milestone-wheel-tools — fourth, the proxy and consumer-side donor
+### 4. milestone-wheel-tools — DONE, 2026-09-04
+
+On `forza_packet.h` and `DbceWheel.psm1`. Steam discovery had been written out
+three times inside that one repo. The dinput8 proxy scaffold has still not been
+extracted — it is the largest remaining piece of shared native code.
+
 
 Why fourth: it does not produce FFB (it taps the game's), so the FFB core
 does not apply. It contributes the dinput8 proxy scaffold, the SIXDOF →
