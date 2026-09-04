@@ -5,6 +5,32 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.7.1] - 2026-09-04
+
+### Added
+
+- **`ForceProfile.SimLite()` and `ForceProfile.Arcade()` return a whole tune** -
+  the model and the conditioning that belong together - where
+  `ForceModelSettings.SimLite()`/`Arcade()` return only the model half. Pairing
+  a model preset with a default `ForceShaper` gives a game a deadzone, an output
+  deadband and a ramp it never asked for, which is precisely how `simlite@1`
+  shipped art of rally's model with this repo's conditioning. The two model
+  presets now derive from the two profile presets, so there is one definition of
+  each tune in code rather than two that can part company.
+  Every value in a preset is stated rather than left to a default, so a changed
+  default cannot quietly retune one, and `CodePresetMatchesTheProfileItNames`
+  pins each preset to the section it names in `profiles/force-profiles.ini` key
+  by key. Verified by perturbing one value and watching it fail.
+  Raised by art-of-sim-rally.
+  The C++ side never had the hazard: it has no code presets and only ever loads
+  from the file.
+
+### Fixed
+
+- **The note on `simlite@2` still described the clamping order 0.7.0 changed.**
+  It told a reader the two pipelines diverge in a low-speed slide and pointed at
+  a test that no longer exists. They now agree on every row of the curve.
+
 ## [0.7.0] - 2026-09-04
 
 ### Changed
