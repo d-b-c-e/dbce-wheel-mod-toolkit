@@ -49,6 +49,19 @@ static Inputs tick_inputs(int n)
     i.impact = (n == 50) ? 0.9f : 0.f;
     i.impact_direction = (n == 50) ? -1.f : 0.f;
     i.gear_shift = (n == 100);
+
+    // Ticks 150-179: deliberately past full scale, at a speed inside the fade.
+    // Without this the sequence never saturates the model, and an entire class
+    // of change - anything about where the clamp happens, or what the soft
+    // saturation actually receives - is invisible to the golden file. It was
+    // invisible, which is how a clamp sitting in the wrong place survived.
+    if (n >= 150 && n < 180) {
+        i.speed_mps = 2.0833f;                    // 7.5 km/h: fade partly open
+        i.lateral_g = 4.0f;                       // far past any g reference
+        i.front_lateral_force = 34500.f;          // 3x the 11,500 N reference
+        i.has_lateral_g = true;
+        i.has_front_lateral_force = (n % 2) == 0;
+    }
     return i;
 }
 

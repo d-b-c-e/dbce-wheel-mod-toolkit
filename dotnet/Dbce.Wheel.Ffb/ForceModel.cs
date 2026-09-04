@@ -164,7 +164,13 @@ namespace Dbce.Wheel.Ffb
 
         public void Reset() { _shiftPulseT = -1f; _impactT = -1f; _texturePhase = 0f; Validator.Reset(); }
 
-        /// <summary>One tick. <paramref name="dt"/> in seconds.</summary>
+        /// <summary>
+        /// One tick. <paramref name="dt"/> in seconds. The result is normalised
+        /// against the profile's references but is <b>not</b> bounded: a force
+        /// past full scale is real information, and clamping it here would throw
+        /// away exactly the headroom the fade and the soft saturation exist to
+        /// shape. <see cref="ForceShaper"/> bounds the output at the device edge.
+        /// </summary>
         public float Compute(in ForceInputs i, float dt)
         {
             var s = Settings;
@@ -237,7 +243,14 @@ namespace Dbce.Wheel.Ffb
             LastWasEvent = isEvent;
             float total = structural + texture + ev;
             Validator.Observe(i, structural);
-            return Math.Max(-1f, Math.Min(1f, total));
+            // Deliberately NOT clamped. A clamp to +-1 is a DEVICE limit -
+            // DirectInput takes +-10,000 and nothing may exceed it - and a device
+            // limit applied inside the model stops being a boundary and becomes a
+            // silent soft knee. It also defeated the real one: ForceShaper's
+            // soft saturation received an already-clamped value, so every force
+            // from full scale upward arrived as exactly 1.0 and tanh had nothing
+            // left to compress. ForceShaper clamps last, where the edge is.
+            return total;
         }
     }
 

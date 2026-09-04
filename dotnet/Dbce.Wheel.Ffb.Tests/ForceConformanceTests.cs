@@ -35,7 +35,7 @@ namespace Dbce.Wheel.Ffb.Tests
         private static ForceInputs TickInputs(int n)
         {
             float t = n / 200f;
-            return new ForceInputs
+            var i = new ForceInputs
             {
                 Steer = (float)Math.Sin(t * 6.2831853f),
                 HasSteer = true,
@@ -58,6 +58,20 @@ namespace Dbce.Wheel.Ffb.Tests
                 ImpactDirection = (n == 50) ? -1f : 0f,
                 GearShift = (n == 100),
             };
+
+            // Ticks 150-179: deliberately past full scale, at a speed inside the
+            // fade. See the note in conformance.cpp - without this the sequence
+            // never saturates the model and the golden cannot see a whole class
+            // of change.
+            if (n >= 150 && n < 180)
+            {
+                i.SpeedMps = 2.0833f;
+                i.LateralG = 4.0f;
+                i.FrontLateralForce = 34500f;
+                i.HasLateralG = true;
+                i.HasFrontLateralForce = (n % 2) == 0;
+            }
+            return i;
         }
 
         private static string F6(float v) => v.ToString("0.000000", CultureInfo.InvariantCulture);

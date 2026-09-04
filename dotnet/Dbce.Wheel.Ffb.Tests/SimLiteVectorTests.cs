@@ -28,8 +28,9 @@ namespace Dbce.Wheel.Ffb.Tests
     /// Two conventions differ and are handled explicitly rather than hidden.
     /// Sign: this model returns a <b>negative</b> force for a positive lateral
     /// load, because positive means "toward positive steer" and centring is the
-    /// opposite; art of rally's curve is unsigned in that sense. Clamping order:
-    /// see <see cref="ClampOrderDiffersAndIsMeasured"/>.
+    /// opposite; art of rally's curve is unsigned in that sense. Clamping order
+    /// agreed as of 0.7.0: see
+    /// <see cref="ModelReturnsPastFullScaleAndTheShaperBoundsIt"/>.
     /// </para>
     /// </remarks>
     public class SimLiteVectorTests
@@ -126,13 +127,17 @@ namespace Dbce.Wheel.Ffb.Tests
         public void ModelReproducesTheUnfadedForce()
         {
             // The model's own output, before any speed fade: fy x trail / reference,
-            // negated for this repo's sign convention, clamped to full scale.
+            // negated for this repo's sign convention, and NOT bounded - the model
+            // reports a force past full scale rather than hiding it, which is what
+            // lets the fade and the soft saturation do their jobs. Their vector's
+            // own column is clamped because they clamp last; FullCurveMatches is
+            // where the two are compared after that bound is applied.
             var p = SimLite();
             foreach (var r in Grid().Where(r => r.SpeedKmh >= 12))     // fade fully open
             {
                 var model = new ForceModel(p.Model);
                 float mine = model.Compute(InputsFor(r), 1f / 60f);
-                float theirs = Math.Max(-1f, Math.Min(1f, r.Fy * r.Trail / FyReference));
+                float theirs = r.Fy * r.Trail / FyReference;
                 Assert.True(Math.Abs(mine - -theirs) < 1e-4f,
                     $"fy {r.Fy} slip {r.SlipDeg}: mine {mine}, theirs(negated) {-theirs}");
             }
@@ -198,18 +203,17 @@ namespace Dbce.Wheel.Ffb.Tests
         }
 
         /// <summary>
-        /// The whole chain, on the rows where the two pipelines are comparable.
+        /// The whole chain, on every row - saturating ones included, since the
+        /// clamp moved to the device edge and the two pipelines now agree there.
         /// </summary>
         [Fact]
-        public void FullCurveMatchesWhereTheModelDoesNotSaturate()
+        public void FullCurveMatches()
         {
             var p = SimLite();
-            int checked_ = 0;
+            int checked_ = 0, saturating = 0;
             foreach (var r in Grid())
             {
-                // Where |fy x trail| exceeds full scale the two clamp in a different
-                // order; that case is measured on its own, below.
-                if (Math.Abs(r.Fy * r.Trail / FyReference) > 1f) continue;
+                if (Math.Abs(r.Fy * r.Trail / FyReference) > 1f) saturating++;
 
                 var model = new ForceModel(p.Model);
                 var shaper = CurveOnlyShaper(p);
@@ -223,49 +227,68 @@ namespace Dbce.Wheel.Ffb.Tests
                 Assert.Equal(-r.Device, (int)(mine * 10000f));
                 checked_++;
             }
-            Assert.True(checked_ > 400, "expected most of the grid to be comparable, got " + checked_);
+            Assert.Equal(Grid().Count, checked_);
+            Assert.True(saturating > 0,
+                "no row saturates, so this test no longer proves the clamp is at the edge");
         }
 
         /// <summary>
-        /// A real, measured divergence, asserted so it cannot drift unnoticed.
+        /// The clamp is a device limit and lives at the device edge, not in the
+        /// model. This is what that buys, and it is asserted so a well-meaning
+        /// refactor cannot put the bound back.
         /// </summary>
         /// <remarks>
-        /// <c>ForceModel.Compute</c> clamps to +-1 before returning, so the speed
-        /// fade in <c>ForceShaper</c> scales an already-clamped value. Art of rally
-        /// fades first and clamps last, so an over-scale force keeps its headroom
-        /// through the fade. The two agree everywhere except when the model
-        /// saturates AND the fade is partial - which is a low-speed slide, the
-        /// moment it is least welcome. Neither is obviously wrong; this records
-        /// the difference rather than papering over it.
+        /// Until 0.7.0 <c>ForceModel.Compute</c> clamped to +-1 before returning,
+        /// so the shaper's fade scaled an already-clamped value and its soft
+        /// saturation had nothing left to compress: every force from full scale
+        /// upward arrived as exactly 1.0. Art of rally fades first and clamps
+        /// last, its vector says so, and the two now agree on every row.
         /// </remarks>
         [Fact]
-        public void ClampOrderDiffersAndIsMeasured()
+        public void ModelReturnsPastFullScaleAndTheShaperBoundsIt()
         {
             var p = SimLite();
-            var affected = new List<string>();
-            float worst = 0f;
+            var model = new ForceModel(p.Model);
 
-            foreach (var r in Grid())
+            // Three times the reference force. The model must report it, not hide it.
+            var big = new ForceInputs
             {
-                float raw = r.Fy * r.Trail / FyReference;
-                if (Math.Abs(raw) <= 1f) continue;
+                FrontLateralForce = 3f * FyReference, HasFrontLateralForce = true,
+                FrontSlipAngleDeg = 0f, IdealSlipAngleDeg = IdealDeg, HasSlip = true,
+                SpeedMps = 100f / 3.6f,
+            };
+            float raw = model.Compute(big, 1f / 60f);
+            Assert.True(Math.Abs(raw) > 2.5f,
+                "the model clamped: a force past full scale is information the fade and the " +
+                "soft saturation need, and bounding it here throws that away. Got " + raw);
 
-                var model = new ForceModel(p.Model);
-                var shaper = CurveOnlyShaper(p);
-                float mine = shaper.Shape(model.Compute(InputsFor(r), 1f / 60f), r.SpeedKmh, 1f / 60f);
-                float diff = Math.Abs(mine - -r.Normalised);
-                if (diff > 1e-4f)
-                {
-                    worst = Math.Max(worst, diff);
-                    affected.Add($"fy {r.Fy} at {r.SpeedKmh} km/h: mine {mine:0.0000}, theirs {-r.Normalised:0.0000}");
-                }
-            }
+            // The shaper is where the device limit lives, and it must hold.
+            var shaper = CurveOnlyShaper(p);
+            float shaped = shaper.Shape(raw, 100f, 1f / 60f);
+            Assert.True(Math.Abs(shaped) <= p.Shaper.PeakLimit + 1e-6f,
+                "the shaper let " + shaped + " through; the device edge is the one bound that must hold");
+        }
 
-            // Only partial-fade speeds can differ; at full fade both reach the clamp.
-            Assert.All(affected, a => Assert.DoesNotContain("130 km/h", a));
-            Assert.True(affected.Count > 0,
-                "the clamp-order difference has disappeared - if that was deliberate, delete this test");
-            Assert.True(worst < 0.35f, "divergence larger than expected: " + worst);
+        /// <summary>
+        /// The reason the change was worth making, in one number: soft saturation
+        /// only does its job on an unclamped input.
+        /// </summary>
+        [Fact]
+        public void SoftSaturationCanNowDistinguishForcesPastFullScale()
+        {
+            // arcade-outrun@1 asks for tanh; before the change every force at or
+            // above full scale reached it as exactly 1.0, so a crash felt the same
+            // as a hard corner.
+            ForceShaper Tanh() => new ForceShaper
+            {
+                Strength = 50, SoftSaturation = 1f, Deadzone = 0f, OutputDeadband = 0f,
+                AttackSmoothing = 0f, DecaySmoothing = 0f, SlewPerSecond = 0f,
+                RampSeconds = 0f, FadeStartKmh = 0f, FadeFullKmh = 0f,
+            };
+            float atFullScale = Tanh().Shape(1.0f, 100f, 1f / 60f);
+            float wellPast = Tanh().Shape(2.0f, 100f, 1f / 60f);
+            Assert.True(wellPast - atFullScale > 0.15f,
+                $"a force of 2.0 should still be felt as stronger than 1.0; got {atFullScale} and {wellPast}");
         }
 
         /// <summary>
