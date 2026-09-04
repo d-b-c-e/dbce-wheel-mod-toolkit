@@ -155,7 +155,7 @@ namespace Dbce.Wheel.Ffb.Tests
                         Math.Abs(P(pa[3]) - P(pb[3])) < Tolerance)
                         continue;
                 }
-                Assert.True(false,
+                Assert.Fail(
                     "line " + (i + 1) + " differs from the golden file.\n  managed: " + a + "\n  golden : " + b +
                     "\nIf the change was intended, run native\\forcemodel\\build_conformance.bat --update and commit the diff.");
             }
