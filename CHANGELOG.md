@@ -5,6 +5,43 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.3.0] - 2026-09-04
+
+The force model becomes data, and native mods get it too.
+
+### Added
+
+- **`profiles/force-profiles.ini`** — every parameter that decides how a game
+  feels, as a named, versioned profile the game **deploys and reads at
+  runtime**. Swapping a tune is a text edit and a relaunch, not a build, so
+  A/B-ing two tunes is finally practical. Versions are immutable; `inherits`
+  keeps a new one to the lines that changed; a player's
+  `force-profiles.user.ini` is never overwritten and wins outright; an
+  unrecognised key is reported, not ignored. Four profiles ship:
+  `arcade-outrun@1` (OutRun's own constants), `arcade-outrun@2` (a lighter
+  variant to drive against it), `simlite@1` (art of rally 0.2.2) and
+  `arcade-generic@1`.
+- **`native/forcemodel/force_model.h` and `force_profile.h`** — the C++ port of
+  `ForceModel` and `ForceShaper`, so a native mod runs the shared model instead
+  of its own copy. This was the piece left undone when OutRun's device layer
+  moved in 0.2.0, and the two implementations had already drifted.
+- **`ForceProfile`** on the managed side, reading the same files.
+- **A cross-language golden file.** `conformance.expected.txt` is produced and
+  checked by both implementations: every shipped profile through the same
+  200-tick sequence, agreeing within 1e-4. A change in how any game feels is
+  now a diff in the repo rather than a surprise at the wheel.
+- **`-Parts profiles`** in `Sync-Toolkit.ps1`.
+
+### Changed
+
+- **Six constants inside the model turned out to be feel decisions** and are now
+  parameters: the damper's authority at a standstill, how far past the ideal
+  slip angle the trail collapses, the weight-transfer bounds, the texture
+  frequency, and the impact and shift pulse durations. Defaults are the values
+  that were hardcoded, so nothing moves until someone moves it.
+- `ForceModelSettings.Arcade()` is documented as **not** OutRun's tuning;
+  `arcade-outrun@1` is the one that matches the game.
+
 ## [0.2.1] - 2026-09-04
 
 ### Fixed

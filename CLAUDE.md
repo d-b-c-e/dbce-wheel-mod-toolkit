@@ -45,6 +45,8 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `native/wheelffb/include/wheelffb.h` | **The C ABI**, as one `WHEELFFB_API_LIST` macro plus a runtime loader (`WheelFfb_LoadBeside`). Native consumers include this and never link an import library. `build.ps1` fails if it disagrees with `WheelFfb.def`. |
 | `native/wheelffb/test/` | `smoke.c` — walks the whole ABI against a real wheel. **Applies no torque unless given `--force`**, so it is safe beside a live direct-drive base. |
 | `native/forza/` | `forza_packet.h`, the Forza encoder as a header-only C++11 file for native mods, plus its conformance test. |
+| `native/forcemodel/` | `force_model.h` and `force_profile.h` — the C++ port of the force model and the profile reader, plus the cross-language conformance check and its golden file. |
+| `profiles/` | `force-profiles.ini` — **the tunes, as data.** Deployed beside the game and read at runtime, so a feel can be swapped without a build. Versions are immutable; add one rather than editing one. |
 | `dotnet/Dbce.Wheel.Telemetry/` | `netstandard2.0`. Forza "Data Out" 232/311/324 encoders, `TelemetryFrame` (the car-state seam), idle keeper, RPM synthesis. Tests alongside. |
 | `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. P/Invoke to the native DLL (Mono preload and CoreCLR resolver paths), force-shaping chain, `ForceModel`, device selection, diagnostics. |
 | `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
@@ -158,6 +160,7 @@ dotnet test Dbce.Wheel.sln                     # 60 tests
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
 .\native\forza\build_test.bat                 # packet conformance
+.\native\forcemodel\build_conformance.bat     # C++ model vs the golden file
 .\tools\powershell\Test-DbceWheel.ps1         # INI edge cases + discovery
 .\tools\package\package.ps1 -Version X.Y.Z    # all of the above, then dist\
 ```

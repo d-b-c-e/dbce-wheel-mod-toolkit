@@ -6,7 +6,18 @@
 
 ## TL;DR
 
-v0.2.0 is released and **four of the five consumers are on it**. This release
+**v0.3.0 makes the force model data.** Every parameter that decides how a game
+feels is a named, versioned profile in `profiles/force-profiles.ini`, deployed
+beside the game and read at runtime, so a tune is swapped by editing a text
+file rather than by building. The model itself is now shared with native mods
+too (`native/forcemodel/force_model.h`), and the C++ and C# implementations are
+pinned to one golden file so they cannot drift.
+
+OutRun2006Tweaks-FFB selects one with `FFBProfile`. It still defaults to
+`legacy`, its own built-in model, so **nothing about how it drives has changed
+until someone chooses a profile** — which is what makes an A/B possible.
+
+v0.2.0 released the native half, and **four of the five consumers are on it**. This release
 was the native half: a C ABI header with a runtime loader, hardware periodic
 effects, device selection by instance GUID, an x86 build, and a shared
 PowerShell module. OutRun2006Tweaks-FFB deleted 543 lines of its own
@@ -41,6 +52,7 @@ actually steering.
 
 | Thing | What is missing | Risk |
 |---|---|---|
+| **The shared force model in OutRun** | `FFBProfile` defaults to `legacy`, so the shared path has never executed in the game | Wiring verified only by the binary containing it. The first drive on `arcade-outrun@1` is the test |
 | **OutRun's migrated FFB layer** | Has not run inside the game once since the swap | The bench test covers the DLL, not the wiring. `DeferredInit` firing, the remap layer's GUID being present at that moment, and the model still driving the output are all unproven |
 | **Periodic effects actually playing** | The smoke test runs them at **magnitude 0** on purpose, so nothing has ever been felt | Creation, the strategy probe and envelope updates are proven; that they produce audible road texture is not |
 | **OutRun's steering field** | Unknown which of six floats it is | The spring and damper terms are running on roughly 1% of their intended signal. Do not tune them first |
@@ -70,6 +82,11 @@ Then read `OutRun2006Tweaks.log`:
 - The `FFB STEERSCAN` line prints the observed min/max of `1C8`, `1CC`, `1D0`,
   `1D4`, `1DC`, `1E0`. Steering is whichever reaches about ±1, changes sign with
   the corner, and returns to zero on the straights.
+
+Both DLLs, `force-profiles.ini` and the config key are already deployed there.
+`FFBProfile = legacy` for now: settle the steering field first, because the
+spring and damper terms of every profile depend on that signal, and comparing
+tunes before it is fixed compares nothing.
 
 `OutRun2006Tweaks.ffb.log` beside it carries the DirectInput side.
 Note the deployed `DINPUT8.dll` there is from 2026-03-30 and predates all of

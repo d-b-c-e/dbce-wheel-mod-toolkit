@@ -67,9 +67,10 @@ if (-not $Current) { $Current = '(unknown)' }
 $partSources = @{
     'native'     = @('native/wheelffb/')
     'native-x86' = @('native/wheelffb/')
-    'include'    = @('native/wheelffb/include/', 'native/forza/')
+    'include'    = @('native/wheelffb/include/', 'native/forza/', 'native/forcemodel/')
     'dotnet'     = @('dotnet/')
     'powershell' = @('tools/powershell/')
+    'profiles'   = @('profiles/')
 }
 # The DLL is not rebuilt by a header-only or test-only change.
 $notTheDll = @('native/wheelffb/include/', 'native/wheelffb/test/')
@@ -78,7 +79,7 @@ $notTheDll = @('native/wheelffb/include/', 'native/wheelffb/test/')
 $consumers = @(
     @{ Name = 'art-of-sim-rally';      Parts = @('native', 'dotnet');      Pin = 'lib/toolkit/VERSION' }
     @{ Name = 'iracing-arcade-wheel';  Parts = @('native', 'dotnet');      Pin = 'CHANGELOG.md' }
-    @{ Name = 'OutRun2006Tweaks-FFB';  Parts = @('include', 'native-x86'); Pin = 'lib/toolkit/VERSION' }
+    @{ Name = 'OutRun2006Tweaks-FFB';  Parts = @('include', 'native-x86', 'profiles'); Pin = 'lib/toolkit/VERSION' }
     @{ Name = 'milestone-wheel-tools'; Parts = @('include', 'powershell'); Pin = 'lib/toolkit/VERSION' }
     @{ Name = 'cruisn-collection';     Parts = @();                        Pin = 'n/a' }
 )

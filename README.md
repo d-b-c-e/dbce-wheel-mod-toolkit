@@ -41,6 +41,11 @@ content. Those stay in each game's repo and consume this one.
 - OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy *(on 0.2.0, C ABI)*
 - milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy *(on 0.2.0, C header + PowerShell)*
 
+How a game feels is data: `profiles/force-profiles.ini` holds named, versioned
+tunes that ship beside the game and are read at runtime, so swapping one is a
+text edit rather than a build. Both the managed and the native model read the
+same file and are pinned to the same golden output.
+
 Who is on which version, and which release obliges whom to move:
 [docs/CONSUMERS.md](docs/CONSUMERS.md), with `tools/Get-ConsumerStatus.ps1`
 to check it against reality.

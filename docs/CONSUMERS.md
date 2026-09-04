@@ -30,7 +30,7 @@ where its pin lives, and what breaks if you get it wrong.
 |---|---|---|---|---|
 | `art-of-sim-rally` | Unity 2019.4 Mono, Unity Mod Manager | `native`, `dotnet` | `lib/toolkit/VERSION` | no — ships the DLLs as files |
 | `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | `native`, `dotnet` | **`CHANGELOG.md`** | no — ships the DLLs as files |
-| `OutRun2006Tweaks-FFB` | native `dinput8` proxy, **x86** | `include`, `native-x86` | `lib/toolkit/VERSION` | **yes** — the C header is compiled in |
+| `OutRun2006Tweaks-FFB` | native `dinput8` proxy, **x86** | `include`, `native-x86`, `profiles` | `lib/toolkit/VERSION` | **yes** — the C headers are compiled in; `profiles` is data it deploys |
 | `milestone-wheel-tools` | native `dinput8` proxy, UE4, x64 | `include`, `powershell` | `lib/toolkit/VERSION` | **yes** — `forza_packet.h` is compiled in |
 | `cruisn-collection` | MAME fork, SDL2 | none yet | n/a | n/a |
 
@@ -49,6 +49,8 @@ column above before pinging four repos:
 | `native/wheelffb/include/wheelffb.h` (the C ABI) | OutRun2006Tweaks-FFB (rebuild) |
 | `native/forza/forza_packet.h` | milestone-wheel-tools (rebuild) |
 | `dotnet/Dbce.Wheel.*` | art-of-sim-rally, iracing-arcade-wheel |
+| `native/forcemodel/*.h` (the shared model) | OutRun2006Tweaks-FFB (rebuild) |
+| `profiles/force-profiles.ini` (the tunes) | OutRun2006Tweaks-FFB — but it is **data**, so redeploying the file is enough; no rebuild |
 | `tools/powershell/DbceWheel.psm1` | milestone-wheel-tools |
 
 ## Per-consumer traps
@@ -68,6 +70,10 @@ column above before pinging four repos:
 - Both native consumers **compile a header in**, so bumping their pin without
   rebuilding changes nothing. The two Unity mods ship DLLs, so for them the
   copy *is* the update.
+- **`profiles/force-profiles.ini` is the exception to all of that.** It is read
+  at runtime from beside the game binary, so a new tune reaches a player by
+  copying one text file. That is the whole point of it: tuning force feedback
+  means driving A, driving B and deciding, and B should not mean a build.
 
 ## Updating a consumer
 
@@ -93,6 +99,7 @@ What each consumer last took, and when. Add a row when you bump one.
 | 2026-09-04 | v0.2.0 | OutRun2006Tweaks-FFB | the whole FFB device layer via the C ABI, 543 lines removed for 139 |
 | 2026-09-04 | v0.2.0 | iracing-arcade-wheel | bumped for the `Start()` / `DIEP_START` fix |
 | 2026-09-04 | v0.2.0 | art-of-sim-rally | bumped in a separate session |
+| 2026-09-04 | v0.3.0 | OutRun2006Tweaks-FFB | the shared force model and the versioned profiles, behind `FFBProfile`; `legacy` stays the default |
 | 2026-09-04 | v0.2.1 | milestone-wheel-tools | `Set-IniValueCrlf` no longer duplicates a `key = value` line. The only consumer 0.2.1 obliged to move; the other three vendor nothing it changed |
 
 ## Adding a consumer
