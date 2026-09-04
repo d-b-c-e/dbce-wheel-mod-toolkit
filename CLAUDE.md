@@ -156,7 +156,7 @@ machine with no wheel attached. The smoke test is the sixth and is separate,
 because it needs real hardware.
 
 ```powershell
-dotnet test Dbce.Wheel.sln                     # 60 tests
+dotnet test Dbce.Wheel.sln                     # 87 tests
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
 .\native\forza\build_test.bat                 # packet conformance

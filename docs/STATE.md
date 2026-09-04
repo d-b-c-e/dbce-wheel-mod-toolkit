@@ -6,22 +6,32 @@
 
 ## TL;DR
 
-**v0.3.0 makes the force model data.** Every parameter that decides how a game
-feels is a named, versioned profile in `profiles/force-profiles.ini`, deployed
-beside the game and read at runtime, so a tune is swapped by editing a text
-file rather than by building. The model itself is now shared with native mods
-too (`native/forcemodel/force_model.h`), and the C++ and C# implementations are
-pinned to one golden file so they cannot drift.
+**Current release: v0.7.1.** Do not trust a version number written anywhere in
+prose, including here - run `.\tools\Get-ConsumerStatus.ps1`, which reads each
+consumer's real pin off disk.
+
+**The force model is data.** Every parameter that decides how a game feels is a
+named, versioned profile in `profiles/force-profiles.ini`, deployed beside the
+game and read at runtime, so a tune is swapped by editing a text file rather
+than by building. The model is shared with native mods
+(`native/forcemodel/force_model.h`), and the C++ and C# implementations are
+pinned to one golden file so they cannot drift. The file explains every dial in
+plain terms, because it is the only tuning documentation a player has.
 
 OutRun2006Tweaks-FFB selects one with `FFBProfile`. It still defaults to
 `legacy`, its own built-in model, so **nothing about how it drives has changed
 until someone chooses a profile** — which is what makes an A/B possible.
 
-v0.2.0 released the native half, and **four of the five consumers are on it**. This release
-was the native half: a C ABI header with a runtime loader, hardware periodic
-effects, device selection by instance GUID, an x86 build, and a shared
-PowerShell module. OutRun2006Tweaks-FFB deleted 543 lines of its own
-DirectInput code for 139.
+Since 0.3.0, in order: the native half went out (a C ABI header with a runtime
+loader, hardware periodic effects, device selection by instance GUID, an x86
+build, a shared PowerShell module - OutRun deleted 543 lines of its own
+DirectInput code for 139); `GetDeviceGuid` and condition effects landed;
+`simlite@1` was checked against art of rally's own force curve and found to
+carry this repo's conditioning rather than the game's, corrected as
+`simlite@2`; the clamp moved out of the model to the device edge, which is what
+lets soft saturation tell a crash from a hard corner; and a code preset now
+returns a whole tune rather than a model half that pairs with the wrong
+conditioning.
 
 Everything is verified **at the bench**, including against the real MOZA R12.
 Nothing migrated this session has been **driven in a game**.
@@ -41,12 +51,12 @@ actually steering.
 | Full C ABI at real hardware | `native/wheelffb/test/smoke.c`, **25/25 stages in both architectures** at a MOZA R12: enumerate, open exclusive, constant force, 10 updates with none rejected, two `GUID_Sine` slots, envelope updates, `ZeroForces`, `PanicStop` with autocentre restored, `FreeDirectInput` |
 | Device selection by GUID | Same test: a GUID belonging to nothing **falls back** to the candidate search; the real instance (`D71B8350-61B7-11F1`) is honoured |
 | Driver periodic support | The R12 enumerates Square, Sine, Triangle, SawtoothUp, SawtoothDown |
-| Managed libraries | **60 tests** (21 `Dbce.Wheel.Ffb`, 39 `Dbce.Wheel.Telemetry`) |
+| Managed libraries | **87 tests** (48 `Dbce.Wheel.Ffb`, 39 `Dbce.Wheel.Telemetry`) |
 | `forza_packet.h` | Conformance test passes: 232 / 311 / 324, Speed@256, Gear@319, identical sled across layouts, 323 refused |
 | `DbceWheel.psm1` | Own suite green: 8 INI edge cases plus discovery. Found Steam on the **non-default** `D:\Program Files (x86)\Steam`, and 3 DirectInput devices including the R12 as key `0006346e`, type `0x18` |
 | milestone-wheel-tools | `dinput8.dll` builds against the vendored header (MinGW GCC, x64); all four PowerShell scripts parse |
 | OutRun2006Tweaks-FFB | `dinput8.dll` builds (Win32 Release) and CMake copies `WheelFfb.dll` beside it |
-| Packaging and release | `package.ps1` runs every suite and produced the 359 KB zip; `v0.2.0` published with it attached |
+| Packaging and release | `package.ps1` runs every suite and produced the 402 KB zip; `v0.7.1` published with it attached |
 
 ## Built but NEVER DRIVEN ⚠️
 
