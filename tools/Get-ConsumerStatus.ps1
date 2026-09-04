@@ -75,12 +75,18 @@ $partSources = @{
 # The DLL is not rebuilt by a header-only or test-only change.
 $notTheDll = @('native/wheelffb/include/', 'native/wheelffb/test/')
 
-# Keep in step with docs/CONSUMERS.md.
+# Keep in step with docs/CONSUMERS.md. `Headers` narrows the `include` part to
+# the headers a consumer actually compiles: that part ships four of them, and
+# milestone-wheel-tools cares about exactly one. Without this it is told to
+# update every time an unrelated header moves, which is how a checker teaches
+# people to ignore it.
 $consumers = @(
     @{ Name = 'art-of-sim-rally';      Parts = @('native', 'dotnet');      Pin = 'lib/toolkit/VERSION' }
     @{ Name = 'iracing-arcade-wheel';  Parts = @('native', 'dotnet');      Pin = 'CHANGELOG.md' }
-    @{ Name = 'OutRun2006Tweaks-FFB';  Parts = @('include', 'native-x86', 'profiles'); Pin = 'lib/toolkit/VERSION' }
-    @{ Name = 'milestone-wheel-tools'; Parts = @('include', 'powershell'); Pin = 'lib/toolkit/VERSION' }
+    @{ Name = 'OutRun2006Tweaks-FFB';  Parts = @('include', 'native-x86', 'profiles'); Pin = 'lib/toolkit/VERSION'
+       Headers = @('wheelffb.h', 'forza_packet.h', 'force_model.h', 'force_profile.h') }
+    @{ Name = 'milestone-wheel-tools'; Parts = @('include', 'powershell'); Pin = 'lib/toolkit/VERSION'
+       Headers = @('forza_packet.h') }
     @{ Name = 'cruisn-collection';     Parts = @();                        Pin = 'n/a' }
 )
 
@@ -156,6 +162,9 @@ $rows = foreach ($c in $consumers) {
             $files = $changed | Where-Object { $_ -like "$src*" }
             if ($part -in 'native', 'native-x86') {
                 $files = $files | Where-Object { $f = $_; -not ($notTheDll | Where-Object { $f -like "$_*" }) }
+            }
+            if ($part -eq 'include' -and $c.Headers) {
+                $files = $files | Where-Object { $c.Headers -contains (Split-Path $_ -Leaf) }
             }
             if ($files) { if (-not $hit.Contains($part)) { $hit.Add($part) } }
         }
