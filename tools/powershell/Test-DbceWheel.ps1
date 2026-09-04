@@ -47,6 +47,8 @@ $cases = @(
     @{ Name = 'an indented key is replaced in place'
        Body = "[s]`r`n`tk = old`r`n"; Section = 's'; Key = 'k'; Value = 'new'; KeepsFinalNewline = $true
        Expect = "(?m)^`tk = new\r?$" }
+    @{ Name = 'an empty value is allowed and written'
+       Body = "[s]`r`nDeviceGuid = auto`r`n"; Section = 's'; Key = 'DeviceGuid'; Value = ''; KeepsFinalNewline = $true }
     @{ Name = 'an LF-only file stays LF-only'
        Body = "[a]`nx=1`n[last]`nk=v`n"; Section = 'last'; Key = 'new'; Value = '1'; KeepsFinalNewline = $true }
 )
