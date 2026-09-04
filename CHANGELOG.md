@@ -5,6 +5,32 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.4.0] - 2026-09-04
+
+Both additions were asked for by art-of-sim-rally, which found the API could
+not express what its roadmap needed. Both gaps were real.
+
+### Added
+
+- **`GetDeviceGuid` and `GetAnyDeviceGuid`.** `SetPreferredDeviceGuid` has
+  existed since 0.2.0, but nothing handed a GUID out, so only a mod that ran
+  its own DirectInput enumeration could use it. A managed mod has no such
+  layer, which left it matching by name - exactly what picks the wrong half of
+  a Fanatec base's two identically named devices. The smoke test now
+  cross-checks the returned GUID against what DirectInput itself reports.
+- **Condition effects: `CreateConditionEffect`, `UpdateConditionEffect`,
+  `ReleaseConditionEffects`.** A damper is not a periodic effect. DirectInput
+  renders spring, damper, inertia and friction as *conditions*, where the base
+  computes force from axis position or velocity continuously rather than
+  following 60 Hz updates. A hardware damper is smoother and more stable than
+  damping synthesised in the model, and is usually the right answer to a
+  direct-drive base that oscillates. Slots behave like the periodic ones:
+  create once, update cheaply, recreate behind a hold-off if the handle dies,
+  and carry `DIEP_START` until the effect has genuinely started.
+  Verified at a MOZA R12: damper and spring both created and driven.
+
+37 exports in both builds; 25 smoke stages green in x64 and x86.
+
 ## [0.3.1] - 2026-09-04
 
 ### Added

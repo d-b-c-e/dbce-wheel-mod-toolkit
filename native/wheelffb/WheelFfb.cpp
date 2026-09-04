@@ -54,7 +54,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 200;            // 0.2.0
+static const int  kVersion      = 400;            // 0.4.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -344,6 +344,7 @@ extern "C" {
 // Forward-declared: InitDirectInput unwinds through it on every failure path.
 __declspec(dllexport) void FreeDirectInput(void);
 static void ReleasePeriodics();   // defined with the periodic exports below
+static void ReleaseConditions();  // and the condition exports after them
 
 // Returns 1 on success, 0 on failure. The game ignores the value, but a
 // non-zero result is the honest signal and makes the log readable.
@@ -417,6 +418,7 @@ static HRESULT CreateForceEffect()
 static void CloseCandidate()
 {
     ReleasePeriodics();
+    ReleaseConditions();
     ReleaseEffect();
     if (g_device) { g_device->Unacquire(); g_device->Release(); g_device = nullptr; }
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;
@@ -623,6 +625,28 @@ __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 // ---- auxiliary (button-only) device: shifters, handbrakes -----------------
 
 // Capabilities of an FFB candidate, for telling two same-named devices apart.
+// The instance GUID of an enumerated force-feedback device, as 16 raw bytes -
+// the value SetPreferredDeviceGuid wants. Without this a managed mod could
+// never use that export: it has no DirectInput layer of its own to get a GUID
+// from, which is exactly what a name-based match gets wrong on a Fanatec base
+// showing two identically named devices. Returns 1 on success.
+// [art-of-sim-rally, 2026-09-04]
+__declspec(dllexport) int GetDeviceGuid(int index, void* guid16)
+{
+    if (!guid16 || index < 0 || index >= g_candidateCount) return 0;
+    memcpy(guid16, &g_candidates[index].guid, sizeof(GUID));
+    return 1;
+}
+
+// The same for the full controller list (EnumerateAllDevices), so a shifter or
+// pedal set can be pinned by identity too.
+__declspec(dllexport) int GetAnyDeviceGuid(int index, void* guid16)
+{
+    if (!guid16 || index < 0 || index >= g_auxCount) return 0;
+    memcpy(guid16, &g_aux[index].guid, sizeof(GUID));
+    return 1;
+}
+
 __declspec(dllexport) int GetDeviceInfo(int index, int* axes, int* buttons)
 {
     if (index < 0 || index >= g_candidateCount || !axes || !buttons) return 0;
@@ -1159,6 +1183,196 @@ __declspec(dllexport) void ReleasePeriodicEffects(void)
     LeaveCriticalSection(&g_lock);
 }
 
+// --- condition effects (spring, damper, inertia, friction) -------------------
+// A damper is not a periodic effect. DirectInput renders it as a CONDITION,
+// where the force is a function of the axis position or velocity rather than a
+// waveform, and the wheelbase computes it continuously instead of following
+// 60 Hz updates from us. That makes a hardware damper both smoother and more
+// stable than damping synthesised in the force model, which is why a
+// direct-drive base oscillating is usually fixed here rather than by lowering
+// gain. [requested by art-of-sim-rally, 2026-09-04]
+//
+// Slots work exactly like the periodic ones: create once, update cheaply, and
+// a slot whose handle dies is recreated behind a hold-off.
+static const int kMaxCondition = 4;
+struct ConditionSlot {
+    LPDIRECTINPUTEFFECT fx;
+    int  type;
+    LONG lastCoeff, lastSat, lastDead, lastOffset;
+    bool used, started;
+    ULONGLONG holdoff;
+};
+static ConditionSlot g_condition[kMaxCondition] = {};
+
+static const GUID* ConditionGuid(int type)
+{
+    switch (type) {
+    case 0: return &GUID_Spring;
+    case 1: return &GUID_Damper;
+    case 2: return &GUID_Inertia;
+    case 3: return &GUID_Friction;
+    default: return nullptr;
+    }
+}
+static const char* ConditionName(int type)
+{
+    switch (type) {
+    case 0: return "spring"; case 1: return "damper";
+    case 2: return "inertia"; case 3: return "friction";
+    default: return "?";
+    }
+}
+
+static void FillCondition(DICONDITION* c, LONG coeff, LONG sat, LONG dead, LONG offset)
+{
+    c->lOffset              = offset;
+    c->lPositiveCoefficient = coeff;
+    c->lNegativeCoefficient = coeff;
+    c->dwPositiveSaturation = (DWORD)sat;
+    c->dwNegativeSaturation = (DWORD)sat;
+    c->lDeadBand            = dead;
+}
+
+static HRESULT CreateConditionInSlot(int i)
+{
+    ConditionSlot& s = g_condition[i];
+    const GUID* guid = ConditionGuid(s.type);
+    if (!guid) return E_INVALIDARG;
+
+    DWORD axes[1] = { DIJOFS_X };
+    LONG  dir[1]  = { 0 };
+    DICONDITION cond = {};
+    FillCondition(&cond, s.lastCoeff, s.lastSat, s.lastDead, s.lastOffset);
+
+    DIEFFECT eff  = {};
+    eff.dwSize    = sizeof(DIEFFECT);
+    eff.dwFlags   = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
+    eff.dwDuration = INFINITE;
+    eff.dwGain    = DI_FFNOMINALMAX;
+    eff.dwTriggerButton = DIEB_NOTRIGGER;
+    eff.cAxes     = 1;
+    eff.rgdwAxes  = axes;
+    eff.rglDirection = dir;
+    eff.cbTypeSpecificParams  = sizeof(DICONDITION);
+    eff.lpvTypeSpecificParams = &cond;
+
+    HRESULT hr = g_device->CreateEffect(*guid, &eff, &s.fx, nullptr);
+    if (FAILED(hr)) { s.fx = nullptr; g_lastHr = hr; return hr; }
+    char what[32]; sprintf_s(what, sizeof what, "condition[%d]", i);
+    s.started = SUCCEEDED(StartEffectRetrying(s.fx, what));
+    s.holdoff = 0;
+    return hr;
+}
+
+static void StopConditions()
+{
+    for (int i = 0; i < kMaxCondition; ++i) if (g_condition[i].fx) g_condition[i].fx->Stop();
+}
+
+static void ReleaseConditions()
+{
+    for (int i = 0; i < kMaxCondition; ++i) {
+        ConditionSlot& s = g_condition[i];
+        if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
+        s.used = false; s.started = false; s.holdoff = 0;
+        s.lastCoeff = s.lastSat = s.lastDead = s.lastOffset = 0;
+    }
+}
+
+// Creates a condition effect on the held wheel, initially at zero strength.
+// type: 0 spring, 1 damper, 2 inertia, 3 friction. Returns the slot, or -1 when
+// there is no device, no free slot, or the driver has no such effect - a wheel
+// without a hardware damper is normal, so treat -1 as "do it in the model".
+__declspec(dllexport) int CreateConditionEffect(int type)
+{
+    if (!g_device) { Log("CreateConditionEffect(%s): no device", ConditionName(type)); return -1; }
+    if (!ConditionGuid(type)) { Log("CreateConditionEffect: unknown type %d", type); return -1; }
+    EnterCriticalSection(&g_lock);
+    int slot = -1;
+    for (int i = 0; i < kMaxCondition; ++i) if (!g_condition[i].used) { slot = i; break; }
+    if (slot < 0) { LeaveCriticalSection(&g_lock); Log("CreateConditionEffect: all %d slots in use", kMaxCondition); return -1; }
+    ConditionSlot& s = g_condition[slot];
+    s.used = true; s.type = type;
+    s.lastCoeff = s.lastSat = s.lastDead = s.lastOffset = 0;
+    HRESULT hr = CreateConditionInSlot(slot);
+    if (FAILED(hr)) { s.used = false; Log("CreateConditionEffect(%s) failed 0x%08lX", ConditionName(type), hr); slot = -1; }
+    else Log("CreateConditionEffect(%s) -> slot %d", ConditionName(type), slot);
+    LeaveCriticalSection(&g_lock);
+    return slot;
+}
+
+// coefficient -10000..10000 (negative inverts the effect), saturation and
+// deadband 0..10000, offset -10000..10000. Cheap to call every frame; an
+// unchanged condition never reaches the driver. Returns 1 when the effect
+// carries the values.
+__declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset)
+{
+    if (slot < 0 || slot >= kMaxCondition || !g_condition[slot].used || !g_device || g_panicked) return 0;
+    ConditionSlot& s = g_condition[slot];
+    if (coefficient >  kForceMax) coefficient =  kForceMax;
+    if (coefficient < -kForceMax) coefficient = -kForceMax;
+    if (saturation < 0) saturation = 0; if (saturation > kForceMax) saturation = kForceMax;
+    if (deadband   < 0) deadband   = 0; if (deadband   > kForceMax) deadband   = kForceMax;
+    if (offset >  kForceMax) offset =  kForceMax;
+    if (offset < -kForceMax) offset = -kForceMax;
+
+    EnterCriticalSection(&g_lock);
+    if (!s.fx) {
+        if (GetTickCount64() < s.holdoff) { LeaveCriticalSection(&g_lock); return 0; }
+        HRESULT ch = CreateConditionInSlot(slot);
+        if (FAILED(ch)) { s.holdoff = GetTickCount64() + 500; LeaveCriticalSection(&g_lock); return 0; }
+        Log("  condition[%d] recreated", slot);
+    }
+    bool silence = (coefficient == 0 && s.lastCoeff != 0);
+    bool moved = labs((long)coefficient - (long)s.lastCoeff) > 500 ||
+                 labs((long)saturation  - (long)s.lastSat)   > 500 ||
+                 s.lastDead != deadband || s.lastOffset != offset;
+    if (!moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
+
+    DICONDITION cond = {};
+    FillCondition(&cond, coefficient, saturation, deadband, offset);
+    DIEFFECT eff = {};
+    eff.dwSize = sizeof(DIEFFECT);
+    eff.cbTypeSpecificParams  = sizeof(DICONDITION);
+    eff.lpvTypeSpecificParams = &cond;
+
+    DWORD flags = DIEP_TYPESPECIFICPARAMS | ((g_periodicStrategy == 1 || !s.started) ? DIEP_START : 0);
+    HRESULT hr = s.fx->SetParameters(&eff, flags);
+    if (hr == E_HANDLE || hr == DIERR_NOTDOWNLOADED) {
+        Log("  condition[%d] handle lost (0x%08lX) - recreating after 500 ms", slot, hr);
+        s.fx->Release(); s.fx = nullptr; s.started = false;
+        s.holdoff = GetTickCount64() + 500;
+        g_lastHr = hr;
+        LeaveCriticalSection(&g_lock);
+        return 0;
+    }
+    if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
+        g_device->Unacquire(); g_device->Acquire();
+        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+    }
+    if (SUCCEEDED(hr)) {
+        s.lastCoeff = coefficient; s.lastSat = saturation;
+        s.lastDead = deadband; s.lastOffset = offset;
+        if (flags & DIEP_START) s.started = true;
+    } else {
+        g_lastHr = hr;
+        static DWORD lastReport = 0;
+        DWORD now = GetTickCount();
+        if (lastReport == 0 || now - lastReport > 5000) { lastReport = now; Log("  condition[%d] SetParameters FAILED 0x%08lX", slot, hr); }
+    }
+    LeaveCriticalSection(&g_lock);
+    return SUCCEEDED(hr) ? 1 : 0;
+}
+
+__declspec(dllexport) void ReleaseConditionEffects(void)
+{
+    Log("ReleaseConditionEffects()");
+    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    EnterCriticalSection(&g_lock);
+    ReleaseConditions();
+    LeaveCriticalSection(&g_lock);
+}
+
 // --- lifecycle ---------------------------------------------------------------
 
 // Everything off, in the order that leaves the base torque-free: zero, stop,
@@ -1175,10 +1389,12 @@ __declspec(dllexport) void PanicStop(void)
     EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
     StopPeriodics();
+    StopConditions();
     g_device->SendForceFeedbackCommand(DISFFC_STOPALL);
     g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSOFF);
     g_device->SendForceFeedbackCommand(DISFFC_RESET);
     ReleasePeriodics();
+    ReleaseConditions();
     ReleaseEffect();
     g_device->Unacquire();
     DIPROPDWORD prop = {};
@@ -1199,6 +1415,8 @@ __declspec(dllexport) void ZeroForces(void)
     if (g_effect) SetDeviceForcesXY(0, 0);
     for (int i = 0; i < kMaxPeriodic; ++i)
         if (g_periodic[i].used && g_periodic[i].fx) UpdatePeriodicEffect(i, 0, g_periodic[i].hz * 1000);
+    for (int i = 0; i < kMaxCondition; ++i)
+        if (g_condition[i].used && g_condition[i].fx) UpdateConditionEffect(i, 0, 0, 0, 0);
 }
 
 static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
@@ -1331,6 +1549,7 @@ __declspec(dllexport) void FreeDirectInput(void)
     g_stopThreads = true;
     if (g_holdThread) { WaitForSingleObject(g_holdThread, 500); CloseHandle(g_holdThread); g_holdThread = nullptr; }
     ReleasePeriodics();
+    ReleaseConditions();
     ReleaseEffect();
     if (g_device) { g_device->Unacquire(); g_device->Release(); g_device = nullptr; }
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;

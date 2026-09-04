@@ -25,6 +25,8 @@ EXPORTS
     ReadDeviceState
     CloseReadDevices
     GetDeviceInfo
+    GetDeviceGuid
+    GetAnyDeviceGuid
     GetAnyDeviceInfo
     PanicStop
     ZeroForces
@@ -36,3 +38,6 @@ EXPORTS
     CreatePeriodicEffect
     UpdatePeriodicEffect
     ReleasePeriodicEffects
+    CreateConditionEffect
+    UpdateConditionEffect
+    ReleaseConditionEffects

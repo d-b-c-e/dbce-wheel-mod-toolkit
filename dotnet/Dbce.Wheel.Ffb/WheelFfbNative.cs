@@ -67,6 +67,11 @@ namespace Dbce.Wheel.Ffb
         [DllImport(Dll)] private static extern int  CreatePeriodicEffect(int freqHz);
         [DllImport(Dll)] private static extern int  UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz);
         [DllImport(Dll)] private static extern void ReleasePeriodicEffects();
+        [DllImport(Dll)] private static extern int  GetDeviceGuid(int index, byte[] guid16);
+        [DllImport(Dll)] private static extern int  GetAnyDeviceGuid(int index, byte[] guid16);
+        [DllImport(Dll)] private static extern int  CreateConditionEffect(int type);
+        [DllImport(Dll)] private static extern int  UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset);
+        [DllImport(Dll)] private static extern void ReleaseConditionEffects();
 
         private static bool _loaded, _initialised, _failed;
 
@@ -194,6 +199,62 @@ namespace Dbce.Wheel.Ffb
         }
 
         public static void ReleasePeriodics()  { if (_loaded) try { ReleasePeriodicEffects(); } catch { } }
+
+        /// <summary>
+        /// Instance GUID of an enumerated force-feedback device, to hand back to
+        /// <see cref="PreferGuid"/>. Without this a mod with no DirectInput layer
+        /// of its own could not pin a device by identity, and matching by name
+        /// picks the wrong one of a Fanatec base's two entries. Toolkit 0.4.0+.
+        /// </summary>
+        public static Guid? DeviceGuid(int index)
+        {
+            if (!_loaded) return null;
+            try { var b = new byte[16]; return GetDeviceGuid(index, b) != 0 ? new Guid(b) : (Guid?)null; }
+            catch { return null; }
+        }
+
+        /// <summary>The same for the full controller list (shifters, pedal sets).</summary>
+        public static Guid? AnyDeviceGuid(int index)
+        {
+            if (!_loaded) return null;
+            try { var b = new byte[16]; return GetAnyDeviceGuid(index, b) != 0 ? new Guid(b) : (Guid?)null; }
+            catch { return null; }
+        }
+
+        /// <summary>Condition effect kind for <see cref="CreateCondition"/>.</summary>
+        public enum ConditionKind { Spring = 0, Damper = 1, Inertia = 2, Friction = 3 }
+
+        /// <summary>
+        /// Creates a hardware condition effect - the base computes force from axis
+        /// position or velocity continuously, rather than following our updates.
+        /// A hardware damper is smoother and more stable than damping synthesised
+        /// at 60 Hz, and is usually the right answer to a base that oscillates.
+        /// Returns the slot, or -1 when the driver has no such effect (normal;
+        /// fall back to damping in the model). Toolkit 0.4.0+.
+        /// </summary>
+        public static int CreateCondition(ConditionKind kind)
+        {
+            if (!Ready) return -1;
+            try { return CreateConditionEffect((int)kind); } catch { return -1; }
+        }
+
+        /// <summary>
+        /// Updates a condition slot. All four are -1..1 (saturation and deadband
+        /// 0..1); safe to call every frame, since an unchanged condition never
+        /// reaches the driver.
+        /// </summary>
+        public static bool UpdateCondition(int slot, float coefficient, float saturation = 1f, float deadband = 0f, float offset = 0f)
+        {
+            if (!Ready || slot < 0) return false;
+            try
+            {
+                int C(float v, bool signed) => (int)Math.Round(Math.Max(signed ? -1f : 0f, Math.Min(1f, v)) * 10000f);
+                return UpdateConditionEffect(slot, C(coefficient, true), C(saturation, false), C(deadband, false), C(offset, true)) != 0;
+            }
+            catch { return false; }
+        }
+
+        public static void ReleaseConditions() { if (_loaded) try { ReleaseConditionEffects(); } catch { } }
 
         /// <summary>Releases the device. Safe to call repeatedly.</summary>
         public static void Shutdown()

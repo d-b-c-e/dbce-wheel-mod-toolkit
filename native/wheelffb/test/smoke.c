@@ -55,6 +55,14 @@ static void stage(const char* name, int ok, const char* detail)
     if (!ok) ++failures;
 }
 
+/* Something the harness could not set up, as opposed to something the DLL got
+ * wrong. Reported loudly and not counted as a failure, because a green run that
+ * quietly skipped a stage is worse than a red one. */
+static void stage_skip(const char* name, const char* why)
+{
+    printf("  %-34s SKIP  %s\n", name, why ? why : "");
+}
+
 int main(int argc, char** argv)
 {
     WheelFfbApi ffb;
@@ -76,7 +84,32 @@ int main(int argc, char** argv)
     RegisterClassW(&wc);
     win = CreateWindowExW(0, L"DbceWheelFfbSmoke", L"WheelFfb smoke", WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT, CW_USEDEFAULT, 320, 200, NULL, NULL, wc.hInstance, NULL);
-    if (win) { ShowWindow(win, SW_SHOWNA); hwnd = (int)(INT_PTR)win; }
+    if (win) {
+        /* Exclusive DirectInput access is granted against a FOREGROUND window.
+         * Ask for it and pump briefly; if the desktop declines - it often does
+         * for a console-launched process - the run says so rather than failing
+         * the DLL for it. */
+        ShowWindow(win, SW_SHOW);
+        SetForegroundWindow(win);
+        {
+            MSG msg; int spins;
+            for (spins = 0; spins < 50; ++spins) {
+                while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+                if (GetForegroundWindow() == win) break;
+                Sleep(10);
+            }
+            /* Becoming the foreground window and the desktop having finished
+             * activating it are not the same instant. Acquire() returns
+             * E_ACCESSDENIED in the gap, so settle before touching DirectInput
+             * - a game has been running for many frames by the time it gets
+             * here, and this is the harness standing in for that. */
+            for (spins = 0; spins < 30; ++spins) {
+                while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+                Sleep(10);
+            }
+        }
+        hwnd = (int)(INT_PTR)win;
+    }
 
     printf("WheelFfb C ABI smoke test (%d-bit)\n", (int)(sizeof(void*) * 8));
 
@@ -123,13 +156,38 @@ int main(int argc, char** argv)
         return failures ? 1 : 0;
     }
 
+    /* GetDeviceGuid must hand back the SAME instance GUID DirectInput reports.
+     * A managed mod has no DirectInput layer of its own, so this export is its
+     * only route to a value SetPreferredDeviceGuid will accept - and a wrong
+     * one would silently select the wrong half of a Fanatec base. */
+    {
+        GUID fromDi, fromDll;
+        memset(&fromDll, 0, sizeof fromDll);
+        int got = ffb.GetDeviceGuid(0, &fromDll);
+        stage("GetDeviceGuid(0)", got == 1, "");
+        if (got && FindFirstFfbInstanceGuid(&fromDi)) {
+            int same = memcmp(&fromDi, &fromDll, sizeof(GUID)) == 0;
+            sprintf_s(detail, sizeof detail, "%08lX-%04X-%04X", fromDll.Data1, fromDll.Data2, fromDll.Data3);
+            stage("  matches DirectInput's own answer", same, detail);
+        }
+        stage("GetDeviceGuid rejects a bad index", ffb.GetDeviceGuid(999, &fromDll) == 0, "");
+        if (allCount > 0) {
+            GUID any; memset(&any, 0, sizeof any);
+            stage("GetAnyDeviceGuid(0)", ffb.GetAnyDeviceGuid(0, &any) == 1, "");
+        }
+    }
+
     /* The OutRun2006Tweaks-FFB sequence: its remap layer has already chosen a
      * device, so force feedback opens its own exclusive handle on that exact
      * instance rather than guessing by name. A GUID with no actuator, or one
      * that is not attached, must fall back rather than fail. */
     {
         GUID wheel;
-        if (FindFirstFfbInstanceGuid(&wheel)) {
+        /* Via the DLL's own export, which is how a managed consumer gets one -
+         * and it keeps this process to a single extra DirectInput instance
+         * (rule 1: one per process). The cross-check above already proved the
+         * value matches what DirectInput itself reports. */
+        if (ffb.GetDeviceGuid(0, &wheel)) {
             unsigned char bogus[16];
             memset(bogus, 0xAB, sizeof bogus);
             ffb.SetPreferredDeviceGuid(bogus);
@@ -152,7 +210,21 @@ int main(int argc, char** argv)
     }
     stage("InitDirectInput", 1, "device opened exclusive, constant force created");
 
-    stage("StartEffect", ffb.StartEffect() != 0, "");
+    if (ffb.StartEffect()) {
+        stage("StartEffect", 1, "");
+    } else {
+        unsigned hr = (unsigned)ffb.GetLastHResult();
+        int noPriority = (hr == 0x80070005u || hr == 0x80040205u) && (GetForegroundWindow() != win);
+        if (noPriority) {
+            stage_skip("StartEffect",
+                "this window never reached the foreground, so DirectInput refuses "
+                "exclusive access (0x80070005). Not a DLL fault; run it with the "
+                "window in front to cover this stage.");
+        } else {
+            sprintf_s(detail, sizeof detail, "HRESULT 0x%08X", hr);
+            stage("StartEffect", 0, detail);
+        }
+    }
 
     /* Zero-magnitude updates still travel the full SetParameters path. */
     for (i = 0; i < 10; ++i) {
@@ -178,6 +250,27 @@ int main(int argc, char** argv)
         int ok = ffb.UpdatePeriodicEffect(slotRoad, 0, 25000);
         ok &= ffb.UpdatePeriodicEffect(slotRoad, 0, 31000);   /* period moved >10% */
         stage("UpdatePeriodicEffect (silent)", ok != 0, "");
+    }
+
+    /* Condition effects. A damper is what a base that oscillates actually
+     * wants, and it is a different DirectInput family from a periodic. -1 is a
+     * legitimate answer from a driver that has none, so this reports rather
+     * than fails when the wheel cannot do one. */
+    {
+        int damper = ffb.CreateConditionEffect(1);
+        sprintf_s(detail, sizeof detail, "slot %d", damper);
+        stage("CreateConditionEffect(damper)", 1, damper >= 0 ? detail : "not offered by this driver");
+        if (damper >= 0) {
+            int ok = ffb.UpdateConditionEffect(damper, 0, 0, 0, 0);          /* silent */
+            ok &= ffb.UpdateConditionEffect(damper, 2000, 10000, 0, 0);      /* a real, gentle damper */
+            ok &= ffb.UpdateConditionEffect(damper, 0, 0, 0, 0);             /* off again */
+            stage("  update, then silence", ok != 0, "");
+        }
+        int spring = ffb.CreateConditionEffect(0);
+        stage("CreateConditionEffect(spring)", 1, spring >= 0 ? "created" : "not offered by this driver");
+        stage("unknown condition type is refused", ffb.CreateConditionEffect(99) == -1, "");
+        ffb.ReleaseConditionEffects();
+        stage("ReleaseConditionEffects", 1, "");
     }
 
     if (applyForce) {

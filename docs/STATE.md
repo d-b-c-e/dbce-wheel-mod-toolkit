@@ -37,8 +37,8 @@ actually steering.
 
 | Thing | How it was verified |
 |---|---|
-| `WheelFfb.dll` exports | 32 undecorated exports in **both** x64 and x86, checked by `dumpbin` against `WheelFfb.def`; `build.ps1` also fails if `include/wheelffb.h` disagrees with the `.def` |
-| Full C ABI at real hardware | `native/wheelffb/test/smoke.c`, **18/18 stages in both architectures** at a MOZA R12: enumerate, open exclusive, constant force, 10 updates with none rejected, two `GUID_Sine` slots, envelope updates, `ZeroForces`, `PanicStop` with autocentre restored, `FreeDirectInput` |
+| `WheelFfb.dll` exports | 37 undecorated exports in **both** x64 and x86, checked by `dumpbin` against `WheelFfb.def`; `build.ps1` also fails if `include/wheelffb.h` disagrees with the `.def` |
+| Full C ABI at real hardware | `native/wheelffb/test/smoke.c`, **25/25 stages in both architectures** at a MOZA R12: enumerate, open exclusive, constant force, 10 updates with none rejected, two `GUID_Sine` slots, envelope updates, `ZeroForces`, `PanicStop` with autocentre restored, `FreeDirectInput` |
 | Device selection by GUID | Same test: a GUID belonging to nothing **falls back** to the candidate search; the real instance (`D71B8350-61B7-11F1`) is honoured |
 | Driver periodic support | The R12 enumerates Square, Sine, Triangle, SawtoothUp, SawtoothDown |
 | Managed libraries | **60 tests** (21 `Dbce.Wheel.Ffb`, 39 `Dbce.Wheel.Telemetry`) |

@@ -98,7 +98,20 @@ byte pushes right and a positive SDL steering-axis level turns the R12 left
    dislikes DIEP_START". [dbce-wheel-mod-toolkit, 2026-09-04, found by a smoke
    test on its first run]
 
-9. **In a game modded with a `dinput8.dll` proxy, resolve `DirectInput8Create`
+9. **A damper is a CONDITION effect, not a periodic one, and the distinction
+   is not cosmetic.** DirectInput has three families: a constant force is the
+   number you compute; a periodic (`GUID_Sine`) is a waveform the base renders
+   itself; a condition (`GUID_Spring`, `GUID_Damper`, `GUID_Inertia`,
+   `GUID_Friction`) has the base compute force from axis **position or
+   velocity**, continuously, between your updates. That last one is why a
+   hardware damper beats damping synthesised in the force model: the model only
+   knows the wheel's velocity at your tick rate, while the base knows it always.
+   A direct-drive base that oscillates is usually cured by a hardware damper,
+   not by lowering gain, which throws away real detail to hide the problem.
+   Condition parameters are a coefficient, a saturation, a deadband and an
+   offset, all -10000..10000. [dbce-wheel-mod-toolkit 0.4.0, 2026-09-04]
+
+10. **In a game modded with a `dinput8.dll` proxy, resolve `DirectInput8Create`
    from `system32` by full path.** An import named `dinput8.dll` binds to the
    proxy sitting beside the game exe, so a force-feedback layer meant to run
    *alongside* the proxy ends up running *through* it, inheriting whatever that
@@ -106,13 +119,13 @@ byte pushes right and a positive SDL steering-axis level turns the R12 left
    `GetProcAddress` gives a clean instance; the proxies themselves load the real
    DLL the same way. [OutRun2006Tweaks-FFB / dbce-wheel-mod-toolkit, 2026-09-04]
 
-10. **Periodic effects update strategy is driver-dependent.** Prefer
+11. **Periodic effects update strategy is driver-dependent.** Prefer
    `SetParameters` *without* `DIEP_START` (no phase reset); fall back to with.
    Probe once, cache. `[OutRun2006Tweaks-FFB]`
-9. **Do nothing heavy in `DllMain`.** `LoadLibrary`, threads, DirectInput
+12. **Do nothing heavy in `DllMain`.** `LoadLibrary`, threads, DirectInput
    creation under the loader lock deadlock; defer to the first exported call
    or first game tick. `[milestone-wheel-tools, OutRun2006Tweaks-FFB]`
-10. **Log by default, opt out.** An absent log is indistinguishable from a
+13. **Log by default, opt out.** An absent log is indistinguishable from a
     broken one; the ffb.log is what every remote diagnosis ran on.
     `[art-of-sim-rally, iracing-arcade-wheel]`
 
