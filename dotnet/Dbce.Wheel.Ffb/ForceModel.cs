@@ -56,7 +56,7 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Lateral load term: 1.0 = reference lateral force gives full output.</summary>
         public float SteeringWeight = 1f;
         /// <summary>Reference lateral force in newtons treated as full scale (per steered axle).</summary>
-        public float LateralForceReference = 8000f;
+        public float LateralForceReference = 11500f;
         /// <summary>Reference lateral acceleration in g treated as full scale when only g is available.</summary>
         public float LateralGReference = 1.2f;
         /// <summary>Fraction of lateral force retained at twice the ideal slip angle (trail floor). 1 = no lightening.</summary>
@@ -82,7 +82,7 @@ namespace Dbce.Wheel.Ffb
         public static ForceModelSettings SimLite() => new ForceModelSettings
         {
             SpringStrength = 0f, DamperStrength = 0f, SteeringWeight = 1f,
-            LateralForceReference = 8000f, TrailFloor = 0.6f,
+            LateralForceReference = 11500f, TrailFloor = 0.6f,
         };
 
         /// <summary>

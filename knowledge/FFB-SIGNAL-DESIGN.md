@@ -82,7 +82,8 @@ OutRun's constants, `SimLite` = lateral force × trail), and everything below.
 8. **Strength is the only user dial.** Two dials for one sensation — a
    reference that lowers to strengthen and a gain that raises — confused
    everyone who met it. Keep the reference internal, tuned from a measured
-   peak (art of rally: 6,000–7,000 N at a hard corner → 8,000 reference).
+   peak (art of rally: 6,000–7,000 N at a hard corner; 6,000 and 8,000 were both
+   too strong at Strength 50 on a MOZA R12 → 11,500 reference, 2026-09-03).
    `[art-of-sim-rally]`
 
 ## Texture and events
