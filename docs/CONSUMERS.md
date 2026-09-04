@@ -99,6 +99,7 @@ What each consumer last took, and when. Add a row when you bump one.
 | 2026-09-04 | v0.2.0 | OutRun2006Tweaks-FFB | the whole FFB device layer via the C ABI, 543 lines removed for 139 |
 | 2026-09-04 | v0.2.0 | iracing-arcade-wheel | bumped for the `Start()` / `DIEP_START` fix |
 | 2026-09-04 | v0.2.0 | art-of-sim-rally | bumped in a separate session |
+| 2026-09-04 | v0.3.0 | iracing-arcade-wheel | additive only; keeps the vendored DLLs in step |
 | 2026-09-04 | v0.3.0 | OutRun2006Tweaks-FFB | the shared force model and the versioned profiles, behind `FFBProfile`; `legacy` stays the default |
 | 2026-09-04 | v0.2.1 | milestone-wheel-tools | `Set-IniValueCrlf` no longer duplicates a `key = value` line. The only consumer 0.2.1 obliged to move; the other three vendor nothing it changed |
 

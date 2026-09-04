@@ -101,8 +101,15 @@ function Get-Pin {
         'CHANGELOG.md' {
             $f = Join-Path $RepoPath 'CHANGELOG.md'
             if (-not (Test-Path $f)) { return $null }
-            $m = [regex]::Match((Get-Content $f -Raw), '(?i)toolkit\s+(?:bumped\s+to\s+)?v?(\d+\.\d+\.\d+)')
-            if ($m.Success) { return 'v' + $m.Groups[1].Value }
+            # Highest version mentioned, not the first: a changelog names the
+            # toolkit in several places and the newest entry is rarely the one
+            # a first-match regex lands on.
+            $best = $null
+            foreach ($m in [regex]::Matches((Get-Content $f -Raw), '(?i)toolkit\s+(?:bumped\s+to\s+)?v?(\d+\.\d+\.\d+)')) {
+                $v = [version]$m.Groups[1].Value
+                if (-not $best -or $v -gt $best) { $best = $v }
+            }
+            if ($best) { return 'v' + $best.ToString() }
             return $null
         }
         default { return 'n/a' }
