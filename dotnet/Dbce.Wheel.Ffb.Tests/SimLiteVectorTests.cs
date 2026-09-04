@@ -159,6 +159,45 @@ namespace Dbce.Wheel.Ffb.Tests
         }
 
         /// <summary>
+        /// The fade is a SHAPE, not two numbers, and a refactor can linearise it
+        /// silently: both curves agree at the endpoints and at the midpoint, so
+        /// only the quarter points tell them apart.
+        /// </summary>
+        [Fact]
+        public void FadeIsCubicAndWouldFailIfLinearised()
+        {
+            var p = SimLite();
+            float a = p.Shaper.FadeStartKmh, b = p.Shaper.FadeFullKmh;
+            var shaper = CurveOnlyShaper(p);
+
+            // A force well inside full scale, so only the fade is being measured.
+            const float Fy = 500f;
+            float unfaded = Fy / FyReference;
+
+            foreach (float frac in new[] { 0f, 0.25f, 0.5f, 0.75f, 1f })
+            {
+                float kmh = a + frac * (b - a);
+                var model = new ForceModel(p.Model);
+                var inputs = new ForceInputs
+                {
+                    FrontLateralForce = Fy, HasFrontLateralForce = true,
+                    FrontSlipAngleDeg = 0f, IdealSlipAngleDeg = IdealDeg, HasSlip = true,
+                    SpeedMps = kmh / 3.6f,
+                };
+                float mine = Math.Abs(shaper.Shape(model.Compute(inputs, 1f / 60f), kmh, 1f / 60f));
+                float cubic = frac * frac * (3f - 2f * frac);
+                Assert.True(Math.Abs(mine - unfaded * cubic) < 1e-4f,
+                    $"fade at {frac:P0} of the band: mine {mine}, cubic {unfaded * cubic}");
+
+                // At the quarter points a linear ramp gives a different answer, so
+                // this assertion is what actually catches a linearisation.
+                if (frac == 0.25f || frac == 0.75f)
+                    Assert.True(Math.Abs(unfaded * cubic - unfaded * frac) > 1e-3f,
+                        "the cubic and linear fades are indistinguishable here, so this test proves nothing");
+            }
+        }
+
+        /// <summary>
         /// The whole chain, on the rows where the two pipelines are comparable.
         /// </summary>
         [Fact]
