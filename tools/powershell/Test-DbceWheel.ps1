@@ -35,6 +35,18 @@ $cases = @(
     @{ Name = 'section name containing regex metacharacters'
        Body = "[a]`r`nx=1`r`n`r`n[/Wheel.Config/0006346e]`r`nWheel_Steer=X`r`n"
        Section = '/Wheel.Config/0006346e'; Key = 'Wheel_Accelerator'; Value = 'Y&-1.0&1.0'; KeepsFinalNewline = $true }
+    @{ Name = 'replaces "key = value" rather than duplicating it'
+       Body = "[FFB]`r`nFFBDiagnosticLog = false`r`nFFBGlobalStrength = 1.0`r`n"
+       Section = 'FFB'; Key = 'FFBDiagnosticLog'; Value = 'true'; KeepsFinalNewline = $true }
+    @{ Name = 'preserves the spacing around ='
+       Body = "[s]`r`nk   =   old`r`n"; Section = 's'; Key = 'k'; Value = 'new'; KeepsFinalNewline = $true
+       Expect = '(?m)^k   =   new\r?$' }
+    @{ Name = 'a new key copies the section spacing'
+       Body = "[s]`r`nexisting = 1`r`n"; Section = 's'; Key = 'fresh'; Value = '2'; KeepsFinalNewline = $true
+       Expect = '(?m)^fresh = 2\r?$' }
+    @{ Name = 'an indented key is replaced in place'
+       Body = "[s]`r`n`tk = old`r`n"; Section = 's'; Key = 'k'; Value = 'new'; KeepsFinalNewline = $true
+       Expect = "(?m)^`tk = new\r?$" }
     @{ Name = 'an LF-only file stays LF-only'
        Body = "[a]`nx=1`n[last]`nk=v`n"; Section = 'last'; Key = 'new'; Value = '1'; KeepsFinalNewline = $true }
 )
@@ -51,8 +63,14 @@ foreach ($c in $cases) {
     if ($crlf -and ([regex]::Matches($raw, "(?<!`r)`n")).Count -ne 0) { $ok = $false }
     # An LF-only file must not gain CRLFs.
     if (-not $crlf -and $raw.Contains("`r")) { $ok = $false }
-    # The value must be there, exactly once.
-    if (([regex]::Matches($raw, "(?m)^$([regex]::Escape($c.Key))=$([regex]::Escape($c.Value))\s*$")).Count -ne 1) { $ok = $false }
+    # The value must be there, exactly once, whatever the spacing.
+    # A carriage return is allowed before the anchor: .NET's multiline '$'
+    # matches before the line feed, so with CRLF the CR sits in front of it.
+    if (([regex]::Matches($raw, "(?m)^[ \t]*$([regex]::Escape($c.Key))[ \t]*=[ \t]*$([regex]::Escape($c.Value))[ \t\r]*$")).Count -ne 1) { $ok = $false }
+    # The key must appear exactly once in total - never duplicated.
+    if (([regex]::Matches($raw, "(?m)^[ \t]*$([regex]::Escape($c.Key))[ \t]*=")).Count -ne 1) { $ok = $false }
+    # Some cases pin the exact rendering.
+    if ($c.Expect -and $raw -notmatch $c.Expect) { $ok = $false }
     # The trailing newline the file arrived with must survive.
     if ($c.KeepsFinalNewline -and -not $raw.EndsWith($nl)) { $ok = $false }
     # Nothing outside the edited section may move.
