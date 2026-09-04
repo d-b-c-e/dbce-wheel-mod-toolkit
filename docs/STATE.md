@@ -83,13 +83,15 @@ trusting the signal.
 ### 3. Reply to the Fanatec user
 
 art-of-sim-rally 0.2.2 shipped the direct wheel input, the crash fix, the Flip
-button, the lighter default and `docs/TROUBLESHOOTING.md`. They have not been
-told.
+button, the lighter default and a troubleshooting page
+(`art-of-sim-rally/docs/TROUBLESHOOTING.md`, not in this repo). They have not
+been told.
 
 ### 4. Confirm Milestone packets on the wire
 
-`tools/forza_listen.py` with `mirror_port` set, one race. Checks the sentinel
-change did not upset anything.
+`milestone-wheel-tools/tools/forza_listen.py` (that repo, not this one) with
+`mirror_port` set, one race. Checks the sentinel change did not upset
+anything.
 
 ### 5. Extract the dinput8 proxy scaffold
 
