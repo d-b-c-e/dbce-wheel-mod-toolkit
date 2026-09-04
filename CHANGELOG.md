@@ -5,6 +5,23 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.3.1] - 2026-09-04
+
+### Added
+
+- **`Sync-Toolkit.ps1` never overwrites a locally edited file.** It records a
+  SHA-256 of everything it writes in `lib/toolkit/MANIFEST.txt`; on the next
+  sync a file that no longer matches was edited in the consumer, so it is left
+  alone, reported, and the run exits non-zero. `-Force` takes the toolkit's
+  copy after saving the local one as `<name>.local-<timestamp>`. This exists
+  for `force-profiles.ini`: a tune arrived at by driving should survive a
+  routine version bump.
+- **`tools/Import-Profile.ps1`** promotes a tune from a game folder's
+  `force-profiles.user.ini` into `profiles/force-profiles.ini` as the next free
+  version of its family. It never overwrites a published version, keeps
+  `inherits` so the tune is not silently altered, and refuses if the parent is
+  not published.
+
 ## [0.3.0] - 2026-09-04
 
 The force model becomes data, and native mods get it too.

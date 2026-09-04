@@ -87,6 +87,43 @@ Then add a line to its changelog saying which toolkit version and why. The
 point of pinning is that a toolkit change never reaches a game without an
 explicit, diffable bump.
 
+### A sync never clobbers a local edit
+
+Each sync records a SHA-256 of every file it wrote, in
+`lib/toolkit/MANIFEST.txt`. Next time, a file whose hash no longer matches was
+edited in the consumer, so it is **left alone**, reported, and the script exits
+non-zero. It stays flagged until someone resolves it, rather than being
+detected once and quietly overwritten later.
+
+This exists for `profiles/force-profiles.ini`. A tune arrived at by driving is
+not something a routine version bump should delete.
+
+| You want | Do |
+|---|---|
+| the toolkit's copy | re-run with `-Force`; yours is saved as `<name>.local-<timestamp>` first |
+| to keep yours | nothing; that one file stays behind, and keeps saying so |
+| to keep it properly | promote it, below |
+
+### Promoting a tune back into the toolkit
+
+A tune in `force-profiles.user.ini` beside the game is never touched by
+anything here, which also means nothing backs it up. When one is worth keeping:
+
+```powershell
+.\tools\Import-Profile.ps1 -From '<game folder>' -Id mytune@1 -As arcade-outrun
+```
+
+It appends the section to `profiles/force-profiles.ini` as the next free
+version of that family. It never overwrites a published version, keeps
+`inherits` so the tune is not silently changed, and refuses if the parent is
+not published. Then regenerate the conformance golden file, because a new
+profile changes the pinned output:
+
+```powershell
+.\native\forcemodel\build_conformance.bat --update
+dotnet test Dbce.Wheel.sln
+```
+
 ## History
 
 What each consumer last took, and when. Add a row when you bump one.
