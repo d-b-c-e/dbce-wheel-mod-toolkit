@@ -12,6 +12,7 @@ EXPORTS
     SetAutoCenter
     FreeDirectInput
     SetPreferredDevice
+    SetPreferredDeviceGuid
     SetPreferredDeviceIndex
     EnumerateDevices
     GetDeviceName

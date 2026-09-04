@@ -43,6 +43,7 @@ namespace Dbce.Wheel.Ffb
         [DllImport(Dll)] private static extern int  SetAutoCenter(int enable);
         [DllImport(Dll)] private static extern void FreeDirectInput();
         [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern void SetPreferredDevice(string name);
+        [DllImport(Dll)] private static extern void SetPreferredDeviceGuid(byte[] guid16);
         [DllImport(Dll)] private static extern void SetPreferredDeviceIndex(int index);
         [DllImport(Dll)] private static extern int  EnumerateDevices();
         [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern int GetDeviceName(int index, StringBuilder buffer, int size);
@@ -158,6 +159,18 @@ namespace Dbce.Wheel.Ffb
         public static void Panic()           { if (_initialised) try { PanicStop(); } catch { } }
         public static bool ExitGuards()      { if (!_initialised) return false; try { return InstallExitGuards() != 0; } catch { return false; } }
         public static void HoldTimeout(int ms) { if (_loaded) try { SetHoldTimeoutMs(ms); } catch { } }
+
+        /// <summary>
+        /// Pins device selection to a DirectInput instance GUID, which beats both
+        /// index and name. Use it when your own input layer has already chosen a
+        /// device: two Fanatec devices can carry the same name, so matching by
+        /// name is guesswork exactly where it hurts. Null clears it. Toolkit 0.2.0+.
+        /// </summary>
+        public static void PreferGuid(Guid? instanceGuid)
+        {
+            if (!_loaded) return;
+            try { SetPreferredDeviceGuid(instanceGuid?.ToByteArray()); } catch { }
+        }
         public static void AutoCentre(bool on) { if (_initialised) try { SetAutoCenter(on ? 1 : 0); } catch { } }
         public static int  LastHResult       { get { try { return _loaded ? GetLastHResult() : 0; } catch { return 0; } } }
         public static int  Version           { get { try { return _loaded ? GetWheelFfbVersion() : 0; } catch { return 0; } } }

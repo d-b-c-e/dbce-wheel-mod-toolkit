@@ -78,6 +78,8 @@ static Candidate g_candidates[kMaxCandidates];
 static int       g_candidateCount = 0;
 static char      g_preferred[MAX_PATH] = {};
 static int       g_preferredIndex = -1;
+static GUID      g_preferredGuid = {};
+static bool      g_preferredGuidSet = false;
 
 // Axis count the constant-force effect was actually created with. Every
 // SetParameters call must agree with it.
@@ -513,7 +515,16 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     // Honour a preferred name if one was set and matches; otherwise take the
     // first. Choosing explicitly beats whatever order DirectInput enumerated in.
     int chosen = 0;
-    if (g_preferredIndex >= 0) {
+    bool guidMatched = false;
+    if (g_preferredGuidSet) {
+        for (int i = 0; i < g_candidateCount; ++i) {
+            if (IsEqualGUID(g_candidates[i].guid, g_preferredGuid)) { chosen = i; guidMatched = true; break; }
+        }
+        if (guidMatched) Log("  using [%d] by instance GUID as requested", chosen);
+        else             Log("  requested instance GUID is not among the %d FFB device(s) - it may have no actuator; falling back", g_candidateCount);
+    }
+    if (guidMatched) { /* settled */ }
+    else if (g_preferredIndex >= 0) {
         if (g_preferredIndex < g_candidateCount) {
             chosen = g_preferredIndex;
             Log("  using index %d as requested", chosen);
@@ -589,6 +600,20 @@ __declspec(dllexport) void SetPreferredDevice(const char* name)
 // Selects by enumeration index. Necessary because product names are not unique -
 // a Fanatec rig reports two devices both called "FANATEC Wheel", which no name
 // filter can tell apart.
+// Selects the wheel by DirectInput instance GUID - 16 raw bytes, i.e. a
+// DIDEVICEINSTANCE::guidInstance passed straight through. A mod that already
+// runs its own input layer has picked a device by then, and picking the same
+// one here by name is guesswork exactly where it hurts: a Fanatec base shows
+// two identically named devices. Takes priority over index and name; pass
+// null to clear. [OutRun2006Tweaks-FFB shares its remap layer's choice]
+__declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
+{
+    if (!guid16) { g_preferredGuidSet = false; Log("SetPreferredDeviceGuid(null)"); return; }
+    memcpy(&g_preferredGuid, guid16, sizeof(GUID));
+    g_preferredGuidSet = true;
+    Log("SetPreferredDeviceGuid(%08lX-%04X-%04X-...)", g_preferredGuid.Data1, g_preferredGuid.Data2, g_preferredGuid.Data3);
+}
+
 __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 {
     g_preferredIndex = index;
