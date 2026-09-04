@@ -5,6 +5,36 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.5.0] - 2026-09-04
+
+### Added
+
+- **`native/dinput-proxy/dinput_proxy.h`** - the half of a dinput8 wrapper
+  proxy that is the same every time: loading the real DLL from `system32` by
+  full path, patching a vtable slot idempotently, the DirectInput 8 slot
+  numbers as named constants, the SIXDOF to DRIVING re-type, and the
+  blank-twin filter. The hooks stay per game. Checked in both architectures;
+  the slot numbers are `static_assert`s, because a wrong one corrupts an
+  unrelated slot and crashes far from the cause.
+- **The three `templates/` scaffolds are written.** Each carries the
+  non-negotiables for that shape, the toolkit boundary, what to vendor, and the
+  wiring from a car-state struct to a force on the wheel. They are documented
+  starting points, not projects that compile: the per-game half is exactly what
+  no template can supply.
+
+### Fixed
+
+- `Set-IniValueCrlf` refused an empty value, which is legitimate and often
+  load-bearing - OutRun 2006 treats an empty `DeviceGuid` as "this input slot
+  is off", so the helper could not write the value that disables a feature.
+
+### Notes
+
+- `dotnet/Dbce.Wheel.Input` is **not** a mechanical extraction and is now
+  recorded as needing a design decision first: every donor file references
+  `UnityEngine.InputSystem`, Il2CppInterop or BepInEx, none of which can live
+  in the Unity-free `netstandard2.0` assembly the rules require.
+
 ## [0.4.0] - 2026-09-04
 
 Both additions were asked for by art-of-sim-rally, which found the API could
