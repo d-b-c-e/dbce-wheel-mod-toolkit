@@ -5,6 +5,44 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.7.0] - 2026-09-04
+
+### Changed
+
+- **The clamp moved from the model to the device edge.** `ForceModel.Compute`
+  no longer bounds its result to +-1; `ForceShaper` bounds the output, where
+  the device limit belongs. A clamp inside the model turned a boundary into a
+  silent soft knee and discarded the headroom the fade and the soft saturation
+  exist to shape.
+  The visible harm was not the clamping order but the soft saturation: it
+  received an already-clamped value, so every force from full scale upward
+  arrived as exactly 1.0 and `tanh` had nothing to compress. A model output of
+  1.5 reached the wheel as 7,615 of 10,000, identical to 1.0; it now reaches
+  9,051. `arcade-outrun@1` asks for `tanh` so that a crash still feels bigger
+  than a hard corner, and was getting a hard clip instead.
+  Agreed with art-of-sim-rally, whose vector made it findable and whose
+  pipeline this now matches.
+  **Consequence worth knowing:** the fade scales a force, it does not cap one.
+  A force far past full scale can now reach full output at walking pace, where
+  the early clamp used to limit it by accident. That is how art of rally has
+  always behaved.
+
+### Fixed
+
+- **The conformance sequence never saturated the model**, so an entire class of
+  change was invisible to the golden file - the first attempt at the above
+  produced a zero-line diff. Ticks 150-179 now push three times the reference
+  force at 7.5 km/h, past full scale and inside the fade at once.
+
+### Added
+
+- **Every dial in `profiles/force-profiles.ini` is now explained in plain terms
+  in the file itself**, which is deployed beside the game and read at runtime.
+  It previously pointed at C# source. Includes the counter-intuitive ones
+  (raising `lateral.forceReference` makes the wheel *lighter*) and a symptom
+  table: wheel shakes by itself, no warning before understeer, crashes feel the
+  same as hard corners.
+
 ## [0.6.0] - 2026-09-04
 
 ### Added
