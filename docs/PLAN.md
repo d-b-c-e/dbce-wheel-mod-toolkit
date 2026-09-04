@@ -123,9 +123,21 @@ next session's starting point.*
 
 - SDL2 backend in `native/wheelffb` (seed: cruisn `mvffb`).
 - Direct-read input kit and Unity Input System kit (`dotnet/Dbce.Wheel.Input`).
-- dinput8 proxy scaffold merge; InputBridge dedupe. Now the largest piece of
-  duplicated native code left: milestone-wheel-tools and OutRun2006Tweaks-FFB
-  each carry their own proxy.
+- dinput8 proxy scaffold: **the shared half is extracted**
+  (`native/dinput-proxy/dinput_proxy.h`, checked in both architectures). What
+  remains is adopting it in milestone-wheel-tools and OutRun2006Tweaks-FFB,
+  which means rewriting vtable-patching code in two mods that currently work -
+  worth doing only after OutRun's outstanding drive, so that a bad lap has one
+  possible cause rather than two.
+- `dotnet/Dbce.Wheel.Input`: **not a mechanical extraction, and blocked on a
+  design decision.** Every donor file in iracing-arcade-wheel (`Rebinder`,
+  `BindingStore`, `AxisSetup`, `Layouts`, `InputSupport`) references
+  `UnityEngine.InputSystem`, Il2CppInterop or BepInEx, so none can live in a
+  `netstandard2.0` assembly with no Unity references - the rule that lets one
+  assembly load under both Unity runtimes and be unit-tested. Either it becomes
+  a separate Unity-referencing sub-package, version-coupled to whichever Input
+  System package a game ships, or only the Unity-free direct-read half
+  (art-of-sim-rally's `WheelInput`) moves. Decide before writing code.
 - Templates.
 - OutRun's force model as the `ForceModel.Arcade` reference - it stayed in
   OutRun deliberately, since the C++ side has no equivalent of the managed

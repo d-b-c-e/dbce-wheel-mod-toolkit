@@ -43,6 +43,10 @@ Write-Host "== DbceWheel.psm1 ==" -ForegroundColor Cyan
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "DbceWheel.psm1 tests failed" }
 
+Write-Host "== dinput proxy scaffold ==" -ForegroundColor Cyan
+& cmd.exe /c (Join-Path $root 'native\dinput-proxy\build_test.bat') | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "dinput_proxy.h checks failed" }
+
 Write-Host "== force model conformance (C++ vs the golden file) ==" -ForegroundColor Cyan
 & cmd.exe /c (Join-Path $root 'native\forcemodel\build_conformance.bat') | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "force model conformance failed" }
@@ -75,6 +79,7 @@ Copy-Item (Join-Path $root 'native\wheelffb\include\wheelffb.h') (Join-Path $sta
 Copy-Item (Join-Path $root 'native\forza\forza_packet.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_model.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_profile.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'native\dinput-proxy\dinput_proxy.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'profiles\force-profiles.ini') (Join-Path $stage 'profiles')
 Copy-Item (Join-Path $root 'tools\powershell\DbceWheel.psm1') (Join-Path $stage 'tools\powershell')
 Copy-Item (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') (Join-Path $stage 'tools\powershell')
