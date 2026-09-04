@@ -234,5 +234,120 @@ shaper.invert         = true
             Assert.NotEqual(defaults.SoftSaturation, arcade.SoftSaturation);
             Assert.NotEqual(defaults.SlewPerSecond, arcade.SlewPerSecond);
         }
+
+        /// <summary>
+        /// Since 0.7.0 the model returns forces past full scale, and the low-speed
+        /// fade SCALES a force rather than capping one. A transient several times
+        /// cornering force arrives at any speed, so at walking pace the fade alone
+        /// is not what stands between a collision and the wheel.
+        /// </summary>
+        /// <remarks>
+        /// Soft saturation is. It runs before the fade and, unlike the smoothing
+        /// and the slew limiter, it is NOT bypassed for an event, so it is the term
+        /// that keeps an unclamped impulse bounded. A profile carrying an impact,
+        /// texture or shift term with no soft saturation has nothing between the
+        /// model and the peak limit but a hard clip - which is the behaviour 0.7.0
+        /// argued against. Raised by art-of-sim-rally as a design rule for anyone
+        /// adding an impact term; this asserts it for the tunes actually shipped.
+        /// </remarks>
+        [Fact]
+        public void AProfileWithTransientsCarriesSoftSaturation()
+        {
+            string text = File.ReadAllText(ShippedPath());
+            int withTransients = 0;
+            foreach (var id in ForceProfile.ListIds(text))
+            {
+                var p = ForceProfile.Parse(text, id);
+                bool transients = p.Model.ImpactStrength > 0f
+                               || p.Model.TextureStrength > 0f
+                               || p.Model.ShiftPulseStrength > 0f;
+                if (!transients) continue;
+                withTransients++;
+                Assert.True(p.Shaper.SoftSaturation > 0f,
+                    id + " has a transient term but no soft saturation: at walking pace the " +
+                    "fade only scales it, so a low-speed impact reaches the peak limit as a hard clip");
+            }
+            Assert.True(withTransients >= 2, "expected the arcade tunes to carry transients");
+        }
+
+        /// <summary>
+        /// The same rule as a measurement, so the claim above is a number rather
+        /// than an argument: with soft saturation on, tripling the model's output
+        /// does NOT triple what the wheel feels at walking pace.
+        /// </summary>
+        [Fact]
+        public void SoftSaturationKeepsALowSpeedTransientInHand()
+        {
+            // arcade-generic@1, because it is the shipped arcade tune that HAS a
+            // low-speed fade. arcade-outrun@1 deliberately has none - see below.
+            var p = ForceProfile.Parse(File.ReadAllText(ShippedPath()), "arcade-generic@1");
+            Assert.True(p.Shaper.FadeFullKmh > p.Shaper.FadeStartKmh, "this test needs a fade band");
+            const float walkingPace = 5f;      // inside the 3-12 km/h band
+
+            // isEvent: an impact bypasses the smoothing and the slew limiter, which
+            // is exactly why the remaining terms have to hold.
+            float atFullScale = Fresh(p).Shape(1.0f, walkingPace, 1f / 60f, true);
+            float threeTimes  = Fresh(p).Shape(3.0f, walkingPace, 1f / 60f, true);
+            float ratio = threeTimes / atFullScale;
+            Assert.True(ratio < 1.5f,
+                "a 3x transient should not arrive as 3x force at walking pace; got " + ratio +
+                " (" + atFullScale + " -> " + threeTimes + ")");
+
+            // And the test is not passing for some other reason: with soft
+            // saturation off, the fade really does pass the transient through
+            // linearly, which is the case art-of-sim-rally warned about.
+            var off1 = Fresh(p); off1.SoftSaturation = 0f;
+            var off3 = Fresh(p); off3.SoftSaturation = 0f;
+            float bare1 = off1.Shape(1.0f, walkingPace, 1f / 60f, true);
+            float bare3 = off3.Shape(3.0f, walkingPace, 1f / 60f, true);
+            Assert.True(bare3 / bare1 > 2.9f,
+                "expected the unsaturated path to scale linearly, got " + (bare3 / bare1));
+
+            // The peak limit is the last line and holds in every case.
+            Assert.True(Math.Abs(threeTimes) <= p.Shaper.PeakLimit + 1e-6f);
+        }
+
+        /// <summary>
+        /// OutRun's tune has no low-speed fade at all - deliberately, because its
+        /// spring term already scales with speed - so the fade is not what bounds a
+        /// transient there and the warning above does not reach it. The peak limit
+        /// is the bound, and that makes soft saturation the only thing separating a
+        /// crash from a hard corner: without it both arrive at exactly full scale.
+        /// </summary>
+        [Fact]
+        public void WithNoFadeSoftSaturationIsTheOnlyThingSeparatingACrashFromACorner()
+        {
+            var p = ForceProfile.Parse(File.ReadAllText(ShippedPath()), "arcade-outrun@1");
+            Assert.False(p.Shaper.FadeFullKmh > p.Shaper.FadeStartKmh,
+                "arcade-outrun@1 gained a fade; this test and the note on the profile need revisiting");
+
+            float corner = Fresh(p).Shape(1.0f, 60f, 1f / 60f, true);
+            float crash  = Fresh(p).Shape(3.0f, 60f, 1f / 60f, true);
+            Assert.True(crash - corner > 0.15f,
+                "a crash should be felt as bigger than a hard corner; got " + corner + " and " + crash);
+
+            // Turn soft saturation off and the two become the same event.
+            var off1 = Fresh(p); off1.SoftSaturation = 0f;
+            var off3 = Fresh(p); off3.SoftSaturation = 0f;
+            float flatCorner = off1.Shape(1.0f, 60f, 1f / 60f, true);
+            float flatCrash  = off3.Shape(3.0f, 60f, 1f / 60f, true);
+            Assert.Equal(flatCorner, flatCrash, 5);
+            Assert.Equal(p.Shaper.PeakLimit, flatCrash, 5);
+        }
+
+        /// <summary>A copy of a profile's shaper with no filter state carried over.</summary>
+        private static ForceShaper Fresh(ForceProfile p) => new ForceShaper
+        {
+            Strength = p.Shaper.Strength, Invert = p.Shaper.Invert,
+            Deadzone = p.Shaper.Deadzone,
+            AttackSmoothing = p.Shaper.AttackSmoothing,
+            DecaySmoothing = p.Shaper.DecaySmoothing,
+            SoftSaturation = p.Shaper.SoftSaturation,
+            SlewPerSecond = p.Shaper.SlewPerSecond,
+            OutputDeadband = p.Shaper.OutputDeadband,
+            FadeStartKmh = p.Shaper.FadeStartKmh, FadeFullKmh = p.Shaper.FadeFullKmh,
+            RampSeconds = 0f,                      // the ramp is start-up, not feel
+            PeakLimit = p.Shaper.PeakLimit,
+        };
     }
 }
