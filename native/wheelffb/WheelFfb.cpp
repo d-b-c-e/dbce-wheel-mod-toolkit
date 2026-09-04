@@ -41,6 +41,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -53,7 +54,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 100;            // 0.1.0
+static const int  kVersion      = 200;            // 0.2.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -203,12 +204,34 @@ static bool ContainsNoCase(const char* haystack, const char* needle)
 // "temporary" enumeration left the device table populated and g_di null, and
 // the next OpenAuxDevice dereferenced it - a hard crash for anyone whose force
 // feedback had failed to initialise (Fanatec support bundle, 2026-09-03).
+// DirectInput8Create is resolved from the SYSTEM dinput8.dll by full path, not
+// through this DLL's import table. In a game modded with a dinput8.dll proxy
+// (OutRun 2006, the Milestone titles) an import named "dinput8.dll" binds to
+// the proxy sitting beside the game exe, and every device this module opened
+// would then pass through the proxy's own hooks - which is precisely the
+// layer those mods use us to replace. The proxies load the real DLL this same
+// way. A 32-bit build gets SysWOW64 through the redirector automatically.
+typedef HRESULT (WINAPI *DirectInput8Create_t)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
+static HRESULT CreateDirectInputFromSystem(LPDIRECTINPUT8* out)
+{
+    static DirectInput8Create_t create = nullptr;
+    if (!create) {
+        wchar_t path[MAX_PATH];
+        UINT n = GetSystemDirectoryW(path, MAX_PATH);
+        HMODULE m = nullptr;
+        if (n && n < MAX_PATH - 13) { wcscat_s(path, MAX_PATH, L"\\dinput8.dll"); m = LoadLibraryW(path); }
+        if (!m) { Log("system dinput8.dll not loadable (%lu); falling back to the search path", GetLastError()); m = LoadLibraryW(L"dinput8.dll"); }
+        if (m) create = (DirectInput8Create_t)GetProcAddress(m, "DirectInput8Create");
+        if (!create) return E_FAIL;
+    }
+    return create(GetModuleHandle(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8, (LPVOID*)out, nullptr);
+}
+
 static bool EnsureDirectInput()
 {
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     if (g_di) return true;
-    HRESULT hr = DirectInput8Create(GetModuleHandle(nullptr), DIRECTINPUT_VERSION,
-                                    IID_IDirectInput8, (VOID**)&g_di, nullptr);
+    HRESULT hr = CreateDirectInputFromSystem(&g_di);
     if (FAILED(hr)) { Log("DirectInput8Create failed 0x%08lX", hr); g_di = nullptr; return false; }
     return true;
 }
@@ -318,6 +341,7 @@ extern "C" {
 
 // Forward-declared: InitDirectInput unwinds through it on every failure path.
 __declspec(dllexport) void FreeDirectInput(void);
+static void ReleasePeriodics();   // defined with the periodic exports below
 
 // Returns 1 on success, 0 on failure. The game ignores the value, but a
 // non-zero result is the honest signal and makes the log readable.
@@ -390,6 +414,7 @@ static HRESULT CreateForceEffect()
 // DirectInput instance for the next attempt (and for the shifter and reader).
 static void CloseCandidate()
 {
+    ReleasePeriodics();
     ReleaseEffect();
     if (g_device) { g_device->Unacquire(); g_device->Release(); g_device = nullptr; }
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;
@@ -914,6 +939,172 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
     return 1;
 }
 
+// --- periodic (sine) effects -------------------------------------------------
+// Road texture and tyre slip rendered by the wheelbase itself. Synthesising
+// 25-40 Hz content through 60 Hz constant-force updates loses ~26% to
+// zero-order-hold roll-off, more to driver smoothing, and 30-60% to the soft
+// saturation when it rides on steering load; a hardware GUID_Sine plays at
+// full fidelity whatever the update rate. [OutRun2006Tweaks-FFB]
+//
+// Slots are independent effects on X. Create once after InitDirectInput, then
+// update the envelope (magnitude, frequency) at ~15 Hz; an update is skipped
+// unless the magnitude moved >5%, the period >10%, or the effect must fall
+// silent. A slot whose handle dies (E_HANDLE / NOTDOWNLOADED after the device
+// was re-acquired) is recreated on the next update after a 500 ms hold-off,
+// without the caller noticing. Whether a driver accepts SetParameters without
+// DIEP_START (no phase reset) is probed once and remembered.
+static const int kMaxPeriodic = 4;
+struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; bool used; ULONGLONG holdoff; };
+static PeriodicSlot g_periodic[kMaxPeriodic] = {};
+static int  g_periodicStrategy = -1;   // -1 untested, 0 without DIEP_START, 1 with
+static bool g_periodicProbed = false;
+
+static BOOL CALLBACK EnumPeriodicCb(LPCDIEFFECTINFO info, LPVOID)
+{
+    Log("  driver periodic effect: %s", info->tszName);
+    return DIENUM_CONTINUE;
+}
+
+static HRESULT CreatePeriodicInSlot(int i)
+{
+    PeriodicSlot& s = g_periodic[i];
+    DWORD axes[1] = { DIJOFS_X };
+    LONG  dir[1]  = { 0 };
+    DIPERIODIC pf = {};
+    pf.dwPeriod   = (DWORD)(1000000 / (s.hz > 0 ? s.hz : 25));
+    DIEFFECT eff  = {};
+    eff.dwSize    = sizeof(DIEFFECT);
+    eff.dwFlags   = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
+    eff.dwDuration = INFINITE;
+    eff.dwGain    = DI_FFNOMINALMAX;
+    eff.dwTriggerButton = DIEB_NOTRIGGER;
+    eff.cAxes     = 1;
+    eff.rgdwAxes  = axes;
+    eff.rglDirection = dir;
+    eff.cbTypeSpecificParams  = sizeof(DIPERIODIC);
+    eff.lpvTypeSpecificParams = &pf;
+    HRESULT hr = g_device->CreateEffect(GUID_Sine, &eff, &s.fx, nullptr);
+    if (FAILED(hr)) { s.fx = nullptr; g_lastHr = hr; return hr; }
+    // Started silent, so envelope updates only ever need SetParameters.
+    HRESULT sh = s.fx->Start(1, 0);
+    if (FAILED(sh)) Log("  periodic[%d] Start -> 0x%08lX", i, sh);
+    s.lastMag = 0; s.lastPeriod = pf.dwPeriod; s.holdoff = 0;
+    return hr;
+}
+
+static void StopPeriodics()
+{
+    for (int i = 0; i < kMaxPeriodic; ++i) if (g_periodic[i].fx) g_periodic[i].fx->Stop();
+}
+
+static void ReleasePeriodics()
+{
+    for (int i = 0; i < kMaxPeriodic; ++i) {
+        PeriodicSlot& s = g_periodic[i];
+        if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
+        s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.holdoff = 0;
+    }
+}
+
+// Creates a sine effect on the held wheel, initially silent. Returns the slot
+// (0..3) to pass to UpdatePeriodicEffect, or -1 (no device, no free slot, or
+// the driver refused GUID_Sine - fall back to synthesising at <=15 Hz through
+// the constant force). Call after InitDirectInput succeeded.
+__declspec(dllexport) int CreatePeriodicEffect(int freqHz)
+{
+    if (!g_device) { Log("CreatePeriodicEffect(%d): no device", freqHz); return -1; }
+    EnterCriticalSection(&g_lock);
+    if (!g_periodicProbed) {
+        g_periodicProbed = true;
+        g_device->EnumEffects(EnumPeriodicCb, nullptr, DIEFT_PERIODIC);
+    }
+    int slot = -1;
+    for (int i = 0; i < kMaxPeriodic; ++i) if (!g_periodic[i].used) { slot = i; break; }
+    if (slot < 0) { LeaveCriticalSection(&g_lock); Log("CreatePeriodicEffect: all %d slots in use", kMaxPeriodic); return -1; }
+    PeriodicSlot& s = g_periodic[slot];
+    s.used = true; s.hz = freqHz > 0 ? freqHz : 25;
+    HRESULT hr = CreatePeriodicInSlot(slot);
+    if (FAILED(hr)) { s.used = false; Log("CreatePeriodicEffect(%d): CreateEffect(GUID_Sine) failed 0x%08lX", freqHz, hr); slot = -1; }
+    else Log("CreatePeriodicEffect(%d Hz) -> slot %d", freqHz, slot);
+    LeaveCriticalSection(&g_lock);
+    return slot;
+}
+
+// Envelope update: magnitude 0..10000, frequency in millihertz (25 Hz = 25000),
+// clamped to 1..100 Hz. Cheap to call every frame - unchanged envelopes never
+// reach the driver. Returns 1 if the effect carries the envelope, 0 if the
+// slot is empty, the update failed, or the effect is being recreated.
+__declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz)
+{
+    if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || !g_device || g_panicked) return 0;
+    PeriodicSlot& s = g_periodic[slot];
+    if (magnitude < 0) magnitude = 0;
+    if (magnitude > kForceMax) magnitude = kForceMax;
+    if (freqMilliHz < 1000) freqMilliHz = 1000;
+    if (freqMilliHz > 100000) freqMilliHz = 100000;
+    DWORD mag    = (DWORD)magnitude;
+    DWORD period = (DWORD)(1000000000LL / freqMilliHz);   // microseconds
+
+    EnterCriticalSection(&g_lock);
+    if (!s.fx) {
+        if (GetTickCount64() < s.holdoff) { LeaveCriticalSection(&g_lock); return 0; }
+        HRESULT ch = CreatePeriodicInSlot(slot);
+        if (FAILED(ch)) { s.holdoff = GetTickCount64() + 500; LeaveCriticalSection(&g_lock); return 0; }
+        Log("  periodic[%d] recreated", slot);
+    }
+    bool silence       = (mag == 0 && s.lastMag != 0);
+    bool magChanged    = labs((long)mag - (long)s.lastMag) > 500;                                   // >5%
+    bool periodChanged = s.lastPeriod != 0 && labs((long)period - (long)s.lastPeriod) * 10 > (long)s.lastPeriod;  // >10%
+    if (!magChanged && !periodChanged && !silence) { LeaveCriticalSection(&g_lock); return 1; }
+
+    DIPERIODIC pf = {}; pf.dwMagnitude = mag; pf.dwPeriod = period;
+    DIEFFECT eff = {};
+    eff.dwSize = sizeof(DIEFFECT);
+    eff.cbTypeSpecificParams  = sizeof(DIPERIODIC);
+    eff.lpvTypeSpecificParams = &pf;
+
+    DWORD flags = DIEP_TYPESPECIFICPARAMS | (g_periodicStrategy == 1 ? DIEP_START : 0);
+    HRESULT hr = s.fx->SetParameters(&eff, flags);
+    if (g_periodicStrategy == -1) {
+        if (SUCCEEDED(hr)) { g_periodicStrategy = 0; Log("  periodic update strategy: SetParameters without DIEP_START"); }
+        else {
+            hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            if (SUCCEEDED(hr)) { g_periodicStrategy = 1; Log("  periodic update strategy: SetParameters with DIEP_START"); }
+        }
+    }
+    if (hr == E_HANDLE || hr == DIERR_NOTDOWNLOADED) {
+        Log("  periodic[%d] handle lost (0x%08lX) - recreating after 500 ms", slot, hr);
+        s.fx->Release(); s.fx = nullptr; s.lastMag = 0; s.lastPeriod = 0; s.holdoff = GetTickCount64() + 500;
+        g_lastHr = hr;
+        LeaveCriticalSection(&g_lock);
+        return 0;
+    }
+    if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
+        g_device->Unacquire(); g_device->Acquire();
+        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+    }
+    if (SUCCEEDED(hr)) { s.lastMag = mag; s.lastPeriod = period; }
+    else {
+        g_lastHr = hr;
+        static DWORD lastReport = 0;
+        DWORD now = GetTickCount();
+        if (lastReport == 0 || now - lastReport > 5000) { lastReport = now; Log("  periodic[%d] SetParameters FAILED 0x%08lX", slot, hr); }
+    }
+    LeaveCriticalSection(&g_lock);
+    return SUCCEEDED(hr) ? 1 : 0;
+}
+
+// Stops and releases every periodic slot. PanicStop and FreeDirectInput do
+// this too; call it yourself only to switch effects off while the wheel stays.
+__declspec(dllexport) void ReleasePeriodicEffects(void)
+{
+    Log("ReleasePeriodicEffects()");
+    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    EnterCriticalSection(&g_lock);
+    ReleasePeriodics();
+    LeaveCriticalSection(&g_lock);
+}
+
 // --- lifecycle ---------------------------------------------------------------
 
 // Everything off, in the order that leaves the base torque-free: zero, stop,
@@ -929,9 +1120,11 @@ __declspec(dllexport) void PanicStop(void)
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
+    StopPeriodics();
     g_device->SendForceFeedbackCommand(DISFFC_STOPALL);
     g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSOFF);
     g_device->SendForceFeedbackCommand(DISFFC_RESET);
+    ReleasePeriodics();
     ReleaseEffect();
     g_device->Unacquire();
     DIPROPDWORD prop = {};
@@ -950,6 +1143,8 @@ __declspec(dllexport) void PanicStop(void)
 __declspec(dllexport) void ZeroForces(void)
 {
     if (g_effect) SetDeviceForcesXY(0, 0);
+    for (int i = 0; i < kMaxPeriodic; ++i)
+        if (g_periodic[i].used && g_periodic[i].fx) UpdatePeriodicEffect(i, 0, g_periodic[i].hz * 1000);
 }
 
 static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
@@ -1080,6 +1275,7 @@ __declspec(dllexport) void FreeDirectInput(void)
     RemoveExitGuards();
     g_stopThreads = true;
     if (g_holdThread) { WaitForSingleObject(g_holdThread, 500); CloseHandle(g_holdThread); g_holdThread = nullptr; }
+    ReleasePeriodics();
     ReleaseEffect();
     if (g_device) { g_device->Unacquire(); g_device->Release(); g_device = nullptr; }
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;

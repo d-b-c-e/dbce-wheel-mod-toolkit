@@ -63,6 +63,9 @@ namespace Dbce.Wheel.Ffb
         [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern void SetLogPath(string path);
         [DllImport(Dll)] private static extern int  GetLastHResult();
         [DllImport(Dll)] private static extern int  GetWheelFfbVersion();
+        [DllImport(Dll)] private static extern int  CreatePeriodicEffect(int freqHz);
+        [DllImport(Dll)] private static extern int  UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz);
+        [DllImport(Dll)] private static extern void ReleasePeriodicEffects();
 
         private static bool _loaded, _initialised, _failed;
 
@@ -158,6 +161,26 @@ namespace Dbce.Wheel.Ffb
         public static void AutoCentre(bool on) { if (_initialised) try { SetAutoCenter(on ? 1 : 0); } catch { } }
         public static int  LastHResult       { get { try { return _loaded ? GetLastHResult() : 0; } catch { return 0; } } }
         public static int  Version           { get { try { return _loaded ? GetWheelFfbVersion() : 0; } catch { return 0; } } }
+
+        /// <summary>
+        /// Creates a hardware sine effect (road texture, tyre slip) on the held
+        /// wheel, initially silent. Returns the slot for <see cref="UpdatePeriodic"/>,
+        /// or -1 when the driver has no periodic support - then synthesise at
+        /// 15 Hz or below through <see cref="SetForce"/> instead. Toolkit 0.2.0+.
+        /// </summary>
+        public static int  CreatePeriodic(int freqHz)  { if (!Ready) return -1; try { return CreatePeriodicEffect(freqHz); } catch { return -1; } }
+
+        /// <summary>Envelope update; safe to call every frame (unchanged envelopes never reach the driver).</summary>
+        public static bool UpdatePeriodic(int slot, float magnitude01, float freqHz)
+        {
+            if (!Ready || slot < 0) return false;
+            try {
+                int m = (int)Math.Round(Math.Max(0f, Math.Min(1f, magnitude01)) * 10000f);
+                return UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0;
+            } catch { return false; }
+        }
+
+        public static void ReleasePeriodics()  { if (_loaded) try { ReleasePeriodicEffects(); } catch { } }
 
         /// <summary>Releases the device. Safe to call repeatedly.</summary>
         public static void Shutdown()

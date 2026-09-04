@@ -32,3 +32,6 @@ EXPORTS
     SetLogPath
     GetLastHResult
     GetWheelFfbVersion
+    CreatePeriodicEffect
+    UpdatePeriodicEffect
+    ReleasePeriodicEffects

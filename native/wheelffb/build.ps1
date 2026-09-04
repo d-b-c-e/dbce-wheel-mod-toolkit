@@ -55,6 +55,12 @@ if (Test-Path $vswhere) {
     } else { Write-Warning "dumpbin not found; exports not verified" }
 } else { Write-Warning "vswhere not found; exports not verified" }
 
+# The C header must list every export too - a native consumer resolves by name.
+$header = Get-Content (Join-Path $here 'include\wheelffb.h') -Raw
+$notInHeader = $required | Where-Object { $header -notmatch "X\([a-z]+,\s*$_\s*," }
+if ($notInHeader) { throw "include\wheelffb.h is missing exports named in WheelFfb.def: $($notInHeader -join ', ')" }
+Write-Host "include\wheelffb.h lists all $($required.Count) exports." -ForegroundColor Green
+
 if ($CopyTo) {
     if (-not (Test-Path $CopyTo)) { throw "Destination folder not found: $CopyTo" }
     $dest = Join-Path $CopyTo $As

@@ -4,7 +4,10 @@
 
 .DESCRIPTION
     Contents (all built artifacts, no source):
-      native\WheelFfb.dll                       the DirectInput FFB and device layer
+      native\WheelFfb.dll                       the DirectInput FFB and device layer (x64)
+      native\x86\WheelFfb.dll                   the same for 32-bit games
+      native\include\wheelffb.h, forza_packet.h C ABI header + loader; header-only Forza encoder
+      tools\powershell\DbceWheel.psm1           Steam discovery, DirectInput enumeration, CRLF-safe INI
       dotnet\Dbce.Wheel.Telemetry.dll (+xml)    Forza encoder, idle keeper, RPM synth
       dotnet\Dbce.Wheel.Ffb.dll (+xml)          binding, shaper, model, diagnostics
       tools\forza\*.py, tools\dev\*.ps1, tools\Sync-Toolkit.ps1, tools\ffbprobe\ffbprobe.exe (if built)
@@ -31,6 +34,17 @@ Write-Host "== native ==" -ForegroundColor Cyan
 if (-not $SkipNative) { & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'native\wheelffb\build.ps1'); if ($LASTEXITCODE -ne 0) { throw "native build failed" } }
 $native = Join-Path $root 'native\wheelffb\build\WheelFfb.dll'
 if (-not (Test-Path $native)) { throw "WheelFfb.dll not built" }
+Write-Host "== native x86 (32-bit games: OutRun 2006) ==" -ForegroundColor Cyan
+if (-not $SkipNative) { & cmd.exe /c "$(Join-Path $root 'native\wheelffb\build.bat') x86"; if ($LASTEXITCODE -ne 0) { throw "native x86 build failed" } }
+$nativeX86 = Join-Path $root 'native\wheelffb\build\x86\WheelFfb.dll'
+if (-not (Test-Path $nativeX86)) { throw "x86 WheelFfb.dll not built" }
+Write-Host "== DbceWheel.psm1 ==" -ForegroundColor Cyan
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "DbceWheel.psm1 tests failed" }
+
+Write-Host "== forza_packet.h conformance ==" -ForegroundColor Cyan
+& cmd.exe /c (Join-Path $root 'native\forza\build_test.bat') | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "forza_packet.h test failed" }
 
 Write-Host "== dotnet ==" -ForegroundColor Cyan
 dotnet build (Join-Path $root 'Dbce.Wheel.sln') -c Release "-p:Version=$Version" | Out-Host
@@ -48,9 +62,14 @@ $name  = "dbce-wheel-mod-toolkit-$Version"
 $dist  = Join-Path $root 'dist'
 $stage = Join-Path $dist $name
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
-New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native'), (Join-Path $stage 'dotnet'), (Join-Path $stage 'tools\forza'), (Join-Path $stage 'tools\dev'), (Join-Path $stage 'tools\ffbprobe'), (Join-Path $stage 'knowledge'), (Join-Path $stage 'docs\adr') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native\x86'), (Join-Path $stage 'native\include'), (Join-Path $stage 'dotnet'), (Join-Path $stage 'tools\forza'), (Join-Path $stage 'tools\dev'), (Join-Path $stage 'tools\ffbprobe'), (Join-Path $stage 'tools\powershell'), (Join-Path $stage 'knowledge'), (Join-Path $stage 'docs\adr') | Out-Null
 
 Copy-Item $native (Join-Path $stage 'native')
+Copy-Item $nativeX86 (Join-Path $stage 'native\x86')
+Copy-Item (Join-Path $root 'native\wheelffb\include\wheelffb.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'native\forza\forza_packet.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'tools\powershell\DbceWheel.psm1') (Join-Path $stage 'tools\powershell')
+Copy-Item (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') (Join-Path $stage 'tools\powershell')
 $ffbBin = Join-Path $root 'dotnet\Dbce.Wheel.Ffb\bin\Release\netstandard2.0'
 Copy-Item (Join-Path $ffbBin 'Dbce.Wheel.*.dll') (Join-Path $stage 'dotnet')
 Copy-Item (Join-Path $ffbBin 'Dbce.Wheel.*.xml') (Join-Path $stage 'dotnet') -ErrorAction SilentlyContinue
