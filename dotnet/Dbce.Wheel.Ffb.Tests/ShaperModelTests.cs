@@ -107,10 +107,11 @@ namespace Dbce.Wheel.Ffb.Tests
             var i = new ForceInputs { SpeedMps = 25f, HasSteer = true, Steer = 0.5f, HasFrontLateralForce = true, FrontLateralForce = 4000f, HasSlip = true, FrontSlipAngleDeg = 2f, IdealSlipAngleDeg = 8.5f };
             float small = m.Compute(i, 0.02f);
             Assert.True(small < 0f, "positive lateral force must produce a centring (negative) output");
-            Assert.InRange(Math.Abs(small), 0.40f, 0.50f);   // 4000/8000 × trail(≈0.95)
-            i.FrontSlipAngleDeg = 17f;                        // twice ideal → trail floor 0.6
+            float full = 4000f / m.Settings.LateralForceReference;          // before the trail
+            Assert.InRange(Math.Abs(small), full * 0.90f, full * 1.0f);      // 2° of 8.5°: trail ≈ 0.95
+            i.FrontSlipAngleDeg = 17f;                                        // twice ideal → trail floor 0.6
             float limit = m.Compute(i, 0.02f);
-            Assert.InRange(Math.Abs(limit), 0.28f, 0.32f);
+            Assert.InRange(Math.Abs(limit), full * 0.58f, full * 0.62f);
             Assert.True(Math.Abs(limit) < Math.Abs(small));
         }
 
