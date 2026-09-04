@@ -954,10 +954,35 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 // without the caller noticing. Whether a driver accepts SetParameters without
 // DIEP_START (no phase reset) is probed once and remembered.
 static const int kMaxPeriodic = 4;
-struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; bool used; ULONGLONG holdoff; };
+struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; bool used; bool started; ULONGLONG holdoff; };
 static PeriodicSlot g_periodic[kMaxPeriodic] = {};
 static int  g_periodicStrategy = -1;   // -1 untested, 0 without DIEP_START, 1 with
 static bool g_periodicProbed = false;
+
+// Start(), retried once through a re-acquire. An effect started while the
+// device is merely acquired - not exclusively - fails with
+// DIERR_NOTEXCLUSIVEACQUIRED (0x80040205) and never plays. SetDeviceForcesXY
+// has always recovered from that because every update carries DIEP_START; a
+// periodic effect does not, since the chosen update strategy is usually
+// SetParameters WITHOUT DIEP_START. Without this an effect that lost the race
+// with a focus change at creation time stays silent for the whole session.
+static HRESULT StartEffectRetrying(LPDIRECTINPUTEFFECT fx, const char* what)
+{
+    if (!fx) return E_POINTER;
+    HRESULT hr = fx->Start(1, 0);
+    if (hr == DIERR_NOTEXCLUSIVEACQUIRED || hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
+        if (g_device) {
+            g_device->Unacquire();
+            HRESULT ah = g_device->Acquire();
+            HRESULT first = hr;
+            hr = fx->Start(1, 0);
+            Log("  %s Start 0x%08lX -> re-acquire 0x%08lX -> 0x%08lX", what, first, ah, hr);
+            return hr;
+        }
+    }
+    if (FAILED(hr)) Log("  %s Start -> 0x%08lX", what, hr);
+    return hr;
+}
 
 static BOOL CALLBACK EnumPeriodicCb(LPCDIEFFECTINFO info, LPVOID)
 {
@@ -985,9 +1010,11 @@ static HRESULT CreatePeriodicInSlot(int i)
     eff.lpvTypeSpecificParams = &pf;
     HRESULT hr = g_device->CreateEffect(GUID_Sine, &eff, &s.fx, nullptr);
     if (FAILED(hr)) { s.fx = nullptr; g_lastHr = hr; return hr; }
-    // Started silent, so envelope updates only ever need SetParameters.
-    HRESULT sh = s.fx->Start(1, 0);
-    if (FAILED(sh)) Log("  periodic[%d] Start -> 0x%08lX", i, sh);
+    // Started silent, so envelope updates only ever need SetParameters - but
+    // only once it has actually started; until then every update forces
+    // DIEP_START (see UpdatePeriodicEffect).
+    char what[32]; sprintf_s(what, sizeof what, "periodic[%d]", i);
+    s.started = SUCCEEDED(StartEffectRetrying(s.fx, what));
     s.lastMag = 0; s.lastPeriod = pf.dwPeriod; s.holdoff = 0;
     return hr;
 }
@@ -1002,7 +1029,7 @@ static void ReleasePeriodics()
     for (int i = 0; i < kMaxPeriodic; ++i) {
         PeriodicSlot& s = g_periodic[i];
         if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
-        s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.holdoff = 0;
+        s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
     }
 }
 
@@ -1063,9 +1090,11 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
     eff.cbTypeSpecificParams  = sizeof(DIPERIODIC);
     eff.lpvTypeSpecificParams = &pf;
 
-    DWORD flags = DIEP_TYPESPECIFICPARAMS | (g_periodicStrategy == 1 ? DIEP_START : 0);
+    // A slot whose Start() never succeeded must carry DIEP_START itself,
+    // whatever the driver's preferred strategy is, or it plays nothing.
+    DWORD flags = DIEP_TYPESPECIFICPARAMS | ((g_periodicStrategy == 1 || !s.started) ? DIEP_START : 0);
     HRESULT hr = s.fx->SetParameters(&eff, flags);
-    if (g_periodicStrategy == -1) {
+    if (g_periodicStrategy == -1 && s.started) {
         if (SUCCEEDED(hr)) { g_periodicStrategy = 0; Log("  periodic update strategy: SetParameters without DIEP_START"); }
         else {
             hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
@@ -1083,7 +1112,7 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
         g_device->Unacquire(); g_device->Acquire();
         hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
     }
-    if (SUCCEEDED(hr)) { s.lastMag = mag; s.lastPeriod = period; }
+    if (SUCCEEDED(hr)) { s.lastMag = mag; s.lastPeriod = period; if (flags & DIEP_START) s.started = true; }
     else {
         g_lastHr = hr;
         static DWORD lastReport = 0;
@@ -1240,8 +1269,9 @@ __declspec(dllexport) int GetWheelFfbVersion(void) { return kVersion; }
 __declspec(dllexport) BOOL StartEffect(void)
 {
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
-    HRESULT hr = g_effect->Start(1, 0);
+    HRESULT hr = StartEffectRetrying(g_effect, "constant force");
     Log("StartEffect() -> 0x%08lX", hr);
+    if (FAILED(hr)) g_lastHr = hr;
     return SUCCEEDED(hr) ? TRUE : FALSE;
 }
 
