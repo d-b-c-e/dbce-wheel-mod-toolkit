@@ -75,6 +75,27 @@ $partSources = @{
 # The DLL is not rebuilt by a header-only or test-only change.
 $notTheDll = @('native/wheelffb/include/', 'native/wheelffb/test/')
 
+# Paths that live inside a part's directory but never reach a consumer: test
+# projects, conformance harnesses and their golden files. A change to one of
+# these obliged three repos to update for nothing, which is the third time this
+# tool has cried wolf; what a part SHIPS is not the same as where it lives.
+$notShipped = @(
+    '*.Tests/',                                   # dotnet test projects
+    'native/forcemodel/conformance',              # the harness and its golden file
+    'native/forcemodel/build_conformance',
+    'native/forza/test_',                         # packet conformance
+    'native/forza/build_test',
+    'native/dinput-proxy/test_',
+    'native/dinput-proxy/build_test'
+)
+function Test-Shipped($path) {
+    foreach ($n in $notShipped) {
+        if ($n.EndsWith('/')) { if ($path -like "*$n*") { return $false } }
+        elseif ($path -like "$n*") { return $false }
+    }
+    return $true
+}
+
 # Keep in step with docs/CONSUMERS.md. `Headers` narrows the `include` part to
 # the headers a consumer actually compiles: that part ships four of them, and
 # milestone-wheel-tools cares about exactly one. Without this it is told to
@@ -166,7 +187,7 @@ $rows = foreach ($c in $consumers) {
     $hit = [System.Collections.Generic.List[string]]::new()
     foreach ($part in $c.Parts) {
         foreach ($src in $partSources[$part]) {
-            $files = $changed | Where-Object { $_ -like "$src*" }
+            $files = $changed | Where-Object { $_ -like "$src*" -and (Test-Shipped $_) }
             if ($part -in 'native', 'native-x86') {
                 $files = $files | Where-Object { $f = $_; -not ($notTheDll | Where-Object { $f -like "$_*" }) }
             }
