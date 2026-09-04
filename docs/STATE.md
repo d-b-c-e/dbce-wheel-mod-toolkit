@@ -166,8 +166,9 @@ empty `.gitkeep` directories; OutRun's force model as a C++ `Arcade` reference.
 
 ## Where to read next
 
-`CLAUDE.md` for the rules and the layout, `docs/ROADMAP.md` for the per-consumer
-status table, `docs/CONSUMING.md` for how a mod vendors this, `CHANGELOG.md` for
+`CLAUDE.md` for the rules and the layout, `docs/CONSUMERS.md` (with
+`tools/Get-ConsumerStatus.ps1`) for who is on which version,
+`docs/ROADMAP.md` for what each consumer still owes, `docs/CONSUMING.md` for how a mod vendors this, `CHANGELOG.md` for
 what 0.2.0 changed, and `knowledge/` for anything device- or
 signal-related. The per-game case files under `knowledge/games/` say what each
 consumer is and what it still owes.

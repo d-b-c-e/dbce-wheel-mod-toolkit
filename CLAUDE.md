@@ -20,7 +20,9 @@ repo owns everything on the *other* side of the car-state struct: device →
 forces, frame → telemetry, device identification, diagnostics, installers,
 knowledge and templates.
 
-Consumers, and what each is on (see `docs/ROADMAP.md` for the status table):
+Consumers, and what each is on. **`docs/CONSUMERS.md` is the register**;
+`tools/Get-ConsumerStatus.ps1` reads the real pins off disk and says who is
+behind, so prefer it over the table below, which is a summary:
 
 | Repo | Runtime | On |
 |---|---|---|

@@ -41,6 +41,10 @@ content. Those stay in each game's repo and consume this one.
 - OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy *(on 0.2.0, C ABI)*
 - milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy *(on 0.2.0, C header + PowerShell)*
 
+Who is on which version, and which release obliges whom to move:
+[docs/CONSUMERS.md](docs/CONSUMERS.md), with `tools/Get-ConsumerStatus.ps1`
+to check it against reality.
+
 A managed mod references `Dbce.Wheel.*.dll`; a native mod includes
 `native/wheelffb/include/wheelffb.h` and loads `WheelFfb.dll` at runtime, so a
 missing file costs force feedback rather than stopping the game from starting.

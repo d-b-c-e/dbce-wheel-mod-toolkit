@@ -5,6 +5,28 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.2.1] - 2026-09-04
+
+### Fixed
+
+- **`Set-IniValueCrlf` duplicated a key written as `key = value`.** The key
+  regex required the tight `key=value` form, so on a config using spaces around
+  the separator - OutRun 2006's does - it appended a second line instead of
+  replacing the first, leaving two copies of the key and letting the game's
+  parser decide which wins. Found by using it on a real game config. An
+  existing line now keeps its indent and separator exactly; a newly appended
+  key copies the spacing of a sibling key in its section. Four cases added,
+  plus an assertion on every existing case that the key appears exactly once
+  afterwards.
+
+### Added
+
+- **`docs/CONSUMERS.md`** - the register of who vendors what, where each pin
+  lives, and which area of a release obliges which consumer to move.
+- **`tools/Get-ConsumerStatus.ps1`** - reads each consumer's real pin off disk
+  and prints the `Sync-Toolkit.ps1` command for anything behind, so the
+  register cannot quietly go stale.
+
 ## [0.2.0] - 2026-09-04
 
 The native half. 0.1.0 could serve a Unity mod; this release is what a native
