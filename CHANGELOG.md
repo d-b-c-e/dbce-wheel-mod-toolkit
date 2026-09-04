@@ -5,6 +5,51 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.7.2] - 2026-09-04
+
+No behaviour change. A hazard measured, pinned and explained to players.
+
+### Fixed
+
+- **The tuning guide sent players straight into a defect.** It said "too weak or
+  feels dead - raise `shaper.strength`", and separately promised that soft
+  saturation keeps a crash feeling bigger than a hard corner. Both cannot be
+  true at once: gain is applied at step 7, after the soft saturation at step 3,
+  so raising strength re-inflates an already-compressed value into the hard
+  clamp. On `arcade-outrun@1` at 60 km/h, a hard corner against a crash:
+
+  | strength | corner | crash | difference |
+  |---|---|---|---|
+  | 50 | 0.7616 | 0.9951 | 0.2335 |
+  | 60 | 0.9139 | 1.0000 | 0.0861 |
+  | 75 | 1.0000 | 1.0000 | **0.0000** |
+
+  The file now states the ceiling and points at the better dials (the wheel's
+  own driver, or `model.lateral.forceReference`). It is deployed beside the
+  game and is the only tuning documentation a player has, so it had to stop
+  recommending the thing that breaks.
+
+### Added
+
+- **`RaisingStrengthPastSixtyDefeatsSoftSaturation`** pins the hazard so it
+  cannot drift silently, and fails if the ordering is fixed - which is the
+  prompt to update the player-facing note with it.
+  It is a test rather than a golden-file row on purpose: every shipped profile
+  sets strength 50, where gain is exactly 1.0 and the ordering cannot be
+  observed at all. A fix would produce a zero-line conformance diff, exactly as
+  the 0.7.0 clamp change did before the sequence was extended.
+
+### Known, deliberately not fixed here
+
+- **Gain belongs before the soft saturation, not after it** - the same argument
+  0.7.0 made at the model boundary, one stage later. Deferred because it changes
+  feel for anyone who has already moved the dial, and that belongs between test
+  sessions rather than immediately before one. No shipped profile is affected at
+  its shipped setting.
+  Raised by art-of-sim-rally, as an ordering caveat behind the `simlite@2`
+  equivalence; they flagged it as "not a problem today". On these profiles it is
+  a present one above strength 60.
+
 ## [0.7.1] - 2026-09-04
 
 ### Added
