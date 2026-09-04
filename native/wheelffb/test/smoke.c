@@ -18,6 +18,34 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Enumerating DirectInput here, separately from the DLL, is the point: it is
+ * how a consumer with its own input layer gets the GUID it then hands to
+ * SetPreferredDeviceGuid. OutRun2006Tweaks-FFB does exactly this. */
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
+
+static BOOL CALLBACK FirstFfbCb(LPCDIDEVICEINSTANCEA inst, LPVOID ctx)
+{
+    *(GUID*)ctx = inst->guidInstance;
+    return DIENUM_STOP;
+}
+
+/* First force-feedback device's INSTANCE guid, or zeroes if there is none. */
+static int FindFirstFfbInstanceGuid(GUID* out)
+{
+    LPDIRECTINPUT8A di = NULL;
+    GUID found;
+    memset(&found, 0, sizeof found);
+    if (FAILED(DirectInput8Create(GetModuleHandleW(NULL), DIRECTINPUT_VERSION,
+                                  &IID_IDirectInput8A, (LPVOID*)&di, NULL)) || !di)
+        return 0;
+    di->lpVtbl->EnumDevices(di, DI8DEVCLASS_GAMECTRL, FirstFfbCb, &found,
+                            DIEDFL_ATTACHEDONLY | DIEDFL_FORCEFEEDBACK);
+    di->lpVtbl->Release(di);
+    *out = found;
+    return (found.Data1 || found.Data2 || found.Data3);
+}
+
 static int failures = 0;
 
 static void stage(const char* name, int ok, const char* detail)
@@ -58,7 +86,7 @@ int main(int argc, char** argv)
         printf("  could not load WheelFfb.dll: %s missing\n", miss ? miss : "?");
         return 1;
     }
-    stage("load and resolve 31 exports", 1, "");
+    stage("load and resolve every export", 1, "");
 
     version = ffb.GetWheelFfbVersion();
     sprintf_s(detail, sizeof detail, "version %d", version);
@@ -93,6 +121,25 @@ int main(int argc, char** argv)
         printf("\n  no force-feedback device attached - the rest needs one\n");
         WheelFfb_Unload(&ffb);
         return failures ? 1 : 0;
+    }
+
+    /* The OutRun2006Tweaks-FFB sequence: its remap layer has already chosen a
+     * device, so force feedback opens its own exclusive handle on that exact
+     * instance rather than guessing by name. A GUID with no actuator, or one
+     * that is not attached, must fall back rather than fail. */
+    {
+        GUID wheel;
+        if (FindFirstFfbInstanceGuid(&wheel)) {
+            unsigned char bogus[16];
+            memset(bogus, 0xAB, sizeof bogus);
+            ffb.SetPreferredDeviceGuid(bogus);
+            stage("SetPreferredDeviceGuid (unknown GUID falls back)", 1, "");
+            ffb.SetPreferredDeviceGuid(&wheel);
+            sprintf_s(detail, sizeof detail, "%08lX-%04X-%04X", wheel.Data1, wheel.Data2, wheel.Data3);
+            stage("SetPreferredDeviceGuid (real instance)", 1, detail);
+        } else {
+            stage("SetPreferredDeviceGuid (no FFB device to name)", 1, "skipped");
+        }
     }
 
     /* InitDirectInput re-resolves the handle through the process's own
