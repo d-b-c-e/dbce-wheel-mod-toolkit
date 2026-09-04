@@ -48,6 +48,86 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Keys the file carried that this build does not understand. Never silently dropped.</summary>
         public readonly List<string> UnknownKeys = new List<string>();
 
+        // -------------------------------------------------------- code presets
+        // A tune is a model AND its conditioning. These return both, because
+        // returning half of one is how simlite@1 shipped art of rally's model
+        // with this repo's default deadzone, output deadband and ramp - none of
+        // which the game has. Every value is stated rather than left to a
+        // default, so a changed default cannot quietly retune a preset, and
+        // CodePresetMatchesTheProfileItNames pins each one to its section in
+        // profiles/force-profiles.ini key by key.
+
+        /// <summary>
+        /// <c>simlite@2</c> in code: art of rally 0.2.2, model and conditioning
+        /// together, as evidenced by its own force curve.
+        /// </summary>
+        /// <remarks>
+        /// Prefer <see cref="LoadFrom"/>. A profile read from the file beside the
+        /// game can be swapped, A/B tested and overridden by the player without a
+        /// rebuild; a preset compiled in can do none of those. This is for a
+        /// consumer that has no profiles file yet.
+        /// </remarks>
+        public static ForceProfile SimLite() => new ForceProfile
+        {
+            Name = "simlite", Version = 2,
+            Description = "art of rally 0.2.2, verified against its own force curve",
+            Model = new ForceModelSettings
+            {
+                SpringStrength = 0f, SpringFullSpeedMps = 30f,
+                DamperStrength = 0f, DamperStaticFraction = 0.4f,
+                SteeringWeight = 1f, LateralForceReference = 11500f, LateralGReference = 1.2f,
+                TrailFloor = 0.6f, TrailSlipSpan = 2f, GripLoss = 0f,
+                WeightTransfer = 0f, WeightTransferMin = -0.20f, WeightTransferMax = 0.30f,
+                TextureStrength = 0f, TextureHz = 12f,
+                ImpactStrength = 0f, ImpactSeconds = 0.12f,
+                ShiftPulseStrength = 0f, ShiftPulseSeconds = 0.04f,
+            },
+            // The game conditions nothing. Its curve shows no deadzone (500 N at
+            // 5 km/h arrives undiminished), no output deadband (it sends 54, not
+            // 0), no soft saturation and no slew, and its smoothing is one
+            // SYMMETRIC coefficient at 0.2 - so attack and decay must be equal.
+            Shaper = new ForceShaper
+            {
+                Strength = 50, Invert = false,
+                Deadzone = 0f, AttackSmoothing = 0.2f, DecaySmoothing = 0.2f,
+                SoftSaturation = 0f, SlewPerSecond = 0f, OutputDeadband = 0f,
+                FadeStartKmh = 3f, FadeFullKmh = 12f, RampSeconds = 0f, PeakLimit = 1f,
+            },
+        };
+
+        /// <summary>
+        /// <c>arcade-generic@1</c> in code: the neutral starting point for an
+        /// arcade racer that has no tune of its own yet. Retune it per game and
+        /// publish that as its own family.
+        /// </summary>
+        /// <remarks>
+        /// Not OutRun's tuning. <c>arcade-outrun@1</c> in the profiles file is the
+        /// one that matches that game, and is what OutRun2006Tweaks-FFB loads.
+        /// </remarks>
+        public static ForceProfile Arcade() => new ForceProfile
+        {
+            Name = "arcade-generic", Version = 1,
+            Description = "Neutral arcade starting point for a game with no tune yet",
+            Model = new ForceModelSettings
+            {
+                SpringStrength = 0.45f, SpringFullSpeedMps = 40f,
+                DamperStrength = 0.10f, DamperStaticFraction = 0.4f,
+                SteeringWeight = 0.9f, LateralForceReference = 11500f, LateralGReference = 1.0f,
+                TrailFloor = 1f, TrailSlipSpan = 2f, GripLoss = 0.5f,
+                WeightTransfer = 0.35f, WeightTransferMin = -0.20f, WeightTransferMax = 0.30f,
+                TextureStrength = 0.15f, TextureHz = 12f,
+                ImpactStrength = 0.8f, ImpactSeconds = 0.12f,
+                ShiftPulseStrength = 0.25f, ShiftPulseSeconds = 0.04f,
+            },
+            Shaper = new ForceShaper
+            {
+                Strength = 50, Invert = false,
+                Deadzone = 0.0015f, AttackSmoothing = 0.2f, DecaySmoothing = 0.2f,
+                SoftSaturation = 1.0f, SlewPerSecond = 3.6f, OutputDeadband = 0.0015f,
+                FadeStartKmh = 3f, FadeFullKmh = 12f, RampSeconds = 0.25f, PeakLimit = 1f,
+            },
+        };
+
         // ---------------------------------------------------------------- keys
         // The vocabulary. Keep in step with native/forcemodel/force_profile.h; the
         // conformance test fails if the two disagree.

@@ -93,37 +93,36 @@ namespace Dbce.Wheel.Ffb
         public float ShiftPulseSeconds = 0.04f;
 
         /// <summary>
-        /// The sim-like preset: lateral tyre force through a pneumatic trail that
-        /// shrinks toward the limit; no virtual spring. art-of-sim-rally's shipped
-        /// model (2026-09-02), where the game exposes per-wheel lateral force.
+        /// The model half of <see cref="ForceProfile.SimLite"/>: lateral tyre force
+        /// through a pneumatic trail that shrinks toward the limit, no virtual
+        /// spring. art of rally 0.2.2, where the game exposes per-wheel lateral
+        /// force.
         /// </summary>
         /// <remarks>
-        /// Equivalent to the profile <c>simlite@1</c>. Prefer loading a named,
-        /// versioned profile (<see cref="ForceProfile"/>): a profile can be swapped
-        /// or A/B tested without rebuilding the game, and it pins what was tuned.
+        /// <b>This is half a tune.</b> Pairing it with a default
+        /// <see cref="ForceShaper"/> adds a deadzone, an output deadband and a ramp
+        /// that the game does not have — which is exactly what shipped as
+        /// <c>simlite@1</c>, and stood until the game's own force curve was
+        /// compared against. Use <see cref="ForceProfile.SimLite"/> for the whole
+        /// tune, or better, load a named version from the file beside the game.
         /// </remarks>
-        public static ForceModelSettings SimLite() => new ForceModelSettings
-        {
-            SpringStrength = 0f, DamperStrength = 0f, SteeringWeight = 1f,
-            LateralForceReference = 11500f, TrailFloor = 0.6f,
-        };
+        public static ForceModelSettings SimLite() => ForceProfile.SimLite().Model;
 
         /// <summary>
-        /// The arcade preset: OutRun2006Tweaks-FFB's "center-out" model — spring +
-        /// damper + lateral load lightening in a drift, weight transfer, events.
-        /// Starting values, not truth; every game retunes.
+        /// The model half of <see cref="ForceProfile.Arcade"/>: the "center-out"
+        /// model — spring + damper + lateral load lightening in a drift, weight
+        /// transfer, events. Starting values, not truth; every game retunes.
         /// </summary>
         /// <remarks>
-        /// This is <b>not</b> OutRun's shipped tuning; several constants differ.
-        /// <c>arcade-outrun@1</c> in <c>profiles/force-profiles.ini</c> is the one
-        /// that matches the game, and is what OutRun2006Tweaks-FFB loads.
+        /// <b>This is half a tune</b>, and the missing half matters here too: the
+        /// arcade conditioning wants soft saturation and a slew limit, and neither
+        /// is a <see cref="ForceShaper"/> default. Use
+        /// <see cref="ForceProfile.Arcade"/>.
+        /// This is also <b>not</b> OutRun's shipped tuning; several constants
+        /// differ. <c>arcade-outrun@1</c> in <c>profiles/force-profiles.ini</c> is
+        /// the one that matches the game, and is what OutRun2006Tweaks-FFB loads.
         /// </remarks>
-        public static ForceModelSettings Arcade() => new ForceModelSettings
-        {
-            SpringStrength = 0.45f, DamperStrength = 0.10f, SteeringWeight = 0.9f,
-            LateralGReference = 1.0f, TrailFloor = 1f, GripLoss = 0.5f, WeightTransfer = 0.35f,
-            SpringFullSpeedMps = 40f, TextureStrength = 0.15f, ImpactStrength = 0.8f, ShiftPulseStrength = 0.25f,
-        };
+        public static ForceModelSettings Arcade() => ForceProfile.Arcade().Model;
     }
 
     /// <summary>

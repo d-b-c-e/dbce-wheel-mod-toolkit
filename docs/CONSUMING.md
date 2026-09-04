@@ -97,9 +97,19 @@ INI edits.
 
 `ForceShaper` is the conditioning chain (deadzone, dual-rate EMA, soft
 saturation, slew with event bypass, low-speed fade, ramp, Strength/invert,
-peak limit). `ForceModel` with `ForceModelSettings.SimLite()` (lateral force
-through a trail) or `Arcade()` (spring + damper + lateral load + events) turns
-a `ForceInputs` struct into a normalised force; its `Validator.Report()`
+peak limit).
+
+Reach for a **whole tune**, not half of one. `ForceProfile.SimLite()` (lateral
+force through a trail, art of rally 0.2.2) and `ForceProfile.Arcade()` (spring
++ damper + lateral load + events) carry the model and the conditioning that
+belong together. `ForceModelSettings.SimLite()`/`Arcade()` return the model
+half only, and pairing either with a default `ForceShaper` gives you
+conditioning no game asked for; that mistake shipped as `simlite@1`. Better
+still, load a named version from the file beside the game with
+`ForceProfile.LoadFrom`, so a tune can be swapped without a rebuild.
+
+`ForceModel` turns a `ForceInputs` struct into a normalised force; its
+`Validator.Report()`
 belongs in your support bundle — it flags a dead steer input and a force that
 fails to centre by speed band. `FfbDiagnostics` formats the peak report and
 the 5 Hz trace.

@@ -174,5 +174,65 @@ shaper.invert         = true
             float f = model.Compute(inputs, 1f / 60f);
             Assert.True(f < 0f, "a right steer must produce a left (centring) force, got " + f);
         }
+
+        private static ForceProfile PresetNamed(string id)
+        {
+            switch (id)
+            {
+                case "simlite@2":        return ForceProfile.SimLite();
+                case "arcade-generic@1": return ForceProfile.Arcade();
+                default: throw new ArgumentException("no code preset for " + id, "id");
+            }
+        }
+
+        /// <summary>
+        /// A code preset and the section it names must not drift apart. The file is
+        /// the source of truth; the preset is for a consumer that has no file yet,
+        /// and one that quietly disagreed with the published tune would be worse
+        /// than no preset at all.
+        /// </summary>
+        [Theory]
+        [InlineData("simlite@2")]
+        [InlineData("arcade-generic@1")]
+        public void CodePresetMatchesTheProfileItNames(string id)
+        {
+            var fromFile = ForceProfile.Parse(File.ReadAllText(ShippedPath()), id);
+            var preset = PresetNamed(id);
+
+            Assert.Equal(id, preset.Id);
+            Assert.Equal(fromFile.Description, preset.Description);
+
+            var keys = (string[])typeof(ForceProfile)
+                .GetField("KeyNames", System.Reflection.BindingFlags.NonPublic |
+                                      System.Reflection.BindingFlags.Static)
+                .GetValue(null);
+            foreach (var key in keys)
+                Assert.True(fromFile.Get(key) == preset.Get(key),
+                    id + ": " + key + " is " + preset.Get(key) + " in code but " +
+                    fromFile.Get(key) + " in profiles/force-profiles.ini");
+        }
+
+        /// <summary>
+        /// Why the whole-tune presets exist at all. A model preset paired with a
+        /// default <see cref="ForceShaper"/> is not the game it names: the defaults
+        /// are a reasonable arcade starting point and nobody's measured tune. That
+        /// pairing is what shipped as <c>simlite@1</c>.
+        /// </summary>
+        [Fact]
+        public void AModelPresetWithADefaultShaperIsNotTheTune()
+        {
+            var defaults = new ForceShaper();
+
+            // art of rally conditions nothing; the defaults add three things.
+            var sim = ForceProfile.SimLite().Shaper;
+            Assert.NotEqual(defaults.Deadzone, sim.Deadzone);
+            Assert.NotEqual(defaults.OutputDeadband, sim.OutputDeadband);
+            Assert.NotEqual(defaults.RampSeconds, sim.RampSeconds);
+
+            // The arcade tune wants two things the defaults leave off.
+            var arcade = ForceProfile.Arcade().Shaper;
+            Assert.NotEqual(defaults.SoftSaturation, arcade.SoftSaturation);
+            Assert.NotEqual(defaults.SlewPerSecond, arcade.SlewPerSecond);
+        }
     }
 }
