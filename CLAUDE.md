@@ -1,5 +1,10 @@
 # dbce-wheel-mod-toolkit — Claude working notes
 
+> **Resuming a session? Read `docs/STATE.md` first.** It records what is
+> verified and how, what is built but has never been driven in a game, the next
+> actions in priority order, and the assumptions still worth re-checking. Do not
+> describe a route as working if STATE.md lists it as never having run.
+
 ## Repository Purpose
 
 The shared core for a family of mods that add **force feedback, telemetry and
@@ -15,11 +20,18 @@ repo owns everything on the *other* side of the car-state struct: device →
 forces, frame → telemetry, device identification, diagnostics, installers,
 knowledge and templates.
 
-Consumers today: `art-of-sim-rally` (Unity 2019 Mono, Unity Mod Manager),
-`iracing-arcade-wheel` (Unity 6 IL2CPP, BepInEx 6), `cruisn-collection`
-(MAME fork, SDL2), `OutRun2006Tweaks-FFB` (native dinput8 proxy),
-`milestone-wheel-tools` (native dinput8 proxy, UE4). Adjacent: `cannonball-se`,
-`mame-racing`, `xoutput-redux`, `wheel-db`, `controller-input-db`.
+Consumers, and what each is on (see `docs/ROADMAP.md` for the status table):
+
+| Repo | Runtime | On |
+|---|---|---|
+| `art-of-sim-rally` | Unity 2019 Mono, Unity Mod Manager | 0.2.0 — telemetry + native DLL |
+| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | 0.2.0 — telemetry + native DLL. **`lib/` is gitignored there**; its pin lives in its CHANGELOG |
+| `OutRun2006Tweaks-FFB` | native dinput8 proxy, x86 | 0.2.0 — the whole FFB device layer via the C ABI |
+| `milestone-wheel-tools` | native dinput8 proxy, UE4 | 0.2.0 — `forza_packet.h` + `DbceWheel.psm1` |
+| `cruisn-collection` | MAME fork, SDL2 | not yet; it is the seed for the SDL2 backend, not a consumer of the DirectInput one |
+
+Adjacent: `cannonball-se`, `mame-racing`, `xoutput-redux`, `wheel-db`,
+`controller-input-db`.
 
 The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 
@@ -27,15 +39,21 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 
 | Path | Contents |
 |---|---|
-| `native/wheelffb/` | C-ABI DLL: FFB output + device layer. DirectInput backend (primary), SDL2 haptics backend (secondary). See ADR-0001. |
-| `native/dinput-proxy/` | dinput8 proxy scaffold, SIXDOF→DRIVING re-type, input/FFB taps. Optional module. |
+| `native/wheelffb/` | C-ABI DLL: FFB output + device layer. DirectInput backend (primary); SDL2 backend is planned, not written. See ADR-0001. |
+| `native/wheelffb/include/wheelffb.h` | **The C ABI**, as one `WHEELFFB_API_LIST` macro plus a runtime loader (`WheelFfb_LoadBeside`). Native consumers include this and never link an import library. `build.ps1` fails if it disagrees with `WheelFfb.def`. |
+| `native/wheelffb/test/` | `smoke.c` — walks the whole ABI against a real wheel. **Applies no torque unless given `--force`**, so it is safe beside a live direct-drive base. |
+| `native/forza/` | `forza_packet.h`, the Forza encoder as a header-only C++11 file for native mods, plus its conformance test. |
 | `dotnet/Dbce.Wheel.Telemetry/` | `netstandard2.0`. Forza "Data Out" 232/311/324 encoders, `TelemetryFrame` (the car-state seam), idle keeper, RPM synthesis. Tests alongside. |
-| `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. P/Invoke to the native DLL (Mono preload and CoreCLR resolver paths), force-shaping chain, device selection, diagnostics, support bundle. |
-| `dotnet/Dbce.Wheel.Input/` | Direct-read binding (assign-by-moving, rest/far calibration); Unity Input System kit as a sub-package. |
-| `tools/` | wheelprobe, forza probe/synth, ffb trace report, dinput axis reader, raw-input listener; PowerShell module (Steam discovery, device enumeration, CRLF-safe INI, installer scaffold, unattended-test helpers). |
-| `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the migration tracker. |
-| `templates/` | New-game scaffolds: `unity-mono-umm/`, `unity-il2cpp-bepinex/`, `native-dinput8-proxy/`, each with a CLAUDE.md skeleton carrying the non-negotiables. |
+| `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. P/Invoke to the native DLL (Mono preload and CoreCLR resolver paths), force-shaping chain, `ForceModel`, device selection, diagnostics. |
+| `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
+| `tools/` | `Sync-Toolkit.ps1` (consumers vendor with this), `ffbprobe/` (scripted constant force against a real base), `forza/` (probe and synth), `dev/` (unattended-test helpers), `package/package.ps1`. |
+| `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
+
+**Empty on purpose, not yet written** — `native/dinput-proxy/`,
+`dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
+directories. They mark where those modules belong. Do not go looking for code
+in them; see the deferred list in `docs/PLAN.md`.
 
 ## Runtime matrix — the reason the core is native
 
@@ -55,8 +73,10 @@ goes in a clearly named sub-package.
 
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.
-- Native DLL is **x64 only**, built with MSVC; `build.ps1` verifies every export
-  with `dumpbin`. A mangled or missing export fails silently in-game.
+- Native DLL builds **x64 and x86** with MSVC (`build.bat x86` for 32-bit games
+  such as OutRun 2006; output goes to `build\x86\`). `build.ps1` verifies every
+  export with `dumpbin` *and* checks `include/wheelffb.h` against `WheelFfb.def`.
+  A mangled or missing export fails silently in-game.
 - `BOOL` across the C ABI is the 4-byte Win32 `BOOL`; never C++ `bool`.
 - The C ABI is the contract. Add exports; never change or remove one. Consumers
   vendor a *built* DLL, pinned by version, via `Sync-Toolkit.ps1`.
@@ -78,20 +98,32 @@ goes in a clearly named sub-package.
    ramp in from zero over ~250 ms on `E_HANDLE` / `DIERR_NOTDOWNLOADED`; never
    re-acquire on a failed `Poll()` — it destroys downloaded effects. Look
    HRESULTs up in `dinput.h` before theorising; this code was misread twice.
-4. **Zero the wheel while the game window still exists.** Hook `WM_CLOSE`,
+4. **Retry `Start()` through a re-acquire, and force `DIEP_START` until a slot
+   has really started.** `Start` returning `DIERR_NOTEXCLUSIVEACQUIRED` is
+   survivable for a constant force, because every update carries `DIEP_START`.
+   A periodic effect's updates deliberately do not, so a slot that lost a race
+   with a focus change sets its parameters perfectly and plays nothing for the
+   whole session. Never let the update-strategy probe draw a conclusion from an
+   effect that never started (2026-09-04, found by `test/smoke.c` on its first
+   run).
+5. **Resolve `DirectInput8Create` from `system32` by full path.** Inside a game
+   modded with a `dinput8.dll` proxy - which is most of the native consumers -
+   an import named `dinput8.dll` binds to the proxy beside the game exe, so
+   this layer ends up running *through* the layer it is meant to sit beside.
+6. **Zero the wheel while the game window still exists.** Hook `WM_CLOSE`,
    `WM_QUERYENDSESSION` and `ExitProcess`; by `DLL_PROCESS_DETACH` nothing
    reaches the device. A hold watchdog releases force when the game stops
    writing. Never hard-kill a game with FFB live.
-5. **Autocentre may only be written on an unacquired device** (`0x800700AA`
+7. **Autocentre may only be written on an unacquired device** (`0x800700AA`
    otherwise). Restore it last, after `Unacquire`.
-6. **Rank FFB-capable devices first and blocklist virtual pads** (vJoy, ViGEm,
+8. **Rank FFB-capable devices first and blocklist virtual pads** (vJoy, ViGEm,
    XOutput, vXbox). vJoy reports 8 axes / 128 buttons like a MOZA R12 and
    advertises FFB. Prefer VID:PID as the device key.
-7. **Never switch a game's input library backend at runtime** (Rewired
+9. **Never switch a game's input library backend at runtime** (Rewired
    `ResetAll()` killed the menus four times). Read the device directly instead.
-8. **No physics or assist changes in this repo**, ever. Those are per-game
+10. **No physics or assist changes in this repo**, ever. Those are per-game
    decisions with per-game online gates.
-9. **Manifests, configs and knowledge are data.** Nothing here executes game
+11. **Manifests, configs and knowledge are data.** Nothing here executes game
    files or ships game assets.
 
 ## Decisions
@@ -103,25 +135,44 @@ goes in a clearly named sub-package.
   diagnosability for portability and ergonomics. Which one *feels* better is
   settled by the conformance probe, not by claim. See `docs/adr/0001-ffb-output-backends.md`.
 
-## Sequence (from the proposal)
+## Where the work stands
 
-1. Repo, knowledge base, portfolio cards — this commit begins it.
-2. Telemetry library + existing tests (from art-of-sim-rally), consumed by both Unity mods.
-3. Native FFB core unified on art-of-sim-rally's superset, with OutRun's lifecycle rules and cruisn's watchdog; both Unity mods ship one binary.
-4. Device identification + wheel-db quirk table.
-5. Input kit, IL2CPP-safe IMGUI widgets, templates, bootstrap checklist.
-6. Deferred: proxy scaffold merge, InputBridge dedupe.
+`docs/ROADMAP.md` opens with the per-consumer status table and
+`docs/PLAN.md` tracks the steps; `docs/STATE.md` is the handoff. In short:
+0.1.0 served managed mods, 0.2.0 added the native half, and four of the five
+consumers are on it. The largest piece of duplicated code still outside this
+repo is the **dinput8 proxy scaffold**, which OutRun and Milestone each carry
+their own copy of.
 
 ## Testing
 
+Six entry points. `tools/package/package.ps1` runs the five below and then
+builds the release zip, so it is the one command that proves the repo on a
+machine with no wheel attached. The smoke test is the sixth and is separate,
+because it needs real hardware.
+
 ```powershell
-dotnet test Dbce.Wheel.sln
-.\native\wheelffb\build.ps1        # verifies exports
+dotnet test Dbce.Wheel.sln                     # 60 tests
+.\native\wheelffb\build.ps1                   # x64 + export/header check
+.\native\wheelffb\build.bat x86               # 32-bit games
+.\native\forza\build_test.bat                 # packet conformance
+.\tools\powershell\Test-DbceWheel.ps1         # INI edge cases + discovery
+.\tools\package\package.ps1 -Version X.Y.Z    # all of the above, then dist\
 ```
 
-Nothing in this repo needs a game installed. Device-level behaviour is
-verified with `tools/ffbprobe` against a real base and recorded in
-`knowledge/`, with the wheel model and date.
+**Run the smoke test whenever the native DLL changes.** It is the only thing
+that exercises the ABI the way a consumer does, and it found a real bug on its
+first run:
+
+```powershell
+.\native\wheelffb\test\build_smoke.bat x86    # then build\x86\smoke.exe
+```
+
+It applies **no torque** unless given `--force`, so it is safe to run unattended
+beside a powered direct-drive base.
+
+Nothing in this repo needs a game installed. Device-level behaviour is verified
+against a real base and recorded in `knowledge/`, with the wheel model and date.
 
 ## Working on this machine
 
