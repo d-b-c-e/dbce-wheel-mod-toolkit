@@ -5,6 +5,66 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.8.0] - 2026-09-04
+
+**Gain and invert moved to the middle of the conditioning chain.** Both were
+applied last. Chasing the first one uncovered a second, worse defect, and then
+a third; all three are the same root cause, and the fix is one line moved.
+
+The chain is now:
+
+```
+deadzone -> EMA -> GAIN/INVERT -> soft saturation -> slew -> fade -> ramp -> clamp
+```
+
+Gain and invert are the boundary. Above them the value is in model units;
+below them it is in true output units and true output sign, and every stage
+below is a device-side limit. **The slew limiter compares against the value
+actually sent, so it cannot be correct while that value and the one being
+limited disagree on either scale or sign.** That is the whole of it.
+
+### Fixed
+
+- **The slew limiter latched the wheel at full force, in the wrong direction.**
+  Above roughly `shaper.strength` 65, gain re-inflated an already-saturated
+  value into the hard clamp, so the limiter's reference pinned at 1.0 and a step
+  of 3.6/60 could never walk it back. Measured on `arcade-outrun@3` over the
+  conformance sequence: the output sat at exactly full scale for **163 of 200
+  ticks**, and did so against the model - it asked for -1.02 while the wheel was
+  sent +1.0000. A latch, not a limit. Now 0 of 200, mean output 0.87 -> 0.48.
+- **`shaper.invert` plus any slew limit meant no force at all.** Invert was
+  applied after the limiter, so the limiter's reference had the opposite sign to
+  the value it was limiting. A steady input oscillated between -0.060 and 0.000
+  forever: the wheel buzzed at the tick rate and no force ever arrived. Invert
+  is now a clean mirror, asserted tick by tick.
+  Nothing shipped hit this - every profile has invert false - but the tuning
+  guide tells a player to set it when the wheel fights them, and all three
+  arcade tunes carry a slew limit.
+- **Raising `shaper.strength` no longer flattens the knee.** Gain now drives
+  into the soft saturation instead of past it, so a crash still outweighs a hard
+  corner. `arcade-outrun@1` at 60 km/h, model 1.0 against 3.0: at strength 75 the
+  gap was exactly 0.0000, and is now 0.0946.
+
+### Added
+
+- **`arcade-outrun@3`** - `arcade-outrun@1` with `shaper.strength = 75` and
+  nothing else changed, so an A/B against @1 isolates that one dial.
+  It also exists because the golden file could not otherwise see this release:
+  every other profile ships strength 50, where gain is exactly 1.0 and the
+  ordering is unobservable. Isolating the change with an identical profile set
+  on both sides gives 0/200 ticks changed for all five strength-50 profiles and
+  200/200 for @3. **Without @3 in the file this entire release would have
+  produced a zero-line conformance diff** - the same blind spot that hid the
+  0.7.0 clamp change until the sequence was extended. Third time; the pattern is
+  now in the notes rather than the incident.
+
+### Compatibility
+
+No shipped tune changes: all five existing profiles set strength 50 and invert
+false, where both moves are provably no-ops, and the golden file shows exactly
+that. A consumer that had raised strength above ~65, or set invert, was in the
+broken cases above and moves to correct behaviour.
+
 ## [0.7.2] - 2026-09-04
 
 No behaviour change. A hazard measured, pinned and explained to players.
