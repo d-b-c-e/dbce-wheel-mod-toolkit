@@ -1,10 +1,18 @@
 // Semantic invariants, independent of regenerated profile golden outputs.
-#include "force_model.h"
+#include "force_profile.h"
 #include <cstdio>
 #include <limits>
 using namespace dbce::force;
 #define CHECK(x) do { if (!(x)) { std::printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
-int main() {
+int main(int argc, char **argv) {
+    // Exercise actual file loading as well as the text-parser golden tests.
+    // The un-terminated directory catches platform-specific path joins.
+    if (argc != 2) { std::puts("usage: events profiles-directory"); return 2; }
+    Profile loaded; std::string why;
+    CHECK(load_profile_dir(argv[1], "cruisn-vunit@2", loaded, &why));
+    CHECK(loaded.name == "cruisn-vunit" && loaded.version == 2);
+    CHECK(load_profile_dir(std::string(argv[1]) + "/", "cruisn-vunit@2", loaded, &why));
+    CHECK(!load_profile_dir(argv[1], "missing-profile@1", loaded, &why));
     ModelSettings s; s.impact_strength = .5f;
     Model m(s); Inputs i; i.has_steer = true; i.impact = 1.f;
     CHECK(std::fabs(m.compute(i, .01f)) == .5f);

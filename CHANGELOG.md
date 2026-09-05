@@ -5,6 +5,14 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.10.1] - 2026-09-05
+
+- Fix native profile-directory joining on non-Windows hosts. Forward slashes
+  work on both supported platforms; existing trailing separators are preserved.
+- Exercise actual profile file loading in MSVC and Linux semantic tests. The
+  consumer's first Linux analyzer run exposed the gap in text-only conformance.
+- No force algorithms, profile parameters or device DLL behavior changed.
+
 ## [0.10.0] - 2026-09-05
 
 - Add native `RiseDetector` and managed `ForceRiseDetector`: time-based,

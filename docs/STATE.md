@@ -15,7 +15,9 @@ are still priorities, not completed features.
 
 ## TL;DR
 
-**Current source release: v0.10.0.** Do not trust a version number written anywhere in
+**Current source release: v0.10.1.** The follow-up fixes native profile loading
+on Linux and adds real file-loading checks to both native CI paths.
+Do not trust a version number written anywhere in
 prose, including here - run `.\tools\Get-ConsumerStatus.ps1`, which reads each
 consumer's real pin off disk.
 

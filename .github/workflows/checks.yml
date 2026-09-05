@@ -21,4 +21,4 @@ jobs:
       - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/conformance.cpp -o /tmp/conformance
       - run: /tmp/conformance
       - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/test_events.cpp -o /tmp/events
-      - run: /tmp/events
+      - run: /tmp/events profiles
