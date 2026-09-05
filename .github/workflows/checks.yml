@@ -1,0 +1,24 @@
+name: shared contracts
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  managed:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet test Dbce.Wheel.sln --configuration Release --nologo
+      - name: MSVC profile conformance
+        shell: cmd
+        run: native\forcemodel\build_conformance.bat
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/conformance.cpp -o /tmp/conformance
+      - run: /tmp/conformance
+      - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/test_events.cpp -o /tmp/events
+      - run: /tmp/events

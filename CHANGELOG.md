@@ -5,6 +5,24 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.10.0] - 2026-09-05
+
+- Add native `RiseDetector` and managed `ForceRiseDetector`: time-based,
+  pre-gain force-rise candidates, including idle and unchanged samples. They
+  report waveform candidates, not confirmed vehicle collisions.
+- Keep unknown-direction impacts audible to the model at centered steering;
+  reset managed event diagnostics consistently with native state.
+- Match the telemetry socket to the resolved IPv4/IPv6 address family and
+  clarify that socket sends are synchronous.
+- Restore the missing conformance vectors for `cruisn-vunit@3` and `@4`;
+  existing profile vectors are unchanged. Add semantic event tests and CI.
+- Register Cruis'n's actual toolkit pin and shared headers/profiles in the
+  consumer status checker. Document the independent assessment and follow-ups.
+
+Validation: 105 managed tests; native semantic tests at 30/60/250/1000 Hz;
+all 10 profiles x 200 ticks checked against the conformance reference.
+No native device DLL changed and no physical force was applied.
+
 ## [0.9.0] - 2026-09-04
 
 **Cruis'n joins, and brings four things this repo did not have.** It is the

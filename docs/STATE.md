@@ -1,12 +1,21 @@
 # Where we left off
 
-**Last session: 2026-09-04.** Start here when picking this up fresh.
+**Last session: 2026-09-05.** Start here when picking this up fresh.
+
+Independent review and first fixes: [REVIEW-2026-09-05.md](REVIEW-2026-09-05.md).
+The review baseline is tagged `assessment-2026-09-05` (`4e99136`). Version
+0.10.0 adds source-force rise detection, fixes centered directionless impacts,
+repairs the missing profile references, and adds CI. 105 managed tests pass.
+No hardware force or consumer deployment was used to assess physical feel.
+Cruis'n is adopting the pure header component; its SDL device lifecycle remains
+separate. Selection identity, signal provenance and fake-device lifecycle tests
+are still priorities, not completed features.
 
 ---
 
 ## TL;DR
 
-**Current release: v0.7.1.** Do not trust a version number written anywhere in
+**Current source release: v0.10.0.** Do not trust a version number written anywhere in
 prose, including here - run `.\tools\Get-ConsumerStatus.ps1`, which reads each
 consumer's real pin off disk.
 

@@ -161,7 +161,9 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Last structural (non-event) force, for traces.</summary>
         public float LastStructural { get; private set; }
 
-        public void Reset() { _shiftPulseT = -1f; _impactT = -1f; _texturePhase = 0f; Validator.Reset(); }
+        public void Reset() { _shiftPulseT = -1f; _shiftEmitted = 0f; _impactT = -1f;
+            _impactSign = _impactMag = _texturePhase = 0f;
+            LastWasEvent = false; LastStructural = 0f; Validator.Reset(); }
 
         /// <summary>
         /// One tick. <paramref name="dt"/> in seconds. The result is normalised
@@ -216,7 +218,7 @@ namespace Dbce.Wheel.Ffb
             // --- events -------------------------------------------------------------
             bool isEvent = false;
             float ev = 0f;
-            if (i.Impact > 0f) { _impactT = 0f; _impactMag = Math.Min(1f, i.Impact); _impactSign = i.ImpactDirection != 0f ? Math.Sign(i.ImpactDirection) : (i.HasSteer ? -Math.Sign(i.Steer) : 1f); }
+            if (i.Impact > 0f) { _impactT = 0f; _impactMag = Math.Min(1f, i.Impact); _impactSign = i.ImpactDirection != 0f ? Math.Sign(i.ImpactDirection) : (i.HasSteer && i.Steer != 0f ? -Math.Sign(i.Steer) : 1f); }
             if (_impactT >= 0f)
             {
                 float span = Math.Max(0.001f, s.ImpactSeconds);

@@ -11,6 +11,10 @@ for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Mi
 call "!VSPATH!\VC\Auxiliary\Build\vcvars64.bat" >nul
 cl.exe /nologo /O2 /W4 /EHsc /D_CRT_SECURE_NO_WARNINGS /Fo"build\\" /Fe"build\conformance.exe" conformance.cpp
 if errorlevel 1 exit /b 1
+cl.exe /nologo /O2 /W4 /EHsc /Fo"build\\" /Fe"build\events.exe" test_events.cpp
+if errorlevel 1 exit /b 1
+.\build\events.exe
+if errorlevel 1 exit /b 1
 cd build
 REM explicit ".\" because NoDefaultCurrentDirectoryInExePath may be set
 .\conformance.exe %1

@@ -9,10 +9,10 @@ namespace Dbce.Wheel.Telemetry
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Called from the game's physics loop, so the two rules are: never allocate per
-    /// frame, and never let a network error reach the caller. A telemetry problem
-    /// must not stall or crash the game — dropping a packet is always the right
-    /// answer, and UDP callers expect loss anyway.
+    /// Uses a reusable serialization buffer and contains network exceptions. Send
+    /// is synchronous: callers with a strict physics deadline should invoke it
+    /// from a bounded latest-sample worker rather than assume a nonblocking send.
+    /// UDP callers must tolerate dropped packets.
     /// </para>
     /// <para>
     /// Not thread-safe: the shared scratch buffer assumes a single caller. That
@@ -66,7 +66,7 @@ namespace Dbce.Wheel.Telemetry
             }
 
             _endpoint = new IPEndPoint(address, port);
-            _client   = new UdpClient();
+            _client   = new UdpClient(address.AddressFamily);
 
             // Broadcast is off by default; enabling it lets a user point telemetry at
             // 255.255.255.255 for a rig on the same LAN without knowing its address.

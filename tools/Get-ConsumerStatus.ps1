@@ -108,7 +108,8 @@ $consumers = @(
        Headers = @('wheelffb.h', 'forza_packet.h', 'force_model.h', 'force_profile.h') }
     @{ Name = 'milestone-wheel-tools'; Parts = @('include', 'powershell'); Pin = 'lib/toolkit/VERSION'
        Headers = @('forza_packet.h') }
-    @{ Name = 'cruisn-collection';     Parts = @();                        Pin = 'n/a' }
+    @{ Name = 'cruisn-collection';     Parts = @('include', 'profiles'); Pin = 'lib/toolkit/VERSION'
+       Headers = @('force_model.h', 'force_profile.h') }
 )
 
 function Get-Pin {

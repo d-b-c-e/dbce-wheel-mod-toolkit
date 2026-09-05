@@ -6,8 +6,10 @@ layer with a C ABI, thin .NET bindings that load in Unity Mono and CoreCLR
 alike, shared tooling, a knowledge base of everything that has already been
 paid for once, and templates for the next game.
 
-**Status: foundation.** Structure, decisions and knowledge index are laid
-down; code is being migrated from the consumer repos in the order below.
+The native device layer, managed telemetry, force models and versioned profiles
+have consumers. SDL backend consolidation and the common input library remain
+in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
+implemented behavior from plans and identifies the remaining contract gaps.
 
 ## Why
 
