@@ -145,6 +145,7 @@ namespace Dbce.Wheel.Ffb
             "shaper.attackSmoothing", "shaper.decaySmoothing", "shaper.softSaturation",
             "shaper.slewPerSecond", "shaper.outputDeadband",
             "shaper.fadeStartKmh", "shaper.fadeFullKmh", "shaper.rampSeconds", "shaper.peakLimit",
+            "shaper.smoothingMs", "shaper.impulseBypass", "shaper.settleBelow", "shaper.releveling",
         };
 
         private bool Set(string key, string value)
@@ -182,6 +183,10 @@ namespace Dbce.Wheel.Ffb
                 case "shaper.fadeFullKmh":          Shaper.FadeFullKmh = F(value); return true;
                 case "shaper.rampSeconds":          Shaper.RampSeconds = F(value); return true;
                 case "shaper.peakLimit":            Shaper.PeakLimit = F(value); return true;
+                case "shaper.smoothingMs":          Shaper.SmoothingMs = F(value); return true;
+                case "shaper.impulseBypass":        Shaper.ImpulseBypass = F(value); return true;
+                case "shaper.settleBelow":          Shaper.SettleBelow = F(value); return true;
+                case "shaper.releveling":           Shaper.RelevelHysteresis = F(value); return true;
                 default: return false;
             }
         }
@@ -222,6 +227,10 @@ namespace Dbce.Wheel.Ffb
                 case "shaper.fadeFullKmh":          return S(Shaper.FadeFullKmh);
                 case "shaper.rampSeconds":          return S(Shaper.RampSeconds);
                 case "shaper.peakLimit":            return S(Shaper.PeakLimit);
+                case "shaper.smoothingMs":          return S(Shaper.SmoothingMs);
+                case "shaper.impulseBypass":        return S(Shaper.ImpulseBypass);
+                case "shaper.settleBelow":          return S(Shaper.SettleBelow);
+                case "shaper.releveling":           return S(Shaper.RelevelHysteresis);
                 default: throw new ArgumentException("unknown profile key: " + key, nameof(key));
             }
         }

@@ -5,6 +5,56 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.9.0] - 2026-09-04
+
+**Cruis'n joins, and brings four things this repo did not have.** It is the
+first SHAPER-ONLY consumer: the arcade board hands over a finished signed motor
+byte, so there is no physics to model and `ForceModel` never runs.
+
+### Added
+
+- **`ForceShaper.SmoothingMs`** - a low-pass time constant in milliseconds,
+  `a = 1 - exp(-dt/tau)`. **This is strictly better than what was here.** The
+  dimensionless `AttackSmoothing`/`DecaySmoothing` pair is frame-rate dependent:
+  the same number smooths harder the faster you call it, so a tune arrived at by
+  driving is only valid at the rate it was tuned at. When set, it wins over the
+  pair. Taken from Cruis'n.
+- **`ForceShaper.ImpulseBypass`** - an input jump this large counts as an event
+  by itself. Needed when the source has no event flag to give you; an arcade
+  board never says "this one was a wall".
+- **`ForceShaper.SettleBelow`** - input zero and output below this, snap to zero
+  so the effect can stop. Conditional on the input being zero, which is what
+  makes it different from `OutputDeadband`: it kills a dying tail without also
+  killing a small force the game asked for.
+- **`ForceShaper.RelevelHysteresis`** - hold the last value until it has moved
+  far enough to be worth sending. Measured on the Cruis'n trace: device updates
+  drop from 9,437 to 5,872 out of 15,552 ticks, for a force difference that
+  cannot exceed the threshold itself.
+- **`cruisn-vunit@1`** reproduces what `mvffb` did by hand, and
+  **`cruisn-vunit@2`** is a 20 ms variant testing a reported loose centre.
+- **`data/cruisn-usa-mvffb-0.3.7-wheel-trace.csv`** - 62 s of real motor bytes
+  captured on the rig, with the timestamps.
+
+### Verified
+
+- **The conversion does not change the feel, and that is measured rather than
+  claimed.** `CruisnVectorTests` transcribes mvffb v0.3.7 verbatim as a
+  reference and drives both it and `cruisn-vunit@1` with the captured trace at
+  the FFB worker's real 4 ms cadence: **worst difference 33 of 32767, mean 1.8**.
+  33 is one re-level step - the closest two implementations can be when they
+  differ only in where rounding happens.
+  Ablations prove it is not a coincidence: removing `SmoothingMs` costs 10,700,
+  removing `ImpulseBypass` 9,974, removing `SettleBelow` 175.
+- All four defaults are off, so every existing profile is untouched; the golden
+  file shows exactly that.
+
+### Note
+
+Driving the two chains at the trace's own row spacing instead of the worker's
+cadence makes the comparison meaningless - the gaps run past `Shape`'s 100 ms
+dt clamp and the filters then diverge for reasons unrelated to either algorithm.
+That cost an hour and is written into the test's remarks so it is not rediscovered.
+
 ## [0.8.0] - 2026-09-04
 
 **Gain and invert moved to the middle of the conditioning chain.** Both were

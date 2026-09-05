@@ -114,6 +114,10 @@ inline bool set_key(Profile& p, const std::string& key, const std::string& value
     if (key == "shaper.fadeFullKmh")           { s.fade_full_kmh = to_f(value); return true; }
     if (key == "shaper.rampSeconds")           { s.ramp_seconds = to_f(value); return true; }
     if (key == "shaper.peakLimit")             { s.peak_limit = to_f(value); return true; }
+    if (key == "shaper.smoothingMs")           { s.smoothing_ms = to_f(value); return true; }
+    if (key == "shaper.impulseBypass")         { s.impulse_bypass = to_f(value); return true; }
+    if (key == "shaper.settleBelow")           { s.settle_below = to_f(value); return true; }
+    if (key == "shaper.releveling")            { s.releveling = to_f(value); return true; }
     return false;
 }
 

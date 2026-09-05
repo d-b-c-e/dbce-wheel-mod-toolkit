@@ -105,6 +105,10 @@ static void dump_settings(std::ostringstream& out, const Profile& p)
         { "shaper.fadeFullKmh", s.fade_full_kmh },
         { "shaper.rampSeconds", s.ramp_seconds },
         { "shaper.peakLimit", s.peak_limit },
+        { "shaper.smoothingMs", s.smoothing_ms },
+        { "shaper.impulseBypass", s.impulse_bypass },
+        { "shaper.settleBelow", s.settle_below },
+        { "shaper.releveling", s.releveling },
     };
     char line[160];
     for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {

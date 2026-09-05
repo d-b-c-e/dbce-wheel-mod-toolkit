@@ -112,6 +112,10 @@ namespace Dbce.Wheel.Ffb.Tests
                 ("shaper.fadeFullKmh", s.FadeFullKmh),
                 ("shaper.rampSeconds", s.RampSeconds),
                 ("shaper.peakLimit", s.PeakLimit),
+                ("shaper.smoothingMs", s.SmoothingMs),
+                ("shaper.impulseBypass", s.ImpulseBypass),
+                ("shaper.settleBelow", s.SettleBelow),
+                ("shaper.releveling", s.RelevelHysteresis),
             };
             foreach (var (k, v) in rows) sb.Append("S ").Append(k).Append(' ').Append(F6(v)).Append('\n');
         }

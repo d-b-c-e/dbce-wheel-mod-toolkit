@@ -110,11 +110,19 @@ struct ShaperSettings {
     float ramp_seconds;
     float peak_limit;
 
+    // ---- from Cruis'n (mvffb). All default to off, so existing profiles
+    // behave exactly as before. See ForceShaper.cs for why each exists.
+    float smoothing_ms;       // frame-rate independent low-pass time constant, ms
+    float impulse_bypass;     // an input jump this big is an event by itself
+    float settle_below;       // input 0 and |out| under this -> snap to 0
+    float releveling;         // hold the last value until it moves this far
+
     ShaperSettings()
         : strength(50), invert(false), deadzone(0.0015f),
           attack_smoothing(0.2f), decay_smoothing(0.2f), soft_saturation(0.f),
           slew_per_second(0.f), output_deadband(0.0015f),
-          fade_start_kmh(3.f), fade_full_kmh(12.f), ramp_seconds(0.25f), peak_limit(1.f) {}
+          fade_start_kmh(3.f), fade_full_kmh(12.f), ramp_seconds(0.25f), peak_limit(1.f),
+          smoothing_ms(0.f), impulse_bypass(0.f), settle_below(0.f), releveling(0.f) {}
 };
 
 // ---------------------------------------------------------------- helpers
@@ -254,7 +262,8 @@ public:
 
     ShaperSettings settings;
 
-    void reset() { smoothed_ = 0.f; last_ = 0.f; ramp_t_ = 0.f; started_ = false; }
+    void reset() { smoothed_ = 0.f; last_ = 0.f; ramp_t_ = 0.f; started_ = false;
+                   prev_in_ = 0.f; have_prev_in_ = false; }
     // Start the ramp again, e.g. after the native layer recreated the effect.
     void restart_ramp() { ramp_t_ = 0.f; started_ = false; }
 
@@ -272,11 +281,24 @@ public:
         // 1. subtractive deadzone
         if (std::fabs(v) <= s.deadzone) v = 0.f; else v -= signf(v) * s.deadzone;
 
-        // 2. dual-rate EMA (structural only)
+        // 1b. automatic impulse detection: a big enough jump IS an event even
+        //     when the caller had no way to tell us so.
+        if (s.impulse_bypass > 0.f && have_prev_in_ && std::fabs(v - prev_in_) >= s.impulse_bypass)
+            is_event = true;
+        prev_in_ = v; have_prev_in_ = true;
+        float const target = v;
+
+        // 2. smoothing (structural only). smoothing_ms, when set, is a
+        //    frame-rate independent time constant and wins over the coefficients.
         if (!is_event) {
-            float a = std::fabs(v) > std::fabs(smoothed_) ? s.attack_smoothing : s.decay_smoothing;
-            a = clampf(a, 0.f, 0.95f);
-            smoothed_ = smoothed_ + (v - smoothed_) * (1.f - a);
+            if (s.smoothing_ms > 0.f) {
+                float const a = 1.f - std::exp(-(dt * 1000.f) / s.smoothing_ms);
+                smoothed_ = smoothed_ + (v - smoothed_) * a;
+            } else {
+                float a = std::fabs(v) > std::fabs(smoothed_) ? s.attack_smoothing : s.decay_smoothing;
+                a = clampf(a, 0.f, 0.95f);
+                smoothed_ = smoothed_ + (v - smoothed_) * (1.f - a);
+            }
             v = smoothed_;
         } else {
             smoothed_ = v;
@@ -324,12 +346,24 @@ public:
         v = clampf(v, -limit, limit);
         if (std::fabs(v) < s.output_deadband) v = 0.f;
 
+        // 9. settle: the game asked for nothing and what is left is a dying tail.
+        if (s.settle_below > 0.f && target == 0.f && std::fabs(v) < s.settle_below) {
+            smoothed_ = 0.f;
+            v = 0.f;
+        }
+
+        // 10. re-level hysteresis: hold until it has moved far enough to send.
+        if (s.releveling > 0.f && ((v != 0.f) == (last_ != 0.f)) &&
+                std::fabs(v - last_) < s.releveling)
+            v = last_;
+
         last_ = v;
         return v;
     }
 
 private:
-    float smoothed_, last_, ramp_t_;
+    float smoothed_, last_, ramp_t_, prev_in_;
+    bool  have_prev_in_;
     bool  started_;
 };
 

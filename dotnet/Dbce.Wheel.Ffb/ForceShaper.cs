@@ -49,13 +49,58 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Hard cap on |output| after everything else (peak limit; 1 = none).</summary>
         public float PeakLimit = 1f;
 
+        // ---- from Cruis'n (mvffb), which had these and this repo did not -----
+        // All default to off, so every existing profile is untouched.
+
+        /// <summary>
+        /// Low-pass time constant in MILLISECONDS. When &gt; 0 it replaces
+        /// <see cref="AttackSmoothing"/>/<see cref="DecaySmoothing"/> entirely.
+        /// </summary>
+        /// <remarks>
+        /// This is the frame-rate independent filter: <c>a = 1 - exp(-dt/tau)</c>,
+        /// so 50 ms means 50 ms whether the caller ticks at 60 Hz or 250 Hz. The
+        /// dimensionless coefficients do not - the same number smooths harder the
+        /// faster you call it, which makes a tune that was arrived at by driving
+        /// only valid at the rate it was tuned at. Prefer this one.
+        /// </remarks>
+        public float SmoothingMs = 0f;
+
+        /// <summary>
+        /// A jump of at least this much between consecutive inputs bypasses the
+        /// smoothing, so a crash arrives as a pulse rather than a shove. 0 = only
+        /// an explicit <c>isEvent</c> bypasses.
+        /// </summary>
+        /// <remarks>
+        /// Needed when the source has no event flag to give you. An arcade board
+        /// hands over a finished motor byte and never says "this one was a wall".
+        /// </remarks>
+        public float ImpulseBypass = 0f;
+
+        /// <summary>
+        /// When the input is zero and the smoothed output is below this, snap to
+        /// zero so the effect can actually stop. 0 = off.
+        /// </summary>
+        /// <remarks>
+        /// Conditional on the input being zero, which is what makes it different
+        /// from <see cref="OutputDeadband"/>: it kills a dying tail without also
+        /// killing a small force the game genuinely asked for.
+        /// </remarks>
+        public float SettleBelow = 0f;
+
+        /// <summary>
+        /// Report a new value only once it has moved at least this much, or
+        /// crossed zero. Stops sub-threshold chatter reaching the device. 0 = off.
+        /// </summary>
+        public float RelevelHysteresis = 0f;
+
         public float GainFromStrength => Math.Max(0, Strength) / 50f;
 
-        private float _smoothed, _last, _rampT;
+        private float _smoothed, _last, _rampT, _prevIn;
+        private bool _havePrevIn;
         private bool _started;
 
         /// <summary>Clears filter state (between stages) so a stale force is not carried over.</summary>
-        public void Reset() { _smoothed = 0f; _last = 0f; _rampT = 0f; _started = false; }
+        public void Reset() { _smoothed = 0f; _last = 0f; _rampT = 0f; _started = false; _prevIn = 0f; _havePrevIn = false; }
 
         /// <summary>Starts the ramp-in again, e.g. after the native layer recreated the effect.</summary>
         public void RestartRamp() { _rampT = 0f; _started = false; }
@@ -76,12 +121,29 @@ namespace Dbce.Wheel.Ffb
             // 1. subtractive deadzone
             if (Math.Abs(v) <= Deadzone) v = 0f; else v -= Math.Sign(v) * Deadzone;
 
-            // 2. dual-rate EMA (structural only)
+            // 1b. automatic impulse detection. A big enough jump IS an event even
+            //     when the caller had no way to tell us so.
+            if (ImpulseBypass > 0f && _havePrevIn && Math.Abs(v - _prevIn) >= ImpulseBypass)
+                isEvent = true;
+            _prevIn = v; _havePrevIn = true;
+            float target = v;
+
+            // 2. smoothing (structural only). SmoothingMs, when set, is a
+            //    frame-rate independent time constant and wins over the pair of
+            //    dimensionless coefficients.
             if (!isEvent)
             {
-                float a = Math.Abs(v) > Math.Abs(_smoothed) ? AttackSmoothing : DecaySmoothing;
-                a = Math.Max(0f, Math.Min(0.95f, a));
-                _smoothed = _smoothed + (v - _smoothed) * (1f - a);
+                if (SmoothingMs > 0f)
+                {
+                    float a = 1f - (float)Math.Exp(-(dt * 1000f) / SmoothingMs);
+                    _smoothed = _smoothed + (v - _smoothed) * a;
+                }
+                else
+                {
+                    float a = Math.Abs(v) > Math.Abs(_smoothed) ? AttackSmoothing : DecaySmoothing;
+                    a = Math.Max(0f, Math.Min(0.95f, a));
+                    _smoothed = _smoothed + (v - _smoothed) * (1f - a);
+                }
                 v = _smoothed;
             }
             else _smoothed = v;
@@ -137,6 +199,21 @@ namespace Dbce.Wheel.Ffb
             float limit = Math.Max(0f, Math.Min(1f, PeakLimit));
             v = Math.Max(-limit, Math.Min(limit, v));
             if (Math.Abs(v) < OutputDeadband) v = 0f;
+
+            // 9. settle: the game asked for nothing and what is left is a dying
+            //    tail, so stop rather than trail. Conditional on the target being
+            //    zero, unlike OutputDeadband.
+            if (SettleBelow > 0f && target == 0f && Math.Abs(v) < SettleBelow)
+            {
+                _smoothed = 0f;
+                v = 0f;
+            }
+
+            // 10. re-level hysteresis: hold the previous value until this one has
+            //     moved far enough to be worth sending. Zero crossings always pass.
+            if (RelevelHysteresis > 0f && (v != 0f) == (_last != 0f) &&
+                Math.Abs(v - _last) < RelevelHysteresis)
+                v = _last;
 
             _last = v;
             return v;
