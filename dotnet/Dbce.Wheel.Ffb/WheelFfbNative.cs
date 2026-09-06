@@ -269,6 +269,8 @@ namespace Dbce.Wheel.Ffb
         public struct DeviceInfo
         {
             public int Index; public string Name; public int Axes; public int Buttons; public bool ForceFeedback;
+            public Guid? InstanceGuid;
+            public int? VendorId, ProductId; // Unknown is not zero; supplied by a backend with product metadata.
             /// <summary>Name plus capabilities, so two same-named devices differ.</summary>
             public string Label => Name + "  (" + Axes + " axes, " + Buttons + " buttons" + (ForceFeedback ? ", force feedback" : "") + ")";
         }
@@ -285,7 +287,7 @@ namespace Dbce.Wheel.Ffb
                 {
                     sb.Length = 0; GetDeviceName(i, sb, sb.Capacity);
                     GetDeviceInfo(i, out int a, out int b);
-                    list[i] = new DeviceInfo { Index = i, Name = sb.ToString(), Axes = a, Buttons = b, ForceFeedback = true };
+                    list[i] = new DeviceInfo { Index = i, Name = sb.ToString(), Axes = a, Buttons = b, ForceFeedback = true, InstanceGuid = DeviceGuid(i) };
                 }
                 return list;
             }
@@ -304,7 +306,7 @@ namespace Dbce.Wheel.Ffb
                 {
                     sb.Length = 0; GetAnyDeviceName(i, sb, sb.Capacity);
                     GetAnyDeviceInfo(i, out int a, out int b, out int f);
-                    list[i] = new DeviceInfo { Index = i, Name = sb.ToString(), Axes = a, Buttons = b, ForceFeedback = f != 0 };
+                    list[i] = new DeviceInfo { Index = i, Name = sb.ToString(), Axes = a, Buttons = b, ForceFeedback = f != 0, InstanceGuid = AnyDeviceGuid(i) };
                 }
                 return list;
             }

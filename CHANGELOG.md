@@ -5,6 +5,15 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.11.0] - 2026-09-06
+
+- Add native/managed bounded steering impact mixer and scalar telemetry source,
+  units, freshness and validity contracts; common analytical conformance vectors.
+- Resolve managed explicit device preferences uniquely, including instance GUID,
+  and stop falling back on missing preferences or unavailable VID/PID metadata.
+- Existing profile algorithms and native device ABI remain unchanged. See
+  `docs/SIGNAL-CONTRACTS.md` for integration limits and validation.
+
 ## [0.10.1] - 2026-09-05
 
 - Fix native profile-directory joining on non-Windows hosts. Forward slashes

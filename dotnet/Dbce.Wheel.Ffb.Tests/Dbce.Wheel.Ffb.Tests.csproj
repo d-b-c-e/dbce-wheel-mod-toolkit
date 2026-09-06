@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <None Include="data\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\native\forcemodel\impact-contract.csv" Link="impact-contract.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -15,6 +15,10 @@ cl.exe /nologo /O2 /W4 /EHsc /Fo"build\\" /Fe"build\events.exe" test_events.cpp
 if errorlevel 1 exit /b 1
 .\build\events.exe ..\..\profiles
 if errorlevel 1 exit /b 1
+cl.exe /nologo /O2 /W4 /EHsc /Fo"build\\" /Fe"build\signals.exe" test_signal_contracts.cpp
+if errorlevel 1 exit /b 1
+.\build\signals.exe impact-contract.csv
+if errorlevel 1 exit /b 1
 cd build
 REM explicit ".\" because NoDefaultCurrentDirectoryInExePath may be set
 .\conformance.exe %1

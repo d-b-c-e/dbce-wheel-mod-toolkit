@@ -210,3 +210,10 @@ empty `.gitkeep` directories; OutRun's force model as a C++ `Arcade` reference.
 what 0.2.0 changed, and `knowledge/` for anything device- or
 signal-related. The per-game case files under `knowledge/games/` say what each
 consumer is and what it still owes.
+
+## 2026-09-06 source contracts
+
+Source release v0.11.0 adds bounded explicit steering impacts and provenance-aware
+scalar telemetry in native/managed code, plus strict managed device identity.
+See [SIGNAL-CONTRACTS.md](SIGNAL-CONTRACTS.md). 109 managed tests and native
+MSVC/GCC conformance pass; no hardware force or other-consumer adoption claimed.

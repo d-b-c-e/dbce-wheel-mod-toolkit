@@ -22,14 +22,16 @@ namespace Dbce.Wheel.Ffb
         public int Vid = -1, Pid = -1;
         public int Index = -1;
         public string NameContains = "";
+        public Guid? InstanceGuid;
 
-        public bool IsEmpty => Vid < 0 && Index < 0 && string.IsNullOrEmpty(NameContains);
+        public bool IsEmpty => !InstanceGuid.HasValue && Vid < 0 && Index < 0 && string.IsNullOrEmpty(NameContains);
 
         public static DevicePreference Parse(string text)
         {
             var p = new DevicePreference();
             if (string.IsNullOrWhiteSpace(text)) return p;
             text = text.Trim();
+            if (Guid.TryParse(text, out Guid instance)) { p.InstanceGuid = instance; return p; }
             if (text.StartsWith("#") && int.TryParse(text.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx)) { p.Index = idx; return p; }
             var parts = text.Split(':');
             if (parts.Length == 2
@@ -42,7 +44,7 @@ namespace Dbce.Wheel.Ffb
         }
 
         public override string ToString() =>
-            Vid >= 0 ? Vid.ToString("x4") + ":" + Pid.ToString("x4") : Index >= 0 ? "#" + Index : NameContains;
+            InstanceGuid.HasValue ? InstanceGuid.Value.ToString() : Vid >= 0 ? Vid.ToString("x4") + ":" + Pid.ToString("x4") : Index >= 0 ? "#" + Index : NameContains;
 
         /// <summary>DirectInput's <c>guidProduct.Data1</c> for a VID/PID pair: <c>(PID &lt;&lt; 16) | VID</c>.</summary>
         public static uint ProductKey(int vid, int pid) => ((uint)pid << 16) | (uint)(vid & 0xFFFF);
@@ -59,16 +61,31 @@ namespace Dbce.Wheel.Ffb
         }
 
         /// <summary>
-        /// Picks a device index from a list: the preference if it matches; otherwise
-        /// the first force-feedback-capable real device; otherwise -1.
+        /// Returns an array position. An explicit preference must match exactly one
+        /// FFB device; missing/ambiguous preferences never fall back to another wheel.
+        /// Without a preference, picks the first FFB-capable non-virtual device.
+        /// VID/PID requires identity metadata supplied by the caller; the legacy DLL
+        /// enumeration exposes instance GUIDs but does not expose product IDs.
         /// </summary>
         public int Choose(WheelFfbNative.DeviceInfo[] devices)
         {
             if (devices == null || devices.Length == 0) return -1;
-            if (Index >= 0 && Index < devices.Length) return Index;
-            if (!string.IsNullOrEmpty(NameContains))
+            if (!IsEmpty)
+            {
+                int selected = -1;
                 for (int i = 0; i < devices.Length; i++)
-                    if (devices[i].Name != null && devices[i].Name.IndexOf(NameContains, StringComparison.OrdinalIgnoreCase) >= 0) return i;
+                {
+                    var d = devices[i];
+                    bool matches = InstanceGuid.HasValue ? d.InstanceGuid == InstanceGuid
+                        : Vid >= 0 ? d.VendorId == Vid && d.ProductId == Pid
+                        : Index >= 0 ? i == Index
+                        : d.Name != null && d.Name.IndexOf(NameContains, StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!matches) continue;
+                    if (!d.ForceFeedback || selected >= 0) return -1;
+                    selected = i;
+                }
+                return selected;
+            }
             for (int i = 0; i < devices.Length; i++)
                 if (devices[i].ForceFeedback && !IsVirtualDevice(devices[i].Name)) return i;
             return -1;
