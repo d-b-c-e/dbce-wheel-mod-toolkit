@@ -15,6 +15,7 @@ namespace Dbce.Wheel.Ffb.Tests
             Assert.Equal(-1, DevicePreference.Parse("Wheel").Choose(devices));
             Assert.Equal(-1, DevicePreference.Parse("346e:0006").Choose(devices));
             Assert.Equal(-1, DevicePreference.Parse("#2").Choose(devices));
+            Assert.Equal(-1, DevicePreference.Parse("#-1").Choose(devices));
             Assert.Equal(1, DevicePreference.Parse(b.ToString()).Choose(devices));
             Array.Reverse(devices);
             Assert.Equal(0, DevicePreference.Parse(b.ToString()).Choose(devices));

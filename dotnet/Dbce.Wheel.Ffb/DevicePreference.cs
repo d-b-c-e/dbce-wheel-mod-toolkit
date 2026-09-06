@@ -32,7 +32,7 @@ namespace Dbce.Wheel.Ffb
             if (string.IsNullOrWhiteSpace(text)) return p;
             text = text.Trim();
             if (Guid.TryParse(text, out Guid instance)) { p.InstanceGuid = instance; return p; }
-            if (text.StartsWith("#") && int.TryParse(text.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx)) { p.Index = idx; return p; }
+            if (text.StartsWith("#") && int.TryParse(text.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx) && idx >= 0) { p.Index = idx; return p; }
             var parts = text.Split(':');
             if (parts.Length == 2
                 && int.TryParse(parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int vid)

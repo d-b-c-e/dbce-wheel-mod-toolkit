@@ -5,6 +5,12 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.11.1] - 2026-09-06
+
+- Treat an explicit negative device index as an invalid preference, preserving
+  failure instead of accidentally enabling automatic wheel selection.
+- Native contracts and binaries are unchanged; 109 managed tests pass.
+
 ## [0.11.0] - 2026-09-06
 
 - Add native/managed bounded steering impact mixer and scalar telemetry source,
