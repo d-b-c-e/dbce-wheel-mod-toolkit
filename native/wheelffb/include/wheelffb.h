@@ -85,7 +85,8 @@ extern "C" {
     X(void, ReleasePeriodicEffects, (void)) \
     X(int,  CreateConditionEffect,  (int type)) \
     X(int,  UpdateConditionEffect,  (int slot, int coefficient, int saturation, int deadband, int offset)) \
-    X(void, ReleaseConditionEffects,(void))
+    X(void, ReleaseConditionEffects,(void)) \
+    X(void, SetStrictDeviceSelection,(int enabled))
 
 #define WHEELFFB_TYPEDEF(ret, name, args) typedef ret (__cdecl *WheelFfb_##name##_t) args;
 WHEELFFB_API_LIST(WHEELFFB_TYPEDEF)

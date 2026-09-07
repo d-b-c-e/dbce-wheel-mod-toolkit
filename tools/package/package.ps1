@@ -55,6 +55,10 @@ Write-Host "== forza_packet.h conformance ==" -ForegroundColor Cyan
 & cmd.exe /c (Join-Path $root 'native\forza\build_test.bat') | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "forza_packet.h test failed" }
 
+Write-Host "== sync and native binding regression ==" -ForegroundColor Cyan
+& (Join-Path $root 'tools/tests/Test-SyncToolkit.ps1') | Out-Host
+& (Join-Path $root 'tools/tests/Test-NativeBinding.ps1') | Out-Host
+
 Write-Host "== dotnet ==" -ForegroundColor Cyan
 dotnet build (Join-Path $root 'Dbce.Wheel.sln') -c Release "-p:Version=$Version" | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "dotnet build failed" }

@@ -191,7 +191,9 @@ int main(int argc, char** argv)
             unsigned char bogus[16];
             memset(bogus, 0xAB, sizeof bogus);
             ffb.SetPreferredDeviceGuid(bogus);
-            stage("SetPreferredDeviceGuid (unknown GUID falls back)", 1, "");
+            ffb.SetStrictDeviceSelection(1);
+            stage("strict missing GUID refuses fallback", ffb.InitDirectInput(hwnd) == 0, "no wheel opened");
+            ffb.SetStrictDeviceSelection(0);
             ffb.SetPreferredDeviceGuid(&wheel);
             sprintf_s(detail, sizeof detail, "%08lX-%04X-%04X", wheel.Data1, wheel.Data2, wheel.Data3);
             stage("SetPreferredDeviceGuid (real instance)", 1, detail);
@@ -262,7 +264,7 @@ int main(int argc, char** argv)
         stage("CreateConditionEffect(damper)", 1, damper >= 0 ? detail : "not offered by this driver");
         if (damper >= 0) {
             int ok = ffb.UpdateConditionEffect(damper, 0, 0, 0, 0);          /* silent */
-            ok &= ffb.UpdateConditionEffect(damper, 2000, 10000, 0, 0);      /* a real, gentle damper */
+            if (applyForce) ok &= ffb.UpdateConditionEffect(damper, 2000, 10000, 0, 0);      /* a real, gentle damper */
             ok &= ffb.UpdateConditionEffect(damper, 0, 0, 0, 0);             /* off again */
             stage("  update, then silence", ok != 0, "");
         }
@@ -293,6 +295,11 @@ int main(int argc, char** argv)
 
     ffb.FreeDirectInput();
     stage("FreeDirectInput", 1, "");
+
+    stage("reinitialise after PanicStop", ffb.InitDirectInput(hwnd) != 0, "");
+    slotRoad = ffb.CreatePeriodicEffect(25);
+    stage("periodic resumes after panic", slotRoad >= 0 && ffb.UpdatePeriodicEffect(slotRoad, 0, 25000) != 0, "silent");
+    ffb.ZeroForces(); ffb.PanicStop(); ffb.FreeDirectInput();
 
     WheelFfb_Unload(&ffb);
     if (win) DestroyWindow(win);

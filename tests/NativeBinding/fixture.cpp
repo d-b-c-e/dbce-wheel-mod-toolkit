@@ -1,0 +1,48 @@
+#include <windows.h>
+#include <string.h>
+static int fault,force,initCount,freeCount,active,hasName,hasGuid,strict,readCalls;
+static int selectedIndex=-1;
+extern "C" {
+__declspec(dllexport) int __cdecl InitDirectInput(int hwnd) { (void)hwnd; initCount++; active = fault == 1 ? 0 : 1; return active; }
+__declspec(dllexport) void __cdecl Aquire(void) {  }
+__declspec(dllexport) int __cdecl SetDeviceForcesXY(int x, int y) { (void)x; (void)y; force=x; return fault == 3 ? 0 : active; }
+__declspec(dllexport) int __cdecl StartEffect(void) { return fault == 2 ? 0 : active; }
+__declspec(dllexport) int __cdecl StopEffect(void) { return 1; }
+__declspec(dllexport) int __cdecl SetAutoCenter(int enable) { (void)enable; return 1; }
+__declspec(dllexport) void __cdecl FreeDirectInput(void) { active=0; freeCount++; }
+__declspec(dllexport) void __cdecl SetPreferredDevice(const char* name) { (void)name; hasName=name && *name; }
+__declspec(dllexport) void __cdecl SetPreferredDeviceGuid(const void* guid16) { (void)guid16; hasGuid=guid16 ? 1 : 0; }
+__declspec(dllexport) void __cdecl SetPreferredDeviceIndex(int index) { (void)index; selectedIndex=index; }
+__declspec(dllexport) int __cdecl EnumerateDevices(void) { return 2; }
+__declspec(dllexport) int __cdecl GetDeviceName(int index, char* buffer, int size) { (void)index; (void)buffer; (void)size; strncpy_s(buffer,size,"same wheel",_TRUNCATE); return 1; }
+__declspec(dllexport) int __cdecl EnumerateAllDevices(void) { return 2; }
+__declspec(dllexport) int __cdecl GetAnyDeviceName(int index, char* buffer, int size) { (void)index; (void)buffer; (void)size; strncpy_s(buffer,size,"same wheel",_TRUNCATE); return 1; }
+__declspec(dllexport) int __cdecl OpenAuxDevice(int index) { (void)index; return 1; }
+__declspec(dllexport) int __cdecl ReadAuxButtons(unsigned char* buffer, int length) { (void)buffer; (void)length; if(length>0) buffer[0]=1; return length; }
+__declspec(dllexport) void __cdecl CloseAuxDevice(void) {  }
+__declspec(dllexport) int __cdecl OpenReadDevice(int index) { (void)index; return index; }
+__declspec(dllexport) int __cdecl ReadDeviceState(int slot, int* axes, unsigned char* buttons, int buttonCount) { (void)slot; (void)axes; (void)buttons; (void)buttonCount; readCalls++; for(int i=0;i<8;i++) axes[i]=100+i; if(buttons && buttonCount>0) buttons[0]=1; return fault==4 ? 0 : 1; }
+__declspec(dllexport) void __cdecl CloseReadDevices(void) {  }
+__declspec(dllexport) int __cdecl GetDeviceInfo(int index, int* axes, int* buttons) { (void)index; (void)axes; (void)buttons; *axes=8; *buttons=128; return 1; }
+__declspec(dllexport) int __cdecl GetDeviceGuid(int index, void* guid16) { (void)index; (void)guid16; memset(guid16,0,16); ((unsigned char*)guid16)[0]=(unsigned char)(index+1); return 1; }
+__declspec(dllexport) int __cdecl GetAnyDeviceGuid(int index, void* guid16) { (void)index; (void)guid16; memset(guid16,0,16); ((unsigned char*)guid16)[0]=(unsigned char)(index+1); return 1; }
+__declspec(dllexport) int __cdecl GetAnyDeviceInfo(int index, int* axes, int* buttons, int* ffb) { (void)index; (void)axes; (void)buttons; (void)ffb; *axes=8; *buttons=128; *ffb=1; return 1; }
+__declspec(dllexport) void __cdecl PanicStop(void) { active=0; }
+__declspec(dllexport) void __cdecl ZeroForces(void) { force=0; }
+__declspec(dllexport) int __cdecl InstallExitGuards(void) { return 1; }
+__declspec(dllexport) void __cdecl SetHoldTimeoutMs(int ms) { (void)ms;  }
+__declspec(dllexport) void __cdecl SetLogPath(const char* path) { (void)path;  }
+__declspec(dllexport) int __cdecl GetLastHResult(void) { return 1234; }
+__declspec(dllexport) int __cdecl GetWheelFfbVersion(void) { return 500; }
+__declspec(dllexport) int __cdecl CreatePeriodicEffect(int freqHz) { (void)freqHz; return 1; }
+__declspec(dllexport) int __cdecl UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz) { (void)slot; (void)magnitude; (void)freqMilliHz; return 1; }
+__declspec(dllexport) void __cdecl ReleasePeriodicEffects(void) {  }
+__declspec(dllexport) int __cdecl CreateConditionEffect(int type) { (void)type; return 1; }
+__declspec(dllexport) int __cdecl UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset) { (void)slot; (void)coefficient; (void)saturation; (void)deadband; (void)offset; return 1; }
+__declspec(dllexport) void __cdecl ReleaseConditionEffects(void) {  }
+__declspec(dllexport) void __cdecl SetStrictDeviceSelection(int enabled) { (void)enabled; strict=enabled; }
+__declspec(dllexport) void __cdecl TestFault(int value) { (void)value; fault=value; }
+__declspec(dllexport) int __cdecl TestMetric(int key) {
+ switch(key) {case 0:return initCount;case 1:return freeCount;case 2:return force;case 3:return hasName;case 4:return selectedIndex;case 5:return hasGuid;case 6:return strict;case 7:return readCalls;default:return -1;}
+}
+}

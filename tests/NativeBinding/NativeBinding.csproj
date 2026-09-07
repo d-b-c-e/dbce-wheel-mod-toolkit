@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFrameworks>net8.0;net48</TargetFrameworks><LangVersion>latest</LangVersion><PlatformTarget Condition="'$(TargetFramework)' == 'net48'">x86</PlatformTarget></PropertyGroup>
+<ItemGroup><ProjectReference Include="../../dotnet/Dbce.Wheel.Ffb/Dbce.Wheel.Ffb.csproj" /></ItemGroup>
+</Project>
