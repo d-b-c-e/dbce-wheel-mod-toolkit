@@ -5,6 +5,34 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.12.0] - 2026-09-07
+
+- Bind managed native calls to the exact loaded module, including renamed Unity
+  plugins, with explicit Cdecl delegates. Preserve existing method signatures.
+- Add opt-in strict GUID selection (native component 0.5.0, 38 exports), retain
+  read-slot identity across FFB switching, and repair panic/reinitialisation.
+  Separate FFB shutdown from final `ShutdownAll` input cleanup. Reject invalid
+  buffers, selector indices and non-finite periodic/condition parameters.
+- Make Sync-Toolkit transactional: preflight parts and edits, preserve nested
+  paths and unselected manifest records, and restore the old tree on a caught
+  commit failure. `-Force` retains edits as backups; local builds have explicit
+  revision/dirty provenance. Interrupted-process recovery remains manual.
+- Add `AxleForceCurve` compatibility version 1 for art of rally's exact order of
+  gain, cubic fade, clamp and EMA. Existing named profiles are unchanged.
+- Correct C#/C++ hysteresis at sign changes and after lowering the peak limit.
+  Reject non-finite model/shaper state with observable rejection and clean
+  next-sample recovery, instead of retaining a poisoned filter.
+- Add structured device-selection results and actionable messages for consumer
+  setup UIs. Explicit virtual FFB preferences are now rejected too.
+- Report computed samples separately from native output acceptance in diagnostics;
+  add delivery counters/latest-result fields. `PreferGuid` is a next-initialisation
+  preference; explicit selection cannot revive a stale staged GUID.
+- Add real-filesystem transaction and fake-native regression gates to packaging
+  and Windows CI; Linux CI also checks recovery invariants. Correct the no-force
+  smoke's damper probe to remain zero unless `--force` is supplied.
+- See `docs/CONSUMER-EXPERIENCE.md` for implemented APIs and the remaining consumer
+  UI roadmap. Native API acceptance is not evidence of physical force feel.
+
 ## [0.11.1] - 2026-09-06
 
 - Treat an explicit negative device index as an invalid preference, preserving

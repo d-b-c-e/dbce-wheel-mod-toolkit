@@ -23,6 +23,7 @@
 #>
 [CmdletBinding()]
 param(
+    [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$')]
     [string]$Version = '0.1.0',
     [switch]$SkipNative
 )
@@ -97,6 +98,7 @@ if (Test-Path (Join-Path $probeSrc 'ffbprobe.exe')) { Copy-Item (Join-Path $prob
 Copy-Item (Join-Path $probeSrc 'README.md') (Join-Path $stage 'tools\ffbprobe') -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $root 'knowledge\*') (Join-Path $stage 'knowledge') -Recurse
 Copy-Item (Join-Path $root 'docs\adr\*.md') (Join-Path $stage 'docs\adr')
+foreach ($guide in 'CONSUMING.md','CONSUMER-EXPERIENCE.md','ART-OF-RALLY-ADOPTION.md') { Copy-Item (Join-Path $root ('docs/' + $guide)) (Join-Path $stage 'docs') }
 foreach ($f in 'README.md', 'CHANGELOG.md', 'LICENSE') { Copy-Item (Join-Path $root $f) $stage -ErrorAction SilentlyContinue }
 Set-Content (Join-Path $stage 'VERSION') "$Version`n$(git -C $root rev-parse --short HEAD)`n$(Get-Date -Format s)"
 

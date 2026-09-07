@@ -11,6 +11,12 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
+Source version **0.12.0** adds transactional updates, exact-module managed
+loading, strict saved-wheel selection, force-state recovery and actionable
+setup diagnostics. See [consumer experience](docs/CONSUMER-EXPERIENCE.md) for
+integration examples and [art of rally adoption](docs/ART-OF-RALLY-ADOPTION.md)
+for the compatibility curve and validation limits.
+
 ## Why
 
 | Before this repo | Copies |
@@ -27,9 +33,9 @@ Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
 
 **Here:** device → forces (`native/wheelffb`), frame → telemetry
 (`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
-(`dotnet/Dbce.Wheel.Ffb`), direct wheel reading and the Unity Input System kit
-(`dotnet/Dbce.Wheel.Input`), the dinput8 proxy scaffold (`native/dinput-proxy`),
-tooling (`tools/`), knowledge (`knowledge/`), scaffolds (`templates/`).
+(`dotnet/Dbce.Wheel.Ffb`), planned shared input kit
+(`dotnet/Dbce.Wheel.Input`, currently empty), the dinput8 proxy scaffold (`native/dinput-proxy`),
+tooling (`tools/`), knowledge (`knowledge/`), planned scaffolds (`templates/`, currently empty).
 
 **Not here:** anything that knows a particular game — hooks, samplers, force
 signals and their tuning, physics changes and their online gates, cameras, UI
@@ -38,10 +44,10 @@ content. Those stay in each game's repo and consume this one.
 ## Consumers
 
 - [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally) — art of rally, Unity 2019 Mono, Unity Mod Manager
-- iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6 *(on 0.1.0)*
+- iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6
 - cruisn-collection — Cruis'n USA / World / Off Road / Exotica, MAME fork
-- OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy *(on 0.2.0, C ABI)*
-- milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy *(on 0.2.0, C header + PowerShell)*
+- OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy
+- milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy
 
 How a game feels is data: `profiles/force-profiles.ini` holds named, versioned
 tunes that ship beside the game and are read at runtime, so swapping one is a
@@ -79,6 +85,8 @@ dotnet test Dbce.Wheel.sln
 .\native\wheelffb\test\build_smoke.bat x86     # then build\x86\smoke.exe
 .\native\forza\build_test.bat                   # packet conformance
 .\tools\powershell\Test-DbceWheel.ps1
+.\tools\tests\Test-SyncToolkit.ps1
+.\tools\tests\Test-NativeBinding.ps1
 ```
 
 `smoke.exe` walks the whole C ABI against a real wheel and applies no torque

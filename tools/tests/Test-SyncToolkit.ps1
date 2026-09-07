@@ -43,6 +43,18 @@ try {
  }
  try { Reject { & $scriptPath -LocalRepo $repo -Destination $dest -Parts native } }
  finally { Remove-Item Function:/Move-Item; Remove-Variable SyncMoveCalls -Scope Global }
+ # Fail after a real staging copy has succeeded; the destination must stay byte-identical.
+ $global:SyncCopyCalls=0
+ function global:Copy-Item { param([string]$LiteralPath,[string]$Destination,[switch]$Recurse,[switch]$Force)
+   $global:SyncCopyCalls++
+   if ($global:SyncCopyCalls -eq 2) { throw 'Injected staged copy failure' }
+   Microsoft.PowerShell.Management\Copy-Item @PSBoundParameters
+ }
+ try { Reject { & $scriptPath -LocalRepo $repo -Destination $dest -Parts native } }
+ finally { Remove-Item Function:/Copy-Item; Remove-Variable SyncCopyCalls -Scope Global }
+ # An existing but empty source is different from a missing source, and must fail too.
+ New-Item -ItemType Directory -Path (Join-Path $repo 'knowledge') | Out-Null
+ Reject { & $scriptPath -LocalRepo $repo -Destination $dest -Parts native,knowledge }
  # Locked original file blocks staging; the pin and whole old tree survive.
  $locked=[IO.File]::Open((Join-Path $dest 'native/WheelFfb.dll'),[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
  try {

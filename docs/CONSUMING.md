@@ -1,3 +1,10 @@
+> 0.12.0 integration updates: [consumer UX APIs](CONSUMER-EXPERIENCE.md) and
+> [native loading, strict identity, lifecycle and compatibility curve](ART-OF-RALLY-ADOPTION.md).
+> Consumer status below contains historical migration notes; use CONSUMERS.md
+> and Get-ConsumerStatus.ps1 for current pins. A failed sync leaves the existing
+> destination intact, or reports the retained original recovery directory if
+> rollback itself cannot complete. It does not advance VERSION on conflicts.
+
 # Consuming the toolkit from a game mod
 
 Consumers vendor **built artifacts**, pinned by version. No cross-repo project
@@ -9,7 +16,7 @@ diffable bump in that game's repo.
 Copy `tools/Sync-Toolkit.ps1` into the consumer's `tools/` and run it there:
 
 ```powershell
-.\tools\Sync-Toolkit.ps1 -Version v0.1.0                       # from the GitHub release
+.\tools\Sync-Toolkit.ps1 -Version v0.12.0                       # from the GitHub release
 .\tools\Sync-Toolkit.ps1 -LocalRepo E:\Source\dbce-wheel-mod-toolkit   # from a local build
 ```
 
@@ -52,10 +59,13 @@ calls in addition to what you already make:
 | `PanicStop()` | your own quit path | everything off, autocentre restored last |
 | `GetLastHResult()` | on a failed update, for the support bundle | the actual HRESULT, for `knowledge/DIRECTINPUT-FFB.md` |
 
-Or use the managed binding: `Dbce.Wheel.Ffb.WheelFfbNative.Load(dir)` then
-`Initialise(name, index)`, `SetForce(int)`, `ListFfbDevices()`, `ListAllDevices()`
-(with capability labels), `OpenRead`/`Read` for shifters and pedals. It imports
-the module name `WheelFfb`, so a mod using it ships the DLL as `WheelFfb.dll`.
+Or use the managed binding: `Dbce.Wheel.Ffb.WheelFfbNative.Load(dir, fileName)`
+then `Initialise(name, index)`, `SetForce(int)`, `ListFfbDevices()`,
+`ListAllDevices()`, and `OpenRead`/`Read` for shifters and pedals. In 0.12.0,
+exports bind to the exact loaded module; `fileName` defaults to `WheelFfb.dll`
+but can be `UnityForceFeedback.dll`. Loading/enumeration does not initialize FFB.
+Use the four-argument `Initialise(name, index, hwnd, savedGuid)` for a saved
+identity, `Reinitialise` to switch, and `ShutdownAll` at final consumer exit.
 
 ## 3b. Native consumers (a dinput8 proxy, an emulator fork)
 
@@ -72,7 +82,8 @@ from starting instead of merely costing force feedback:
 static WheelFfbApi ffb;
 if (WheelFfb_LoadBeside(&ffb, myModule, L"WheelFfb.dll")) {
     ffb.SetLogPath(logPathBesideTheGame);          // optional
-    ffb.SetPreferredDeviceGuid(&guidFromMyInputLayer);   // or ...Index / ...Device
+    ffb.SetPreferredDeviceGuid(&guidFromMyInputLayer);
+    ffb.SetStrictDeviceSelection(1);                  // require this GUID; no fallback
     if (ffb.InitDirectInput((int)(INT_PTR)hwnd)) {
         int road = ffb.CreatePeriodicEffect(25);   // -1: no periodics, synthesise <=15 Hz
         ffb.SetDeviceForcesXY(magnitude, 0);       // -10000..10000

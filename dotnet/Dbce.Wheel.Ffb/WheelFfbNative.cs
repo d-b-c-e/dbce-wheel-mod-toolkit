@@ -241,11 +241,13 @@ namespace Dbce.Wheel.Ffb
         public static bool Initialise(string preferredName, int preferredIndex, int hwnd, Guid? preferredGuid)
         {
             if (!_loaded) { LastError = LastError ?? "Native plugin not loaded"; return false; }
-            if (_initialised) { LastError = "Already initialised; use Reinitialise to change selection"; return Ready; }
+            if (_initialised) { LastError = "Already initialised; use Reinitialise to change selection"; return false; }
             if (_needsCleanup) Shutdown();
             try
             {
                 _failed = false;
+                _pendingGuid = null; // PreferGuid is consumed once; later selectors cannot revive it.
+                if (preferredIndex < -1) { LastError = "Device index must be -1 (automatic) or nonnegative"; return false; }
                 SetPreferredDevice(""); SetPreferredDeviceIndex(-1); SetPreferredDeviceGuid(null);
                 SetStrictDeviceSelection?.Invoke(0);
                 if (preferredGuid.HasValue)
@@ -253,8 +255,8 @@ namespace Dbce.Wheel.Ffb
                     if (SetStrictDeviceSelection == null)
                     { LastError = "Strict GUID selection requires native 0.5 or later"; return false; }
                     var devices = ListFfbDevices();
-                    if (new DevicePreference { InstanceGuid = preferredGuid }.Choose(devices) < 0)
-                    { LastError = "Saved wheel is missing or ambiguous. Choose the device again."; return false; }
+                    var selection = new DevicePreference { InstanceGuid = preferredGuid }.Resolve(devices);
+                    if (!selection.Success) { LastError = selection.Message; return false; }
                     SetPreferredDeviceGuid(preferredGuid.Value.ToByteArray());
                     SetStrictDeviceSelection(1);
                 }
@@ -301,11 +303,11 @@ namespace Dbce.Wheel.Ffb
             _initialised = false; _failed = true;
             LastError = LastError ?? "Panic stopped force feedback; reinitialise to resume";
         }
-        public static bool ExitGuards()      { if (!_initialised) return false; try { return InstallExitGuards() != 0; } catch (Exception ex) { LastError = ex.Message; return false; } }
+        public static bool ExitGuards()      { if (!_initialised) return false; try { return Result(InstallExitGuards() != 0, "InstallExitGuards"); } catch (Exception ex) { LastError = ex.Message; return false; } }
         public static void HoldTimeout(int ms) { if (_loaded) try { SetHoldTimeoutMs(ms); } catch (Exception ex) { LastError = ex.Message; } }
 
         /// <summary>
-        /// Pins device selection to a DirectInput instance GUID, which beats both
+        /// Sets the next initialisation preference to a DirectInput instance GUID, which beats both
         /// index and name. Use it when your own input layer has already chosen a
         /// device: two Fanatec devices can carry the same name, so matching by
         /// name is guesswork exactly where it hurts. Null clears it. Toolkit 0.2.0+.
@@ -315,7 +317,7 @@ namespace Dbce.Wheel.Ffb
             if (!_loaded) return;
             _pendingGuid = instanceGuid;
         }
-        public static void AutoCentre(bool on) { if (_initialised) try { SetAutoCenter(on ? 1 : 0); } catch (Exception ex) { LastError = ex.Message; } }
+        public static void AutoCentre(bool on) { if (_initialised) try { Result(SetAutoCenter(on ? 1 : 0) != 0, "SetAutoCenter"); } catch (Exception ex) { LastError = ex.Message; } }
         public static int  LastHResult       { get { try { return _loaded ? GetLastHResult() : 0; } catch (Exception ex) { LastError = ex.Message; return 0; } } }
         public static int  Version           { get { try { return _loaded ? GetWheelFfbVersion() : 0; } catch (Exception ex) { LastError = ex.Message; return 0; } } }
 
@@ -325,12 +327,14 @@ namespace Dbce.Wheel.Ffb
         /// or -1 when the driver has no periodic support - then synthesise at
         /// 15 Hz or below through <see cref="SetForce"/> instead. Toolkit 0.2.0+.
         /// </summary>
-        public static int  CreatePeriodic(int freqHz)  { if (!Ready) return -1; try { return CreatePeriodicEffect(freqHz); } catch (Exception ex) { LastError = ex.Message; return -1; } }
+        public static int  CreatePeriodic(int freqHz)  { if (!Ready) return -1; try { int slot = CreatePeriodicEffect(freqHz); Result(slot >= 0, "CreatePeriodicEffect"); return slot; } catch (Exception ex) { LastError = ex.Message; return -1; } }
 
         /// <summary>Envelope update; safe to call every frame (unchanged envelopes never reach the driver).</summary>
         public static bool UpdatePeriodic(int slot, float magnitude01, float freqHz)
         {
             if (!Ready || slot < 0) return false;
+            if (!Finite(magnitude01) || !Finite(freqHz) || freqHz <= 0 || freqHz > 2147483f)
+            { LastError = "Periodic update requires finite magnitude and positive representable frequency"; return false; }
             try {
                 int m = (int)Math.Round(Math.Max(0f, Math.Min(1f, magnitude01)) * 10000f);
                 return Result(UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0, "UpdatePeriodicEffect");
@@ -374,7 +378,7 @@ namespace Dbce.Wheel.Ffb
         public static int CreateCondition(ConditionKind kind)
         {
             if (!Ready) return -1;
-            try { return CreateConditionEffect((int)kind); } catch (Exception ex) { LastError = ex.Message; return -1; }
+            try { int slot = CreateConditionEffect((int)kind); Result(slot >= 0, "CreateConditionEffect"); return slot; } catch (Exception ex) { LastError = ex.Message; return -1; }
         }
 
         /// <summary>
@@ -385,6 +389,8 @@ namespace Dbce.Wheel.Ffb
         public static bool UpdateCondition(int slot, float coefficient, float saturation = 1f, float deadband = 0f, float offset = 0f)
         {
             if (!Ready || slot < 0) return false;
+            if (!Finite(coefficient) || !Finite(saturation) || !Finite(deadband) || !Finite(offset))
+            { LastError = "Condition update requires finite parameters"; return false; }
             try
             {
                 int C(float v, bool signed) => (int)Math.Round(Math.Max(signed ? -1f : 0f, Math.Min(1f, v)) * 10000f);
@@ -464,6 +470,8 @@ namespace Dbce.Wheel.Ffb
         }
 
         // --- reading other devices (shifters, pedals, a wheel the game cannot read) ---
+
+        private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
         private static bool Result(bool ok, string operation)
         {

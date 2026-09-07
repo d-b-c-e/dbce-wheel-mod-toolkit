@@ -48,14 +48,13 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `native/forcemodel/` | `force_model.h` and `force_profile.h` — the C++ port of the force model and the profile reader, plus the cross-language conformance check and its golden file. |
 | `profiles/` | `force-profiles.ini` — **the tunes, as data.** Deployed beside the game and read at runtime, so a feel can be swapped without a build. Versions are immutable; add one rather than editing one. |
 | `dotnet/Dbce.Wheel.Telemetry/` | `netstandard2.0`. Forza "Data Out" 232/311/324 encoders, `TelemetryFrame` (the car-state seam), idle keeper, RPM synthesis. Tests alongside. |
-| `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. P/Invoke to the native DLL (Mono preload and CoreCLR resolver paths), force-shaping chain, `ForceModel`, device selection, diagnostics. |
+| `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. Cdecl delegates bound to the exact native module (Mono-compatible APIs and CoreCLR), force-shaping chain, `ForceModel`, device selection, diagnostics. |
 | `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
 | `tools/` | `Sync-Toolkit.ps1` (consumers vendor with this), `ffbprobe/` (scripted constant force against a real base), `forza/` (probe and synth), `dev/` (unattended-test helpers), `package/package.ps1`. |
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 
-**Empty on purpose, not yet written** — `native/dinput-proxy/`,
-`dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
+**Empty on purpose, not yet written** — `dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
 directories. They mark where those modules belong. Do not go looking for code
 in them; see the deferred list in `docs/PLAN.md`.
 
@@ -63,8 +62,8 @@ in them; see the deferred list in `docs/PLAN.md`.
 
 | Consumer runtime | Managed lib target | Native loading |
 |---|---|---|
-| Unity 2019.4 Mono (UMM) | `netstandard2.0`, **no Unity references** | `LoadLibraryW` preload, then `DllImport` |
-| .NET 6 CoreCLR (BepInEx 6 IL2CPP) | same assembly | `NativeLibrary.SetDllImportResolver` |
+| Unity 2019.4 Mono (UMM) | `netstandard2.0`, **no Unity references** | `LoadLibraryW` plus Cdecl export delegates |
+| .NET 6 CoreCLR (BepInEx 6 IL2CPP) | same assembly | the same Cdecl export delegates |
 | Native C++ (proxies, MAME forks) | n/a | link or `LoadLibrary` the C ABI |
 | Python / PowerShell tooling | n/a | ctypes / `Add-Type` against the C ABI |
 
@@ -141,27 +140,28 @@ goes in a clearly named sub-package.
 
 ## Where the work stands
 
-`docs/ROADMAP.md` opens with the per-consumer status table and
-`docs/PLAN.md` tracks the steps; `docs/STATE.md` is the handoff. In short:
-0.1.0 served managed mods, 0.2.0 added the native half, and four of the five
-consumers are on it. The largest piece of duplicated code still outside this
-repo is the **dinput8 proxy scaffold**, which OutRun and Milestone each carry
-their own copy of.
+Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
+selection, input-slot identity preservation, panic recovery, AxleForceCurve
+compatibility v1, finite force-state recovery and structured consumer diagnostics.
+Read docs/STATE.md and docs/CONSUMER-EXPERIENCE.md before making adoption claims.
+The native component is 0.5.0 with 38 exports; package and component versions differ.
+The dinput proxy header scaffold is implemented and tested on x86/x64.
+Game UI, calibration, shared input kit, and SDL consolidation remain separate work.
 
 ## Testing
 
-Six entry points. `tools/package/package.ps1` runs the five below and then
-builds the release zip, so it is the one command that proves the repo on a
-machine with no wheel attached. The smoke test is the sixth and is separate,
-because it needs real hardware.
+`tools/package/package.ps1` runs the offline suites and builds the release zip.
+The hardware smoke is separate and requires a wheel; default operation is zero-output.
 
 ```powershell
-dotnet test Dbce.Wheel.sln                     # 87 tests
+dotnet test Dbce.Wheel.sln                     # managed regression suite
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
 .\native\forza\build_test.bat                 # packet conformance
 .\native\forcemodel\build_conformance.bat     # C++ model vs the golden file
 .\tools\powershell\Test-DbceWheel.ps1         # INI edge cases + discovery
+.\tools\tests\Test-SyncToolkit.ps1          # real filesystem failures/rollback
+.\tools\tests\Test-NativeBinding.ps1        # fake native DLL, no wheel acquisition
 .\tools\package\package.ps1 -Version X.Y.Z    # all of the above, then dist\
 ```
 

@@ -14,6 +14,18 @@ jobs:
       - name: MSVC profile conformance
         shell: cmd
         run: native\forcemodel\build_conformance.bat
+      - name: Transactional vendoring
+        shell: powershell
+        run: ./tools/tests/Test-SyncToolkit.ps1
+      - name: Exact-module binding (CoreCLR x64 and .NET Framework x86, no hardware)
+        shell: powershell
+        run: ./tools/tests/Test-NativeBinding.ps1
+      - name: Native x64 exports
+        shell: powershell
+        run: ./native/wheelffb/build.ps1
+      - name: Native x86 build
+        shell: cmd
+        run: native\wheelffb\build.bat x86
   native:
     runs-on: ubuntu-latest
     steps:
