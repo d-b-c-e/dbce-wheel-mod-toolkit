@@ -228,7 +228,7 @@ namespace Dbce.Wheel.Ffb.Tests
                 new WheelFfbNative.DeviceInfo { Index = 1, Name = "MOZA R12 Base", Axes = 8, Buttons = 128, ForceFeedback = true },
             };
             Assert.Equal(1, DevicePreference.Parse("").Choose(devices));
-            Assert.Equal(0, DevicePreference.Parse("#0").Choose(devices));        // explicit wins
+            Assert.Equal(-1, DevicePreference.Parse("#0").Choose(devices));       // virtual output is blocked even when explicit
             Assert.Equal(1, DevicePreference.Parse("moza").Choose(devices));
             Assert.True(DevicePreference.IsVirtualDevice("XOutput Virtual Pad"));
             Assert.False(DevicePreference.IsVirtualDevice("FANATEC Wheel"));

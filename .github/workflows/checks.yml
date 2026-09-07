@@ -24,3 +24,5 @@ jobs:
       - run: /tmp/events profiles
       - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/test_signal_contracts.cpp -o /tmp/signals
       - run: /tmp/signals native/forcemodel/impact-contract.csv
+      - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/test_recovery.cpp -o /tmp/recovery
+      - run: /tmp/recovery

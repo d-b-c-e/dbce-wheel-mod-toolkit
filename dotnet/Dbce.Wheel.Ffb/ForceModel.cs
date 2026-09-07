@@ -161,9 +161,14 @@ namespace Dbce.Wheel.Ffb
         /// <summary>Last structural (non-event) force, for traces.</summary>
         public float LastStructural { get; private set; }
 
-        public void Reset() { _shiftPulseT = -1f; _shiftEmitted = 0f; _impactT = -1f;
+        public void Reset() { LastInputRejected = false; _shiftPulseT = -1f; _shiftEmitted = 0f; _impactT = -1f;
             _impactSign = _impactMag = _texturePhase = 0f;
             LastWasEvent = false; LastStructural = 0f; Validator.Reset(); }
+
+        /// <summary>True if the last sample/settings were non-finite; model state was cleared.</summary>
+        public bool LastInputRejected { get; private set; }
+        private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+        private float Reject() { Reset(); LastInputRejected = true; return 0f; }
 
         /// <summary>
         /// One tick. <paramref name="dt"/> in seconds. The result is normalised
@@ -175,6 +180,38 @@ namespace Dbce.Wheel.Ffb
         public float Compute(in ForceInputs i, float dt)
         {
             var s = Settings;
+            LastInputRejected = false;
+            if (!(Finite(dt) &&
+                  Finite(i.SpeedMps) &&
+                  (!i.HasSteer || Finite(i.Steer)) &&
+                  (!i.HasSteerRate || Finite(i.SteerRate)) &&
+                  (!i.HasFrontLateralForce || Finite(i.FrontLateralForce)) &&
+                  (!i.HasLateralG || Finite(i.LateralG)) &&
+                  (!i.HasLongitudinalG || Finite(i.LongitudinalG)) &&
+                  (!i.HasSlip || (Finite(i.FrontSlipAngleDeg) && Finite(i.IdealSlipAngleDeg))) &&
+                  (!i.HasDrift || Finite(i.DriftAmount)) &&
+                  Finite(i.Texture) &&
+                  Finite(i.Impact) &&
+                  (i.Impact <= 0f || Finite(i.ImpactDirection)) &&
+                  Finite(s.SpringStrength) &&
+                  Finite(s.DamperStrength) &&
+                  Finite(s.SteeringWeight) &&
+                  Finite(s.LateralForceReference) &&
+                  Finite(s.LateralGReference) &&
+                  Finite(s.TrailFloor) &&
+                  Finite(s.GripLoss) &&
+                  Finite(s.WeightTransfer) &&
+                  Finite(s.SpringFullSpeedMps) &&
+                  Finite(s.TextureStrength) &&
+                  Finite(s.ImpactStrength) &&
+                  Finite(s.ShiftPulseStrength) &&
+                  Finite(s.DamperStaticFraction) &&
+                  Finite(s.TrailSlipSpan) &&
+                  Finite(s.WeightTransferMin) &&
+                  Finite(s.WeightTransferMax) &&
+                  Finite(s.TextureHz) &&
+                  Finite(s.ImpactSeconds) &&
+                  Finite(s.ShiftPulseSeconds))) return Reject();
             dt = Math.Max(0f, Math.Min(0.1f, dt));
             float speedNorm = Math.Min(1f, Math.Abs(i.SpeedMps) / Math.Max(0.1f, s.SpringFullSpeedMps));
 
@@ -243,6 +280,7 @@ namespace Dbce.Wheel.Ffb
 
             LastWasEvent = isEvent;
             float total = structural + texture + ev;
+            if (!Finite(total) || !Finite(_texturePhase) || !Finite(_shiftEmitted)) return Reject();
             Validator.Observe(i, structural);
             // Deliberately NOT clamped. A clamp to +-1 is a DEVICE limit -
             // DirectInput takes +-10,000 and nothing may exceed it - and a device

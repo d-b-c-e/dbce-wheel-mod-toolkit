@@ -19,6 +19,10 @@ cl.exe /nologo /O2 /W4 /EHsc /Fo"build\\" /Fe"build\signals.exe" test_signal_con
 if errorlevel 1 exit /b 1
 .\build\signals.exe impact-contract.csv
 if errorlevel 1 exit /b 1
+cl.exe /nologo /O2 /W4 /EHsc /Fo"build\\" /Fe"build\recovery.exe" test_recovery.cpp
+if errorlevel 1 exit /b 1
+.\build\recovery.exe
+if errorlevel 1 exit /b 1
 cd build
 REM explicit ".\" because NoDefaultCurrentDirectoryInExePath may be set
 .\conformance.exe %1

@@ -186,7 +186,10 @@ public:
     // Last structural (non-event) force, for traces.
     float last_structural;
 
+    bool last_input_rejected = false;
+    float reject() { reset(); last_input_rejected = true; return 0.f; }
     void reset() {
+        last_input_rejected = false;
         shift_t_ = -1.f; shift_emitted_ = 0.f;
         impact_t_ = -1.f; impact_sign_ = 0.f; impact_mag_ = 0.f;
         texture_phase_ = 0.f;
@@ -198,6 +201,38 @@ public:
     // output at the device edge.
     float compute(const Inputs& i, float dt) {
         const ModelSettings& s = settings;
+        last_input_rejected = false;
+        if (!(std::isfinite(dt) &&
+              std::isfinite(i.speed_mps) &&
+              (!i.has_steer || std::isfinite(i.steer)) &&
+              (!i.has_steer_rate || std::isfinite(i.steer_rate)) &&
+              (!i.has_front_lateral_force || std::isfinite(i.front_lateral_force)) &&
+              (!i.has_lateral_g || std::isfinite(i.lateral_g)) &&
+              (!i.has_longitudinal_g || std::isfinite(i.longitudinal_g)) &&
+              (!i.has_slip || (std::isfinite(i.front_slip_angle_deg) && std::isfinite(i.ideal_slip_angle_deg))) &&
+              (!i.has_drift || std::isfinite(i.drift_amount)) &&
+              std::isfinite(i.texture) &&
+              std::isfinite(i.impact) &&
+              (i.impact <= 0.f || std::isfinite(i.impact_direction)) &&
+              std::isfinite(s.spring_strength) &&
+              std::isfinite(s.spring_full_speed_mps) &&
+              std::isfinite(s.damper_strength) &&
+              std::isfinite(s.damper_static_fraction) &&
+              std::isfinite(s.lateral_weight) &&
+              std::isfinite(s.lateral_force_reference) &&
+              std::isfinite(s.lateral_g_reference) &&
+              std::isfinite(s.trail_floor) &&
+              std::isfinite(s.trail_slip_span) &&
+              std::isfinite(s.grip_loss) &&
+              std::isfinite(s.weight_transfer) &&
+              std::isfinite(s.weight_transfer_min) &&
+              std::isfinite(s.weight_transfer_max) &&
+              std::isfinite(s.texture_strength) &&
+              std::isfinite(s.texture_hz) &&
+              std::isfinite(s.impact_strength) &&
+              std::isfinite(s.impact_seconds) &&
+              std::isfinite(s.shift_strength) &&
+              std::isfinite(s.shift_seconds))) return reject();
         dt = clampf(dt, 0.f, 0.1f);
         const float pi = 3.14159265358979323846f;
         float speed_norm = std::fabs(i.speed_mps) / (s.spring_full_speed_mps > 0.1f ? s.spring_full_speed_mps : 0.1f);
@@ -283,7 +318,9 @@ public:
         // The clamp is a device limit and belongs at the edge, in Shaper::shape.
         // Applied here it also defeated the soft saturation, which received an
         // already-clamped value and so had nothing left to compress.
-        return structural + texture + ev;
+        float total = structural + texture + ev;
+        if (!std::isfinite(total) || !std::isfinite(texture_phase_) || !std::isfinite(shift_emitted_)) return reject();
+        return total;
     }
 
 private:
@@ -306,7 +343,8 @@ public:
 
     ShaperSettings settings;
 
-    void reset() { smoothed_ = 0.f; last_ = 0.f; ramp_t_ = 0.f; started_ = false;
+    bool last_input_rejected = false;
+    void reset() { last_input_rejected = false; smoothed_ = 0.f; last_ = 0.f; ramp_t_ = 0.f; started_ = false;
                    prev_in_ = 0.f; have_prev_in_ = false; }
     // Start the ramp again, e.g. after the native layer recreated the effect.
     void restart_ramp() { ramp_t_ = 0.f; started_ = false; }
@@ -317,8 +355,22 @@ public:
 
     float shape(float normalised, float speed_kmh, float dt, bool is_event = false) {
         const ShaperSettings& s = settings;
-        if (!(normalised == normalised)) normalised = 0.f;               // NaN
-        if (normalised > 1e30f || normalised < -1e30f) normalised = 0.f; // inf
+        last_input_rejected = false;
+        if (!std::isfinite(normalised) || !std::isfinite(speed_kmh) || !std::isfinite(dt) ||
+            !std::isfinite(s.deadzone) ||
+            !std::isfinite(s.attack_smoothing) ||
+            !std::isfinite(s.decay_smoothing) ||
+            !std::isfinite(s.soft_saturation) ||
+            !std::isfinite(s.slew_per_second) ||
+            !std::isfinite(s.output_deadband) ||
+            !std::isfinite(s.fade_start_kmh) ||
+            !std::isfinite(s.fade_full_kmh) ||
+            !std::isfinite(s.ramp_seconds) ||
+            !std::isfinite(s.peak_limit) ||
+            !std::isfinite(s.smoothing_ms) ||
+            !std::isfinite(s.impulse_bypass) ||
+            !std::isfinite(s.settle_below) ||
+            !std::isfinite(s.releveling)) return reject();
         dt = clampf(dt, 0.f, 0.1f);
         float v = normalised;
 
@@ -385,6 +437,8 @@ public:
             v *= r > 1.f ? 1.f : r;
         }
 
+        if (!std::isfinite(v) || !std::isfinite(smoothed_) || !std::isfinite(ramp_t_) || !std::isfinite(prev_in_)) return reject();
+
         // 8. clamp, peak limit, deadband
         float limit = clampf(s.peak_limit, 0.f, 1.f);
         v = clampf(v, -limit, limit);
@@ -397,15 +451,17 @@ public:
         }
 
         // 10. re-level hysteresis: hold until it has moved far enough to send.
-        if (s.releveling > 0.f && ((v != 0.f) == (last_ != 0.f)) &&
+        if (s.releveling > 0.f && ((v > 0.f && last_ > 0.f) || (v < 0.f && last_ < 0.f)) &&
                 std::fabs(v - last_) < s.releveling)
             v = last_;
 
+        v = clampf(v, -limit, limit); // Hysteresis cannot restore an output above a lowered limit.
         last_ = v;
         return v;
     }
 
 private:
+    float reject() { reset(); last_input_rejected = true; return 0.f; }
     float smoothed_, last_, ramp_t_, prev_in_;
     bool  have_prev_in_;
     bool  started_;

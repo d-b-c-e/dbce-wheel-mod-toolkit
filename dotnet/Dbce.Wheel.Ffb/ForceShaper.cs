@@ -95,12 +95,17 @@ namespace Dbce.Wheel.Ffb
 
         public float GainFromStrength => Math.Max(0, Strength) / 50f;
 
+        /// <summary>True when the last sample or settings were non-finite; output and filter state were cleared.</summary>
+        public bool LastInputRejected { get; private set; }
+        private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+        private float Reject() { Reset(); LastInputRejected = true; return 0f; }
+
         private float _smoothed, _last, _rampT, _prevIn;
         private bool _havePrevIn;
         private bool _started;
 
         /// <summary>Clears filter state (between stages) so a stale force is not carried over.</summary>
-        public void Reset() { _smoothed = 0f; _last = 0f; _rampT = 0f; _started = false; _prevIn = 0f; _havePrevIn = false; }
+        public void Reset() { LastInputRejected = false; _smoothed = 0f; _last = 0f; _rampT = 0f; _started = false; _prevIn = 0f; _havePrevIn = false; }
 
         /// <summary>Starts the ramp-in again, e.g. after the native layer recreated the effect.</summary>
         public void RestartRamp() { _rampT = 0f; _started = false; }
@@ -114,7 +119,22 @@ namespace Dbce.Wheel.Ffb
         /// <param name="isEvent">True for an impulse that must bypass smoothing and slew.</param>
         public float Shape(float normalised, float speedKmh, float dt, bool isEvent = false)
         {
-            if (float.IsNaN(normalised) || float.IsInfinity(normalised)) normalised = 0f;
+            LastInputRejected = false;
+            if (!Finite(normalised) || !Finite(speedKmh) || !Finite(dt) ||
+                !Finite(Deadzone) ||
+                !Finite(AttackSmoothing) ||
+                !Finite(DecaySmoothing) ||
+                !Finite(SoftSaturation) ||
+                !Finite(SlewPerSecond) ||
+                !Finite(OutputDeadband) ||
+                !Finite(FadeStartKmh) ||
+                !Finite(FadeFullKmh) ||
+                !Finite(RampSeconds) ||
+                !Finite(PeakLimit) ||
+                !Finite(SmoothingMs) ||
+                !Finite(ImpulseBypass) ||
+                !Finite(SettleBelow) ||
+                !Finite(RelevelHysteresis)) return Reject();
             dt = Math.Max(0f, Math.Min(0.1f, dt));
             float v = normalised;
 
@@ -195,6 +215,8 @@ namespace Dbce.Wheel.Ffb
                 v *= Math.Min(1f, _rampT / RampSeconds);
             }
 
+            if (!Finite(v) || !Finite(_smoothed) || !Finite(_rampT) || !Finite(_prevIn)) return Reject();
+
             // 8. clamp, peak limit, deadband
             float limit = Math.Max(0f, Math.Min(1f, PeakLimit));
             v = Math.Max(-limit, Math.Min(limit, v));
@@ -211,10 +233,12 @@ namespace Dbce.Wheel.Ffb
 
             // 10. re-level hysteresis: hold the previous value until this one has
             //     moved far enough to be worth sending. Zero crossings always pass.
-            if (RelevelHysteresis > 0f && (v != 0f) == (_last != 0f) &&
+            if (RelevelHysteresis > 0f && ((v > 0f && _last > 0f) || (v < 0f && _last < 0f)) &&
                 Math.Abs(v - _last) < RelevelHysteresis)
                 v = _last;
 
+            // A lowered limit takes effect immediately, even when hysteresis holds.
+            v = Math.Max(-limit, Math.Min(limit, v));
             _last = v;
             return v;
         }

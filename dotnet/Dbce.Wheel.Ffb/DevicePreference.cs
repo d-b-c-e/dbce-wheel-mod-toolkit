@@ -67,12 +67,17 @@ namespace Dbce.Wheel.Ffb
         /// VID/PID requires identity metadata supplied by the caller; the legacy DLL
         /// enumeration exposes instance GUIDs but does not expose product IDs.
         /// </summary>
-        public int Choose(WheelFfbNative.DeviceInfo[] devices)
+        public int Choose(WheelFfbNative.DeviceInfo[] devices) => Resolve(devices).ArrayPosition;
+
+        /// <summary>Explains a selection for setup UI without loading or acquiring a device.
+        /// Success identifies a candidate only; native strict selection must still enforce identity at open.</summary>
+        public DeviceSelectionResult Resolve(WheelFfbNative.DeviceInfo[] devices)
         {
-            if (devices == null || devices.Length == 0) return -1;
+            if (devices == null || devices.Length == 0)
+                return new DeviceSelectionResult(IsEmpty ? DeviceSelectionStatus.NoDevices : DeviceSelectionStatus.Missing);
+            int selected = -1;
             if (!IsEmpty)
             {
-                int selected = -1;
                 for (int i = 0; i < devices.Length; i++)
                 {
                     var d = devices[i];
@@ -81,14 +86,23 @@ namespace Dbce.Wheel.Ffb
                         : Index >= 0 ? i == Index
                         : d.Name != null && d.Name.IndexOf(NameContains, StringComparison.OrdinalIgnoreCase) >= 0;
                     if (!matches) continue;
-                    if (!d.ForceFeedback || selected >= 0) return -1;
+                    if (selected >= 0) return new DeviceSelectionResult(DeviceSelectionStatus.Ambiguous);
                     selected = i;
                 }
-                return selected;
+                if (selected < 0) return new DeviceSelectionResult(DeviceSelectionStatus.Missing);
+                if (IsVirtualDevice(devices[selected].Name))
+                    return new DeviceSelectionResult(DeviceSelectionStatus.VirtualDevice);
+                if (!devices[selected].ForceFeedback)
+                    return new DeviceSelectionResult(DeviceSelectionStatus.NoForceFeedback);
             }
-            for (int i = 0; i < devices.Length; i++)
-                if (devices[i].ForceFeedback && !IsVirtualDevice(devices[i].Name)) return i;
-            return -1;
+            else
+            {
+                for (int i = 0; i < devices.Length; i++)
+                    if (devices[i].ForceFeedback && !IsVirtualDevice(devices[i].Name)) { selected = i; break; }
+                if (selected < 0) return new DeviceSelectionResult(DeviceSelectionStatus.NoForceFeedback);
+            }
+            return new DeviceSelectionResult(IsEmpty ? DeviceSelectionStatus.Automatic : DeviceSelectionStatus.Matched,
+                selected, devices[selected]);
         }
     }
 }
