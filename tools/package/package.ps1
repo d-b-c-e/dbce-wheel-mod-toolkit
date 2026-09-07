@@ -97,8 +97,7 @@ Copy-Item (Join-Path $root 'tools\Sync-Toolkit.ps1') (Join-Path $stage 'tools')
 if (Test-Path (Join-Path $probeSrc 'ffbprobe.exe')) { Copy-Item (Join-Path $probeSrc 'ffbprobe.exe') (Join-Path $stage 'tools\ffbprobe') }
 Copy-Item (Join-Path $probeSrc 'README.md') (Join-Path $stage 'tools\ffbprobe') -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $root 'knowledge\*') (Join-Path $stage 'knowledge') -Recurse
-Copy-Item (Join-Path $root 'docs\adr\*.md') (Join-Path $stage 'docs\adr')
-foreach ($guide in 'CONSUMING.md','CONSUMER-EXPERIENCE.md','ART-OF-RALLY-ADOPTION.md') { Copy-Item (Join-Path $root ('docs/' + $guide)) (Join-Path $stage 'docs') }
+Copy-Item (Join-Path $root 'docs\*') (Join-Path $stage 'docs') -Recurse -Force
 foreach ($f in 'README.md', 'CHANGELOG.md', 'LICENSE') { Copy-Item (Join-Path $root $f) $stage -ErrorAction SilentlyContinue }
 Set-Content (Join-Path $stage 'VERSION') "$Version`n$(git -C $root rev-parse --short HEAD)`n$(Get-Date -Format s)"
 
