@@ -54,7 +54,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 400;            // 0.4.0
+static const int  kVersion      = 500;            // 0.5.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -80,6 +80,7 @@ static char      g_preferred[MAX_PATH] = {};
 static int       g_preferredIndex = -1;
 static GUID      g_preferredGuid = {};
 static bool      g_preferredGuidSet = false;
+static bool      g_strictSelection = false;
 
 // Axis count the constant-force effect was actually created with. Every
 // SetParameters call must agree with it.
@@ -483,6 +484,10 @@ static int OpenCandidate(int idx)
         CloseCandidate();
         return 0;
     }
+    if (g_panicked && FAILED(hr = g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSON))) {
+        g_lastHr = hr; CloseCandidate(); return 0;
+    }
+    g_panicked = false;
     Log("  initialised OK (constant force on %lu axis/axes)", g_effectAxes);
     return 1;
 }
@@ -525,6 +530,11 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
         if (guidMatched) Log("  using [%d] by instance GUID as requested", chosen);
         else             Log("  requested instance GUID is not among the %d FFB device(s) - it may have no actuator; falling back", g_candidateCount);
     }
+    if (g_strictSelection && (!g_preferredGuidSet || !guidMatched)) {
+        Log("  strict GUID selection: requested device unavailable; refusing fallback");
+        g_lastHr = DIERR_NOTFOUND;
+        return 0;
+    }
     if (guidMatched) { /* settled */ }
     else if (g_preferredIndex >= 0) {
         if (g_preferredIndex < g_candidateCount) {
@@ -556,11 +566,12 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     // presents two "FANATEC Wheel" devices and only one has the actuator - try
     // the others rather than give up. Which twin is which is not something to
     // make a user guess from a dropdown.
-    for (int attempt = 0; attempt < g_candidateCount; ++attempt) {
+    for (int attempt = 0; attempt < (g_strictSelection ? 1 : g_candidateCount); ++attempt) {
         int idx = (chosen + attempt) % g_candidateCount;
         Log("  using: [%d] %s", idx, g_candidates[idx].name);
         if (OpenCandidate(idx)) return 1;
-        Log("  [%d] %s cannot be used for force feedback - trying the next", idx, g_candidates[idx].name);
+        Log("  [%d] %s cannot be used for force feedback%s", idx, g_candidates[idx].name,
+            g_strictSelection ? " - strict selection refuses fallback" : " - trying the next");
     }
     Log("  no usable force-feedback device");
     return 0;
@@ -614,6 +625,13 @@ __declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
     memcpy(&g_preferredGuid, guid16, sizeof(GUID));
     g_preferredGuidSet = true;
     Log("SetPreferredDeviceGuid(%08lX-%04X-%04X-...)", g_preferredGuid.Data1, g_preferredGuid.Data2, g_preferredGuid.Data3);
+}
+
+// Opt-in: a GUID is required and only its candidate may be opened. Existing
+// native consumers retain their historical fallback unless they call this.
+__declspec(dllexport) void SetStrictDeviceSelection(int enabled)
+{
+    g_strictSelection = enabled != 0;
 }
 
 __declspec(dllexport) void SetPreferredDeviceIndex(int index)
@@ -751,7 +769,7 @@ __declspec(dllexport) void CloseAuxDevice(void)
 // except the force-feedback wheel, which is read through the exclusive handle we
 // already hold - a second instance of the same device is not needed.
 static const int kMaxReadSlots = 8;
-struct ReadSlot { LPDIRECTINPUTDEVICE8 dev; bool isWheel; char name[MAX_PATH]; };
+struct ReadSlot { LPDIRECTINPUTDEVICE8 dev; bool isWheel; GUID guid; char name[MAX_PATH]; };
 static ReadSlot g_read[kMaxReadSlots];
 static int      g_readCount = 0;
 
@@ -774,7 +792,7 @@ __declspec(dllexport) int OpenReadDevice(int index)
     if (index < 0 || index >= g_auxCount) { Log("OpenReadDevice(%d): out of range (%d devices)", index, g_auxCount); return -1; }
     if (g_readCount >= kMaxReadSlots) { Log("OpenReadDevice(%d): no free slot", index); return -1; }
     ReadSlot& s = g_read[g_readCount];
-    s.dev = nullptr; s.isWheel = false;
+    s.dev = nullptr; s.isWheel = false; s.guid = g_aux[index].guid;
     strncpy_s(s.name, sizeof(s.name), g_aux[index].name, _TRUNCATE);
     if (g_device && IsEqualGUID(g_aux[index].guid, g_activeGuid)) {
         s.isWheel = true;
@@ -805,6 +823,9 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
 {
     if (slot < 0 || slot >= g_readCount || !axes) return 0;
     ReadSlot& s = g_read[slot];
+    // A read slot belongs to the original controller, never whichever wheel
+    // later replaces the FFB handle. Same-GUID reacquisition may resume it.
+    if (s.isWheel && (!g_device || !IsEqualGUID(s.guid, g_activeGuid))) return 0;
     LPDIRECTINPUTDEVICE8 dev = s.isWheel ? g_device : s.dev;
     if (!dev) return 0;
     DIJOYSTATE2 st = {};

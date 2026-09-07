@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -10,24 +9,11 @@ namespace Dbce.Wheel.Ffb
     /// Managed binding to <c>WheelFfb.dll</c>, the toolkit's native DirectInput
     /// force-feedback and device layer.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The DLL is loaded by <b>absolute path</b> before any <c>DllImport</c>
-    /// resolves: Unity Mod Manager mods and BepInEx plugins live in folders that
-    /// are not on the loader's search path. On Mono a <c>LoadLibraryW</c> preload
-    /// is enough (a later import by base name finds the loaded module); on CoreCLR
-    /// a <c>NativeLibrary.SetDllImportResolver</c> is installed through reflection
-    /// when the API exists, so the same assembly serves both runtimes.
-    /// </para>
-    /// <para>
-    /// Every call is guarded: a missing DLL or export records <see cref="LastError"/>
-    /// and leaves the game running without force feedback rather than throwing
-    /// inside a physics step.
-    /// </para>
-    /// </remarks>
+    /// <remarks>Exports are bound once from the exact loaded module. Renamed plugins work
+    /// on Mono and CoreCLR without an import-name resolver. Successful modules stay pinned
+    /// for the process lifetime; Shutdown releases devices, not the binding.</remarks>
     public static class WheelFfbNative
     {
-        private const string Dll = "WheelFfb";
 
         /// <summary>Full scale of <see cref="SetForce"/>: DirectInput's nominal maximum.</summary>
         public const int ForceMax = 10000;
@@ -35,43 +21,126 @@ namespace Dbce.Wheel.Ffb
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern IntPtr LoadLibraryW(string path);
 
-        [DllImport(Dll)] private static extern int  InitDirectInput(int hwnd);
-        [DllImport(Dll)] private static extern void Aquire();
-        [DllImport(Dll)] private static extern int  SetDeviceForcesXY(int x, int y);
-        [DllImport(Dll)] private static extern int  StartEffect();
-        [DllImport(Dll)] private static extern int  StopEffect();
-        [DllImport(Dll)] private static extern int  SetAutoCenter(int enable);
-        [DllImport(Dll)] private static extern void FreeDirectInput();
-        [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern void SetPreferredDevice(string name);
-        [DllImport(Dll)] private static extern void SetPreferredDeviceGuid(byte[] guid16);
-        [DllImport(Dll)] private static extern void SetPreferredDeviceIndex(int index);
-        [DllImport(Dll)] private static extern int  EnumerateDevices();
-        [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern int GetDeviceName(int index, StringBuilder buffer, int size);
-        [DllImport(Dll)] private static extern int  GetDeviceInfo(int index, out int axes, out int buttons);
-        [DllImport(Dll)] private static extern int  EnumerateAllDevices();
-        [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern int GetAnyDeviceName(int index, StringBuilder buffer, int size);
-        [DllImport(Dll)] private static extern int  GetAnyDeviceInfo(int index, out int axes, out int buttons, out int ffb);
-        [DllImport(Dll)] private static extern int  OpenAuxDevice(int index);
-        [DllImport(Dll)] private static extern int  ReadAuxButtons(byte[] buffer, int length);
-        [DllImport(Dll)] private static extern void CloseAuxDevice();
-        [DllImport(Dll)] private static extern int  OpenReadDevice(int index);
-        [DllImport(Dll)] private static extern int  ReadDeviceState(int slot, int[] axes, byte[] buttons, int buttonCount);
-        [DllImport(Dll)] private static extern void CloseReadDevices();
-        [DllImport(Dll)] private static extern void PanicStop();
-        [DllImport(Dll)] private static extern void ZeroForces();
-        [DllImport(Dll)] private static extern int  InstallExitGuards();
-        [DllImport(Dll)] private static extern void SetHoldTimeoutMs(int ms);
-        [DllImport(Dll, CharSet = CharSet.Ansi)] private static extern void SetLogPath(string path);
-        [DllImport(Dll)] private static extern int  GetLastHResult();
-        [DllImport(Dll)] private static extern int  GetWheelFfbVersion();
-        [DllImport(Dll)] private static extern int  CreatePeriodicEffect(int freqHz);
-        [DllImport(Dll)] private static extern int  UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz);
-        [DllImport(Dll)] private static extern void ReleasePeriodicEffects();
-        [DllImport(Dll)] private static extern int  GetDeviceGuid(int index, byte[] guid16);
-        [DllImport(Dll)] private static extern int  GetAnyDeviceGuid(int index, byte[] guid16);
-        [DllImport(Dll)] private static extern int  CreateConditionEffect(int type);
-        [DllImport(Dll)] private static extern int  UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset);
-        [DllImport(Dll)] private static extern void ReleaseConditionEffects();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int InitDirectInputCall(int hwnd);
+        private static InitDirectInputCall InitDirectInput;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void AquireCall();
+        private static AquireCall Aquire;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int SetDeviceForcesXYCall(int x, int y);
+        private static SetDeviceForcesXYCall SetDeviceForcesXY;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int StartEffectCall();
+        private static StartEffectCall StartEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int StopEffectCall();
+        private static StopEffectCall StopEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int SetAutoCenterCall(int enable);
+        private static SetAutoCenterCall SetAutoCenter;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void FreeDirectInputCall();
+        private static FreeDirectInputCall FreeDirectInput;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void SetPreferredDeviceCall(string name);
+        private static SetPreferredDeviceCall SetPreferredDevice;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void SetPreferredDeviceGuidCall(byte[] guid16);
+        private static SetPreferredDeviceGuidCall SetPreferredDeviceGuid;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void SetPreferredDeviceIndexCall(int index);
+        private static SetPreferredDeviceIndexCall SetPreferredDeviceIndex;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int EnumerateDevicesCall();
+        private static EnumerateDevicesCall EnumerateDevices;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetDeviceNameCall(int index, StringBuilder buffer, int size);
+        private static GetDeviceNameCall GetDeviceName;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetDeviceInfoCall(int index, out int axes, out int buttons);
+        private static GetDeviceInfoCall GetDeviceInfo;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int EnumerateAllDevicesCall();
+        private static EnumerateAllDevicesCall EnumerateAllDevices;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetAnyDeviceNameCall(int index, StringBuilder buffer, int size);
+        private static GetAnyDeviceNameCall GetAnyDeviceName;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetAnyDeviceInfoCall(int index, out int axes, out int buttons, out int ffb);
+        private static GetAnyDeviceInfoCall GetAnyDeviceInfo;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int OpenAuxDeviceCall(int index);
+        private static OpenAuxDeviceCall OpenAuxDevice;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int ReadAuxButtonsCall([Out] byte[] buffer, int length);
+        private static ReadAuxButtonsCall ReadAuxButtons;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void CloseAuxDeviceCall();
+        private static CloseAuxDeviceCall CloseAuxDevice;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int OpenReadDeviceCall(int index);
+        private static OpenReadDeviceCall OpenReadDevice;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int ReadDeviceStateCall(int slot, [Out] int[] axes, [Out] byte[] buttons, int buttonCount);
+        private static ReadDeviceStateCall ReadDeviceState;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void CloseReadDevicesCall();
+        private static CloseReadDevicesCall CloseReadDevices;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void PanicStopCall();
+        private static PanicStopCall PanicStop;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void ZeroForcesCall();
+        private static ZeroForcesCall ZeroForces;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int InstallExitGuardsCall();
+        private static InstallExitGuardsCall InstallExitGuards;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void SetHoldTimeoutMsCall(int ms);
+        private static SetHoldTimeoutMsCall SetHoldTimeoutMs;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void SetLogPathCall(string path);
+        private static SetLogPathCall SetLogPath;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetLastHResultCall();
+        private static GetLastHResultCall GetLastHResult;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetWheelFfbVersionCall();
+        private static GetWheelFfbVersionCall GetWheelFfbVersion;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int CreatePeriodicEffectCall(int freqHz);
+        private static CreatePeriodicEffectCall CreatePeriodicEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int UpdatePeriodicEffectCall(int slot, int magnitude, int freqMilliHz);
+        private static UpdatePeriodicEffectCall UpdatePeriodicEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void ReleasePeriodicEffectsCall();
+        private static ReleasePeriodicEffectsCall ReleasePeriodicEffects;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetDeviceGuidCall(int index, [Out] byte[] guid16);
+        private static GetDeviceGuidCall GetDeviceGuid;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int GetAnyDeviceGuidCall(int index, [Out] byte[] guid16);
+        private static GetAnyDeviceGuidCall GetAnyDeviceGuid;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int CreateConditionEffectCall(int type);
+        private static CreateConditionEffectCall CreateConditionEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate int UpdateConditionEffectCall(int slot, int coefficient, int saturation, int deadband, int offset);
+        private static UpdateConditionEffectCall UpdateConditionEffect;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private delegate void ReleaseConditionEffectsCall();
+        private static ReleaseConditionEffectsCall ReleaseConditionEffects;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void StrictSelectionCall(int enabled);
+        private static StrictSelectionCall SetStrictDeviceSelection;
+        [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(IntPtr module, string name);
+        [DllImport("kernel32")] private static extern bool FreeLibrary(IntPtr module);
+        private static readonly object LoadLock = new object();
+        private static Guid? _pendingGuid;
+        private static bool _needsCleanup;
 
         private static bool _loaded, _initialised, _failed;
 
@@ -88,82 +157,152 @@ namespace Dbce.Wheel.Ffb
         /// </summary>
         public static bool Load(string directory, string fileName = "WheelFfb.dll")
         {
-            if (_loaded) return true;
-            try
+            lock (LoadLock)
             {
-                string path = Path.Combine(directory ?? "", fileName);
-                if (!File.Exists(path)) { LastError = "Native plugin not found: " + path; return false; }
-                InstallResolver(path);
-                IntPtr h = LoadLibraryW(path);
-                if (h == IntPtr.Zero) { LastError = "LoadLibrary failed (" + Marshal.GetLastWin32Error() + "): " + path; return false; }
-                LoadedFrom = path;
-                _loaded = true;
-                return true;
+                IntPtr h = IntPtr.Zero;
+                try
+                {
+                    string path = Path.GetFullPath(Path.Combine(directory ?? "", fileName));
+                    if (_loaded)
+                    {
+                        if (string.Equals(path, LoadedFrom, StringComparison.OrdinalIgnoreCase)) return true;
+                        LastError = "A different native module is already bound: " + LoadedFrom;
+                        return false;
+                    }
+                    if (!File.Exists(path)) { LastError = "Native plugin not found: " + path; return false; }
+                    h = LoadLibraryW(path);
+                    if (h == IntPtr.Zero) { LastError = "LoadLibrary failed (" + Marshal.GetLastWin32Error() + "): " + path; return false; }
+                InitDirectInput = Bind<InitDirectInputCall>(h, "InitDirectInput");
+                Aquire = Bind<AquireCall>(h, "Aquire");
+                SetDeviceForcesXY = Bind<SetDeviceForcesXYCall>(h, "SetDeviceForcesXY");
+                StartEffect = Bind<StartEffectCall>(h, "StartEffect");
+                StopEffect = Bind<StopEffectCall>(h, "StopEffect");
+                SetAutoCenter = Bind<SetAutoCenterCall>(h, "SetAutoCenter");
+                FreeDirectInput = Bind<FreeDirectInputCall>(h, "FreeDirectInput");
+                SetPreferredDevice = Bind<SetPreferredDeviceCall>(h, "SetPreferredDevice");
+                SetPreferredDeviceGuid = Bind<SetPreferredDeviceGuidCall>(h, "SetPreferredDeviceGuid");
+                SetPreferredDeviceIndex = Bind<SetPreferredDeviceIndexCall>(h, "SetPreferredDeviceIndex");
+                EnumerateDevices = Bind<EnumerateDevicesCall>(h, "EnumerateDevices");
+                GetDeviceName = Bind<GetDeviceNameCall>(h, "GetDeviceName");
+                GetDeviceInfo = Bind<GetDeviceInfoCall>(h, "GetDeviceInfo");
+                EnumerateAllDevices = Bind<EnumerateAllDevicesCall>(h, "EnumerateAllDevices");
+                GetAnyDeviceName = Bind<GetAnyDeviceNameCall>(h, "GetAnyDeviceName");
+                GetAnyDeviceInfo = Bind<GetAnyDeviceInfoCall>(h, "GetAnyDeviceInfo");
+                OpenAuxDevice = Bind<OpenAuxDeviceCall>(h, "OpenAuxDevice");
+                ReadAuxButtons = Bind<ReadAuxButtonsCall>(h, "ReadAuxButtons");
+                CloseAuxDevice = Bind<CloseAuxDeviceCall>(h, "CloseAuxDevice");
+                OpenReadDevice = Bind<OpenReadDeviceCall>(h, "OpenReadDevice");
+                ReadDeviceState = Bind<ReadDeviceStateCall>(h, "ReadDeviceState");
+                CloseReadDevices = Bind<CloseReadDevicesCall>(h, "CloseReadDevices");
+                PanicStop = Bind<PanicStopCall>(h, "PanicStop");
+                ZeroForces = Bind<ZeroForcesCall>(h, "ZeroForces");
+                InstallExitGuards = Bind<InstallExitGuardsCall>(h, "InstallExitGuards");
+                SetHoldTimeoutMs = Bind<SetHoldTimeoutMsCall>(h, "SetHoldTimeoutMs");
+                SetLogPath = Bind<SetLogPathCall>(h, "SetLogPath");
+                GetLastHResult = Bind<GetLastHResultCall>(h, "GetLastHResult");
+                GetWheelFfbVersion = Bind<GetWheelFfbVersionCall>(h, "GetWheelFfbVersion");
+                CreatePeriodicEffect = Bind<CreatePeriodicEffectCall>(h, "CreatePeriodicEffect");
+                UpdatePeriodicEffect = Bind<UpdatePeriodicEffectCall>(h, "UpdatePeriodicEffect");
+                ReleasePeriodicEffects = Bind<ReleasePeriodicEffectsCall>(h, "ReleasePeriodicEffects");
+                GetDeviceGuid = Bind<GetDeviceGuidCall>(h, "GetDeviceGuid");
+                GetAnyDeviceGuid = Bind<GetAnyDeviceGuidCall>(h, "GetAnyDeviceGuid");
+                CreateConditionEffect = Bind<CreateConditionEffectCall>(h, "CreateConditionEffect");
+                UpdateConditionEffect = Bind<UpdateConditionEffectCall>(h, "UpdateConditionEffect");
+                ReleaseConditionEffects = Bind<ReleaseConditionEffectsCall>(h, "ReleaseConditionEffects");
+                    // Additive native 0.5 export. Legacy selection works with 0.4;
+                    // strict GUID selection requires this capability.
+                    var strict = GetProcAddress(h, "SetStrictDeviceSelection");
+                    SetStrictDeviceSelection = strict == IntPtr.Zero ? null :
+                        Marshal.GetDelegateForFunctionPointer<StrictSelectionCall>(strict);
+                    LoadedFrom = path; _loaded = true; LastError = null;
+                    h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
+                    return true;
+                }
+                catch (Exception ex) { LastError = "Load failed: " + ex.Message; return false; }
+                finally { if (h != IntPtr.Zero) FreeLibrary(h); }
             }
-            catch (Exception ex) { LastError = "Load failed: " + ex.Message; return false; }
         }
 
-        // CoreCLR (BepInEx 6): map the import name to the absolute path. Done via
-        // reflection so this netstandard2.0 assembly still compiles and loads on Mono.
-        private static void InstallResolver(string path)
+        private static T Bind<T>(IntPtr module, string name) where T : class
         {
-            try
-            {
-                var t = Type.GetType("System.Runtime.InteropServices.NativeLibrary, System.Runtime.InteropServices", false)
-                     ?? Type.GetType("System.Runtime.InteropServices.NativeLibrary", false);
-                if (t == null) return;
-                var setResolver = t.GetMethod("SetDllImportResolver", BindingFlags.Public | BindingFlags.Static);
-                var load = t.GetMethod("Load", new[] { typeof(string) });
-                if (setResolver == null || load == null) return;
-                var resolverType = setResolver.GetParameters()[1].ParameterType;   // DllImportResolver
-                var handler = new Func<string, Assembly, DllImportSearchPath?, IntPtr>((name, asm, sp) =>
-                    string.Equals(name, Dll, StringComparison.OrdinalIgnoreCase) ? (IntPtr)load.Invoke(null, new object[] { path }) : IntPtr.Zero);
-                var del = Delegate.CreateDelegate(resolverType, handler.Target, handler.Method);
-                setResolver.Invoke(null, new object[] { typeof(WheelFfbNative).Assembly, del });
-            }
-            catch { /* Mono, or an older runtime: the preload is sufficient there */ }
+            IntPtr address = GetProcAddress(module, name);
+            if (address == IntPtr.Zero) throw new EntryPointNotFoundException(name);
+            return (T)(object)Marshal.GetDelegateForFunctionPointer(address, typeof(T));
         }
 
-        /// <summary>Redirects the native log (call before <see cref="Initialise"/> to keep a consumer's own folder).</summary>
+        /// <summary>Redirects the native log before device initialisation.</summary>
         public static void LogTo(string path) { try { if (_loaded) SetLogPath(path); } catch (Exception ex) { LastError = ex.Message; } }
 
-        /// <summary>Opens the preferred FFB device (index wins over name) and creates the effect.</summary>
+        /// <summary>Opens the preferred FFB device. Existing three-argument ABI is retained.</summary>
         public static bool Initialise(string preferredName = "", int preferredIndex = -1, int hwnd = 0)
+            => Initialise(preferredName, preferredIndex, hwnd, _pendingGuid);
+
+        /// <summary>An explicit GUID never falls back to a different wheel. Requires native 0.5.</summary>
+        public static bool Initialise(string preferredName, int preferredIndex, int hwnd, Guid? preferredGuid)
         {
             if (!_loaded) { LastError = LastError ?? "Native plugin not loaded"; return false; }
+            if (_initialised) { LastError = "Already initialised; use Reinitialise to change selection"; return Ready; }
+            if (_needsCleanup) Shutdown();
             try
             {
-                if (preferredIndex >= 0) SetPreferredDeviceIndex(preferredIndex);
+                _failed = false;
+                SetPreferredDevice(""); SetPreferredDeviceIndex(-1); SetPreferredDeviceGuid(null);
+                SetStrictDeviceSelection?.Invoke(0);
+                if (preferredGuid.HasValue)
+                {
+                    if (SetStrictDeviceSelection == null)
+                    { LastError = "Strict GUID selection requires native 0.5 or later"; return false; }
+                    var devices = ListFfbDevices();
+                    if (new DevicePreference { InstanceGuid = preferredGuid }.Choose(devices) < 0)
+                    { LastError = "Saved wheel is missing or ambiguous. Choose the device again."; return false; }
+                    SetPreferredDeviceGuid(preferredGuid.Value.ToByteArray());
+                    SetStrictDeviceSelection(1);
+                }
+                else if (preferredIndex >= 0) SetPreferredDeviceIndex(preferredIndex);
                 else if (!string.IsNullOrEmpty(preferredName)) SetPreferredDevice(preferredName);
+                _needsCleanup = true;
                 _initialised = InitDirectInput(hwnd) != 0;
-                _failed = !_initialised;
-                if (_failed) LastError = "InitDirectInput failed - no usable force-feedback device (0x" + GetLastHResult().ToString("X8") + ")";
-                else StartEffect();
-                return _initialised;
+                if (!_initialised || StartEffect() == 0)
+                {
+                    string error = "FFB initialise/start failed (0x" + GetLastHResult().ToString("X8") + ")";
+                    Shutdown(); LastError = error; return false;
+                }
+                LastError = null;
+                return true;
             }
-            catch (Exception ex) { _failed = true; LastError = ex.Message; return false; }
+            catch (Exception ex) { Shutdown(); LastError = ex.Message; return false; }
         }
 
-        /// <summary>Closes and reopens with a different preference, without restarting the game.</summary>
         public static bool Reinitialise(string preferredName, int preferredIndex, int hwnd = 0)
-        {
-            Shutdown();
-            return Initialise(preferredName, preferredIndex, hwnd);
-        }
+        { Shutdown(); return Initialise(preferredName, preferredIndex, hwnd); }
+        public static bool Reinitialise(string preferredName, int preferredIndex, int hwnd, Guid? preferredGuid)
+        { Shutdown(); return Initialise(preferredName, preferredIndex, hwnd, preferredGuid); }
 
         /// <summary>Signed force, -<see cref="ForceMax"/>..+<see cref="ForceMax"/>. Cheap; call every physics step.</summary>
         public static bool SetForce(int force)
         {
             if (!Ready) return false;
-            try { return SetDeviceForcesXY(force, 0) != 0; } catch { _failed = true; return false; }
+            try
+            {
+                bool ok = SetDeviceForcesXY(Math.Max(-ForceMax, Math.Min(ForceMax, force)), 0) != 0;
+                if (!ok) LastError = "SetDeviceForcesXY failed (0x" + GetLastHResult().ToString("X8") + ")";
+                return ok; // Native reacquisition may recover on the next frame.
+            }
+            catch (Exception ex) { _failed = true; LastError = ex.Message; return false; }
         }
 
-        public static void Stop()            { if (Ready) try { StopEffect(); } catch { } }
-        public static void Start()           { if (Ready) try { StartEffect(); } catch { } }
-        public static void Zero()            { if (Ready) try { ZeroForces(); } catch { } }
-        public static void Panic()           { if (_initialised) try { PanicStop(); } catch { } }
-        public static bool ExitGuards()      { if (!_initialised) return false; try { return InstallExitGuards() != 0; } catch { return false; } }
-        public static void HoldTimeout(int ms) { if (_loaded) try { SetHoldTimeoutMs(ms); } catch { } }
+        public static void Stop() { if (_needsCleanup) try { Result(StopEffect() != 0, "StopEffect"); } catch (Exception ex) { LastError = ex.Message; } }
+        public static void Start() { if (Ready) try { Result(StartEffect() != 0, "StartEffect"); } catch (Exception ex) { LastError = ex.Message; } }
+        public static void Zero()            { if (_needsCleanup) try { ZeroForces(); } catch (Exception ex) { LastError = ex.Message; } }
+        public static void Panic()
+        {
+            if (!_needsCleanup) return;
+            try { PanicStop(); } catch (Exception ex) { LastError = ex.Message; }
+            _initialised = false; _failed = true;
+            LastError = LastError ?? "Panic stopped force feedback; reinitialise to resume";
+        }
+        public static bool ExitGuards()      { if (!_initialised) return false; try { return InstallExitGuards() != 0; } catch (Exception ex) { LastError = ex.Message; return false; } }
+        public static void HoldTimeout(int ms) { if (_loaded) try { SetHoldTimeoutMs(ms); } catch (Exception ex) { LastError = ex.Message; } }
 
         /// <summary>
         /// Pins device selection to a DirectInput instance GUID, which beats both
@@ -174,11 +313,11 @@ namespace Dbce.Wheel.Ffb
         public static void PreferGuid(Guid? instanceGuid)
         {
             if (!_loaded) return;
-            try { SetPreferredDeviceGuid(instanceGuid?.ToByteArray()); } catch { }
+            _pendingGuid = instanceGuid;
         }
-        public static void AutoCentre(bool on) { if (_initialised) try { SetAutoCenter(on ? 1 : 0); } catch { } }
-        public static int  LastHResult       { get { try { return _loaded ? GetLastHResult() : 0; } catch { return 0; } } }
-        public static int  Version           { get { try { return _loaded ? GetWheelFfbVersion() : 0; } catch { return 0; } } }
+        public static void AutoCentre(bool on) { if (_initialised) try { SetAutoCenter(on ? 1 : 0); } catch (Exception ex) { LastError = ex.Message; } }
+        public static int  LastHResult       { get { try { return _loaded ? GetLastHResult() : 0; } catch (Exception ex) { LastError = ex.Message; return 0; } } }
+        public static int  Version           { get { try { return _loaded ? GetWheelFfbVersion() : 0; } catch (Exception ex) { LastError = ex.Message; return 0; } } }
 
         /// <summary>
         /// Creates a hardware sine effect (road texture, tyre slip) on the held
@@ -186,7 +325,7 @@ namespace Dbce.Wheel.Ffb
         /// or -1 when the driver has no periodic support - then synthesise at
         /// 15 Hz or below through <see cref="SetForce"/> instead. Toolkit 0.2.0+.
         /// </summary>
-        public static int  CreatePeriodic(int freqHz)  { if (!Ready) return -1; try { return CreatePeriodicEffect(freqHz); } catch { return -1; } }
+        public static int  CreatePeriodic(int freqHz)  { if (!Ready) return -1; try { return CreatePeriodicEffect(freqHz); } catch (Exception ex) { LastError = ex.Message; return -1; } }
 
         /// <summary>Envelope update; safe to call every frame (unchanged envelopes never reach the driver).</summary>
         public static bool UpdatePeriodic(int slot, float magnitude01, float freqHz)
@@ -194,11 +333,11 @@ namespace Dbce.Wheel.Ffb
             if (!Ready || slot < 0) return false;
             try {
                 int m = (int)Math.Round(Math.Max(0f, Math.Min(1f, magnitude01)) * 10000f);
-                return UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0;
-            } catch { return false; }
+                return Result(UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0, "UpdatePeriodicEffect");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
         }
 
-        public static void ReleasePeriodics()  { if (_loaded) try { ReleasePeriodicEffects(); } catch { } }
+        public static void ReleasePeriodics()  { if (_loaded) try { ReleasePeriodicEffects(); } catch (Exception ex) { LastError = ex.Message; } }
 
         /// <summary>
         /// Instance GUID of an enumerated force-feedback device, to hand back to
@@ -210,7 +349,7 @@ namespace Dbce.Wheel.Ffb
         {
             if (!_loaded) return null;
             try { var b = new byte[16]; return GetDeviceGuid(index, b) != 0 ? new Guid(b) : (Guid?)null; }
-            catch { return null; }
+            catch (Exception ex) { LastError = ex.Message; return null; }
         }
 
         /// <summary>The same for the full controller list (shifters, pedal sets).</summary>
@@ -218,7 +357,7 @@ namespace Dbce.Wheel.Ffb
         {
             if (!_loaded) return null;
             try { var b = new byte[16]; return GetAnyDeviceGuid(index, b) != 0 ? new Guid(b) : (Guid?)null; }
-            catch { return null; }
+            catch (Exception ex) { LastError = ex.Message; return null; }
         }
 
         /// <summary>Condition effect kind for <see cref="CreateCondition"/>.</summary>
@@ -235,7 +374,7 @@ namespace Dbce.Wheel.Ffb
         public static int CreateCondition(ConditionKind kind)
         {
             if (!Ready) return -1;
-            try { return CreateConditionEffect((int)kind); } catch { return -1; }
+            try { return CreateConditionEffect((int)kind); } catch (Exception ex) { LastError = ex.Message; return -1; }
         }
 
         /// <summary>
@@ -249,19 +388,30 @@ namespace Dbce.Wheel.Ffb
             try
             {
                 int C(float v, bool signed) => (int)Math.Round(Math.Max(signed ? -1f : 0f, Math.Min(1f, v)) * 10000f);
-                return UpdateConditionEffect(slot, C(coefficient, true), C(saturation, false), C(deadband, false), C(offset, true)) != 0;
+                return Result(UpdateConditionEffect(slot, C(coefficient, true), C(saturation, false), C(deadband, false), C(offset, true)) != 0, "UpdateConditionEffect");
             }
-            catch { return false; }
+            catch (Exception ex) { LastError = ex.Message; return false; }
         }
 
-        public static void ReleaseConditions() { if (_loaded) try { ReleaseConditionEffects(); } catch { } }
+        public static void ReleaseConditions() { if (_loaded) try { ReleaseConditionEffects(); } catch (Exception ex) { LastError = ex.Message; } }
 
         /// <summary>Releases the device. Safe to call repeatedly.</summary>
         public static void Shutdown()
         {
-            if (!_initialised) return;
-            try { FreeDirectInput(); } catch { }
-            _initialised = false; _failed = false;
+            if (!_needsCleanup) return;
+            try { ZeroForces(); } catch (Exception ex) { LastError = ex.Message; }
+            try { StopEffect(); } catch (Exception ex) { LastError = ex.Message; }
+            try { FreeDirectInput(); } catch (Exception ex) { LastError = ex.Message; }
+            _initialised = false; _failed = false; _needsCleanup = false;
+        }
+
+        /// <summary>Final consumer shutdown, including all independently opened readers.
+        /// Use Shutdown alone when switching FFB without closing input devices.</summary>
+        public static void ShutdownAll()
+        {
+            if (!_loaded) return;
+            Shutdown(); CloseAux(); CloseRead();
+            try { FreeDirectInput(); } catch (Exception ex) { LastError = ex.Message; }
         }
 
         // --- device lists -----------------------------------------------------
@@ -315,11 +465,36 @@ namespace Dbce.Wheel.Ffb
 
         // --- reading other devices (shifters, pedals, a wheel the game cannot read) ---
 
-        public static bool OpenAux(int index)               { try { return _loaded && OpenAuxDevice(index) != 0; } catch { return false; } }
-        public static int  ReadAux(byte[] buttons)          { try { return _loaded ? ReadAuxButtons(buttons, buttons.Length) : 0; } catch { return 0; } }
-        public static void CloseAux()                       { try { if (_loaded) CloseAuxDevice(); } catch { } }
-        public static int  OpenRead(int index)              { try { return _loaded ? OpenReadDevice(index) : -1; } catch { return -1; } }
-        public static bool Read(int slot, int[] axes8, byte[] buttons) { try { return _loaded && ReadDeviceState(slot, axes8, buttons, buttons?.Length ?? 0) != 0; } catch { return false; } }
-        public static void CloseRead()                      { try { if (_loaded) CloseReadDevices(); } catch { } }
+        private static bool Result(bool ok, string operation)
+        {
+            if (!ok) LastError = operation + " failed (0x" + LastHResult.ToString("X8") + ")";
+            return ok;
+        }
+        public static bool OpenAux(int index)
+        {
+            if (!_loaded || index < 0) { LastError = "OpenAux requires a loaded module and nonnegative index"; return false; }
+            try { return Result(OpenAuxDevice(index) != 0, "OpenAux"); }
+            catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static int ReadAux(byte[] buttons)
+        {
+            if (!_loaded || buttons == null || buttons.Length == 0) { LastError = "ReadAux requires a button buffer and loaded module"; return 0; }
+            try { int n = ReadAuxButtons(buttons, buttons.Length); Result(n > 0, "ReadAux"); return n; }
+            catch (Exception ex) { LastError = ex.Message; return 0; }
+        }
+        public static void CloseAux() { try { if (_loaded) CloseAuxDevice(); } catch (Exception ex) { LastError = ex.Message; } }
+        public static int OpenRead(int index)
+        {
+            if (!_loaded || index < 0) { LastError = "OpenRead requires a loaded module and nonnegative index"; return -1; }
+            try { int slot = OpenReadDevice(index); Result(slot >= 0, "OpenRead"); return slot; }
+            catch (Exception ex) { LastError = ex.Message; return -1; }
+        }
+        public static bool Read(int slot, int[] axes8, byte[] buttons)
+        {
+            if (!_loaded || slot < 0 || axes8 == null || axes8.Length < 8) { LastError = "Read requires a valid slot and eight axes"; return false; }
+            try { return Result(ReadDeviceState(slot, axes8, buttons, buttons?.Length ?? 0) != 0, "Read"); }
+            catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static void CloseRead() { try { if (_loaded) CloseReadDevices(); } catch (Exception ex) { LastError = ex.Message; } }
     }
 }

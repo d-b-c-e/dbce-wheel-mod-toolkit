@@ -41,3 +41,4 @@ EXPORTS
     CreateConditionEffect
     UpdateConditionEffect
     ReleaseConditionEffects
+    SetStrictDeviceSelection
