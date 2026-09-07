@@ -49,7 +49,7 @@ try {
         $src = @{
             native = @(Join-Path $LocalRepo 'native/wheelffb/build')
             'native-x86' = @(Join-Path $LocalRepo 'native/wheelffb/build/x86')
-            include = @((Join-Path $LocalRepo 'native/wheelffb/include'),(Join-Path $LocalRepo 'native/forza'),(Join-Path $LocalRepo 'native/forcemodel'))
+            include = @((Join-Path $LocalRepo 'native/wheelffb/include'),(Join-Path $LocalRepo 'native/forza'),(Join-Path $LocalRepo 'native/forcemodel'),(Join-Path $LocalRepo 'native/dinput-proxy'))
             profiles = @(Join-Path $LocalRepo 'profiles')
             powershell = @(Join-Path $LocalRepo 'tools/powershell')
             dotnet = @(Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Ffb/bin/Release/netstandard2.0')
@@ -97,6 +97,7 @@ try {
                 'dotnet' { @(Get-ChildItem -LiteralPath $from -File | Where-Object { $_.Name -like 'Dbce.Wheel.*.dll' -or $_.Name -like 'Dbce.Wheel.*.xml' }) }
                 default { @(Get-ChildItem -LiteralPath $from -Recurse -File) }
             }
+            if ($files.Count -eq 0) { throw "Empty requested part source: $from" }
             if ($part -eq 'dotnet' -and @($files | Where-Object Extension -eq '.dll').Count -eq 0) { throw 'No managed assemblies in dotnet part' }
             foreach ($file in $files) {
                 Assert-Unlinked $file.FullName
