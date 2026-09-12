@@ -286,6 +286,15 @@ int main(int argc, char** argv)
     ffb.ZeroForces();
     stage("ZeroForces", 1, "");
 
+    /* Finite burst ABI: creation is idle, and zero play is a stop. No torque. */
+    {
+        int burst = ffb.CreatePeriodicBurst(25, 120);
+        stage("CreatePeriodicBurst (idle)", burst >= 0, "120 ms finite duration");
+        if (burst >= 0) {
+            stage("PlayPeriodicBurst (zero)", ffb.PlayPeriodicBurst(burst, 0, 25000) != 0, "stop only");
+            stage("StopPeriodicBurst (idle)", ffb.StopPeriodicBurst(burst) != 0, "");
+        }
+    }
     ffb.ReleasePeriodicEffects();
     stage("ReleasePeriodicEffects", 1, "");
 

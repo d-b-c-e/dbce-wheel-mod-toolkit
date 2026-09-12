@@ -140,11 +140,15 @@ goes in a clearly named sub-package.
 
 ## Where the work stands
 
+Local candidate 0.13.0 adds finite periodic bursts (native 0.6.0, 41 exports).
+Read docs/PERIODIC-BURSTS.md. No workflows or publication without authorization;
+nonzero physical force tests are not part of local package gates.
+
 Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve
 compatibility v1, finite force-state recovery and structured consumer diagnostics.
 Read docs/STATE.md and docs/CONSUMER-EXPERIENCE.md before making adoption claims.
-The native component is 0.5.0 with 38 exports; package and component versions differ.
+The prior 0.12.0 native component was 0.5.0 with 38 exports; package and component versions differ.
 The dinput proxy header scaffold is implemented and tested on x86/x64.
 Game UI, calibration, shared input kit, and SDL consolidation remain separate work.
 

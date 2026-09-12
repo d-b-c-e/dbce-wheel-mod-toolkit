@@ -15,6 +15,13 @@ class Program {
   Check(!WheelFfbNative.Load(Environment.SystemDirectory,"kernel32.dll"),"incomplete exports accepted");
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),WheelFfbNative.LastError);
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),"repeat load");
+  if(args.Length>1 && args[1]=="legacy") {
+    Check(WheelFfbNative.Version==500 && !WheelFfbNative.SupportsPeriodicBursts,"legacy capability incorrect");
+    Check(WheelFfbNative.Initialise(),"legacy core API failed");
+    Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"missing burst create was accepted");
+    Check(!WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && !WheelFfbNative.StopPeriodicBurst(0),"missing burst exports were called");
+    WheelFfbNative.ShutdownAll(); Console.WriteLine("legacy optional burst binding passed: "+assertions); return 0;
+  }
   Check(!WheelFfbNative.Load(dir,"WheelFfb.dll"),"different module silently accepted");
   var h=GetModuleHandleW(path);
   var metric=Marshal.GetDelegateForFunctionPointer<Metric>(GetProcAddress(h,"TestMetric"));
@@ -53,7 +60,7 @@ class Program {
   Check(!WheelFfbNative.Initialise() && !WheelFfbNative.Ready && metric(1)>freed,"start failure reported ready");
   fault(0);Check(WheelFfbNative.Initialise(),"recovery");
   WheelFfbNative.LogTo("fixture.log"); WheelFfbNative.HoldTimeout(100); WheelFfbNative.AutoCentre(false);
-  Check(WheelFfbNative.Version==500 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
+  Check(WheelFfbNative.Version==600 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
   Check(WheelFfbNative.ExitGuards(),"exit guard binding");
   Check(WheelFfbNative.CreatePeriodic(25)==1 && WheelFfbNative.UpdatePeriodic(1,.2f,25),"periodic binding");
   Check(!WheelFfbNative.UpdatePeriodic(1,float.NaN,25),"invalid periodic magnitude crossed native boundary");
@@ -63,6 +70,23 @@ class Program {
   WheelFfbNative.ReleasePeriodics(); WheelFfbNative.ReleaseConditions(); WheelFfbNative.Zero(); WheelFfbNative.Stop(); WheelFfbNative.Start();
   fault(3);Check(!WheelFfbNative.SetForce(2) && WheelFfbNative.LastError.Contains("SetDeviceForcesXY"),"force failure lost error");
   fault(0);Check(WheelFfbNative.SetForce(-20000) && metric(2)==-10000,"transient force recovery");
+  Check(WheelFfbNative.SupportsPeriodicBursts,"burst capability missing");
+  Check(WheelFfbNative.CreatePeriodicBurst(25,120)==0 && metric(11)==120 && metric(8)==0,"burst create was not idle/arguments wrong");
+  foreach(int duration in new[]{0,-1,501}) Check(WheelFfbNative.CreatePeriodicBurst(25,duration)==-1,"invalid duration accepted");
+  Check(WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && metric(9)==500 && metric(10)==25000,"5 percent not delivered");
+  Check(WheelFfbNative.PlayPeriodicBurst(0,.002f,25) && metric(9)==20,"small magnitude not delivered");
+  Check(WheelFfbNative.PlayPeriodicBurst(0,float.Epsilon,25) && metric(9)==1,"positive magnitude rounded away");
+  int plays=metric(8);
+  foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,-.1f,1.1f}) Check(!WheelFfbNative.PlayPeriodicBurst(0,invalid,25),"invalid magnitude accepted");
+  foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,0,101}) Check(!WheelFfbNative.PlayPeriodicBurst(0,.05f,invalid),"invalid frequency accepted");
+  Check(metric(8)==plays,"invalid play crossed native boundary");
+  fault(6); Check(!WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && metric(8)==plays+1,"failed play retried");
+  Check(WheelFfbNative.LastError.Contains("PlayPeriodicBurst"),"burst error hidden");
+  fault(0); Check(WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && metric(8)==plays+2,"new event failed");
+  Check(WheelFfbNative.StopPeriodicBurst(0) && WheelFfbNative.StopPeriodicBurst(0) && metric(12)==2,"stop not idempotent");
+  fault(5); Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"unsupported create accepted");
+  fault(7); Check(!WheelFfbNative.StopPeriodicBurst(0),"failed stop accepted");
+  fault(0);
   WheelFfbNative.ShutdownAll();freed=metric(1);WheelFfbNative.Shutdown();Check(metric(1)==freed,"duplicate device shutdown");
   Console.WriteLine("{\"status\":\"passed\",\"assertions\":"+assertions+"}");return 0;
  } catch(Exception e) {Console.Error.WriteLine(e);return 1;} }

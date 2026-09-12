@@ -40,3 +40,6 @@ EXPORTS
     SetStrictDeviceSelection
     TestFault
     TestMetric
+    CreatePeriodicBurst
+    PlayPeriodicBurst
+    StopPeriodicBurst

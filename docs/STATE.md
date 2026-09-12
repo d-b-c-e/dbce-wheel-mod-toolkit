@@ -1,3 +1,24 @@
+# 0.13.0 local candidate, 2026-09-12
+
+This isolated branch adds finite periodic bursts (native 0.6.0, 41 exports),
+all-family focus/watchdog stopping and first-low-magnitude periodic delivery.
+See [PERIODIC-BURSTS.md](PERIODIC-BURSTS.md) for exact contracts and limits.
+AxleForceCurve@1, ImpactMixer and profile data are unchanged. This candidate is
+not published; the official 0.12.0 release and consumer installed RC remain separate.
+No GitHub workflows are dispatched. Consumer landing detection/settings/testing
+are owned by art-of-sim-rally's task, not this checkout.
+
+Validated locally on 2026-09-12: full package gates passed with 121 managed
+tests, 24 sync assertions, 63 binding assertions on each of x64 CoreCLR and
+x86 .NET Framework plus 8 legacy-component checks on each. Native fake-effect
+tests passed on x64/x86, alongside existing packet/model/proxy/helper suites.
+Both native DLLs built with 41 exports; zero-output C ABI smoke passed every
+stage on the MOZA R12 in both architectures, including idle burst creation,
+zero play and stop. No nonzero burst was applied; physical expiry/feel and
+Unity Mono in-game delivery remain unverified. No Actions, push or publication.
+
+The previous release handoff below remains historical context.
+
 # Current handoff
 
 Updated 2026-09-07. Source/package version **0.12.0**, native device component

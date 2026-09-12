@@ -5,6 +5,19 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [0.13.0] - 2026-09-12 (local candidate, unpublished)
+
+- Add idle-created finite sine bursts, explicit play/restart and idempotent stop
+  (1..500 ms, 1..100 Hz). Native 0.6.0 adds three exports; optional managed binding
+  preserves older DLL loading and exposes SupportsPeriodicBursts.
+- Drop failed burst events without reacquire/retry or delayed replay. Positive
+  magnitudes down to one device unit reach the driver without a 5% change gate.
+- Stop all effect families on focus loss and hold timeout, including when constant
+  force is zero. Continuous periodics now deliver their first small positive update.
+- Add x86/x64 production-adapter fake-effect checks and new/legacy binding tests
+  to local packaging. No workflows dispatched; no nonzero hardware testing.
+- AxleForceCurve@1, ImpactMixer and profile data are unchanged. See PERIODIC-BURSTS.md.
+
 ## [0.12.0] - 2026-09-07
 
 - Bind managed native calls to the exact loaded module, including renamed Unity

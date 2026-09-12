@@ -142,6 +142,15 @@ namespace Dbce.Wheel.Ffb
         private static Guid? _pendingGuid;
         private static bool _needsCleanup;
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int CreateBurstCall(int hz, int ms);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayBurstCall(int slot, int magnitude, int milliHz);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int StopBurstCall(int slot);
+        private static CreateBurstCall _createBurst;
+        private static PlayBurstCall _playBurst;
+        private static StopBurstCall _stopBurst;
+        /// <summary>True when the exact loaded native module supports all finite-burst operations.</summary>
+        public static bool SupportsPeriodicBursts => _loaded && _createBurst != null && _playBurst != null && _stopBurst != null;
+
         private static bool _loaded, _initialised, _failed;
 
         /// <summary>Absolute path the DLL was loaded from, or null.</summary>
@@ -214,6 +223,9 @@ namespace Dbce.Wheel.Ffb
                     var strict = GetProcAddress(h, "SetStrictDeviceSelection");
                     SetStrictDeviceSelection = strict == IntPtr.Zero ? null :
                         Marshal.GetDelegateForFunctionPointer<StrictSelectionCall>(strict);
+                    _createBurst = Optional<CreateBurstCall>(h, "CreatePeriodicBurst");
+                    _playBurst = Optional<PlayBurstCall>(h, "PlayPeriodicBurst");
+                    _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
                     return true;
@@ -221,6 +233,12 @@ namespace Dbce.Wheel.Ffb
                 catch (Exception ex) { LastError = "Load failed: " + ex.Message; return false; }
                 finally { if (h != IntPtr.Zero) FreeLibrary(h); }
             }
+        }
+
+        private static T Optional<T>(IntPtr module, string name) where T : class
+        {
+            IntPtr address = GetProcAddress(module, name);
+            return address == IntPtr.Zero ? null : (T)(object)Marshal.GetDelegateForFunctionPointer(address, typeof(T));
         }
 
         private static T Bind<T>(IntPtr module, string name) where T : class
@@ -339,6 +357,40 @@ namespace Dbce.Wheel.Ffb
                 int m = (int)Math.Round(Math.Max(0f, Math.Min(1f, magnitude01)) * 10000f);
                 return Result(UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0, "UpdatePeriodicEffect");
             } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+
+        /// <summary>Create an idle sine burst (1..100 Hz, 1..500 ms), or -1 on failure.
+        /// Shares four slots with continuous periodics. Requires native component 0.6.0.</summary>
+        public static int CreatePeriodicBurst(int freqHz, int durationMs)
+        {
+            if (!Ready || !SupportsPeriodicBursts) { LastError = "Finite bursts require ready FFB and native 0.6.0 burst support"; return -1; }
+            if (freqHz < 1 || freqHz > 100 || durationMs < 1 || durationMs > 500)
+            { LastError = "Burst frequency must be 1..100 Hz and duration 1..500 ms"; return -1; }
+            try { int slot = _createBurst(freqHz, durationMs); Result(slot >= 0, "CreatePeriodicBurst"); return slot; }
+            catch (Exception ex) { LastError = ex.Message; return -1; }
+        }
+
+        /// <summary>Explicitly restart one finite burst. True means the native play was accepted,
+        /// not proof of physical output. Zero stops. Failed events must not be queued/retried.
+        /// Every positive magnitude maps to at least one device unit; no 5% change gate.</summary>
+        public static bool PlayPeriodicBurst(int slot, float magnitude01, float freqHz)
+        {
+            if (!Ready || !SupportsPeriodicBursts) { LastError = "Finite bursts require ready FFB and native 0.6.0 burst support"; return false; }
+            if (slot < 0 || slot >= 4 || !Finite(magnitude01) || magnitude01 < 0 || magnitude01 > 1 || !Finite(freqHz) || freqHz < 1 || freqHz > 100)
+            { LastError = "Burst requires a valid slot, magnitude 0..1 and frequency 1..100 Hz"; return false; }
+            try {
+                int magnitude = magnitude01 == 0 ? 0 : Math.Max(1, (int)Math.Round(magnitude01 * ForceMax));
+                return Result(_playBurst(slot, magnitude, (int)Math.Round(freqHz * 1000f)) != 0, "PlayPeriodicBurst");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+
+        /// <summary>Stop a valid burst slot, including an already stopped slot. Retains the slot.
+        /// ReleasePeriodics frees all continuous and burst slots. May stop while FFB is not Ready.</summary>
+        public static bool StopPeriodicBurst(int slot)
+        {
+            if (!SupportsPeriodicBursts || slot < 0 || slot >= 4) { LastError = "Stop requires burst support and a valid slot"; return false; }
+            try { return Result(_stopBurst(slot) != 0, "StopPeriodicBurst"); }
+            catch (Exception ex) { LastError = ex.Message; return false; }
         }
 
         public static void ReleasePeriodics()  { if (_loaded) try { ReleasePeriodicEffects(); } catch (Exception ex) { LastError = ex.Message; } }

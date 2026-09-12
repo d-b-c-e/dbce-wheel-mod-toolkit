@@ -11,6 +11,13 @@ set "ARCH=%~1"
 if "%ARCH%"=="" set "ARCH=x64"
 set "OUT=%HERE%build"
 if /i "%ARCH%"=="x86" set "OUT=%HERE%build\x86"
+set "FIXTUREDEF=%HERE%fixture.def"
+set "EXTRA="
+if /i "%~2"=="legacy" (
+ set "OUT=%OUT%\legacy"
+ set "FIXTUREDEF=%HERE%fixture.legacy.def"
+ set "EXTRA=/DNO_BURST"
+)
 if not exist "%OUT%" mkdir "%OUT%"
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -22,8 +29,8 @@ if not defined VSPATH ( echo ERROR: MSVC x64 toolset not found & exit /b 1 )
 if /i "%ARCH%"=="x86" ( call "!VSPATH!\VC\Auxiliary\Build\vcvars32.bat" >nul ) else ( call "!VSPATH!\VC\Auxiliary\Build\vcvars64.bat" >nul )
 if errorlevel 1 ( echo ERROR: vcvars64 failed & exit /b 1 )
 
-cl.exe /nologo /LD /O2 /W4 /EHsc /DNDEBUG ^
+cl.exe /nologo /LD /O2 /W4 /EHsc /DNDEBUG %EXTRA% ^
   /Fo"%OUT%\\" /Fe"%OUT%\UnityForceFeedback.dll" ^
   "%HERE%fixture.cpp" ^
-  /link /DEF:"%HERE%fixture.def" /MACHINE:%ARCH%
+  /link /DEF:"%FIXTUREDEF%" /MACHINE:%ARCH%
 exit /b %errorlevel%

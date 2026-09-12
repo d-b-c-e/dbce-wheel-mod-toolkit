@@ -42,6 +42,7 @@
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include "burst_effect.h"
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -54,7 +55,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 500;            // 0.5.0
+static const int  kVersion      = 600;            // 0.6.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -1024,7 +1025,7 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 // without the caller noticing. Whether a driver accepts SetParameters without
 // DIEP_START (no phase reset) is probed once and remembered.
 static const int kMaxPeriodic = 4;
-struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; bool used; bool started; ULONGLONG holdoff; };
+struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; int durationMs; bool used; bool started; ULONGLONG holdoff; };
 static PeriodicSlot g_periodic[kMaxPeriodic] = {};
 static int  g_periodicStrategy = -1;   // -1 untested, 0 without DIEP_START, 1 with
 static bool g_periodicProbed = false;
@@ -1063,6 +1064,12 @@ static BOOL CALLBACK EnumPeriodicCb(LPCDIEFFECTINFO info, LPVOID)
 static HRESULT CreatePeriodicInSlot(int i)
 {
     PeriodicSlot& s = g_periodic[i];
+    if (s.durationMs > 0) {
+        HRESULT hr = wheel_burst::create(g_device, s.fx, s.hz, s.durationMs);
+        s.started = false; s.lastMag = 0; s.holdoff = 0;
+        if (FAILED(hr)) g_lastHr = hr;
+        return hr;
+    }
     DWORD axes[1] = { DIJOFS_X };
     LONG  dir[1]  = { 0 };
     DIPERIODIC pf = {};
@@ -1091,7 +1098,12 @@ static HRESULT CreatePeriodicInSlot(int i)
 
 static void StopPeriodics()
 {
-    for (int i = 0; i < kMaxPeriodic; ++i) if (g_periodic[i].fx) g_periodic[i].fx->Stop();
+    for (int i = 0; i < kMaxPeriodic; ++i) {
+        auto& s = g_periodic[i];
+        HRESULT hr = wheel_burst::stop(s.fx);
+        if (FAILED(hr)) g_lastHr = hr;
+        s.started = false; s.lastMag = 0;
+    }
 }
 
 static void ReleasePeriodics()
@@ -1099,7 +1111,7 @@ static void ReleasePeriodics()
     for (int i = 0; i < kMaxPeriodic; ++i) {
         PeriodicSlot& s = g_periodic[i];
         if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
-        s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
+        s.durationMs = 0; s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
     }
 }
 
@@ -1119,7 +1131,7 @@ __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
     for (int i = 0; i < kMaxPeriodic; ++i) if (!g_periodic[i].used) { slot = i; break; }
     if (slot < 0) { LeaveCriticalSection(&g_lock); Log("CreatePeriodicEffect: all %d slots in use", kMaxPeriodic); return -1; }
     PeriodicSlot& s = g_periodic[slot];
-    s.used = true; s.hz = freqHz > 0 ? freqHz : 25;
+    s.used = true; s.durationMs = 0; s.hz = freqHz > 0 ? freqHz : 25;
     HRESULT hr = CreatePeriodicInSlot(slot);
     if (FAILED(hr)) { s.used = false; Log("CreatePeriodicEffect(%d): CreateEffect(GUID_Sine) failed 0x%08lX", freqHz, hr); slot = -1; }
     else Log("CreatePeriodicEffect(%d Hz) -> slot %d", freqHz, slot);
@@ -1133,7 +1145,7 @@ __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 // slot is empty, the update failed, or the effect is being recreated.
 __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz)
 {
-    if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || !g_device || g_panicked) return 0;
+    if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || g_periodic[slot].durationMs != 0 || !g_device || g_panicked) return 0;
     PeriodicSlot& s = g_periodic[slot];
     if (magnitude < 0) magnitude = 0;
     if (magnitude > kForceMax) magnitude = kForceMax;
@@ -1149,10 +1161,10 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
         if (FAILED(ch)) { s.holdoff = GetTickCount64() + 500; LeaveCriticalSection(&g_lock); return 0; }
         Log("  periodic[%d] recreated", slot);
     }
-    bool silence       = (mag == 0 && s.lastMag != 0);
-    bool magChanged    = labs((long)mag - (long)s.lastMag) > 500;                                   // >5%
-    bool periodChanged = s.lastPeriod != 0 && labs((long)period - (long)s.lastPeriod) * 10 > (long)s.lastPeriod;  // >10%
-    if (!magChanged && !periodChanged && !silence) { LeaveCriticalSection(&g_lock); return 1; }
+    g_lastUpdateTick = GetTickCount64();
+    if (!wheel_burst::needs_update(s.lastMag, s.lastPeriod, s.started, mag, period)) {
+        LeaveCriticalSection(&g_lock); return 1;
+    }
 
     DIPERIODIC pf = {}; pf.dwMagnitude = mag; pf.dwPeriod = period;
     DIEFFECT eff = {};
@@ -1189,6 +1201,57 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
         DWORD now = GetTickCount();
         if (lastReport == 0 || now - lastReport > 5000) { lastReport = now; Log("  periodic[%d] SetParameters FAILED 0x%08lX", slot, hr); }
     }
+    LeaveCriticalSection(&g_lock);
+    return SUCCEEDED(hr) ? 1 : 0;
+}
+
+// Burst slots share the four periodic slots, but cannot be updated through the
+// continuous API. Only an explicit Play can start/recreate a burst.
+__declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
+{
+    if (!g_device || g_panicked || !wheel_burst::valid(freqHz, durationMs)) { g_lastHr = E_INVALIDARG; return -1; }
+    EnterCriticalSection(&g_lock);
+    int slot = -1;
+    for (int i = 0; i < kMaxPeriodic; ++i) if (!g_periodic[i].used) { slot = i; break; }
+    if (slot < 0) { g_lastHr = DIERR_DEVICEFULL; LeaveCriticalSection(&g_lock); return -1; }
+    auto& s = g_periodic[slot]; s.used = true; s.hz = freqHz; s.durationMs = durationMs;
+    HRESULT hr = CreatePeriodicInSlot(slot);
+    if (FAILED(hr)) { s.used = false; s.durationMs = 0; slot = -1; }
+    g_lastHr = hr;
+    LeaveCriticalSection(&g_lock);
+    return slot;
+}
+
+__declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
+{
+    if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000)
+    { g_lastHr = E_INVALIDARG; return 0; }
+    EnterCriticalSection(&g_lock);
+    // Check after taking the effect lock: a queued event must not pass a
+    // foreground check, wait behind focus-loss zeroing, then start in background.
+    DWORD foregroundPid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
+    if (magnitude > 0 && foregroundPid != GetCurrentProcessId()) { g_lastHr = DIERR_NOTACQUIRED; LeaveCriticalSection(&g_lock); return 0; }
+    auto& s = g_periodic[slot];
+    if (!s.used || s.durationMs == 0) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
+    HRESULT hr = S_OK;
+    if (!s.fx && magnitude > 0) hr = CreatePeriodicInSlot(slot);
+    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz);
+    s.started = SUCCEEDED(hr) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
+    if (SUCCEEDED(hr)) { s.hz = freqMilliHz / 1000; g_lastUpdateTick = GetTickCount64(); }
+    g_lastHr = hr;
+    LeaveCriticalSection(&g_lock);
+    return SUCCEEDED(hr) ? 1 : 0;
+}
+
+__declspec(dllexport) int StopPeriodicBurst(int slot)
+{
+    if (!g_lockInit || slot < 0 || slot >= kMaxPeriodic) { g_lastHr = E_INVALIDARG; return 0; }
+    EnterCriticalSection(&g_lock);
+    auto& s = g_periodic[slot];
+    if (!s.used || s.durationMs == 0) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
+    HRESULT hr = wheel_burst::stop(s.fx);
+    s.started = false; s.lastMag = 0; g_lastHr = hr;
     LeaveCriticalSection(&g_lock);
     return SUCCEEDED(hr) ? 1 : 0;
 }
@@ -1344,8 +1407,9 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
         if (FAILED(ch)) { s.holdoff = GetTickCount64() + 500; LeaveCriticalSection(&g_lock); return 0; }
         Log("  condition[%d] recreated", slot);
     }
+    g_lastUpdateTick = GetTickCount64();
     bool silence = (coefficient == 0 && s.lastCoeff != 0);
-    bool moved = labs((long)coefficient - (long)s.lastCoeff) > 500 ||
+    bool moved = (!s.started && coefficient != 0) || labs((long)coefficient - (long)s.lastCoeff) > 500 ||
                  labs((long)saturation  - (long)s.lastSat)   > 500 ||
                  s.lastDead != deadband || s.lastOffset != offset;
     if (!moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
@@ -1433,11 +1497,18 @@ __declspec(dllexport) void PanicStop(void)
 // Zero force without releasing anything; for focus loss and menus.
 __declspec(dllexport) void ZeroForces(void)
 {
-    if (g_effect) SetDeviceForcesXY(0, 0);
-    for (int i = 0; i < kMaxPeriodic; ++i)
-        if (g_periodic[i].used && g_periodic[i].fx) UpdatePeriodicEffect(i, 0, g_periodic[i].hz * 1000);
-    for (int i = 0; i < kMaxCondition; ++i)
-        if (g_condition[i].used && g_condition[i].fx) UpdateConditionEffect(i, 0, 0, 0, 0);
+    if (!g_lockInit) return;
+    EnterCriticalSection(&g_lock);
+    if (g_effect) { SetDeviceForcesXY(0, 0); if (g_effect) g_effect->Stop(); }
+    g_lastForce = 0;
+    StopPeriodics(); // Includes finite bursts; do not call an update that can restart them.
+    for (int i = 0; i < kMaxCondition; ++i) {
+        auto& s = g_condition[i];
+        HRESULT hr = wheel_burst::stop(s.fx);
+        if (FAILED(hr)) g_lastHr = hr;
+        s.started = false; s.lastCoeff = s.lastSat = s.lastDead = s.lastOffset = 0;
+    }
+    LeaveCriticalSection(&g_lock);
 }
 
 static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
@@ -1450,7 +1521,7 @@ static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
         if (!g_panicked) { Log("exit guard: message 0x%04X", msg); PanicStop(); }
         break;
     case WM_ACTIVATEAPP:
-        if (wp == FALSE && g_effect) { Log("exit guard: app deactivated - zero force"); SetDeviceForcesXY(0, 0); }
+        if (wp == FALSE) { Log("exit guard: app deactivated - silence all effects"); ZeroForces(); }
         break;
     default: break;
     }
@@ -1485,19 +1556,25 @@ static void RemoveExitGuards()
 // the managed side. A paused direct-drive base holding torque is a hazard.
 // Measure that the game writes every frame before turning it on; all four
 // Cruis'n games do, so it only fires when it should. [cruisn-collection]
+// Shared with deterministic fake-effect tests; a zero constant force must not
+// hide an active periodic or condition effect from the watchdog.
+static bool ApplyHoldTimeout(ULONGLONG now)
+{
+    if (!g_lockInit || g_holdMs <= 0) return false;
+    EnterCriticalSection(&g_lock);
+    bool active = g_lastForce != 0;
+    for (int i = 0; i < kMaxPeriodic; ++i) active = active || (g_periodic[i].started && g_periodic[i].lastMag != 0);
+    for (int i = 0; i < kMaxCondition; ++i) active = active || (g_condition[i].started && g_condition[i].lastCoeff != 0);
+    bool expired = active && now >= g_lastUpdateTick && now - g_lastUpdateTick > (ULONGLONG)g_holdMs;
+    if (expired) ZeroForces();
+    LeaveCriticalSection(&g_lock);
+    return expired;
+}
 static DWORD WINAPI HoldWatchdog(LPVOID)
 {
-    bool fired = false;
     while (!g_stopThreads) {
         Sleep(50);
-        if (g_holdMs <= 0 || !g_effect || g_lastForce == 0) { fired = false; continue; }
-        ULONGLONG since = GetTickCount64() - g_lastUpdateTick;
-        if (since > (ULONGLONG)g_holdMs) {
-            if (!fired) Log("hold watchdog: no update for %llu ms - releasing force", since);
-            fired = true;
-            SetDeviceForcesXY(0, 0);
-            g_lastForce = 0;
-        }
+        if (ApplyHoldTimeout(GetTickCount64())) Log("hold watchdog: silenced all effect families");
     }
     return 0;
 }

@@ -11,6 +11,9 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
+Local candidate **0.13.0** adds finite periodic bursts and all-family focus/watchdog
+stopping. It is not published. See [burst API and validation limits](docs/PERIODIC-BURSTS.md).
+
 Source version **0.12.0** adds transactional updates, exact-module managed
 loading, strict saved-wheel selection, force-state recovery and actionable
 setup diagnostics. See [consumer experience](docs/CONSUMER-EXPERIENCE.md) for

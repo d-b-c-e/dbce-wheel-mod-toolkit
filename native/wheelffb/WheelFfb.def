@@ -42,3 +42,6 @@ EXPORTS
     UpdateConditionEffect
     ReleaseConditionEffects
     SetStrictDeviceSelection
+    CreatePeriodicBurst
+    PlayPeriodicBurst
+    StopPeriodicBurst
