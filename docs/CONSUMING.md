@@ -7,6 +7,12 @@
 
 # Consuming the toolkit from a game mod
 
+Player-facing integration follows [UX-1](CONSUMER-UX.md): common navigation,
+wording, binding/calibration, camera/FFB handoff and telemetry status. Use the
+[install/setup guide](CONSUMER-SETUP.md) and record adoption with the
+[UX checklist](CONSUMER-UX-CHECKLIST.md). These are standards to implement in the
+consumer, not a shipped shared UI library.
+
 Consumers vendor **built artifacts**, pinned by version. No cross-repo project
 references: a toolkit change never reaches a game without an explicit,
 diffable bump in that game's repo.

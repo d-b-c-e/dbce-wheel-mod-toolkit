@@ -1,5 +1,10 @@
 # Building a clearer wheel setup and recovery experience
 
+For the product-level standard, start with [Shared player experience (UX-1)](CONSUMER-UX.md),
+[install/setup guidance](CONSUMER-SETUP.md) and the [acceptance checklist](CONSUMER-UX-CHECKLIST.md).
+This page is their technical integration companion; the shared APIs do not
+automatically change a consuming game's interface.
+
 Reviewed 2026-09-07 against toolkit b726d56 and local art-of-sim-rally,
 iracing-arcade-wheel and OutRun2006Tweaks-FFB setup surfaces. This document
 separates shared capabilities delivered by this change from consumer UI work

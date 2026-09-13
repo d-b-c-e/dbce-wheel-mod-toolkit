@@ -1,0 +1,112 @@
+{
+  "capturedUtc": "2026-09-13T05:13:24.0427766Z",
+  "baseline": "UX-1",
+  "scope": "Current local source, including uncommitted files; no live audit or consumer mutation",
+  "files": [
+    {
+      "repo": "art-of-sim-rally",
+      "path": "src/ArtOfSimRally.Mod/SettingsPanel.cs",
+      "sha256": "753b8872ef829d744f01ece53693413ab2c25f3d1948dcd2711ecbafe7c90098"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "src/ArtOfSimRally.Mod/Main.cs",
+      "sha256": "16690390dc227b31cb86cbe2176083c4e9e8d134ab0722f70f2eed592c8d82ff"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "src/ArtOfSimRally.Mod/SettingsPersistence.cs",
+      "sha256": "5c5e2ae22e2cc435005e421320589c4a4d3265c2a1af117b555d84b9f7fd8d41"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "src/ArtOfSimRally.Mod/WheelInput.cs",
+      "sha256": "b7af2ecaa29aa15669b2cb1a94b6799fc1d9cb88c855b171892b01d2616aacf5"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "src/ArtOfSimRally.Mod/Panel.cs",
+      "sha256": "04d0748b3c4e4f592c5a6d8dc3e20beaaed57ebbe4eb8388820feda18c6feb55"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "tools/installer/README.txt",
+      "sha256": "34593e480f62067c35be8e197452eb85edd5001bba2445fdf89d04c46030f25a"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "tools/installer/install.ps1",
+      "sha256": "fdafad8a6199beeeeebc98dacc8d31c6ee2e0d234b016ff83900f6338923cffd"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "docs/SETUP.md",
+      "sha256": "aa545a80b8b46d5afe61ff72428da19c9d4078428661be11ab034b86073a6bdd"
+    },
+    {
+      "repo": "art-of-sim-rally",
+      "path": "AGENTS.md",
+      "sha256": "893d94b0f28661f57cc1a989394ff4e2fe5cbfc9361960e377bd845e39a2d004"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/Panel.cs",
+      "sha256": "4955bb1a56d6e1dc2f7f09e2ecbb2fe72f281f88c85a03e8df5b977e0221a789"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/Widgets.cs",
+      "sha256": "1e7d37a3ca668a847af7ed91472cebf1262ed18a90fb1fbbc6c1042cb147e90f"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/Settings.cs",
+      "sha256": "03d15433e3811bcf14e11824a96ceedddd73b1195a593b8cc8b2aaf41ec15575"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/FfbNative.cs",
+      "sha256": "180b39dee01cc53ffc68a0c816bbc38143a46187a67da02de4a116480fca61d7"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/FfbDeviceSelector.cs",
+      "sha256": "5bec93427624da83d355d250ceb655dcbc06f67a528a0b7669396b47b8bc82c9"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/ShifterDevice.cs",
+      "sha256": "ea687bae8019b39585d4cfe07d14a75758dae97f1159c2895e6d0a7f0f8c95bf"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/BindingStore.cs",
+      "sha256": "657d22277b2cd9e47cbed47e2b362e7c8e9e9755c03489e2dc1d44d76f83bd91"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/SessionCapture.cs",
+      "sha256": "2049017b706795f71b4fbb5b2aa123c7f4e2dca7c1d452639ecdeb55f7f92106"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "src/IRacingArcadeWheel.Plugin/Plugin.cs",
+      "sha256": "3fc1c20319ced386b7c1f575f326372098fb57fbccd024465a088ba8aa7536ff"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "tools/installer/README.txt",
+      "sha256": "e0747c2a207e2ed9f928e25fd181429387ba98eb44569cc8380e3bffcd14a0b7"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "tools/installer/install.ps1",
+      "sha256": "4a4a42d0fabeef7d3aa07b0b6ba4e19573013c0c3c7ff11c2295c67d084c97e3"
+    },
+    {
+      "repo": "iracing-arcade-wheel",
+      "path": "docs/STATUS.md",
+      "sha256": "02afcbd704d8691aad45ff3c1fb8b91f4dfddf26a69f018f8bb6772e28be1922"
+    }
+  ]
+}

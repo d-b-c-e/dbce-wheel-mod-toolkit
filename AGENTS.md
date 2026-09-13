@@ -74,6 +74,13 @@ goes in a clearly named sub-package.
 
 ## Conventions
 
+- Consumer UI and installer work follows [UX-1](docs/CONSUMER-UX.md),
+  [install/setup guidance](docs/CONSUMER-SETUP.md), and the
+  [audit checklist](docs/CONSUMER-UX-CHECKLIST.md). Preserve the standard labels,
+  navigation and workflows across games; record concrete game constraints as
+  exceptions. The toolkit does not yet ship a common UI/calibration library,
+  and a written standard is not evidence of consumer adoption.
+
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.
 - Native DLL builds **x64 and x86** with MSVC (`build.bat x86` for 32-bit games
