@@ -9,9 +9,15 @@ The toolkit does not yet provide a shared UI or calibration library.
 The 2026-09-14 clarification makes analog handbrake hardware support and the
 steering-bound default FFB dropdown explicit requirements (UX-04/05). Older
 consumer audits have not automatically been checked against this revision.
+The [binding and camera workflow detail](CONSUMER-CONTROLS-CAMERAS.md) also
+specifies direct binding/cancellation, default numpad adjustments and camera
+shortcut rebinding (UX-04-H/06-K). Record the guidance commit/hash, not only
+the revision date, when reviewing a consumer.
 
 The first [iRacing Arcade / Art of Sim Rally audit](ux-audits/2026-09-13-consumers.md)
 records source-backed departures and a prioritized adoption plan.
+The [Woden interaction audit](ux-audits/2026-09-14-woden-controls-camera.md)
+distinguishes missing implementation from previously underspecified workflows.
 
 Use this with the [install and first-drive guide](CONSUMER-SETUP.md),
 [acceptance checklist](CONSUMER-UX-CHECKLIST.md) and
@@ -167,6 +173,11 @@ an explicit replacement. Calibration/refresh uses no force output.
 
 ### Analog handbrake hardware is part of the controls baseline
 
+Follow the exact [binding workflow](CONSUMER-CONTROLS-CAMERAS.md): Bind starts
+capture, the old assignment remains effective after cancellation, and axis and
+button bindings coexist. Do not add a global Button/Axis choice that disables
+one binding or commits a new input mode before calibration has been saved.
+
 For games with a handbrake action, support an **analog handbrake/e-brake axis**,
 including a separate USB device. Keep the player's button binding available too;
 owning or binding a handbrake is optional and never blocks ordinary driving.
@@ -198,7 +209,13 @@ when that final route is observable.
 
 ## 5. FFB has an understandable state — UX-05
 
-Keep **FFB: Off/On** as the saved preference. Present **Strength** as a percentage
+Keep **FFB: Off/On** as the single saved preference, defaulting to On for a new
+configuration. Preserve an existing owner's Off choice. Do not require a second
+session-start/arming control. On authorizes output only through the normal exact
+device, ownership, focus, pause, camera, source-validity and watchdog gates.
+[Owner request: woden-rally-edge-wheel, 2026-09-14]
+
+Present **Strength** as a percentage
 of the mod's available output; do not imply it is Nm or a guaranteed wheel-base
 torque. Show the selected physical wheel and status beside the control.
 
@@ -207,8 +224,8 @@ torque. Show the selected physical wheel and status beside the control.
 Default **FFB device** to **Use steering wheel**, resolving the physical device
 already bound to **Steering**. Show the resolved friendly name in the control,
 for example `Use steering wheel — MOZA R12`. The player should not have to choose
-the same wheel a second time. A default device choice does not enable FFB or arm
-an experimental session.
+the same wheel a second time. A default device choice does not override a saved
+FFB Off preference or bypass driving gates.
 
 Use a **dropdown** wherever the renderer can support one, with Use steering
 wheel first, available physical FFB devices, and the retained missing selection
@@ -234,8 +251,8 @@ require resolution rather than being silently accepted as the new default.
 
 When the resolved target changes, zero/stop and release output on the old target
 before opening the new one through strict identity selection. Selection and
-refresh do not apply test torque, clear a panic stop, or bypass session arming
-and driving gates. Input bindings on the old device retain their own lifecycle.
+refresh do not apply test torque, clear a saved Off preference, or bypass
+driving gates. Input bindings on the old device retain their own lifecycle.
 
 | State | Player-facing example | Behavior |
 |---|---|---|
@@ -245,20 +262,20 @@ and driving gates. Input bindings on the old device retain their own lifecycle.
 | Normal suspension | `FFB inactive — paused` / `game controls the camera` | Zero/stop output; keep preference |
 | Active | `FFB active` | Only when the drive/ownership gates and latest output delivery permit it |
 | Output error | `FFB unavailable — wheel could not be opened. Retry connection.` | Stop output; show details on demand |
-| Stopped by player | `FFB stopped — choose Resume FFB when ready.` | Latched stop, never auto-resume after panic |
+| Stopped by player | `FFB off — choose On when ready.` | F8/Stop saves Off; never auto-resume after panic |
 
-**F8** and **Stop FFB** immediately stop feedback and latch that stop. Keep a
+**F8** and **Stop FFB** immediately stop feedback and save Off. Keep a
 visible stop action on every page. Normal pause/focus/scene suspension may resume
-with a ramp when driving returns; panic requires deliberate **Resume FFB**.
+with a ramp when driving returns; panic requires deliberately choosing **On**.
 Reconnection to the same saved wheel follows the consumer's tested recovery
 policy; it never transfers output to another wheel. Changing the FFB device
 stops output before selection/opening.
 
-A development build may require **Start FFB for this session** as an additional
-step while its output is experimental. Explain that once beside the control and
-show why output is inactive. Do not describe this as a universal release behavior
-or persist development arming. Stable, attended-validated builds can honor a saved
-On preference through normal driving gates without repeated consent dialogs.
+Development builds use the same saved On/Off flow. Experimental status belongs
+beside the tune and in verification records, not in a repeated session-start step.
+Zero/stop transient output without tearing down and enumerating devices on each
+pause, contact gap or camera transition. Device open failures must not create an
+unbounded reconnect/stutter loop. Keep connection and suspension separately tested.
 Use a modest first-use tune appropriate to the game; never overwrite an existing
 owner's tune to harmonize defaults. Do not apply an unattended test force.
 
@@ -278,8 +295,11 @@ mod-only view indices out of the game's persistent stock-camera enumeration.
 `Bonnet: Off/On` and `Bumper: Off/On` mean **include in the camera cycle**; say so
 under the controls. Adjust one clearly selected view at a time: Height, Forward,
 Pitch and Field of view where supported, with units and **Reset this view**.
-Optional shortcuts supplement these controls; they are bindable and discoverable
-here. **Look behind** is a held action; release restores the previous view and
+Live numpad adjustment and **Cameras → Adjustment bindings** are required for
+mounted views, using the [default mapping and rebind workflow](CONSUMER-CONTROLS-CAMERAS.md).
+Sliders supplement these shortcuts; they do not replace them. Preserve saved
+bindings, document concrete unsupported adjustments, and test visible direction,
+reset scope and capture-key suppression. **Look behind** is a held action; release restores the previous view and
 focus loss clears it.
 
 When the game takes camera/player control for an intro, replay, finish, photo
@@ -299,8 +319,15 @@ One-way UDP can establish **Sending**, not **Dashboard connected**, without a
 receiver acknowledgement. Distinguish sampled data, socket sends and a receiver
 or physical shaker that was actually tested.
 
-Place **Start recording**, **Stop recording**, **Mark moment** and **Open folder**
-in a Recording section. Show elapsed time, size/limit, dropped samples and final
+Recording can be managed by an agent/developer launch tool when the owner wants
+diagnostics outside the menu. That route must request a bounded capture for one
+launch, expire/consume the request, preserve ordinary settings and finalize on
+normal exit. Agent launches default to no physical force; an attended diagnostic
+run may explicitly allow the saved FFB preference. Do not make the player start
+or stop recording in the menu for this workflow. [woden-rally-edge-wheel, 2026-09-14]
+
+If player-operated recording is offered, place **Start recording**, **Stop recording**,
+**Mark moment** and **Open folder** in a Recording section. Show elapsed time, size/limit, dropped samples and final
 saved path. Recording is opt-in and bounded; hitting a limit or a write error is
 visible. Do not silently discard an unsaved recording at exit. Preserve useful
 metadata: game/mod/toolkit versions, settings, bindings, signal availability and
@@ -333,7 +360,8 @@ Neither updating the mod nor a failed calibration deletes personal bindings.
 
 ## Adoption and exceptions
 
-Each consumer records `UX baseline: UX-1, revised 2026-09-14` plus a dated checklist, exact source
+Each consumer records `UX baseline: UX-1, revised 2026-09-14`, the guidance
+commit/hash, plus a dated checklist, exact source
 revision/working-tree scope, built/installed versions and evidence. An audit can
 identify a source defect without claiming it was seen live. Mark visual and
 physical checks **Not tested** until performed; do not turn documentation targets

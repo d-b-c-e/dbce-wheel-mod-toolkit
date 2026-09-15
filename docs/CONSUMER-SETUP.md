@@ -80,9 +80,10 @@ device contains all pedals and controls.
 | Pedals | Bind each, release, press fully, Save calibration | Separate 0–100% bars; inversion and resting noise visible |
 | Optional handbrake | Bind Handbrake (axis), release/pull fully, Save calibration; keep any button assignment | Independent device and 0–100% bar; progressive game input where supported, explicitly labeled threshold/release fallback if the game is digital-only |
 | Buttons | Bind Change camera and Pause, then any desired controls | Press feedback, held/pressed semantics, no accidental menu activation |
-| Feedback | Confirm FFB device defaults to the bound steering wheel; use its dropdown only to choose a different base, enable FFB, choose Strength | Use steering wheel plus resolved name, explicit override preserved, missing/non-FFB reason, ready/inactive state and Stop FFB; experimental session-start only if required |
+| Feedback | Confirm the FFB device and Strength; FFB defaults On and remembers Off | Clear ready/inactive state and Stop FFB; one saved On/Off preference, no session-start step |
 | First drive | Close panel; enter an appropriate driving session | Inputs reach the car, normal camera button includes Bonnet/Bumper, output starts only while player controls the car |
-| Optional telemetry | Enable stream; match receiver profile and port | Sending status; separate recording controls and saved-file feedback |
+| Optional camera tuning | Enter Bonnet/Bumper and adjust with the numpad; rebind under Cameras → Adjustment bindings if needed | Active-mount values, actual saved shortcuts, Bind/Clear/Cancel/defaults; same pose values as sliders, no duplicate camera-cycle binding |
+| Optional telemetry | Enable stream; match receiver profile and port | Sending status; diagnostics may use an agent-prepared recorded launch with automatic finalization |
 
 Do not make dashboard configuration, a shifter, handbrake ownership/binding, camera tuning or telemetry
 recording prerequisites for steering and pedals. A keyboard/mouse remains a
@@ -106,11 +107,16 @@ The following text is a template, not a statement about every current release:
 > supports On/Off, explain the activation/release points and show its game state.]
 >
 > **Drive:** In **FFB**, **FFB device** defaults to **Use steering wheel** and shows
-> the wheel you bound. Use the dropdown if you want a different base. Turn FFB on and start with the suggested
-> strength. [Include any experimental session-start step here.] Close the panel
-> and enter a driving session. **F8 stops FFB**; Resume FFB in the panel clears
-> that stop. The game's normal camera button cycles its views, then Bonnet and
+> the wheel you bound. Use the dropdown if you want a different base. FFB defaults
+> On; a saved Off choice is retained. Start with the suggested strength. Close the
+> panel and enter a driving session. **F8 saves FFB Off**; choose On to resume.
+> The game's normal camera button cycles its views, then Bonnet and
 > Bumper when enabled.
+>
+> **Adjust the view:** In Bonnet or Bumper, use numpad 8/2 up/down, 9/7 forward/back,
+> 4/6 left/right, 1/3 tilt down/up, +/− widen/narrow field of view, and 0 to reset
+> that view. Change these in **F6 → Cameras → Adjustment bindings**. [Show actual
+> saved mappings after a rebind and explain any unavailable adjustment.]
 >
 > **Update:** Close the game and run Install.bat from the new release. Your
 > bindings and settings are kept. **Uninstall:** run Uninstall.bat; personal data
@@ -120,6 +126,10 @@ Link from this short guide to a symptom-based troubleshooting page. Keep source
 build instructions, loader internals, compatibility evidence and force mathematics
 in developer documents, while exposing actual gameplay restrictions beside the
 affected option. Never make a player infer the tested game/version from git history.
+
+The exact [handbrake capture and camera adjustment workflows](CONSUMER-CONTROLS-CAMERAS.md)
+are part of this contract. A Bind button must not redirect to another Bind page;
+a keyboard without a numpad must be able to rebind camera adjustments in F6.
 
 ## Release evidence
 

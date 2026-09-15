@@ -16,6 +16,7 @@ successful runtime behavior.
 ```text
 Consumer / game:
 Audit date / UX baseline revision: YYYY-MM-DD / UX-1 revised 2026-09-14
+Guidance commit/hash and any local owner clarifications:
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
 Built version / installed version / game build:
@@ -32,10 +33,11 @@ No-touch scope (other active work or installations):
 | UX-02 | Explicit label/value Off/On controls, common action names, units, readable device labels, scoped reset wording | String/source review + visual inspection |
 | UX-03 | Opaque readable layout, stable navigation, unified scale, long names, keyboard focus, no click-through; clean cursor/pause restoration | 720p and high-DPI/4K views + interaction |
 | UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect | Source + calibration/persistence tests + attended input |
-| UX-04-H | Analog handbrake axis, saved endpoint/inversion/deadzone calibration and 0–100% display; progressive game input or documented digital fallback with activation/release points; additive button support and release gates | Calibration/persistence fixtures + actual final-input route; digital limitation recorded explicitly |
+| UX-04-H | Bind starts capture directly; provisional analog handbrake calibration with visible inversion/deadzone/0–100%; cancel preserves effective old input, independent additive button/axis rows; progressive game route or labeled digital fallback | Exact binding walkthrough + calibration/persistence fixtures + final-input evidence; no exclusive mode saved before successful calibration |
 | UX-05 | Clear Off/Ready/Inactive/Active/Error/Stopped states; visible Stop FFB + F8; strict selection, zero during setup, latched panic and ramped normal recovery | Policy/lifecycle tests + attended low-force check |
-| UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves panic and arming gates |
+| UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves saved Off and normal driving gates |
 | UX-06 | Native camera action cycles stock/Bonnet/Bumper; disabled views skip; held Look behind releases; game takeover releases camera and stops FFB | Cycle tests + intro/pause/replay/finish/focus/camera-conflict drive |
+| UX-06-K | Default live numpad movement/tilt/FOV/reset of the active mount; F6 camera adjustment Bind/Clear/Cancel/defaults/conflicts and keyboard-without-numpad support; saved mappings/pose scope, capture/focus/camera suppression | Full [camera interaction walk](CONSUMER-CONTROLS-CAMERAS.md) on the actual package, with screenshots and saved/reloaded bindings; record concrete unavailable adjustments |
 | UX-07 | Telemetry Sending is truthful, missing/estimated signals labeled; opt-in bounded recording and local support file; no automatic sharing | Source + receiver/capture checks + saved artifact inspection |
 | UX-08 | Autosave/status, explicit calibration save, atomic destination apply, failed save visible, reset scope and retained backups | Persistence/failure tests + UI flow |
 | UX-09 | One player ZIP/install/update path, discovery/folder fallback, closed-game/preflight checks, pinned dependencies, rollback, retained owner settings | Actual packaged installer fixtures + first launch |
@@ -65,6 +67,9 @@ hardware transition is an evidence gap, not automatically a confirmed P0 defect.
 The additional UX-04-H/UX-05-D checks were made explicit on 2026-09-14. Earlier
 audits do not establish compliance with them; retain their original evidence
 dates and add a consumer review of these requirements.
+The same day's [interaction detail](CONSUMER-CONTROLS-CAMERAS.md) adds UX-06-K
+and makes the handbrake click/cancel flow explicit. Capture the guidance hash
+so reviews can distinguish these changes from earlier text with the same date.
 
 With each game in turn, perform the same sequence and record where instructions
 or actions change:
@@ -84,14 +89,22 @@ or actions change:
    device directly, and test follow versus explicit override after a saved
    Steering rebind, USB reorder and restart. Exercise missing/non-FFB Steering
    and duplicate names with no output; never select the first wheel silently.
-4. Start an attended low-strength drive. Check Stop FFB and deliberate resume.
+4. Start an attended low-strength drive using the saved On/Off preference, with
+   no session-start step. Check F8/Stop saves Off and only On resumes. Confirm
+   transient gates zero output without repeatedly reopening/enumerating devices.
    Open/close settings, pause, lose/regain focus, reset the car and finish normally.
    Confirm no stale held inputs, force or mounted camera outside player control.
 5. Cycle through stock views, Bonnet and Bumper using the game's camera button;
    disable one added view; hold/release Look behind; inspect handoff to replay/photo
    or other available game-controlled camera states.
-6. Configure telemetry from the panel, verify it at the receiver, start/mark/stop
-   a bounded recording, open the saved location and prepare a local support file.
+   Use the default numpad adjustments on each mount, then rebind movement, tilt
+   and FOV in F6 without a numpad. Verify visible directions, cancel/conflicts,
+   Clear/defaults, reset scope, persisted assignments and release after capture.
+   Sliders and a list of source methods do not substitute for this interaction.
+6. Configure telemetry from the panel and verify it at the receiver. Exercise
+   either the offered player recording controls or an agent-prepared one-launch
+   capture. Verify bounds, request expiry/consumption, normal-exit finalization,
+   saved settings, output suppression for unattended launches and the saved file.
 7. Update with changed user bindings/tunes and another mod installed. Confirm both
    survive. Exercise uninstall in a fixture and verify exactly what remains.
 

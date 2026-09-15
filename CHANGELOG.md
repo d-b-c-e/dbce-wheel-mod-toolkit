@@ -7,6 +7,12 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Define exact handbrake binding/cancel and mounted-camera numpad/rebinding
+  workflows, with a Woden source reconciliation audit and interaction checks.
+  Preserve saved bindings across differing legacy camera defaults. Reconcile
+  pending owner guidance for saved FFB On/Off and agent-managed recording; audits
+  now identify a guidance commit/hash as well as a revision date.
+
 - Clarify the UX-1 consumer requirements (2026-09-14): analog handbrake axis
   setup with documented digital-game fallback, and an FFB device dropdown that
   defaults to the saved Steering wheel while preserving explicit overrides.

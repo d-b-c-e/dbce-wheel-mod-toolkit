@@ -27,6 +27,10 @@ player experience; adoption and runtime verification remain per consumer.
 The 2026-09-14 revision requires analog handbrake hardware support and an
 FFB device dropdown that defaults to the wheel bound to Steering, while retaining
 explicit overrides and saved device identities.
+The [binding/camera workflows](docs/CONSUMER-CONTROLS-CAMERAS.md) define the
+handbrake capture flow, live numpad defaults and in-panel adjustment rebinding.
+The [Woden reconciliation audit](docs/ux-audits/2026-09-14-woden-controls-camera.md)
+records the current source gaps and the required interaction checks.
 See the [first cross-consumer UX audit](docs/ux-audits/2026-09-13-consumers.md)
 for specific gaps in iRacing Arcade Wheel and Art of Sim Rally.
 
