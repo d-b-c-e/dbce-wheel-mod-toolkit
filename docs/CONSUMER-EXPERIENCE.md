@@ -14,13 +14,21 @@ still to do. No game or physical force validation is implied.
 
 ### Explain device selection before opening a wheel
 
+UX-1's 2026-09-14 revision requires the product's **FFB device** dropdown to
+default to **Use steering wheel**. Resolve the saved Steering binding's exact
+physical identity; retain an explicit FFB override separately. Construct the
+strict GUID preference from that selected identity. The low-level Automatic
+result below is an enumeration suggestion, not a replacement for this product
+policy and not permission to fall back to the first wheel. The shared library
+does not know the consumer's Steering binding or draw its dropdown.
+
 `DevicePreference.Resolve(snapshot)` is pure and returns a
 `DeviceSelectionResult`: stable `Status`, suggested `Message`, `Success`,
 `ArrayPosition`, nullable `Device`, and nullable `PersistentId`.
 
 | Status | Consumer experience |
 |---|---|
-| Automatic | Offer the available wheel; save its identity only after the player chooses it. |
+| Automatic | Inventory suggestion only; default FFB follows the saved Steering identity. Do not open this suggestion as a fallback for absent/unbound Steering. |
 | Matched | Show the saved wheel as available, not yet connected for force output. |
 | NoDevices | Offer Refresh and explain that the wheel needs connection and power. |
 | Missing | Keep the saved identity visible. Offer reconnect/refresh or explicit replacement. |
@@ -33,6 +41,10 @@ Use the enum for localization; the English message is a usable default.
 backend index. Never confuse the two after sorting a picker. `PersistentId`
 is the instance GUID when known, not a name guessed to be unique. Do not
 silently promote old name/index preferences just because they resolved once.
+
+The following is the **explicit override** save path. Use steering wheel mode
+already has the identity from the saved Steering binding; it does not require
+a duplicate wheel-choice confirmation.
 
 ```csharp
 var result = savedPreference.Resolve(WheelFfbNative.ListFfbDevices());

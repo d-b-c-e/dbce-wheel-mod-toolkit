@@ -1,10 +1,14 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, 2026-09-13. This is the product standard for consuming mods,
+Baseline **UX-1**, revised 2026-09-14 (initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
+
+The 2026-09-14 clarification makes analog handbrake hardware support and the
+steering-bound default FFB dropdown explicit requirements (UX-04/05). Older
+consumer audits have not automatically been checked against this revision.
 
 The first [iRacing Arcade / Art of Sim Rally audit](ux-audits/2026-09-13-consumers.md)
 records source-backed departures and a prioritized adoption plan.
@@ -38,8 +42,8 @@ Use these pages, in this order:
 | Page | What belongs here | First things visible |
 |---|---|---|
 | **Setup** | First use, reconnect, quick readiness check | Wheel, steering/throttle/brake bars, the next incomplete step |
-| **Controls** | All supported bindings and calibration | Steering, Throttle, Brake; then Driving buttons, Menu buttons, Shifter |
-| **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, selected wheel, Strength, current status, Stop FFB |
+| **Controls** | All supported bindings and calibration | Steering, Throttle, Brake, Handbrake; then Driving buttons, Menu buttons, Shifter |
+| **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, FFB device dropdown defaulting to the bound steering wheel, Strength, current status, Stop FFB |
 | **Cameras** | Cycle membership and view adjustment | Bonnet and Bumper Off/On, Change camera binding, selected view's adjustments |
 | **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, destination, connection facts; Recording controls |
 | **Help** | Version, troubleshooting, support evidence and reset | Short symptom-based help, Create support file, advanced device details |
@@ -69,6 +73,7 @@ show its value. Buttons name an action. State is visible in text, not color alon
 | Boolean shaping | `Invert steering: [Off] [On]` | `Flip`, unlabeled checkboxes |
 | Numeric setting | `Strength: 20%` with slider, readable value and default reset | A unitless number, a reference constant presented as everyday strength |
 | Action assignment | `Change camera: MOZA R12 · Button 34` with **Bind**, **Clear** | `listen`, `capture path`, a GUID in the main row |
+| FFB selection | `FFB device: [Use steering wheel — MOZA R12 v]` with a dropdown | A standalone **Next device** button, raw index, or silent first-device fallback |
 | Empty / missing binding | `Not bound` / `Saved device disconnected` | Blank values or replacing the saved device automatically |
 | Calibration | **Calibrate**, **Save calibration**, **Cancel** | **Apply** without saying what changes |
 | Reset | **Reset FFB settings** / **Restore default binding** | An ambiguous global **Reset** next to a single row |
@@ -90,7 +95,9 @@ Use these action names across mods when the actions exist:
 | Mod buttons | **Settings**, **Stop FFB**, **Start/stop recording**, **Mark recording** |
 | Extra game actions | Use the game's own recognizable names, below common actions |
 
-Analog and button Handbrake assignments are clearly labeled when both exist.
+Use **Handbrake (axis)** and **Handbrake (button)** where the two rows need
+disambiguation. Analog e-brake hardware support is required as described in UX-04;
+a digital-only game action does not justify omitting the hardware axis binding.
 Show button numbers starting at 1; translate zero-based backend values only at
 the UI boundary and retain raw values in support details. Show a friendly device
 name and readable axis name (for example `X axis`) before any technical path.
@@ -158,11 +165,77 @@ Unplugging a device preserves its bindings, releases its contributions and shows
 `Saved device disconnected — reconnect it, then Refresh.` A different device is
 an explicit replacement. Calibration/refresh uses no force output.
 
+### Analog handbrake hardware is part of the controls baseline
+
+For games with a handbrake action, support an **analog handbrake/e-brake axis**,
+including a separate USB device. Keep the player's button binding available too;
+owning or binding a handbrake is optional and never blocks ordinary driving.
+No in-game handbrake action is a documented game limitation, not an invitation
+to invent one through unrequested physics changes.
+
+Provide Bind, Clear, Calibrate, Save calibration/Cancel, released/fully pulled
+endpoints, **Invert handbrake: Off/On**, deadzone and a normalized **0–100%** bar.
+Persist the exact device identity and calibration independently of steering and
+pedals. Preserve the last working calibration on cancel or failed capture.
+
+Where the verified game route supports analog input, preserve the calibrated
+0–100% command through to that route. Do not reduce it to a button threshold.
+If the game only accepts a held digital handbrake, still accept the physical
+axis and expose a labeled fallback: `Game handbrake: On/Off only`. Provide an
+**Activation point** and a lower **Release point**, both in percent, so resting
+noise does not chatter. Show analog **Device input** separately from digital
+**Game input**. Record this game limitation and its verified input seam in the
+consumer's UX adoption notes; do not call the resulting game response analog.
+
+Combine additive button and axis bindings predictably: use the greater analog
+contribution (a held button contributes 100%), or logical OR for a digital game
+action. Preserve stock contributions; do not sum/clamp them into an unexplained
+response. Release each contribution when its input is released, disconnected,
+or suppressed by menu/focus/player-ownership gates. No stale held handbrake may
+survive a transition, and disconnecting one device must not cancel another held
+binding. Capture calibrated input and the final analog/digital command separately
+when that final route is observable.
+
 ## 5. FFB has an understandable state — UX-05
 
 Keep **FFB: Off/On** as the saved preference. Present **Strength** as a percentage
 of the mod's available output; do not imply it is Nm or a guaranteed wheel-base
 torque. Show the selected physical wheel and status beside the control.
+
+### FFB device defaults to the wheel bound to Steering
+
+Default **FFB device** to **Use steering wheel**, resolving the physical device
+already bound to **Steering**. Show the resolved friendly name in the control,
+for example `Use steering wheel — MOZA R12`. The player should not have to choose
+the same wheel a second time. A default device choice does not enable FFB or arm
+an experimental session.
+
+Use a **dropdown** wherever the renderer can support one, with Use steering
+wheel first, available physical FFB devices, and the retained missing selection
+when disconnected. Use a visible, directly selectable device list as the fallback
+when a dropdown cannot be implemented; document the renderer limitation.
+**Next device alone is not an acceptable picker.** Distinguish duplicate friendly
+names with a readable identifier suffix; keep full GUIDs in device details.
+
+Persist whether the player follows Steering or chose an explicit FFB override.
+Follow mode resolves the saved steering device by stable identity, not by
+enumeration index, product-name substring, last activity, or the first available
+FFB device. If Steering is unbound, disconnected, ambiguous, virtual, or lacks
+FFB, show the reason and leave output inactive; let the player bind Steering or
+choose a physical output device explicitly. A separately reported FFB interface
+requires a verified identity association or an explicit choice, not a name guess.
+
+A deliberate saved Steering rebind updates the target only in Use steering wheel
+mode. An explicit FFB override survives steering recalibration/rebinding,
+refresh, restart and USB reorder until the player changes it or chooses Use
+steering wheel again. Missing saved devices remain missing. Existing explicit
+choices are preserved on upgrade; unverifiable legacy index/name selections
+require resolution rather than being silently accepted as the new default.
+
+When the resolved target changes, zero/stop and release output on the old target
+before opening the new one through strict identity selection. Selection and
+refresh do not apply test torque, clear a panic stop, or bypass session arming
+and driving gates. Input bindings on the old device retain their own lifecycle.
 
 | State | Player-facing example | Behavior |
 |---|---|---|
@@ -260,7 +333,7 @@ Neither updating the mod nor a failed calibration deletes personal bindings.
 
 ## Adoption and exceptions
 
-Each consumer records `UX baseline: UX-1` plus a dated checklist, exact source
+Each consumer records `UX baseline: UX-1, revised 2026-09-14` plus a dated checklist, exact source
 revision/working-tree scope, built/installed versions and evidence. An audit can
 identify a source defect without claiming it was seen live. Mark visual and
 physical checks **Not tested** until performed; do not turn documentation targets

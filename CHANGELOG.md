@@ -5,6 +5,13 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [Unreleased]
+
+- Clarify the UX-1 consumer requirements (2026-09-14): analog handbrake axis
+  setup with documented digital-game fallback, and an FFB device dropdown that
+  defaults to the saved Steering wheel while preserving explicit overrides.
+  Add setup and acceptance checks. This is guidance, not consumer implementation.
+
 ## [0.13.0] - 2026-09-12 (local candidate, unpublished)
 
 - Add idle-created finite sine bursts, explicit play/restart and idempotent stop

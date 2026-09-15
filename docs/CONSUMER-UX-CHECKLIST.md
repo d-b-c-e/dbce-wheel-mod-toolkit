@@ -1,6 +1,6 @@
 # Consumer UX audit and acceptance checklist
 
-Baseline **UX-1**, 2026-09-13. Copy the report template below into the consuming
+Baseline **UX-1**, revised 2026-09-14. Copy the report template below into the consuming
 repo when adopting [the standard](CONSUMER-UX.md) and
 [setup contract](CONSUMER-SETUP.md). Keep source review, fixture checks, visual
 inspection and attended hardware evidence separate.
@@ -15,7 +15,7 @@ successful runtime behavior.
 
 ```text
 Consumer / game:
-Audit date / UX baseline: YYYY-MM-DD / UX-1
+Audit date / UX baseline revision: YYYY-MM-DD / UX-1 revised 2026-09-14
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
 Built version / installed version / game build:
@@ -31,8 +31,10 @@ No-touch scope (other active work or installations):
 | UX-01 | F6, Settings button, Close and Esc share one panel; six core pages have standard names/order; no duplicate binding stores | Source + live open/close/navigation |
 | UX-02 | Explicit label/value Off/On controls, common action names, units, readable device labels, scoped reset wording | String/source review + visual inspection |
 | UX-03 | Opaque readable layout, stable navigation, unified scale, long names, keyboard focus, no click-through; clean cursor/pause restoration | 720p and high-DPI/4K views + interaction |
-| UX-04 | Independent wheel/pedal/shifter identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect | Source + calibration/persistence tests + attended input |
+| UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect | Source + calibration/persistence tests + attended input |
+| UX-04-H | Analog handbrake axis, saved endpoint/inversion/deadzone calibration and 0–100% display; progressive game input or documented digital fallback with activation/release points; additive button support and release gates | Calibration/persistence fixtures + actual final-input route; digital limitation recorded explicitly |
 | UX-05 | Clear Off/Ready/Inactive/Active/Error/Stopped states; visible Stop FFB + F8; strict selection, zero during setup, latched panic and ramped normal recovery | Policy/lifecycle tests + attended low-force check |
+| UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves panic and arming gates |
 | UX-06 | Native camera action cycles stock/Bonnet/Bumper; disabled views skip; held Look behind releases; game takeover releases camera and stops FFB | Cycle tests + intro/pause/replay/finish/focus/camera-conflict drive |
 | UX-07 | Telemetry Sending is truthful, missing/estimated signals labeled; opt-in bounded recording and local support file; no automatic sharing | Source + receiver/capture checks + saved artifact inspection |
 | UX-08 | Autosave/status, explicit calibration save, atomic destination apply, failed save visible, reset scope and retained backups | Persistence/failure tests + UI flow |
@@ -60,6 +62,10 @@ hardware transition is an evidence gap, not automatically a confirmed P0 defect.
 
 ## Cross-game walkthrough
 
+The additional UX-04-H/UX-05-D checks were made explicit on 2026-09-14. Earlier
+audits do not establish compliance with them; retain their original evidence
+dates and add a consumer review of these requirements.
+
 With each game in turn, perform the same sequence and record where instructions
 or actions change:
 
@@ -67,8 +73,17 @@ or actions change:
 2. Find Wheel settings without opening developer docs. Bind three axes, cancel a
    capture, save calibration, bind Pause and Change camera. Check left/right and
    released/full pedal values against effective game input.
+   If the game has a handbrake, bind a separate analog device and a button;
+   verify released/partial/full input, reversed travel, cancellation and both
+   bindings held/released together. For a digital-only game route, verify the
+   visible threshold/release behavior and its documented limitation.
 3. Close/reopen, restart the game, and unplug/reconnect the selected wheel. Confirm
    saved assignments, inactive status and the explicit replacement route.
+   Check handbrake release on disconnect/focus loss without cancelling another
+   held binding. In FFB, confirm the initial steering-wheel default, select a
+   device directly, and test follow versus explicit override after a saved
+   Steering rebind, USB reorder and restart. Exercise missing/non-FFB Steering
+   and duplicate names with no output; never select the first wheel silently.
 4. Start an attended low-strength drive. Check Stop FFB and deliberate resume.
    Open/close settings, pause, lose/regain focus, reset the car and finish normally.
    Confirm no stale held inputs, force or mounted camera outside player control.

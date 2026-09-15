@@ -80,6 +80,10 @@ goes in a clearly named sub-package.
   navigation and workflows across games; record concrete game constraints as
   exceptions. The toolkit does not yet ship a common UI/calibration library,
   and a written standard is not evidence of consumer adoption.
+  The 2026-09-14 revision requires analog handbrake axis binding/calibration
+  (with an explicit digital-game fallback when necessary) and an FFB device
+  dropdown defaulting to the saved Steering device. Retain explicit FFB overrides;
+  no Next-device-only picker or silent fallback after disconnect/reorder.
 
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.

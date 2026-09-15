@@ -1,6 +1,6 @@
 # Install to first drive: consumer guide
 
-Part of [UX-1](CONSUMER-UX.md), 2026-09-13. This is a release/installer contract
+Part of [UX-1](CONSUMER-UX.md), revised 2026-09-14. This is a release/installer contract
 and a reusable player-guide template. It does not claim these installers or a
 shared setup wizard already exist. Replace examples with the consumer's verified
 names, defaults and capabilities; ship only instructions that its package supports.
@@ -75,15 +75,16 @@ device contains all pedals and controls.
 
 | Step | Player action | What the mod shows / checks |
 |---|---|---|
-| Connect | Connect/power wheel, pedals and shifter; open F6 | Friendly names, retained disconnected selections, Refresh; no force |
+| Connect | Connect/power wheel, pedals and any shifter/handbrake; open F6 | Friendly names, independent devices, retained disconnected selections, Refresh; no force |
 | Steering | Bind, centre, turn both ways, Save calibration | Left/Centre/Right bar, direction and range; old binding retained until save |
 | Pedals | Bind each, release, press fully, Save calibration | Separate 0–100% bars; inversion and resting noise visible |
+| Optional handbrake | Bind Handbrake (axis), release/pull fully, Save calibration; keep any button assignment | Independent device and 0–100% bar; progressive game input where supported, explicitly labeled threshold/release fallback if the game is digital-only |
 | Buttons | Bind Change camera and Pause, then any desired controls | Press feedback, held/pressed semantics, no accidental menu activation |
-| Feedback | Select the physical wheel, enable FFB, choose Strength | Clear ready/inactive state and Stop FFB; experimental session-start step only if required |
+| Feedback | Confirm FFB device defaults to the bound steering wheel; use its dropdown only to choose a different base, enable FFB, choose Strength | Use steering wheel plus resolved name, explicit override preserved, missing/non-FFB reason, ready/inactive state and Stop FFB; experimental session-start only if required |
 | First drive | Close panel; enter an appropriate driving session | Inputs reach the car, normal camera button includes Bonnet/Bumper, output starts only while player controls the car |
 | Optional telemetry | Enable stream; match receiver profile and port | Sending status; separate recording controls and saved-file feedback |
 
-Do not make dashboard configuration, a shifter, camera tuning or telemetry
+Do not make dashboard configuration, a shifter, handbrake ownership/binding, camera tuning or telemetry
 recording prerequisites for steering and pedals. A keyboard/mouse remains a
 usable escape route while the wheel is unbound. When a required step is missing,
 offer the one next action, not a page of device dumps.
@@ -100,7 +101,12 @@ The following text is a template, not a statement about every current release:
 > each pedal should read 0% released and 100% fully pressed. Bind **Change camera**
 > and **Pause**, then any other buttons you want.
 >
-> **Drive:** In **FFB**, choose your wheel, turn FFB on and start with the suggested
+> **Handbrake, if you use one:** Bind and calibrate **Handbrake (axis)** from
+> released to fully pulled. Keep any handbrake button too. [If the game only
+> supports On/Off, explain the activation/release points and show its game state.]
+>
+> **Drive:** In **FFB**, **FFB device** defaults to **Use steering wheel** and shows
+> the wheel you bound. Use the dropdown if you want a different base. Turn FFB on and start with the suggested
 > strength. [Include any experimental session-start step here.] Close the panel
 > and enter a driving session. **F8 stops FFB**; Resume FFB in the panel clears
 > that stop. The game's normal camera button cycles its views, then Bonnet and

@@ -24,6 +24,9 @@ For a consistent experience across games, use the [shared UX standard](docs/CONS
 [install and first-drive guide](docs/CONSUMER-SETUP.md), and
 [consumer audit checklist](docs/CONSUMER-UX-CHECKLIST.md). They define the intended
 player experience; adoption and runtime verification remain per consumer.
+The 2026-09-14 revision requires analog handbrake hardware support and an
+FFB device dropdown that defaults to the wheel bound to Steering, while retaining
+explicit overrides and saved device identities.
 See the [first cross-consumer UX audit](docs/ux-audits/2026-09-13-consumers.md)
 for specific gaps in iRacing Arcade Wheel and Art of Sim Rally.
 
