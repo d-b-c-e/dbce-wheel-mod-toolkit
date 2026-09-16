@@ -1,3 +1,11 @@
+# 0.13.1 local candidate — 2026-09-16
+
+Native 0.6.1 makes per-update force tracing opt-in with
+`DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41
+exports. No force arithmetic or lifecycle changes. See
+[force logging](docs/FORCE-LOGGING.md). Unpublished; reported game hitch causality
+is not established. Earlier handoffs below are historical.
+
 # Changelog
 
 Notable changes to dbce-wheel-mod-toolkit. Format follows

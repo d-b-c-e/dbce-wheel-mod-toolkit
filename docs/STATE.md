@@ -1,3 +1,15 @@
+# 0.13.1 local candidate — 2026-09-16
+
+Native 0.6.1 makes per-update force tracing opt-in with
+`DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41
+exports. No force arithmetic or lifecycle changes. See
+[force logging](FORCE-LOGGING.md). Unpublished; reported game hitch causality
+is not established. Earlier handoffs below are historical.
+
+Offline package gates pass, including 121 managed tests and both native fake
+logging suites. Hardware smoke loads all exports on x64/x86 but cannot proceed:
+no FFB device is attached. This candidate has no new hardware verification.
+
 # 0.13.0 local candidate, 2026-09-12
 
 This isolated branch adds finite periodic bursts (native 0.6.0, 41 exports),

@@ -30,6 +30,7 @@
 // Logging is ON by default to %LOCALAPPDATA%\DbceWheel\ffb.log; DBCE_FFB_LOG=0
 // turns it off, DBCE_FFB_LOG_PATH=<file> or SetLogPath() redirects it. A
 // consumer that wants its own folder calls SetLogPath before InitDirectInput.
+// Per-update force tracing is OFF unless DBCE_FFB_TRACE_FORCE=1 at process start.
 
 #define DIRECTINPUT_VERSION 0x0800
 #define WIN32_LEAN_AND_MEAN
@@ -55,7 +56,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 600;            // 0.6.0
+static const int  kVersion      = 601;            // 0.6.1
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -113,17 +114,20 @@ static bool                 g_lockInit = false;
 // logging
 // --------------------------------------------------------------------------
 
-// Logging is ON by default, and AOSR_FFB_LOG=0 turns it off.
-//
-// This is deliberately inverted from the obvious design. During phase 0 the
-// question being asked is "does the game call this DLL at all", and an absent
-// log file is the answer. If logging were opt-in, an absent log would be
-// ambiguous between "the game never called us" and "the environment variable
-// did not reach the game process" - two findings that point in opposite
-// directions, and the second is easy to cause by accident (a Steam-launched
-// game does not inherit a variable set in your shell). Defaulting to on
-// collapses that ambiguity: no file means no call. The log is a few lines per
-// session, so the cost is nil.
+// Default logs retain setup, lifecycle and bounded failures. Per-update force
+// samples are a separate opt-in because each log write opens/closes a file.
+// DBCE_FFB_LOG=0 remains the master switch for both categories.
+static bool ForceTracingEnabled()
+{
+    // Initialized once, thread-safely; no environment lookup on each physics tick.
+    static const bool enabled = []() {
+        char value[8] = {};
+        DWORD n = GetEnvironmentVariableA("DBCE_FFB_TRACE_FORCE", value, sizeof(value));
+        return n == 1 && value[0] == '1';
+    }();
+    return enabled;
+}
+
 static bool LoggingEnabled()
 {
     if (!g_logChecked) {
@@ -865,8 +869,8 @@ __declspec(dllexport) void Aquire(void)
     if (hr != S_FALSE) Log("Aquire() -> 0x%08lX", hr);
 }
 
-// Called every frame while driving. Deliberately quiet unless the magnitude
-// actually changes, so the trace log stays readable instead of 60 lines/second.
+// Called every frame while driving. Force samples are explicitly opt-in;
+// lifecycle/error logging remains available without per-update file I/O.
 __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 {
     if (!g_effect) return 0;
@@ -877,7 +881,7 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
     if (y < -kForceMax) y = -kForceMax;
 
     static int lastX = INT_MIN, lastY = INT_MIN;
-    if (x != lastX || y != lastY) {
+    if (ForceTracingEnabled() && (x != lastX || y != lastY)) {
         Log("SetDeviceForcesXY(%d, %d)", x, y);
         lastX = x; lastY = y;
     }
