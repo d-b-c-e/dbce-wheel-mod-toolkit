@@ -1,3 +1,14 @@
+Offline shaped candidate gates passed:121 managed tests;80+9+8 binding
+assertions per runtime; native shaping/logging tests x64/x86;42exports.
+Smoke harnesses compiled only. No physical shape validation.
+
+# 0.14.0 local candidate - 2026-09-16
+
+Additive shaped finite sine API (native0.7.0,42exports) based on frozen
+logging candidate82c7891. Strict parameter echo, phase and finite fade, with
+explicit legacy envelope clearing. No public release or hardware launch.
+See [SHAPED-BURSTS.md](SHAPED-BURSTS.md). Earlier entries below are historical.
+
 # 0.13.1 local candidate — 2026-09-16
 
 Native 0.6.1 makes per-update force tracing opt-in with

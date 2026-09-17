@@ -56,7 +56,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 601;            // 0.6.1
+static const int  kVersion      = 700;            // 0.7.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -1226,9 +1226,9 @@ __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
     return slot;
 }
 
-__declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
+static int PlayBurst(int slot, int magnitude, int freqMilliHz, int phase, int fadeMs, bool shaped)
 {
-    if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000)
+    if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000 || phase < 0 || phase > 35999 || (shaped && (fadeMs < 1 || fadeMs > 500)))
     { g_lastHr = E_INVALIDARG; return 0; }
     EnterCriticalSection(&g_lock);
     // Check after taking the effect lock: a queued event must not pass a
@@ -1237,15 +1237,31 @@ __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMil
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
     if (magnitude > 0 && foregroundPid != GetCurrentProcessId()) { g_lastHr = DIERR_NOTACQUIRED; LeaveCriticalSection(&g_lock); return 0; }
     auto& s = g_periodic[slot];
-    if (!s.used || s.durationMs == 0) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
+    if (!s.used || s.durationMs == 0 || fadeMs > s.durationMs) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
     HRESULT hr = S_OK;
     if (!s.fx && magnitude > 0) hr = CreatePeriodicInSlot(slot);
-    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz);
-    s.started = SUCCEEDED(hr) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
+    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz, phase, fadeMs);
+    s.started = (shaped ? hr == S_OK : SUCCEEDED(hr)) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
     if (SUCCEEDED(hr)) { s.hz = freqMilliHz / 1000; g_lastUpdateTick = GetTickCount64(); }
     g_lastHr = hr;
     LeaveCriticalSection(&g_lock);
-    return SUCCEEDED(hr) ? 1 : 0;
+    return (shaped ? hr == S_OK : SUCCEEDED(hr)) ? 1 : 0;
+}
+
+__declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
+{ return PlayBurst(slot, magnitude, freqMilliHz, 0, 0, false); }
+
+__declspec(dllexport) int PlayShapedPeriodicBurst(int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)
+{
+    int accepted = PlayBurst(slot, magnitude, freqMilliHz, phaseHundredths, fadeMs, true);
+    if (!accepted) {
+        static ULONGLONG lastReport = 0; ULONGLONG now = GetTickCount64();
+        if (!lastReport || now - lastReport > 5000) {
+            lastReport = now;
+            Log("shaped burst rejected: HRESULT=0x%08lX slot=%d phase=%d fadeMs=%d (no retry)", g_lastHr, slot, phaseHundredths, fadeMs);
+        }
+    }
+    return accepted;
 }
 
 __declspec(dllexport) int StopPeriodicBurst(int slot)

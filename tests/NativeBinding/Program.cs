@@ -15,11 +15,19 @@ class Program {
   Check(!WheelFfbNative.Load(Environment.SystemDirectory,"kernel32.dll"),"incomplete exports accepted");
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),WheelFfbNative.LastError);
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),"repeat load");
+  if(args.Length>1 && args[1]=="burstonly") {
+    Check(WheelFfbNative.Version==601 && WheelFfbNative.SupportsPeriodicBursts && !WheelFfbNative.SupportsShapedPeriodicBursts,"burst-only capability");
+    Check(WheelFfbNative.Initialise(),"burst-only init");
+    Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120),"missing shaped export accepted");
+    Check(WheelFfbNative.CreatePeriodicBurst(25,120)==0 && WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"legacy burst unusable");
+    WheelFfbNative.ShutdownAll(); Console.WriteLine("burst-only optional binding passed: "+assertions); return 0;
+  }
   if(args.Length>1 && args[1]=="legacy") {
     Check(WheelFfbNative.Version==500 && !WheelFfbNative.SupportsPeriodicBursts,"legacy capability incorrect");
     Check(WheelFfbNative.Initialise(),"legacy core API failed");
     Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"missing burst create was accepted");
     Check(!WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && !WheelFfbNative.StopPeriodicBurst(0),"missing burst exports were called");
+    Check(!WheelFfbNative.SupportsShapedPeriodicBursts && !WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120),"missing shape called");
     WheelFfbNative.ShutdownAll(); Console.WriteLine("legacy optional burst binding passed: "+assertions); return 0;
   }
   Check(!WheelFfbNative.Load(dir,"WheelFfb.dll"),"different module silently accepted");
@@ -60,7 +68,7 @@ class Program {
   Check(!WheelFfbNative.Initialise() && !WheelFfbNative.Ready && metric(1)>freed,"start failure reported ready");
   fault(0);Check(WheelFfbNative.Initialise(),"recovery");
   WheelFfbNative.LogTo("fixture.log"); WheelFfbNative.HoldTimeout(100); WheelFfbNative.AutoCentre(false);
-  Check(WheelFfbNative.Version==600 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
+  Check(WheelFfbNative.Version==700 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
   Check(WheelFfbNative.ExitGuards(),"exit guard binding");
   Check(WheelFfbNative.CreatePeriodic(25)==1 && WheelFfbNative.UpdatePeriodic(1,.2f,25),"periodic binding");
   Check(!WheelFfbNative.UpdatePeriodic(1,float.NaN,25),"invalid periodic magnitude crossed native boundary");
@@ -87,6 +95,17 @@ class Program {
   fault(5); Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"unsupported create accepted");
   fault(7); Check(!WheelFfbNative.StopPeriodicBurst(0),"failed stop accepted");
   fault(0);
+  Check(WheelFfbNative.SupportsShapedPeriodicBursts,"shape capability");
+  fault(0);
+  Check(WheelFfbNative.PlayShapedPeriodicBurst(0,.1952f,6.25f,9000,120) && metric(9)==1952 && metric(10)==6250 && metric(14)==9000 && metric(15)==120,"shape marshalling");
+  int shaped=metric(13);
+  foreach(int phase in new[]{-1,36000}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,phase,120),"invalid phase");
+  foreach(int fade in new[]{0,501}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,fade),"invalid fade");
+  foreach(float magnitude in new[]{float.NaN,float.PositiveInfinity,-1,2}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,magnitude,6.25f,9000,120),"invalid shape magnitude");
+  foreach(float hz in new[]{float.NaN,float.PositiveInfinity,0,101}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,hz,9000,120),"invalid shape frequency");
+  Check(metric(13)==shaped,"invalid shape crossed native boundary");
+  fault(8); Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120) && metric(13)==shaped+1 && WheelFfbNative.LastError.Contains("PlayShapedPeriodicBurst"),"shape failure retried/hidden");
+  fault(0); Check(WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"shape failure blocked landing");
   WheelFfbNative.ShutdownAll();freed=metric(1);WheelFfbNative.Shutdown();Check(metric(1)==freed,"duplicate device shutdown");
   Console.WriteLine("{\"status\":\"passed\",\"assertions\":"+assertions+"}");return 0;
  } catch(Exception e) {Console.Error.WriteLine(e);return 1;} }

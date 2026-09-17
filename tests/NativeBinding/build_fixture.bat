@@ -18,6 +18,11 @@ if /i "%~2"=="legacy" (
  set "FIXTUREDEF=%HERE%fixture.legacy.def"
  set "EXTRA=/DNO_BURST"
 )
+if /i "%~2"=="burstonly" (
+ set "OUT=%OUT%\burstonly"
+ set "FIXTUREDEF=%HERE%fixture.burstonly.def"
+ set "EXTRA=/DNO_SHAPED"
+)
 if not exist "%OUT%" mkdir "%OUT%"
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"

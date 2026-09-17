@@ -2,6 +2,7 @@
 #include <string.h>
 static int fault,force,initCount,freeCount,active,hasName,hasGuid,strict,readCalls;
 static int selectedIndex=-1;
+static int shapeCalls,shapePhase,shapeFade;
 static int burstCalls,burstMagnitude,burstFrequency,burstDuration,burstStops;
 extern "C" {
 __declspec(dllexport) int __cdecl InitDirectInput(int hwnd) { (void)hwnd; initCount++; active = fault == 1 ? 0 : 1; return active; }
@@ -37,8 +38,10 @@ __declspec(dllexport) int __cdecl GetLastHResult(void) { return 1234; }
 __declspec(dllexport) int __cdecl GetWheelFfbVersion(void) {
 #ifdef NO_BURST
 return 500;
+#elif defined(NO_SHAPED)
+return 601;
 #else
-return 600;
+return 700;
 #endif
 }
 __declspec(dllexport) int __cdecl CreatePeriodicEffect(int freqHz) { (void)freqHz; return 1; }
@@ -48,6 +51,11 @@ __declspec(dllexport) int __cdecl CreateConditionEffect(int type) { (void)type; 
 __declspec(dllexport) int __cdecl UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset) { (void)slot; (void)coefficient; (void)saturation; (void)deadband; (void)offset; return 1; }
 __declspec(dllexport) void __cdecl ReleaseConditionEffects(void) {  }
 __declspec(dllexport) void __cdecl SetStrictDeviceSelection(int enabled) { (void)enabled; strict=enabled; }
+#if !defined(NO_BURST) && !defined(NO_SHAPED)
+__declspec(dllexport) int __cdecl PlayShapedPeriodicBurst(int slot,int magnitude,int milliHz,int phase,int fade) {
+ (void)slot; shapeCalls++; burstMagnitude=magnitude; burstFrequency=milliHz; shapePhase=phase; shapeFade=fade; return fault==8 || fade>burstDuration ? 0 : 1;
+}
+#endif
 #ifndef NO_BURST
 __declspec(dllexport) int __cdecl CreatePeriodicBurst(int hz,int ms) { burstFrequency=hz; burstDuration=ms; return fault==5 ? -1 : 0; }
 __declspec(dllexport) int __cdecl PlayPeriodicBurst(int slot,int magnitude,int milliHz) { (void)slot; burstCalls++; burstMagnitude=magnitude; burstFrequency=milliHz; return fault==6 ? 0 : 1; }
@@ -55,6 +63,6 @@ __declspec(dllexport) int __cdecl StopPeriodicBurst(int slot) { (void)slot; burs
 #endif
 __declspec(dllexport) void __cdecl TestFault(int value) { (void)value; fault=value; }
 __declspec(dllexport) int __cdecl TestMetric(int key) {
- switch(key) {case 0:return initCount;case 1:return freeCount;case 2:return force;case 3:return hasName;case 4:return selectedIndex;case 5:return hasGuid;case 6:return strict;case 7:return readCalls;case 8:return burstCalls;case 9:return burstMagnitude;case 10:return burstFrequency;case 11:return burstDuration;case 12:return burstStops;default:return -1;}
+ switch(key) {case 0:return initCount;case 1:return freeCount;case 2:return force;case 3:return hasName;case 4:return selectedIndex;case 5:return hasGuid;case 6:return strict;case 7:return readCalls;case 8:return burstCalls;case 9:return burstMagnitude;case 10:return burstFrequency;case 11:return burstDuration;case 12:return burstStops;case 13:return shapeCalls;case 14:return shapePhase;case 15:return shapeFade;default:return -1;}
 }
 }

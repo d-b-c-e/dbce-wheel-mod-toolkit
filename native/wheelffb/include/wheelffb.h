@@ -28,6 +28,9 @@
  * deadbands and offsets are also -10000..10000.
  *
  * Native 0.6.0 finite bursts: CreatePeriodicBurst(hz, durationMs 1..500)
+ * Shaped play adds phase 0..35999 and fadeMs 1..slot duration, strict API
+ * readback before Start, and no physical-output guarantee. Legacy play clears
+ * prior phase/envelope. CreatePeriodicBurst
  * returns an idle slot; PlayPeriodicBurst(slot, magnitude 0..10000, milliHz)
  * explicitly restarts one finite iteration (0 stops). StopPeriodicBurst is
  * idempotent for a valid burst slot. Frequency 1..100 Hz. Shares four periodic
@@ -90,6 +93,7 @@ extern "C" {
     X(int,  UpdatePeriodicEffect,   (int slot, int magnitude, int freqMilliHz)) \
     X(int,  CreatePeriodicBurst,    (int freqHz, int durationMs)) \
     X(int,  PlayPeriodicBurst,      (int slot, int magnitude, int freqMilliHz)) \
+    X(int,  PlayShapedPeriodicBurst,      (int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)) \
     X(int,  StopPeriodicBurst,      (int slot)) \
     X(void, ReleasePeriodicEffects, (void)) \
     X(int,  CreateConditionEffect,  (int type)) \

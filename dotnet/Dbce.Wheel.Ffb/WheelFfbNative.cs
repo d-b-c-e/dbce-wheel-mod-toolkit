@@ -147,6 +147,9 @@ namespace Dbce.Wheel.Ffb
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int StopBurstCall(int slot);
         private static CreateBurstCall _createBurst;
         private static PlayBurstCall _playBurst;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayShapedBurstCall(int slot, int magnitude, int milliHz, int phase, int fadeMs);
+        private static PlayShapedBurstCall _playShapedBurst;
+        public static bool SupportsShapedPeriodicBursts => SupportsPeriodicBursts && _playShapedBurst != null;
         private static StopBurstCall _stopBurst;
         /// <summary>True when the exact loaded native module supports all finite-burst operations.</summary>
         public static bool SupportsPeriodicBursts => _loaded && _createBurst != null && _playBurst != null && _stopBurst != null;
@@ -225,6 +228,7 @@ namespace Dbce.Wheel.Ffb
                         Marshal.GetDelegateForFunctionPointer<StrictSelectionCall>(strict);
                     _createBurst = Optional<CreateBurstCall>(h, "CreatePeriodicBurst");
                     _playBurst = Optional<PlayBurstCall>(h, "PlayPeriodicBurst");
+                    _playShapedBurst = Optional<PlayShapedBurstCall>(h, "PlayShapedPeriodicBurst");
                     _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
@@ -381,6 +385,20 @@ namespace Dbce.Wheel.Ffb
             try {
                 int magnitude = magnitude01 == 0 ? 0 : Math.Max(1, (int)Math.Round(magnitude01 * ForceMax));
                 return Result(_playBurst(slot, magnitude, (int)Math.Round(freqHz * 1000f)) != 0, "PlayPeriodicBurst");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+
+        /// <summary>Finite sine with explicit phase and a fade to zero over the final fadeMs.
+        /// True means exact API parameter readback and start accepted, not physical verification.
+        /// Missing optional export returns false; failed events must not be retried.</summary>
+        public static bool PlayShapedPeriodicBurst(int slot, float magnitude01, float freqHz, int phaseHundredths, int fadeMs)
+        {
+            if (!Ready || !SupportsShapedPeriodicBursts) { LastError = "Shaped bursts require ready FFB and native 0.7.0 support"; return false; }
+            if (slot < 0 || slot >= 4 || !Finite(magnitude01) || magnitude01 < 0 || magnitude01 > 1 || !Finite(freqHz) || freqHz < 1 || freqHz > 100 || phaseHundredths < 0 || phaseHundredths > 35999 || fadeMs < 1 || fadeMs > 500)
+            { LastError = "Invalid shaped burst slot, magnitude, frequency, phase or fade duration"; return false; }
+            try {
+                int magnitude = magnitude01 == 0 ? 0 : Math.Max(1, (int)Math.Round(magnitude01 * ForceMax));
+                return Result(_playShapedBurst(slot, magnitude, (int)Math.Round(freqHz * 1000f), phaseHundredths, fadeMs) != 0, "PlayShapedPeriodicBurst");
             } catch (Exception ex) { LastError = ex.Message; return false; }
         }
 

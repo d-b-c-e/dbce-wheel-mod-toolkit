@@ -45,3 +45,5 @@ EXPORTS
     CreatePeriodicBurst
     PlayPeriodicBurst
     StopPeriodicBurst
+
+    PlayShapedPeriodicBurst

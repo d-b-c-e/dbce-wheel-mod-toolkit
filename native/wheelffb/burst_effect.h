@@ -29,17 +29,36 @@ HRESULT create(Device* device, Effect*& effect, int hz, int ms) {
     return hr; // Created at zero magnitude and NEVER started here.
 }
 template<class Effect>
-HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz) {
-    if (!effect || ms < 1 || ms > 500 || magnitude < 0 || magnitude > 10000 || milliHz < 1000 || milliHz > 100000)
+HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz, int phase = 0, int fadeMs = 0) {
+    if (!effect || ms < 1 || ms > 500 || magnitude < 0 || magnitude > 10000 || milliHz < 1000 || milliHz > 100000 || phase < 0 || phase > 35999 || fadeMs < 0 || fadeMs > ms)
         return E_INVALIDARG;
     HRESULT hr = stop(effect); // Each event restarts; no change gate, even at one unit.
     if (FAILED(hr) || magnitude == 0) return hr;
     DIPERIODIC periodic = {}; periodic.dwMagnitude = magnitude; periodic.dwPeriod = (DWORD)(1000000000LL / milliHz);
+    periodic.dwPhase = phase;
+    DIENVELOPE envelope = {}; envelope.dwSize = sizeof envelope;
+    envelope.dwAttackLevel = magnitude; envelope.dwFadeTime = fadeMs * 1000;
     DIEFFECT e = {}; e.dwSize = sizeof e; e.dwDuration = ms * 1000;
+    e.lpEnvelope = fadeMs ? &envelope : nullptr; // Legacy explicitly clears a previous shape.
     e.cbTypeSpecificParams = sizeof periodic; e.lpvTypeSpecificParams = &periodic;
-    hr = effect->SetParameters(&e, DIEP_DURATION | DIEP_TYPESPECIFICPARAMS);
+    const DWORD flags = DIEP_DURATION | DIEP_TYPESPECIFICPARAMS | DIEP_ENVELOPE;
+    hr = effect->SetParameters(&e, flags);
+    if (fadeMs && hr == S_OK) {
+        // Parameter echo is an API check, not proof of physical force. Refuse
+        // unsupported/rounded shaping instead of silently playing another cue.
+        DIPERIODIC actual = {}; DIENVELOPE actualEnvelope = {}; actualEnvelope.dwSize = sizeof actualEnvelope;
+        DIEFFECT read = {}; read.dwSize = sizeof read;
+        read.cbTypeSpecificParams = sizeof actual; read.lpvTypeSpecificParams = &actual; read.lpEnvelope = &actualEnvelope;
+        hr = effect->GetParameters(&read, flags);
+        if (hr == S_OK && (read.dwDuration != e.dwDuration || read.lpEnvelope == nullptr ||
+            actual.dwMagnitude != periodic.dwMagnitude || actual.dwPeriod != periodic.dwPeriod ||
+            actual.dwPhase != periodic.dwPhase || actual.lOffset != 0 ||
+            actualEnvelope.dwAttackLevel != envelope.dwAttackLevel || actualEnvelope.dwAttackTime != 0 ||
+            actualEnvelope.dwFadeLevel != 0 || actualEnvelope.dwFadeTime != envelope.dwFadeTime)) hr = DIERR_UNSUPPORTED;
+    }
+    if (fadeMs && hr != S_OK) { effect->Stop(); effect->Release(); effect = nullptr; return hr; }
     if (SUCCEEDED(hr)) hr = effect->Start(1, 0); // Exactly once. Never reacquire/retry a stale event.
-    if (FAILED(hr)) { effect->Stop(); effect->Release(); effect = nullptr; }
+    if (FAILED(hr) || (fadeMs && hr != S_OK)) { effect->Stop(); effect->Release(); effect = nullptr; }
     return hr;
 }
 } // namespace wheel_burst

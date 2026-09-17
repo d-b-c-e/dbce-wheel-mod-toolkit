@@ -20,3 +20,12 @@ if ($LASTEXITCODE -ne 0) { throw 'x86 .NET Framework binding fixture failed' }
 if ($LASTEXITCODE -ne 0) { throw 'CoreCLR legacy optional binding failed' }
 & (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root 'tests/NativeBinding/build/x86/legacy/UnityForceFeedback.dll') legacy
 if ($LASTEXITCODE -ne 0) { throw 'Framework legacy optional binding failed' }
+
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'tests/NativeBinding/build_fixture.bat') $arch burstonly | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw "Burst-only fixture build failed" }
+}
+& dotnet run --no-build --project $project -c Release -f net8.0 -- (Join-Path $root 'tests/NativeBinding/build/burstonly/UnityForceFeedback.dll') burstonly
+if ($LASTEXITCODE -ne 0) { throw 'CoreCLR burst-only binding failed' }
+& (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root 'tests/NativeBinding/build/x86/burstonly/UnityForceFeedback.dll') burstonly
+if ($LASTEXITCODE -ne 0) { throw 'Framework burst-only binding failed' }
