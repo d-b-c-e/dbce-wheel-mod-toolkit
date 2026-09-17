@@ -1,9 +1,15 @@
 # Binding and camera adjustment workflows
 
-Normative UX-1 interaction detail, 2026-09-14. Use with
+Normative UX-1 interaction detail, revised 2026-09-16 (initially 2026-09-14). Use with
 [the standard](CONSUMER-UX.md) and [acceptance checklist](CONSUMER-UX-CHECKLIST.md).
 These workflows specify what the player does and sees. Having the feature in
 code, or documenting a gap, does not establish that the workflow is complete.
+
+Under [Simple/Advanced placement (UX-01-S)](CONSUMER-SETTINGS-VIEWS.md), ordinary
+binding and full axis calibration stay available in Simple. Camera **Adjustment
+bindings** is also available on demand in Simple, including on keyboards without
+a numpad. Detailed pose sliders, response shaping and threshold tuning belong
+in Advanced. View selection never changes input/camera behavior or saved values.
 
 ## One binding pattern, including the e-brake — UX-04-H
 

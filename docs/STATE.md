@@ -27,6 +27,15 @@ Updated 2026-09-07. Source/package version **0.12.0**, native device component
 a toolkit release. [Prior handoff](history/STATE-before-0.12.md) is historical
 and includes stale version, directory and deployment-path claims.
 
+## Consumer UX guidance, 2026-09-16
+
+[UX-01-S](CONSUMER-SETTINGS-VIEWS.md) now requires Simple by default and Advanced
+for detailed tuning. The page-placement inventory, first-use flow, migration and
+interaction checks are documented in the linked contract and UX checklist.
+This is documentation only: no shared renderer, consumer implementation, game
+deployment or live validation is implied. Consumers must record their own adoption
+evidence; previous audits do not certify this revision.
+
 ## Implemented and verified offline
 
 - Exact-module Cdecl managed binding, including renamed plugins and original

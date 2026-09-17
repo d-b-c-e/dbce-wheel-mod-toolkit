@@ -24,13 +24,17 @@ For a consistent experience across games, use the [shared UX standard](docs/CONS
 [install and first-drive guide](docs/CONSUMER-SETUP.md), and
 [consumer audit checklist](docs/CONSUMER-UX-CHECKLIST.md). They define the intended
 player experience; adoption and runtime verification remain per consumer.
+The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
+Simple the default for basic setup and driving. Advanced adds detailed tuning
+and diagnostics over the same saved settings. It includes exact page placement,
+upgrade rules and acceptance checks; existing consumer UIs still need adoption.
 The 2026-09-14 revision requires analog handbrake hardware support and an
 FFB device dropdown that defaults to the wheel bound to Steering, while retaining
 explicit overrides and saved device identities.
 The [binding/camera workflows](docs/CONSUMER-CONTROLS-CAMERAS.md) define the
 handbrake capture flow, live numpad defaults and in-panel adjustment rebinding.
 The [Woden reconciliation audit](docs/ux-audits/2026-09-14-woden-controls-camera.md)
-records the current source gaps and the required interaction checks.
+records the source gaps at that audit date and the required interaction checks.
 See the [first cross-consumer UX audit](docs/ux-audits/2026-09-13-consumers.md)
 for specific gaps in iRacing Arcade Wheel and Art of Sim Rally.
 

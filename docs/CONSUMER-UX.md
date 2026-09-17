@@ -1,10 +1,15 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, revised 2026-09-14 (initially 2026-09-13). This is the product standard for consuming mods,
+Baseline **UX-1**, revised 2026-09-16 (initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
+
+The 2026-09-16 revision adds [Simple and Advanced settings](CONSUMER-SETTINGS-VIEWS.md)
+(UX-01-S): Simple by default, complete basic setup there, and Advanced for detailed
+tuning/diagnostics. Both views share the same values; changing views never resets
+an owner's tune. Each consumer needs a settings inventory and interaction checks.
 
 The 2026-09-14 clarification makes analog handbrake hardware support and the
 steering-bound default FFB dropdown explicit requirements (UX-04/05). Older
@@ -27,7 +32,7 @@ preferences and game-specific capabilities remain in each consuming repository.
 ## The promise to the player
 
 Someone who has set up one of our mods should recognize the next one: install,
-open **F6**, check the wheel and pedals, bind buttons, enable feedback, drive.
+open **F6**, check the wheel and pedals in Simple, bind buttons, check feedback, drive.
 Routine use must not require editing configuration files, reading developer
 logs, knowing an input backend, or understanding a force equation.
 
@@ -43,16 +48,24 @@ panel. Show a **Close** button too. Keep the original loader's entry as a
 secondary route when needed. Check game key conflicts and make the shortcut
 rebindable; document any unavoidable default exception rather than hiding it.
 
-Use these pages, in this order:
+Keep **View: [Simple] [Advanced]** in the header on every page. Default to Simple
+when there is no saved view preference; remember an explicit choice. The
+[view placement contract](CONSUMER-SETTINGS-VIEWS.md) defines the initial controls,
+on-demand basic setup and Advanced additions. View choice changes presentation
+only; hidden settings remain effective. Essential bindings, recovery and Stop FFB
+stay reachable in Simple. Do not add separate per-page expert-mode toggles.
+
+Use these pages, in this order. The table summarizes page ownership; the linked
+view contract determines which details appear initially:
 
 | Page | What belongs here | First things visible |
 |---|---|---|
 | **Setup** | First use, reconnect, quick readiness check | Wheel, steering/throttle/brake bars, the next incomplete step |
 | **Controls** | All supported bindings and calibration | Steering, Throttle, Brake, Handbrake; then Driving buttons, Menu buttons, Shifter |
 | **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, FFB device dropdown defaulting to the bound steering wheel, Strength, current status, Stop FFB |
-| **Cameras** | Cycle membership and view adjustment | Bonnet and Bumper Off/On, Change camera binding, selected view's adjustments |
-| **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, destination, connection facts; Recording controls |
-| **Help** | Version, troubleshooting, support evidence and reset | Short symptom-based help, Create support file, advanced device details |
+| **Cameras** | Cycle membership and view adjustment | Bonnet and Bumper Off/On, Change camera binding, live-adjustment hint; Adjustment bindings on demand |
+| **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, receiver preset/destination, sending facts; status/Stop if recording |
+| **Help** | Version, troubleshooting, support evidence and reset | Version, short symptom-based help, UI scale, Create support file; device details in Advanced |
 
 Setup links to the same Controls/FFB values, not another set of bindings. Keep
 raw action maps, HID reports, native device indices and library versions in
@@ -61,7 +74,9 @@ page. Refresh is beside the relevant device picker, with full inventory in Help.
 
 If a game has handling/transmission modifications, put them in an optional
 **Driving** page between Cameras and Telemetry. Preserve the six core page names
-and relative order. Explain the actual mode restrictions at the controls. Do not
+and relative order. Show experimental handling/assist tuning in Advanced; only
+ordinary-driving essentials such as a required transmission selector belong in
+Simple. Explain the actual mode restrictions at the controls. Do not
 make a gearbox experiment the first thing a wheel user must configure.
 
 Unsupported pages stay recognizable with a brief capability message and help;
@@ -75,6 +90,7 @@ show its value. Buttons name an action. State is visible in text, not color alon
 
 | Purpose | Standard wording / control | Avoid |
 |---|---|---|
+| Settings view | `View: [Simple] [Advanced]` | `Expert mode`, `Debug UI`, multiple competing Advanced switches |
 | Boolean setting | `FFB: [Off] [On]` | `ON Allow FFB`, `Enable feedback?`, a button whose text could mean current or next state |
 | Boolean shaping | `Invert steering: [Off] [On]` | `Flip`, unlabeled checkboxes |
 | Numeric setting | `Strength: 20%` with slider, readable value and default reset | A unitless number, a reference constant presented as everyday strength |
@@ -111,7 +127,8 @@ name and readable axis name (for example `X axis`) before any technical path.
 Every advanced setting gets one sentence explaining what the player will feel
 or see, its unit, and a way to restore its default. Example:
 `Smoothing: 35 ms — Higher values soften rapid changes but delay feedback.`
-Keep reference loads, slip scaling and force components under **Advanced**.
+Keep reference loads, slip scaling and force components in the global **Advanced**
+view, with basic controls retained above them.
 Game tunes can differ; the label, unit and meaning of Strength must not.
 
 ## 3. Shared visual and interaction rules — UX-03
@@ -194,8 +211,10 @@ Where the verified game route supports analog input, preserve the calibrated
 If the game only accepts a held digital handbrake, still accept the physical
 axis and expose a labeled fallback: `Game handbrake: On/Off only`. Provide an
 **Activation point** and a lower **Release point**, both in percent, so resting
-noise does not chatter. Show analog **Device input** separately from digital
-**Game input**. Record this game limitation and its verified input seam in the
+noise does not chatter. Simple calibration shows their effective values; tuning
+them is in Advanced with tested defaults for ordinary setup. Show analog
+**Device input** separately from digital **Game input**. Record this game
+limitation and its verified input seam in the
 consumer's UX adoption notes; do not call the resulting game response analog.
 
 Combine additive button and axis bindings predictably: use the greater analog
@@ -293,11 +312,13 @@ Do not require a separate bonnet key or a settings toggle on every drive. Keep
 mod-only view indices out of the game's persistent stock-camera enumeration.
 
 `Bonnet: Off/On` and `Bumper: Off/On` mean **include in the camera cycle**; say so
-under the controls. Adjust one clearly selected view at a time: Height, Forward,
-Pitch and Field of view where supported, with units and **Reset this view**.
+under the controls. In Advanced, adjust one clearly selected view at a time:
+Height, Forward, Pitch and Field of view where supported, with units and
+**Reset this view**.
 Live numpad adjustment and **Cameras → Adjustment bindings** are required for
 mounted views, using the [default mapping and rebind workflow](CONSUMER-CONTROLS-CAMERAS.md).
-Sliders supplement these shortcuts; they do not replace them. Preserve saved
+Keep Adjustment bindings available on demand in Simple. Sliders supplement
+these shortcuts in Advanced; they do not replace them. Preserve saved
 bindings, document concrete unsupported adjustments, and test visible direction,
 reset scope and capture-key suppression. **Look behind** is a held action; release restores the previous view and
 focus loss clears it.
@@ -314,7 +335,9 @@ reason and leave the game in control. Preserve normal scoring and finish flow.
 
 **Telemetry: Off/On** controls the dashboard stream. Show the actual receiver
 profile (for example Forza Horizon 5), host and port, with a short matching setup
-instruction. Keep protocol layout and detailed channel diagnostics in Advanced.
+instruction. Simple offers a tested receiver preset with its actual destination;
+editable connection fields, protocol layout and detailed channel diagnostics
+belong in Advanced. Connection settings (Advanced) links directly to those fields.
 One-way UDP can establish **Sending**, not **Dashboard connected**, without a
 receiver acknowledgement. Distinguish sampled data, socket sends and a receiver
 or physical shaker that was actually tested.
@@ -327,7 +350,9 @@ run may explicitly allow the saved FFB preference. Do not make the player start
 or stop recording in the menu for this workflow. [woden-rally-edge-wheel, 2026-09-14]
 
 If player-operated recording is offered, place **Start recording**, **Stop recording**,
-**Mark moment** and **Open folder** in a Recording section. Show elapsed time, size/limit, dropped samples and final
+**Mark moment** and **Open folder** in an Advanced Recording section. Simple still
+shows active recording status and Stop recording, as well as limit/write failures.
+Show elapsed time, size/limit, dropped samples and final
 saved path. Recording is opt-in and bounded; hitting a limit or a write error is
 visible. Do not silently discard an unsaved recording at exit. Preserve useful
 metadata: game/mod/toolkit versions, settings, bindings, signal availability and
@@ -352,7 +377,9 @@ have explicit scoped actions. Network destination edits apply together through
 working configuration on failure and show both the requested and active value
 when they differ.
 
-Opening or closing a page must not change a setting. Changing a slider must not
+Opening or closing a page must not change runtime settings. Switching
+Simple/Advanced changes only presentation preferences, following UX-01-S.
+Changing a slider must not
 re-enumerate devices, reconnect FFB or write a file on every render event. Reset
 FFB settings leaves controls/cameras/telemetry intact. Reset all settings names
 what it affects, preserves a backup and requires a deliberate confirmation.
@@ -360,7 +387,7 @@ Neither updating the mod nor a failed calibration deletes personal bindings.
 
 ## Adoption and exceptions
 
-Each consumer records `UX baseline: UX-1, revised 2026-09-14`, the guidance
+Each consumer records `UX baseline: UX-1, revised 2026-09-16`, the guidance
 commit/hash, plus a dated checklist, exact source
 revision/working-tree scope, built/installed versions and evidence. An audit can
 identify a source defect without claiming it was seen live. Mark visual and

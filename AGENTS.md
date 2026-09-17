@@ -54,9 +54,10 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 
-**Empty on purpose, not yet written** — `dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
-directories. They mark where those modules belong. Do not go looking for code
-in them; see the deferred list in `docs/PLAN.md`.
+**No shared input/calibration implementation yet** — `dotnet/Dbce.Wheel.Input/`
+is a `.gitkeep` directory. The three `templates/` directories contain README
+and working-notes starting points, not compilable projects or a shared settings UI.
+See [templates/README.md](templates/README.md) and the deferred list in `docs/PLAN.md`.
 
 ## Runtime matrix — the reason the core is native
 
@@ -88,6 +89,13 @@ goes in a clearly named sub-package.
   direct Bind/cancel without an exclusive handbrake mode, live numpad adjustment,
   and F6 rebinding of camera adjustments. Record guidance commit/hash and actual
   interaction evidence; a remaining-work list is not completed reconciliation.
+  The 2026-09-16 [Simple/Advanced contract](docs/CONSUMER-SETTINGS-VIEWS.md)
+  requires Simple by default, complete basic binding/calibration and recovery
+  there, and Advanced for detailed tuning/diagnostics. Remember explicit view
+  choice. Both views share settings; switching never resets tunes or changes
+  runtime policy. Keep camera shortcut rebinding in Simple on demand. Classify
+  every option in the consumer's placement inventory and verify UX-01-S migration
+  and interaction checks before claiming adoption.
 
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.

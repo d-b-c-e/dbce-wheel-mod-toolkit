@@ -25,6 +25,14 @@ force chain, and the wiring from a car-state struct to a force on the wheel.
 
 ## Using one
 
+Every shape follows [UX-1](../docs/CONSUMER-UX.md) and the
+[Simple/Advanced settings contract](../docs/CONSUMER-SETTINGS-VIEWS.md). Start
+with Simple for complete basic setup; add detailed customization in Advanced
+over the same saved settings. The copied working notes link the canonical
+guidance. Inventory option placement and record the guidance hash and
+[acceptance evidence](../docs/CONSUMER-UX-CHECKLIST.md) in the consuming repo.
+These templates do not provide a shared UI renderer or establish adoption.
+
 ```powershell
 Copy-Item -Recurse templates\<shape> E:\Source\<new-repo>
 ```

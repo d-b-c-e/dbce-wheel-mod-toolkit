@@ -1,6 +1,6 @@
 # Consumer UX audit and acceptance checklist
 
-Baseline **UX-1**, revised 2026-09-14. Copy the report template below into the consuming
+Baseline **UX-1**, revised 2026-09-16. Copy the report template below into the consuming
 repo when adopting [the standard](CONSUMER-UX.md) and
 [setup contract](CONSUMER-SETUP.md). Keep source review, fixture checks, visual
 inspection and attended hardware evidence separate.
@@ -15,13 +15,14 @@ successful runtime behavior.
 
 ```text
 Consumer / game:
-Audit date / UX baseline revision: YYYY-MM-DD / UX-1 revised 2026-09-14
+Audit date / UX baseline revision: YYYY-MM-DD / UX-1 revised 2026-09-16
 Guidance commit/hash and any local owner clarifications:
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
 Built version / installed version / game build:
 Evidence inspected: source / package fixture / screenshot / attended drive
 Display resolution, scaling and input devices actually tested:
+Settings placement inventory and Simple/Advanced migration evidence:
 No-touch scope (other active work or installations):
 ```
 
@@ -30,6 +31,7 @@ No-touch scope (other active work or installations):
 | ID | Acceptance check | Required evidence |
 |---|---|---|
 | UX-01 | F6, Settings button, Close and Esc share one panel; six core pages have standard names/order; no duplicate binding stores | Source + live open/close/navigation |
+| UX-01-S | Simple by default; persistent explicit View choice; complete basic setup and recovery in Simple; Advanced adds tuning; one settings store, preserved effective hidden values/custom summary, no runtime side effects from switching | Per-setting inventory + fresh/legacy configuration checks + all [view walkthroughs](CONSUMER-SETTINGS-VIEWS.md), including Simple first use, errors, capture/edit guards and both views at 720p/high DPI |
 | UX-02 | Explicit label/value Off/On controls, common action names, units, readable device labels, scoped reset wording | String/source review + visual inspection |
 | UX-03 | Opaque readable layout, stable navigation, unified scale, long names, keyboard focus, no click-through; clean cursor/pause restoration | 720p and high-DPI/4K views + interaction |
 | UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect | Source + calibration/persistence tests + attended input |
@@ -42,7 +44,7 @@ No-touch scope (other active work or installations):
 | UX-08 | Autosave/status, explicit calibration save, atomic destination apply, failed save visible, reset scope and retained backups | Persistence/failure tests + UI flow |
 | UX-09 | One player ZIP/install/update path, discovery/folder fallback, closed-game/preflight checks, pinned dependencies, rollback, retained owner settings | Actual packaged installer fixtures + first launch |
 | UX-10 | Uninstall owns only its files, preserves other mods/loader and user data by default, reports retained/modified files | Packaged uninstall fixtures |
-| UX-11 | New user completes Connect → axes → buttons → FFB → drive without config editing or developer knowledge | Attended first-use walkthrough |
+| UX-11 | New user completes Connect → axes → buttons → FFB → drive entirely in Simple, without config editing or developer knowledge | Attended first-use walkthrough; optional hardware/dashboard configuration does not block readiness |
 
 ## Findings format
 
@@ -64,6 +66,12 @@ hardware transition is an evidence gap, not automatically a confirmed P0 defect.
 
 ## Cross-game walkthrough
 
+UX-01-S was added on 2026-09-16. Earlier audits do not establish Simple/Advanced
+adoption. Add the complete [view walkthroughs](CONSUMER-SETTINGS-VIEWS.md) and
+per-setting placement inventory to each consumer review. Keep the initial
+connect/bind/check/drive sequence in Simple; exercise Advanced separately for
+customization, diagnostics and preservation of existing tunes.
+
 The additional UX-04-H/UX-05-D checks were made explicit on 2026-09-14. Earlier
 audits do not establish compliance with them; retain their original evidence
 dates and add a consumer review of these requirements.
@@ -75,7 +83,8 @@ With each game in turn, perform the same sequence and record where instructions
 or actions change:
 
 1. Install from its player ZIP into a clean fixture, then a supported real install.
-2. Find Wheel settings without opening developer docs. Bind three axes, cancel a
+2. Find Wheel settings without opening developer docs; verify Simple Setup is the
+   fresh-config default. Stay in Simple to bind three axes, cancel a
    capture, save calibration, bind Pause and Change camera. Check left/right and
    released/full pedal values against effective game input.
    If the game has a handbrake, bind a separate analog device and a button;
@@ -101,8 +110,10 @@ or actions change:
    and FOV in F6 without a numpad. Verify visible directions, cancel/conflicts,
    Clear/defaults, reset scope, persisted assignments and release after capture.
    Sliders and a list of source methods do not substitute for this interaction.
-6. Configure telemetry from the panel and verify it at the receiver. Exercise
-   either the offered player recording controls or an agent-prepared one-launch
+6. Enable a verified telemetry preset in Simple and verify it at the receiver.
+   Check custom destination editing in Advanced and the actual saved destination
+   back in Simple. Exercise either the offered player recording controls or an
+   agent-prepared one-launch
    capture. Verify bounds, request expiry/consumption, normal-exit finalization,
    saved settings, output suppression for unattended launches and the saved file.
 7. Update with changed user bindings/tunes and another mod installed. Confirm both
@@ -114,8 +125,10 @@ them marked Not tested until someone at the wheel performs them.
 
 ## Keeping projects aligned
 
-Link this baseline from each consumer's contributor/agent notes. Include affected
-rule IDs in UI/installer change reviews and update the audit when a finding closes.
+Link this baseline and the settings-view contract from each consumer's
+contributor/agent notes. Classify every new UI setting in its placement inventory.
+Include affected rule IDs in UI/installer change reviews and update the audit
+when a finding closes.
 Record legitimate game restrictions beside the relevant option and in an exception
 table. Share labels, layout conventions and interaction policies; do not fork a
 new native output layer just to adopt the UX. Before extracting shared widgets,

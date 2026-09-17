@@ -13,6 +13,11 @@ wording, binding/calibration, camera/FFB handoff and telemetry status. Use the
 [UX checklist](CONSUMER-UX-CHECKLIST.md). These are standards to implement in the
 consumer, not a shipped shared UI library.
 
+Apply [Simple and Advanced settings (UX-01-S)](CONSUMER-SETTINGS-VIEWS.md): default
+to Simple, keep complete basic setup there, and place detailed tuning/diagnostics
+in Advanced. Inventory each setting's placement and prove existing settings are
+preserved on upgrade and view changes. Copying a toolkit DLL does not adopt this UI.
+
 Consumers vendor **built artifacts**, pinned by version. No cross-repo project
 references: a toolkit change never reaches a game without an explicit,
 diffable bump in that game's repo.

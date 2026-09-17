@@ -7,6 +7,12 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Require Simple settings by default across consuming mods (UX-01-S, 2026-09-16),
+  with complete basic setup and an Advanced view for detailed customization.
+  Specify per-page placement, retained owner settings/view choice, visible
+  recovery and migration/interaction checks. Update setup, audits and starter
+  guidance; this is a standard for adoption, not a change to installed mod UIs.
+
 - Define exact handbrake binding/cancel and mounted-camera numpad/rebinding
   workflows, with a Woden source reconciliation audit and interaction checks.
   Preserve saved bindings across differing legacy camera defaults. Reconcile

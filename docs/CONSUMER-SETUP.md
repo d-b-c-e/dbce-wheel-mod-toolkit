@@ -1,6 +1,6 @@
 # Install to first drive: consumer guide
 
-Part of [UX-1](CONSUMER-UX.md), revised 2026-09-14. This is a release/installer contract
+Part of [UX-1](CONSUMER-UX.md), revised 2026-09-16. This is a release/installer contract
 and a reusable player-guide template. It does not claim these installers or a
 shared setup wizard already exist. Replace examples with the consumer's verified
 names, defaults and capabilities; ship only instructions that its package supports.
@@ -33,6 +33,9 @@ PowerShell command or dependency setup script is not the main player download.
 6. Preserve settings, bindings, calibrations, recordings and explicit opt-outs.
    Migrate old formats with a backup; explain any action the player must take.
    A default change applies only where the user has no saved value.
+   If the settings-view preference is absent, default it to Simple without
+   resetting any existing tune or rerunning first-use defaults. Preserve an
+   explicit Simple/Advanced choice on subsequent updates.
 7. End with the installed version, game path, outcome, and **Launch normally,
    then press F6 for Wheel settings**. An optional launch action is fine; do not
    unexpectedly start the game or acquire the wheel during installation.
@@ -69,7 +72,10 @@ because this mod uses it. Show what remains and how to reinstall.
 
 ## UX-11 — First use, without a manual beside the wheel
 
-Make Setup the first-use page. On later opens, remember the last page and keep
+Make **Simple → Setup** the first-use view/page. The header offers
+**View: [Simple] [Advanced]**; remember an explicit choice as specified in
+[UX-01-S](CONSUMER-SETTINGS-VIEWS.md). Complete the normal first-drive sequence
+entirely in Simple. On later opens, remember the last page and keep
 Setup easy to find. Do not force a wizard over every launch or assume one physical
 device contains all pedals and controls.
 
@@ -83,7 +89,7 @@ device contains all pedals and controls.
 | Feedback | Confirm the FFB device and Strength; FFB defaults On and remembers Off | Clear ready/inactive state and Stop FFB; one saved On/Off preference, no session-start step |
 | First drive | Close panel; enter an appropriate driving session | Inputs reach the car, normal camera button includes Bonnet/Bumper, output starts only while player controls the car |
 | Optional camera tuning | Enter Bonnet/Bumper and adjust with the numpad; rebind under Cameras → Adjustment bindings if needed | Active-mount values, actual saved shortcuts, Bind/Clear/Cancel/defaults; same pose values as sliders, no duplicate camera-cycle binding |
-| Optional telemetry | Enable stream; match receiver profile and port | Sending status; diagnostics may use an agent-prepared recorded launch with automatic finalization |
+| Optional telemetry | Enable a tested receiver preset in Simple; follow matching receiver instructions | Actual profile/destination and Sending status; custom connection edits and recording setup in Advanced; active capture/Stop and errors remain in Simple |
 
 Do not make dashboard configuration, a shifter, handbrake ownership/binding, camera tuning or telemetry
 recording prerequisites for steering and pedals. A keyboard/mouse remains a
@@ -97,8 +103,8 @@ The following text is a template, not a statement about every current release:
 > **Install:** Close [Game], extract [release ZIP], and run **Install.bat**.
 > Confirm the detected game folder. Launch the game normally.
 >
-> **Set up:** Press **F6** for Wheel settings. In **Setup**, bind and calibrate
-> Steering, Throttle and Brake. The wheel bar should move left when you turn left;
+> **Set up:** Press **F6** for Wheel settings. Start in **Simple → Setup**, then
+> bind and calibrate Steering, Throttle and Brake. The wheel bar should move left when you turn left;
 > each pedal should read 0% released and 100% fully pressed. Bind **Change camera**
 > and **Pause**, then any other buttons you want.
 >
@@ -117,6 +123,10 @@ The following text is a template, not a statement about every current release:
 > 4/6 left/right, 1/3 tilt down/up, +/− widen/narrow field of view, and 0 to reset
 > that view. Change these in **F6 → Cameras → Adjustment bindings**. [Show actual
 > saved mappings after a rebind and explain any unavailable adjustment.]
+>
+> **Customize later:** Choose **View: Advanced** for detailed feedback tuning,
+> camera position sliders and telemetry options. Returning to Simple keeps your
+> changes. Ordinary binding and camera shortcut rebinding are available in Simple.
 >
 > **Update:** Close the game and run Install.bat from the new release. Your
 > bindings and settings are kept. **Uninstall:** run Uninstall.bat; personal data
@@ -138,3 +148,6 @@ Exercise fresh install, update with personal bindings, unsupported/conflicting
 install, failed update/recovery, and uninstall with a second mod present in a
 disposable fixture. Verify first launch and setup in the game's actual runtime
 separately. Fixture success does not prove text readability, live input or feel.
+Check Simple on fresh installs and upgrades without a view preference, including
+upgrades with an existing custom tune. Verify the explicit view choice persists
+and that changing views preserves all effective settings.

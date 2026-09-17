@@ -5,6 +5,13 @@ For the product-level standard, start with [Shared player experience (UX-1)](CON
 This page is their technical integration companion; the shared APIs do not
 automatically change a consuming game's interface.
 
+The 2026-09-16 [Simple/Advanced contract](CONSUMER-SETTINGS-VIEWS.md) defines
+default visibility and migration. Keep its saved presentation preference out of
+device resolution, FFB/telemetry policy and calibration state. Render both views
+over the same consumer settings; a view change must not reconstruct defaults or
+reinitialize hardware. Detailed diagnostics belong in Advanced, while actionable
+failures and safe recovery remain available in Simple.
+
 Reviewed 2026-09-07 against toolkit b726d56 and local art-of-sim-rally,
 iracing-arcade-wheel and OutRun2006Tweaks-FFB setup surfaces. This document
 separates shared capabilities delivered by this change from consumer UI work
