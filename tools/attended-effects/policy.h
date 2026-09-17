@@ -15,6 +15,9 @@ struct Policy {
     void finish(unsigned long long now) { active=false; mode=Mode::None; until=now+cooldownMs; }
     void focusLost(unsigned long long now) { finish(now); connected=false; }
     bool zeroUpdate() const { return active && mode==Mode::ShapedWithZero; }
+    bool mayUpdate(unsigned long long now,unsigned long long start,bool focused) const {
+        return zeroUpdate() && focused && now>=start && now-start<durationMs;
+    }
     int magnitude() const { return percent*100; }
 };
 template<class Actions>

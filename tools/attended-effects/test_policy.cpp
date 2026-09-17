@@ -46,6 +46,8 @@ int main() {
     p.focusLost(1130);assert(!p.connected && !p.active);
     assert(!p.begin(Mode::Shaped,true,true,false,9000)); // Focus regain never auto-connects.
     p.connected=true;assert(p.select(20));assert(p.begin(Mode::ShapedWithZero,true,true,false,9000) && p.zeroUpdate());
+    assert(p.mayUpdate(9119,9000,true));assert(!p.mayUpdate(9120,9000,true));
+    assert(!p.mayUpdate(9119,9000,false) && !p.mayUpdate(8999,9000,true));
     p.finish(9120);assert(!p.zeroUpdate());
     for(int percent:{5,10,20}) for(DWORD axes:{1UL,2UL}) {
         FakeDevice device;FakeEffect* fx=nullptr;

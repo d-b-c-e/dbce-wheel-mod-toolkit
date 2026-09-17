@@ -17,7 +17,9 @@ if not exist "!VSWHERE!" ( echo ERROR: vswhere.exe not found & exit /b 1 )
 for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
 if /i "%ARCH%"=="x86" ( call "!VSPATH!\VC\Auxiliary\Build\vcvars32.bat" >nul ) else ( call "!VSPATH!\VC\Auxiliary\Build\vcvars64.bat" >nul )
 
-for /f %%R in ('git -C "%~dp0" rev-parse HEAD') do set "REVISION=%%R"
+set "REVISION="
+for /f %%R in ('git rev-parse HEAD') do set "REVISION=%%R"
+if not defined REVISION ( echo ERROR: source revision unavailable & exit /b 1 )
 cl.exe /DPROBE_SOURCE_REV=\"%REVISION%\" /nologo /O2 /W4 /EHsc /Fo"%OUT%\\" /Fe"%OUT%\attended_effects.exe" attended_effects.cpp /link /SUBSYSTEM:WINDOWS gdi32.lib user32.lib dinput8.lib dxguid.lib ole32.lib
 if errorlevel 1 exit /b 1
 

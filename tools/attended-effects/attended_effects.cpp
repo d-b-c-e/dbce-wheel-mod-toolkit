@@ -209,6 +209,13 @@ static void tick() {
     if(now>=nextZero) {
         effectStatus("before-update",fx);
         if(policy.zeroUpdate()) {
+            bool currentFocus=focused();
+            if(!policy.mayUpdate(GetTickCount64(),began,currentFocus)) {
+                record("zero update skipped: status query consumed test window or focus lost");
+                if(!currentFocus) disconnect("focus-loss-after-status");
+                else {stopAll("duration-elapsed-after-status");SetWindowTextA(statusText,"C skipped a late update after a slow status query. Review timing; do not infer mixing failure.");}
+                return;
+            }
             bool ok=attended::updateZero(policy,actions);
             effectStatus("after-zero-update",fx);
             if(!ok) {stopAll("zero-update-failed");return;}
