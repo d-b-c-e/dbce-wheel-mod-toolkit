@@ -6,6 +6,11 @@ using a conservative, game-tested default tune. **Advanced** adds customization
 and detailed diagnostics. This is a shared product contract; publishing it does
 not change existing consumer UIs or certify their adoption.
 
+Use the [interactive visual reference](reference/wheel-settings.html) and its
+[preview guide and verification record](reference/README.md) when implementing
+the layout. It demonstrates the same flows using browser-only sample data;
+it is not a shared game renderer or evidence of consumer runtime behavior.
+
 ## One view selector, one set of settings
 
 Keep **View: [Simple] [Advanced]** in the stable Wheel settings header, visible

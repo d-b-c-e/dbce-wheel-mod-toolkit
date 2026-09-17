@@ -7,6 +7,11 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Add an offline interactive Simple/Advanced UI reference and begin the
+  coordinated consumer rollout, with independent layout/interaction evidence.
+  Clarify the explicit-association fallback when input and FFB backends cannot
+  prove device identity; no automatic runtime or consumer adoption is implied.
+
 - Require Simple settings by default across consuming mods (UX-01-S, 2026-09-16),
   with complete basic setup and an Advanced view for detailed customization.
   Specify per-page placement, retained owner settings/view choice, visible

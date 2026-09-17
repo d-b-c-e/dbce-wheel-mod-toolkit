@@ -22,7 +22,7 @@ Initial assignments, late evening September 16 (America/Chicago):
 | #DRIVE Rally Wheel | Existing **#Drive Rally** task | Acknowledged: turn the current diagnostics panel into a consistent Simple/Advanced surface with honest capability messages | Wheel input, replacement FFB and added camera functionality are not implemented or validated; do not display false readiness |
 | OutRun2006Tweaks-FFB | Assigned OutRun UX worker | In progress: existing ImGui renderer can host F6 player settings; wheel/FFB/telemetry options were largely INI-only | Preserve startup input backend and toolkit pin; record calibration, device-selection and unverified force-signal gaps explicitly |
 | Milestone Wheel Tools | Assigned Milestone UX worker | In progress: improve actual external PowerShell setup with Simple/Advanced, action-oriented individual calibration and cancellation | Gravel is the hardware-verified product; no F6 runtime panel or added cameras exist. Other game families require separate evidence |
-| Cruis'n Collection | Existing **cruisn** task | Dispatched after verifying its real v0.11.1 toolkit pin and shipped-profile use; scope is the existing player frontend/settings | Preserve rendering/parity work, menus and personal/public installations; no new ROM/GPU replay or deployment for this UI split |
+| Cruis'n Collection | Existing **cruisn** task | Acknowledged; actual frontend candidate isolated from the source-based personal launcher after freezing its timing checkpoint | Preserve rendering/parity work, menus and personal/public installations; timing replay held while builds/render fixtures run |
 
 The register's description of Cruis'n as not yet a consumer was stale. Its
 `lib/toolkit/VERSION` reports v0.11.1 and its README describes pinned profiles
@@ -97,3 +97,51 @@ strict identity/missing handling, separate from an override. It must remain
 reachable in Simple and is recorded as an automatic-setup capability gap.
 See [integration guidance](../CONSUMER-EXPERIENCE.md). No native pin change or
 name/VID:PID-only inference is required or authorized by this resolution.
+
+### Shared visual reference
+
+[Interactive reference](../reference/wheel-settings.html) and
+[preview/verification guide](../reference/README.md) now provide the common
+layout and interaction example. All Simple/Advanced pages passed headless
+Chromium layout checks at 720p; Setup was also checked at 4K, with explicit scale,
+long names, binding/cancel/persistence/conflict flows and saved FFB Off checks.
+The coordinator visually inspected Setup, FFB, handbrake calibration and camera
+layout. A review correction replaced a confusing centred-Steering 50% bar with
+the standard Left — Centre — Right marker; the corrected Setup was rechecked.
+
+Frozen HTML SHA-256:
+`cd64239d2a4f092a69d74d05fe8a85e915509fd8686d19a7df2cf18ac8323996`.
+The reference uses example data only. Its timeout was not waited out in the
+automated walk; real input/force, consumer screenshots and hardware acceptance
+are not established by this artifact.
+
+### Milestone first candidate and requested follow-up
+
+The isolated first candidate is `4ac0f117265ddf4d846f0d699e5d4bf3d7add3db`
+on `codex/simple-advanced-setup`. It implements a Simple/Advanced external setup
+flow, individual cancellable capture, friendlier assignments, settings retention
+and double-click entry points. The worker reports 50 fixture checks passing under
+Windows PowerShell 5.1 and PowerShell 7; native code and pins are unchanged.
+The original checkout/installation remains unchanged. Coordinator source review
+is in progress, not integration or full UX acceptance.
+
+A second pass is requested for actual telemetry Off/On and destination editing
+inside that existing tool. The native sender accepts IPv4 only; the editor must
+validate that constraint and explain when saved settings take effect. This closes
+an avoidable configuration-file dependency without inventing a game UI renderer.
+
+### OutRun strict device selection
+
+The original v0.8 native API can fall back when a preferred GUID is missing;
+consumer enumeration alone cannot close that selection race. The coordinator
+verified the official v0.13.0 archive against its GitHub digest and local hash:
+`2f73f5427465cd85e8d969ee7ecaf7d9c2cb08ed923da80c4ac7c7234af1b0cc`.
+Its source is `dd0ef20ad0cdaccc7a67f10a707dbd2a27a6efe9`; prior full package gates
+and x86 zero-output ABI smoke passed. It is not physical OutRun acceptance.
+
+Only the official native x86 DLL and matching C-ABI header override are approved
+for this UX need, with explicit per-file provenance and `NATIVE-VERSION` alongside
+the existing v0.8 baseline. The older force model, profiles and encoder remain
+unchanged; a whole-package bump would bring unrelated model behavior changes.
+The worker is implementing the actual picker and offline validation. Consumer
+status tooling is being reconciled to report this split accurately.

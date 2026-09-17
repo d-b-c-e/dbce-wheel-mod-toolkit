@@ -96,6 +96,9 @@ goes in a clearly named sub-package.
   runtime policy. Keep camera shortcut rebinding in Simple on demand. Classify
   every option in the consumer's placement inventory and verify UX-01-S migration
   and interaction checks before claiming adoption.
+  Compare new layouts with the [interactive reference](docs/reference/wheel-settings.html)
+  and [verification notes](docs/reference/README.md). Its browser fixtures are
+  design evidence, not a consumer renderer or proof of in-game behavior.
 
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.

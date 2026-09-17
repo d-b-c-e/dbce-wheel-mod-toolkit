@@ -28,6 +28,9 @@ The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
 Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,
 upgrade rules and acceptance checks; existing consumer UIs still need adoption.
+The [interactive reference](docs/reference/wheel-settings.html) provides a common
+visual and interaction target; see its [preview guide](docs/reference/README.md).
+It is an offline browser demo, with no game connection or force output.
 The 2026-09-14 revision requires analog handbrake hardware support and an
 FFB device dropdown that defaults to the wheel bound to Steering, while retaining
 explicit overrides and saved device identities.
