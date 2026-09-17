@@ -23,6 +23,11 @@ if /i "%~2"=="burstonly" (
  set "FIXTUREDEF=%HERE%fixture.burstonly.def"
  set "EXTRA=/DNO_SHAPED"
 )
+if /i "%~2"=="shapeonly" (
+ set "OUT=%OUT%\shapeonly"
+ set "FIXTUREDEF=%HERE%fixture.shapeonly.def"
+ set "EXTRA=/DNO_CONSTANT"
+)
 if not exist "%OUT%" mkdir "%OUT%"
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"

@@ -94,6 +94,10 @@ extern "C" {
     X(int,  CreatePeriodicBurst,    (int freqHz, int durationMs)) \
     X(int,  PlayPeriodicBurst,      (int slot, int magnitude, int freqMilliHz)) \
     X(int,  PlayShapedPeriodicBurst,      (int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)) \
+    X(int,  CreateConstantBurst, (int durationMs)) \
+    X(int,  PlayConstantBurst, (int slot, int signedMagnitude)) \
+    X(int,  StopConstantBurst, (int slot)) \
+    X(void, ReleaseConstantBursts, (void)) \
     X(int,  StopPeriodicBurst,      (int slot)) \
     X(void, ReleasePeriodicEffects, (void)) \
     X(int,  CreateConditionEffect,  (int type)) \

@@ -149,6 +149,14 @@ namespace Dbce.Wheel.Ffb
         private static PlayBurstCall _playBurst;
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayShapedBurstCall(int slot, int magnitude, int milliHz, int phase, int fadeMs);
         private static PlayShapedBurstCall _playShapedBurst;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int CreateConstantBurstCall(int durationMs);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayConstantBurstCall(int slot, int magnitude);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ReleaseConstantBurstsCall();
+        private static CreateConstantBurstCall _createConstantBurst;
+        private static PlayConstantBurstCall _playConstantBurst;
+        private static StopBurstCall _stopConstantBurst;
+        private static ReleaseConstantBurstsCall _releaseConstantBursts;
+        public static bool SupportsConstantBursts => _loaded && _createConstantBurst != null && _playConstantBurst != null && _stopConstantBurst != null && _releaseConstantBursts != null;
         public static bool SupportsShapedPeriodicBursts => SupportsPeriodicBursts && _playShapedBurst != null;
         private static StopBurstCall _stopBurst;
         /// <summary>True when the exact loaded native module supports all finite-burst operations.</summary>
@@ -229,6 +237,10 @@ namespace Dbce.Wheel.Ffb
                     _createBurst = Optional<CreateBurstCall>(h, "CreatePeriodicBurst");
                     _playBurst = Optional<PlayBurstCall>(h, "PlayPeriodicBurst");
                     _playShapedBurst = Optional<PlayShapedBurstCall>(h, "PlayShapedPeriodicBurst");
+                    _createConstantBurst = Optional<CreateConstantBurstCall>(h, "CreateConstantBurst");
+                    _playConstantBurst = Optional<PlayConstantBurstCall>(h, "PlayConstantBurst");
+                    _stopConstantBurst = Optional<StopBurstCall>(h, "StopConstantBurst");
+                    _releaseConstantBursts = Optional<ReleaseConstantBurstsCall>(h, "ReleaseConstantBursts");
                     _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
@@ -361,6 +373,37 @@ namespace Dbce.Wheel.Ffb
                 int m = (int)Math.Round(Math.Max(0f, Math.Min(1f, magnitude01)) * 10000f);
                 return Result(UpdatePeriodicEffect(slot, m, (int)Math.Round(freqHz * 1000f)) != 0, "UpdatePeriodicEffect");
             } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+
+        /// <summary>Allocate an idle independent constant slot, duration 1..500 ms. Native 0.8.0.</summary>
+        public static int CreateConstantBurst(int durationMs)
+        {
+            if (!Ready || !SupportsConstantBursts) { LastError = "Constant bursts require ready FFB and native 0.8.0 support"; return -1; }
+            if (durationMs < 1 || durationMs > 500) { LastError = "Constant burst duration must be 1..500 ms"; return -1; }
+            try { int slot = _createConstantBurst(durationMs); Result(slot >= 0, "CreateConstantBurst"); return slot; }
+            catch (Exception ex) { LastError = ex.Message; return -1; }
+        }
+        /// <summary>One finite signed constant pulse [-1,1]. Zero stops. Never stops steering.
+        /// Acceptance is not measured torque or combined-output headroom. Do not retry stale events.</summary>
+        public static bool PlayConstantBurst(int slot, float signedMagnitude)
+        {
+            if (!Ready || !SupportsConstantBursts) { LastError = "Constant bursts require ready FFB and native 0.8.0 support"; return false; }
+            if (slot < 0 || slot >= 4 || !Finite(signedMagnitude) || signedMagnitude < -1 || signedMagnitude > 1)
+            { LastError = "Invalid constant burst slot or signed magnitude [-1,1]"; return false; }
+            try {
+                int magnitude = signedMagnitude == 0 ? 0 : Math.Sign(signedMagnitude) * Math.Max(1, (int)Math.Round(Math.Abs(signedMagnitude) * ForceMax));
+                return Result(_playConstantBurst(slot, magnitude) != 0, "PlayConstantBurst");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static bool StopConstantBurst(int slot)
+        {
+            if (!SupportsConstantBursts || slot < 0 || slot >= 4) { LastError = "Stop requires a valid constant burst slot and native support"; return false; }
+            try { return Result(_stopConstantBurst(slot) != 0, "StopConstantBurst"); }
+            catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static void ReleaseConstantBursts()
+        {
+            if (SupportsConstantBursts) try { _releaseConstantBursts(); } catch (Exception ex) { LastError = ex.Message; }
         }
 
         /// <summary>Create an idle sine burst (1..100 Hz, 1..500 ms), or -1 on failure.

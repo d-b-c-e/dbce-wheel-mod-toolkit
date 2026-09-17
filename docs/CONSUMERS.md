@@ -1,3 +1,10 @@
+## Unpublished constant-impact candidate - 2026-09-16
+
+0.15.0 / native 0.8.0 adds optional independent finite constant effects.
+Art consumer integration is separate ongoing work; this entry changes no verified
+consumer pin. [Contract](CONSTANT-BURSTS.md) and [shared impact findings](../knowledge/FFB-IMPACTS.md)
+distinguish attended diagnostic evidence from unverified production behavior.
+
 # Consumers — who is on which version, and what they take
 
 *The register of every project that vendors this toolkit. It exists so a fix

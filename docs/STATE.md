@@ -1,3 +1,15 @@
+Offline candidate gates passed: 121 managed tests; 104+9+8+8 binding assertions
+per runtime; sync and native conformance/fake-effect suites on x64/x86.
+46 exports verified. Smoke harnesses compile only; hardware execution not run.
+
+# 0.15.0 local candidate - 2026-09-16
+
+Independent finite constant impacts, native 0.8.0 / 46 exports.
+See [contract](CONSTANT-BURSTS.md) and [attended evidence](../knowledge/FFB-IMPACTS.md).
+The diagnostic constant was preferred but weak at 40%; production SetParameters
+path remains physically unverified. No public release or consumer adoption claim.
+Earlier entries below are historical.
+
 Offline shaped candidate gates passed:121 managed tests;80+9+8 binding
 assertions per runtime; native shaping/logging tests x64/x86;42exports.
 Smoke harnesses compiled only. No physical shape validation.

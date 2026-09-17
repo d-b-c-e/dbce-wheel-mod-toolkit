@@ -1,3 +1,11 @@
+# 0.15.0 local candidate - 2026-09-16
+
+Native 0.8.0 / 46 exports adds an independent finite constant-burst pool and
+optional managed binding. Older DLLs remain supported. Added fake-effect and
+compatibility gates plus shared impact evidence and consumer guidance.
+See [constant contract](docs/CONSTANT-BURSTS.md). No public release or new
+production hardware verification.
+
 # 0.14.0 local candidate - 2026-09-16
 
 Additive shaped finite sine API (native0.7.0,42exports) based on frozen

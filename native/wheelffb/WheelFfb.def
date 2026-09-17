@@ -47,3 +47,8 @@ EXPORTS
     StopPeriodicBurst
 
     PlayShapedPeriodicBurst
+
+    CreateConstantBurst
+    PlayConstantBurst
+    StopConstantBurst
+    ReleaseConstantBursts

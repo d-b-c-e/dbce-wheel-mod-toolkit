@@ -2,6 +2,7 @@
 #include <string.h>
 static int fault,force,initCount,freeCount,active,hasName,hasGuid,strict,readCalls;
 static int selectedIndex=-1;
+static int constantCalls,constantMagnitude,constantDuration,constantStops,constantReleases;
 static int shapeCalls,shapePhase,shapeFade;
 static int burstCalls,burstMagnitude,burstFrequency,burstDuration,burstStops;
 extern "C" {
@@ -40,8 +41,10 @@ __declspec(dllexport) int __cdecl GetWheelFfbVersion(void) {
 return 500;
 #elif defined(NO_SHAPED)
 return 601;
-#else
+#elif defined(NO_CONSTANT)
 return 700;
+#else
+return 800;
 #endif
 }
 __declspec(dllexport) int __cdecl CreatePeriodicEffect(int freqHz) { (void)freqHz; return 1; }
@@ -61,8 +64,14 @@ __declspec(dllexport) int __cdecl CreatePeriodicBurst(int hz,int ms) { burstFreq
 __declspec(dllexport) int __cdecl PlayPeriodicBurst(int slot,int magnitude,int milliHz) { (void)slot; burstCalls++; burstMagnitude=magnitude; burstFrequency=milliHz; return fault==6 ? 0 : 1; }
 __declspec(dllexport) int __cdecl StopPeriodicBurst(int slot) { (void)slot; burstStops++; return fault==7 ? 0 : 1; }
 #endif
+#if !defined(NO_BURST) && !defined(NO_SHAPED) && !defined(NO_CONSTANT)
+__declspec(dllexport) int __cdecl CreateConstantBurst(int ms) {constantDuration=ms;return fault==9?-1:0;}
+__declspec(dllexport) int __cdecl PlayConstantBurst(int slot,int magnitude) {(void)slot;constantCalls++;constantMagnitude=magnitude;return fault==10?0:1;}
+__declspec(dllexport) int __cdecl StopConstantBurst(int slot) {(void)slot;constantStops++;return fault==11?0:1;}
+__declspec(dllexport) void __cdecl ReleaseConstantBursts() {constantReleases++;}
+#endif
 __declspec(dllexport) void __cdecl TestFault(int value) { (void)value; fault=value; }
 __declspec(dllexport) int __cdecl TestMetric(int key) {
- switch(key) {case 0:return initCount;case 1:return freeCount;case 2:return force;case 3:return hasName;case 4:return selectedIndex;case 5:return hasGuid;case 6:return strict;case 7:return readCalls;case 8:return burstCalls;case 9:return burstMagnitude;case 10:return burstFrequency;case 11:return burstDuration;case 12:return burstStops;case 13:return shapeCalls;case 14:return shapePhase;case 15:return shapeFade;default:return -1;}
+ switch(key) {case 0:return initCount;case 1:return freeCount;case 2:return force;case 3:return hasName;case 4:return selectedIndex;case 5:return hasGuid;case 6:return strict;case 7:return readCalls;case 8:return burstCalls;case 9:return burstMagnitude;case 10:return burstFrequency;case 11:return burstDuration;case 12:return burstStops;case 13:return shapeCalls;case 14:return shapePhase;case 15:return shapeFade;case 16:return constantCalls;case 17:return constantMagnitude;case 18:return constantDuration;case 19:return constantStops;case 20:return constantReleases;default:return -1;}
 }
 }

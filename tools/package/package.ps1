@@ -72,6 +72,12 @@ foreach ($arch in @('x64','x86')) {
  if ($LASTEXITCODE -ne 0) { throw "Force logging checks failed: $arch" }
 }
 
+Write-Host "== finite constant burst fake effects ==" -ForegroundColor Cyan
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_constant_burst_test.bat') $arch | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw "Constant burst checks failed: $arch" }
+}
+
 Write-Host "== dotnet ==" -ForegroundColor Cyan
 dotnet build (Join-Path $root 'Dbce.Wheel.sln') -c Release "-p:Version=$Version" | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "dotnet build failed" }

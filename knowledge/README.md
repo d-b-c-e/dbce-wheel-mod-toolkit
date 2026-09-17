@@ -1,3 +1,7 @@
+[Short impact effects: attended R12 evidence and consumer guidance](FFB-IMPACTS.md)
+[art-of-sim-rally + dbce-wheel-mod-toolkit, 2026-09-16]. Includes physical
+verification limits; not a cross-device tune recommendation.
+
 # Knowledge base — index and migration tracker
 
 *2026-09-03: every page below is written (first pass) from the sources

@@ -44,6 +44,7 @@
 #include <cctype>
 #include <cstdlib>
 #include "burst_effect.h"
+#include "constant_burst.h"
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -56,7 +57,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 700;            // 0.7.0
+static const int  kVersion      = 800;            // 0.8.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -349,6 +350,8 @@ extern "C" {
 
 // Forward-declared: InitDirectInput unwinds through it on every failure path.
 __declspec(dllexport) void FreeDirectInput(void);
+static void ReleaseConstantBurstsInternal();
+static void StopConstantBurstsInternal();
 static void ReleasePeriodics();   // defined with the periodic exports below
 static void ReleaseConditions();  // and the condition exports after them
 
@@ -423,6 +426,7 @@ static HRESULT CreateForceEffect()
 // DirectInput instance for the next attempt (and for the shifter and reader).
 static void CloseCandidate()
 {
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
@@ -1290,6 +1294,53 @@ __declspec(dllexport) void ReleasePeriodicEffects(void)
     LeaveCriticalSection(&g_lock);
 }
 
+// Separate finite constant pool: never repurpose the ordinary steering effect.
+static const int kMaxConstantBurst=4;
+struct ConstantBurstSlot { LPDIRECTINPUTEFFECT fx; int durationMs,lastMag; DWORD axes; bool used,started; };
+static ConstantBurstSlot g_constantBurst[kMaxConstantBurst]={};
+static void StopConstantBurstsInternal() {
+    for(auto& s:g_constantBurst) {
+        HRESULT hr=wheel_burst::stop(s.fx);if(FAILED(hr))g_lastHr=hr;
+        s.started=false;s.lastMag=0;
+    }
+}
+static void ReleaseConstantBurstsInternal() {
+    for(auto& s:g_constantBurst) {if(s.fx){s.fx->Stop();s.fx->Release();}s=ConstantBurstSlot{};}
+}
+__declspec(dllexport) int CreateConstantBurst(int durationMs) {
+    if(!g_device || g_panicked || durationMs<1 || durationMs>500){g_lastHr=E_INVALIDARG;return -1;}
+    EnterCriticalSection(&g_lock);
+    int slot=-1;for(int i=0;i<kMaxConstantBurst;i++)if(!g_constantBurst[i].used){slot=i;break;}
+    if(slot<0){g_lastHr=DIERR_DEVICEFULL;LeaveCriticalSection(&g_lock);return -1;}
+    auto& s=g_constantBurst[slot];s.durationMs=durationMs;s.axes=g_effectAxes;
+    HRESULT hr=wheel_constant_burst::create(g_device,s.fx,s.axes,s.durationMs);
+    if(hr==S_OK)s.used=true;else{s=ConstantBurstSlot{};slot=-1;}
+    g_lastHr=hr;LeaveCriticalSection(&g_lock);return slot;
+}
+__declspec(dllexport) int PlayConstantBurst(int slot,int signedMagnitude) {
+    if(!g_device || g_panicked || slot<0 || slot>=kMaxConstantBurst || signedMagnitude < -10000 || signedMagnitude>10000){g_lastHr=E_INVALIDARG;return 0;}
+    EnterCriticalSection(&g_lock);
+    auto& s=g_constantBurst[slot];DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
+    if(!s.used){g_lastHr=E_INVALIDARG;LeaveCriticalSection(&g_lock);return 0;}
+    if(signedMagnitude!=0 && pid!=GetCurrentProcessId()){g_lastHr=DIERR_NOTACQUIRED;LeaveCriticalSection(&g_lock);return 0;}
+    HRESULT hr=S_OK;
+    if(!s.fx && signedMagnitude!=0)hr=wheel_constant_burst::create(g_device,s.fx,s.axes,s.durationMs);
+    if(hr==S_OK)hr=signedMagnitude==0 ? wheel_burst::stop(s.fx) : wheel_constant_burst::play(s.fx,s.axes,s.durationMs,signedMagnitude);
+    s.started=hr==S_OK && signedMagnitude!=0;s.lastMag=s.started?signedMagnitude:0;
+    if(hr==S_OK)g_lastUpdateTick=GetTickCount64();
+    g_lastHr=hr;LeaveCriticalSection(&g_lock);return hr==S_OK?1:0;
+}
+__declspec(dllexport) int StopConstantBurst(int slot) {
+    if(!g_lockInit || slot<0 || slot>=kMaxConstantBurst){g_lastHr=E_INVALIDARG;return 0;}
+    EnterCriticalSection(&g_lock);auto& s=g_constantBurst[slot];
+    if(!s.used){g_lastHr=E_INVALIDARG;LeaveCriticalSection(&g_lock);return 0;}
+    HRESULT hr=wheel_burst::stop(s.fx);s.started=false;s.lastMag=0;g_lastHr=hr;
+    LeaveCriticalSection(&g_lock);return SUCCEEDED(hr)?1:0;
+}
+__declspec(dllexport) void ReleaseConstantBursts() {
+    if(!g_lockInit)return;EnterCriticalSection(&g_lock);ReleaseConstantBurstsInternal();LeaveCriticalSection(&g_lock);
+}
+
 // --- condition effects (spring, damper, inertia, friction) -------------------
 // A damper is not a periodic effect. DirectInput renders it as a CONDITION,
 // where the force is a function of the axis position or velocity rather than a
@@ -1496,11 +1547,13 @@ __declspec(dllexport) void PanicStop(void)
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
+    StopConstantBurstsInternal();
     StopPeriodics();
     StopConditions();
     g_device->SendForceFeedbackCommand(DISFFC_STOPALL);
     g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSOFF);
     g_device->SendForceFeedbackCommand(DISFFC_RESET);
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
@@ -1524,6 +1577,7 @@ __declspec(dllexport) void ZeroForces(void)
     EnterCriticalSection(&g_lock);
     if (g_effect) { SetDeviceForcesXY(0, 0); if (g_effect) g_effect->Stop(); }
     g_lastForce = 0;
+    StopConstantBurstsInternal();
     StopPeriodics(); // Includes finite bursts; do not call an update that can restart them.
     for (int i = 0; i < kMaxCondition; ++i) {
         auto& s = g_condition[i];
@@ -1586,6 +1640,7 @@ static bool ApplyHoldTimeout(ULONGLONG now)
     if (!g_lockInit || g_holdMs <= 0) return false;
     EnterCriticalSection(&g_lock);
     bool active = g_lastForce != 0;
+    for(const auto& s:g_constantBurst)active=active || (s.started && s.lastMag!=0);
     for (int i = 0; i < kMaxPeriodic; ++i) active = active || (g_periodic[i].started && g_periodic[i].lastMag != 0);
     for (int i = 0; i < kMaxCondition; ++i) active = active || (g_condition[i].started && g_condition[i].lastCoeff != 0);
     bool expired = active && now >= g_lastUpdateTick && now - g_lastUpdateTick > (ULONGLONG)g_holdMs;
@@ -1669,6 +1724,7 @@ __declspec(dllexport) void FreeDirectInput(void)
     RemoveExitGuards();
     g_stopThreads = true;
     if (g_holdThread) { WaitForSingleObject(g_holdThread, 500); CloseHandle(g_holdThread); g_holdThread = nullptr; }
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
