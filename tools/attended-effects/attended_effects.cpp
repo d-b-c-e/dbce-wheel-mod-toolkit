@@ -163,7 +163,7 @@ static void connect() {
     if(!ok) {disconnect("connect-failed");return;}
     policy.connected=true;burstSlot=CreatePeriodicBurst(25,120);
     record("idle CreatePeriodicBurst slot=%d hr=0x%08lX (no Start)",burstSlot,g_lastHr);snapshot();controls();flush();
-    SetWindowTextA(statusText,"Connected, idle. Select 5%, 10% or 20%. Each A/B/C click requests ONE 120 ms effect.");
+    SetWindowTextA(statusText,"Connected, idle. Choose a manual peak from the dropdown. Each A/B/C click requests ONE 120 ms effect.");
 }
 struct RuntimeActions {
     HRESULT stopBaseline() {
@@ -238,7 +238,7 @@ static LRESULT CALLBACK procedure(HWND h,UINT msg,WPARAM w,LPARAM l) {
             case 1:scan();break;case 2:connect();break;case 3:disconnect("owner-stop");break;
             case 10:start(attended::Mode::Constant);break;case 11:start(attended::Mode::Shaped);break;case 12:start(attended::Mode::ShapedWithZero);break;
         }
-        if(LOWORD(w)==4 && HIWORD(w)==CBN_SELCHANGE) {int i=(int)SendMessage(strength,CB_GETCURSEL,0,0);if(i>=0 && i<=2)policy.select(i==0?5:i==1?10:20);}
+        if(LOWORD(w)==4 && HIWORD(w)==CBN_SELCHANGE) {int i=(int)SendMessage(strength,CB_GETCURSEL,0,0);if(i>=0 && i<attended::levelCount)policy.select(attended::levels[i]);}
         return 0;
     case WM_TIMER:tick();return 0;
     case WM_ACTIVATEAPP:if(w==FALSE && policy.connected) disconnect("focus-loss");return 0;
@@ -266,11 +266,12 @@ int WINAPI WinMain(HINSTANCE instance,HINSTANCE,LPSTR commandLine,int show) {
     WNDCLASSA klass={};klass.lpfnWndProc=procedure;klass.hInstance=instance;klass.lpszClassName="DbceAttendedEffects";klass.hCursor=LoadCursor(nullptr,IDC_ARROW);klass.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);RegisterClassA(&klass);
     ui=CreateWindowA(klass.lpszClassName,"DBCE attended effect comparison - developer diagnostic",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,CW_USEDEFAULT,CW_USEDEFAULT,820,470,nullptr,nullptr,instance,nullptr);
     if(!ui)return 1;
-    child("STATIC","Owner-operated only. No force until A/B/C click. Close all games. Default peak 5%; maximum 20%.",20,18,760,24,0);
+    char intro[180];sprintf_s(intro,"Owner-operated only. No force until A/B/C click. Close all games. Default peak %d%%; maximum %d%%.",attended::defaultPercent,attended::maxPercent);
+    child("STATIC",intro,20,18,760,24,0);
     scanButton=child("BUTTON","Find wheels",20,52,110,30,1);devices=child("COMBOBOX","",145,52,630,140,5,CBS_DROPDOWNLIST|WS_VSCROLL);
     connectButton=child("BUTTON","Connect selected wheel",20,98,190,32,2);child("BUTTON","STOP / Disconnect",225,98,175,32,3);
-    child("STATIC","Matched peak:",425,105,100,24,0);strength=child("COMBOBOX","",530,98,130,100,4,CBS_DROPDOWNLIST);
-    for(const char* value:{"5% (default)","10%","20% (cap)"})SendMessageA(strength,CB_ADDSTRING,0,(LPARAM)value);SendMessage(strength,CB_SETCURSEL,0,0);
+    child("STATIC","Matched peak:",425,105,100,24,0);strength=child("COMBOBOX","",530,98,130,160,4,CBS_DROPDOWNLIST);
+    for(int level:attended::levels) {char label[40];sprintf_s(label,"%d%%%s",level,level==attended::defaultPercent?" (default)":level==attended::maxPercent?" (cap)":"");SendMessageA(strength,CB_ADDSTRING,0,(LPARAM)label);}SendMessage(strength,CB_SETCURSEL,0,0);
     buttons[0]=child("BUTTON","A: finite constant X pulse",20,155,245,40,10);
     buttons[1]=child("BUTTON","B: shaped sine alone",280,155,235,40,11);
     buttons[2]=child("BUTTON","C: sine + zero steering updates",530,155,245,40,12);
@@ -278,7 +279,7 @@ int WINAPI WinMain(HINSTANCE instance,HINSTANCE,LPSTR commandLine,int show) {
     statusText=child("STATIC","Disconnected. Click Find wheels to enumerate without acquiring or applying force.",20,318,755,48,0);
     child("EDIT",logFile,20,380,755,26,0,ES_READONLY|ES_AUTOHSCROLL|WS_BORDER);
     record("harness_source=%s",PROBE_SOURCE_REV);
-    record("session adapter_source=c319b0258b11d1f07492a48dbc110d3e50c14dfd native=%d default=5 cap=20 duration=120; API observations not torque",kVersion);
+    record("session adapter_source=c319b0258b11d1f07492a48dbc110d3e50c14dfd native=%d default=%d cap=%d duration=120; API observations not torque",kVersion,attended::defaultPercent,attended::maxPercent);
     controls();ShowWindow(ui,show);SetTimer(ui,1,10,nullptr);flush();
     MSG message;while(GetMessage(&message,nullptr,0,0)>0) {TranslateMessage(&message);DispatchMessage(&message);}
     return 0;

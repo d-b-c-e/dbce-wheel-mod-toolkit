@@ -1,15 +1,20 @@
 #pragma once
 namespace attended {
 constexpr int durationMs=120, cooldownMs=1000;
+constexpr int levels[]={5,10,20,30,40};
+constexpr int levelCount=sizeof(levels)/sizeof(levels[0]);
+constexpr int defaultPercent=levels[0], maxPercent=levels[levelCount-1];
+constexpr int magnitudeCap=maxPercent*100;
+inline bool allowedLevel(int value) {for(int level:levels)if(value==level)return true;return false;}
 enum class Mode { None, Constant, Shaped, ShapedWithZero };
 struct Policy {
-    int percent=5;
+    int percent=defaultPercent;
     bool connected=false, active=false;
     unsigned long long until=0;
     Mode mode=Mode::None;
-    bool select(int value) { if(active || (value!=5 && value!=10 && value!=20)) return false; percent=value; return true; }
+    bool select(int value) { if(active || !allowedLevel(value)) return false; percent=value; return true; }
     bool begin(Mode requested, bool explicitClick, bool focused, bool gameRunning, unsigned long long now) {
-        if(!explicitClick || !focused || gameRunning || !connected || active || now<until || requested==Mode::None || percent<5 || percent>20) return false;
+        if(!explicitClick || !focused || gameRunning || !connected || active || now<until || requested==Mode::None || !allowedLevel(percent)) return false;
         mode=requested; active=true; until=now+durationMs+cooldownMs; return true;
     }
     void finish(unsigned long long now) { active=false; mode=Mode::None; until=now+cooldownMs; }
@@ -22,7 +27,7 @@ struct Policy {
 };
 template<class Actions>
 HRESULT dispatch(Mode mode,int magnitude,Actions& actions) {
-    if((mode!=Mode::Constant && mode!=Mode::Shaped && mode!=Mode::ShapedWithZero) || magnitude<1 || magnitude>2000) return E_INVALIDARG;
+    if((mode!=Mode::Constant && mode!=Mode::Shaped && mode!=Mode::ShapedWithZero) || magnitude<1 || magnitude>magnitudeCap) return E_INVALIDARG;
     HRESULT hr=actions.stopBaseline();
     if(FAILED(hr)) return hr;
     return mode==Mode::Constant ? actions.constant(magnitude) : actions.shaped(magnitude);
@@ -34,7 +39,7 @@ bool updateZero(const Policy& policy,Actions& actions) {
 // Windows/DirectInput declarations must precede this header. No production export.
 template<class Device,class Effect,class Permission>
 HRESULT finiteConstant(Device* device,Effect*& effect,DWORD axisCount,int magnitude,Permission mayStart) {
-    if(!device || effect || magnitude<1 || magnitude>2000 || axisCount<1 || axisCount>2) return E_INVALIDARG;
+    if(!device || effect || magnitude<1 || magnitude>magnitudeCap || axisCount<1 || axisCount>2) return E_INVALIDARG;
     DWORD axes[2]={DIJOFS_X,DIJOFS_Y}; LONG direction[2]={magnitude,0};
     DICONSTANTFORCE force={magnitude}; DIEFFECT e={}; e.dwSize=sizeof e;
     e.dwFlags=DIEFF_CARTESIAN|DIEFF_OBJECTOFFSETS; e.dwDuration=durationMs*1000;

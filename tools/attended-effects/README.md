@@ -19,7 +19,8 @@ owner's attended run. API acceptance/echo/PLAYING do not measure wheel torque.
 3. Leave **5%** selected initially. Click one test and note what you feel.
    Every button click requests one finite **120 ms** effect; no automatic
    sequence, replay, retries, or escalation. Wait for the one-second cooldown.
-   10% and 20% are optional owner choices, capped at 20%.
+   10%, 20%, 30% and 40% are optional manual owner choices, capped at 40%.
+   The default remains 5%; the tester never increases strength automatically.
 4. **STOP / Disconnect**, closing the window or loss of focus stops effects and
    disconnects. Returning focus never reconnects or plays anything.
 
