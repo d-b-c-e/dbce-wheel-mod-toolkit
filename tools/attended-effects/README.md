@@ -37,13 +37,20 @@ FFGAIN writes. Autocenter is transiently disabled by the production acquisition
 path and restored to the read original value when it differs, including failed
 acquisition cleanup; no saved wheel profile is edited.
 
-The guard blocks known game names (art of rally, OutRun2006, Gravel, iRacing
-Arcade) and accessible executable paths under Steam `steamapps/common` or
-`Epic Games`. It logs the blocked process. This can include game helpers and
-cannot identify every possible game installation; close other games manually.
-Process-enumeration failure blocks tests. A game found before a test also
-causes disconnection. Acquiring/starting requires this window to be foreground;
-the finite constant rechecks focus immediately before Start.
+The guard matches exact executable basenames, case-insensitively:
+`artofrally.exe`, `art of rally.exe`, `OR2006C2C.exe`, `Gravel.exe`,
+`Gravel-Win64-Shipping.exe`, `iRacingArcade.exe`. Borderless Gaming, launchers
+and helpers are not blocked simply because they live in a game install directory.
+A blocker is displayed by executable name and PID. Unrecognized games still
+need to be closed manually. Snapshot/first-read/mid-enumeration failures block
+connection/testing rather than treating an incomplete scan as clear.
+
+`attended_effects.exe --check-games` performs only this read-only process check,
+prints the source revision/result to redirected stdout and exits: 0 clear,
+2 blocked or enumeration failure. It creates no window, opens no DirectInput
+instance/device and applies no output. Unknown command arguments exit64.
+Acquiring/starting requires this window to be foreground; the finite constant
+rechecks focus immediately before Start.
 
 ## Evidence
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <initializer_list>
 #include "policy.h"
+#include "game_guard.h"
 #ifndef PROBE_SOURCE_REV
 #define PROBE_SOURCE_REV "unversioned-build"
 #endif
@@ -33,24 +34,27 @@ static void flush() {
     fclose(f);recordCount=0;dropped=0;
 }
 static bool focused() { return GetForegroundWindow()==ui; }
+struct ProcessReader {
+    HANDLE snapshot=INVALID_HANDLE_VALUE;PROCESSENTRY32 entry={};DWORD lastError=0;
+    ~ProcessReader() {if(snapshot!=INVALID_HANDLE_VALUE)CloseHandle(snapshot);}
+    unsigned long error() const {return lastError;}
+    attended::ScanStep first(attended::ProcessRow& row) {
+        snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+        if(snapshot==INVALID_HANDLE_VALUE) {lastError=GetLastError();return attended::ScanStep::Error;}
+        entry.dwSize=sizeof entry;
+        if(!Process32First(snapshot,&entry)) {lastError=GetLastError();return attended::ScanStep::Error;}
+        row={entry.szExeFile,entry.th32ProcessID};return attended::ScanStep::Item;
+    }
+    attended::ScanStep next(attended::ProcessRow& row) {
+        if(Process32Next(snapshot,&entry)) {row={entry.szExeFile,entry.th32ProcessID};return attended::ScanStep::Item;}
+        lastError=GetLastError();return lastError==ERROR_NO_MORE_FILES ? attended::ScanStep::End : attended::ScanStep::Error;
+    }
+};
+static attended::GameCheck latestGameCheck;
 static bool gameRunning() {
-    HANDLE snap=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
-    if(snap==INVALID_HANDLE_VALUE) {record("game_guard snapshot unavailable error=%lu",GetLastError());return true;}
-    PROCESSENTRY32 entry={};entry.dwSize=sizeof entry;bool blocked=false;
-    if(!Process32First(snap,&entry)) {CloseHandle(snap);return true;}
-    do {
-        if(entry.th32ProcessID==GetCurrentProcessId()) continue;
-        bool match=ContainsNoCase(entry.szExeFile,"artofrally") || ContainsNoCase(entry.szExeFile,"art of rally") ||
-            ContainsNoCase(entry.szExeFile,"OR2006C2C") || ContainsNoCase(entry.szExeFile,"Gravel") || ContainsNoCase(entry.szExeFile,"iRacingArcade");
-        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,entry.th32ProcessID);
-        if(process) {
-            char path[2048]={};DWORD size=sizeof path;
-            if(QueryFullProcessImageNameA(process,0,path,&size)) match=match || ContainsNoCase(path,"\\steamapps\\common\\") || ContainsNoCase(path,"\\Epic Games\\");
-            CloseHandle(process);
-        }
-        if(match) {record("game_guard blocked pid=%lu exe=%s",entry.th32ProcessID,entry.szExeFile);blocked=true;break;}
-    } while(Process32Next(snap,&entry));
-    CloseHandle(snap);return blocked;
+    ProcessReader reader;latestGameCheck=attended::checkGames(reader);
+    record("game_guard blocked=%d %s",latestGameCheck.blocked,latestGameCheck.reason);
+    return latestGameCheck.blocked;
 }
 static void controls() {
     bool ready=policy.connected && !policy.active && GetTickCount64()>=policy.until && focused();
@@ -138,7 +142,7 @@ static void scan() {
 }
 static void connect() {
     if(policy.connected || policy.active || !focused()) return;
-    if(gameRunning()) {SetWindowTextA(statusText,"Connect blocked: close game processes first (see log).");flush();return;}
+    if(gameRunning()) {SetWindowTextA(statusText,latestGameCheck.reason);flush();return;}
     int selection=(int)SendMessageA(devices,CB_GETCURSEL,0,0);
     if(selection<0 || selection>=choiceCount) {SetWindowTextA(statusText,"Select an explicit wheel first.");return;}
     haveOriginalAuto=false;
@@ -184,7 +188,7 @@ struct RuntimeActions {
 static RuntimeActions actions;
 static void start(attended::Mode mode) {
     bool blocked=gameRunning();
-    if(blocked && policy.connected) { disconnect("game-process-detected");return; }
+    if(blocked) {if(policy.connected)disconnect("game-process-detected");SetWindowTextA(statusText,latestGameCheck.reason);flush();return;}
     if(!policy.begin(mode,true,focused(),blocked,GetTickCount64())) {SetWindowTextA(statusText,"Test blocked: check focus, connection, game processes and cooldown.");flush();return;}
     controls();
     zeroUpdates=0;began=GetTickCount64();
@@ -244,7 +248,15 @@ static LRESULT CALLBACK procedure(HWND h,UINT msg,WPARAM w,LPARAM l) {
     }
     return DefWindowProcA(h,msg,w,l);
 }
-int WINAPI WinMain(HINSTANCE instance,HINSTANCE,LPSTR,int show) {
+int WINAPI WinMain(HINSTANCE instance,HINSTANCE,LPSTR commandLine,int show) {
+    // Read-only preflight exits before UI, DirectInput, environment or log setup.
+    if(commandLine && *commandLine) {
+        if(strcmp(commandLine,"--check-games")!=0)return 64;
+        ProcessReader reader;auto result=attended::checkGames(reader);
+        char text[640];sprintf_s(text,"source=%s blocked=%d %s\r\n",PROBE_SOURCE_REV,result.blocked,result.reason);
+        DWORD written=0;WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),text,(DWORD)strlen(text),&written,nullptr);
+        return result.blocked ? 2 : 0;
+    }
     // These affect THIS diagnostic process only; no environment/profile persistence.
     SetEnvironmentVariableA("DBCE_FFB_LOG","0");SetEnvironmentVariableA("DBCE_FFB_TRACE_FORCE","0");
     QueryPerformanceFrequency(&frequency);

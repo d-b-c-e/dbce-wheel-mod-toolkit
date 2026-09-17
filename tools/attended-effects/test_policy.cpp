@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <initializer_list>
 #include "policy.h"
+#include "game_guard.h"
 struct FakeEffect {
     int starts=0,stops=0,releases=0; DWORD duration=0; unsigned long long now=0,end=0;bool active=false;
     HRESULT startResult=S_OK,readResult=S_OK;bool mismatch=false;
@@ -31,7 +32,25 @@ struct FakeActions {
     HRESULT shaped(int magnitude) {assert(baselineStops>0 && magnitude<=2000);shapes++;return S_OK;}
     bool zero() {zeros++;return true;}
 };
+struct FakeProcesses {
+    int index=0;bool firstFailure=false,nextFailure=false;
+    attended::ProcessRow rows[3]={{"BorderlessGaming.exe",5364},{"steam.exe",22},{"GravelLauncher.exe",33}};
+    unsigned long error() const {return 5;}
+    attended::ScanStep first(attended::ProcessRow& row) {row=rows[0];return firstFailure?attended::ScanStep::Error:attended::ScanStep::Item;}
+    attended::ScanStep next(attended::ProcessRow& row) {
+        if(nextFailure)return attended::ScanStep::Error;
+        if(++index==3)return attended::ScanStep::End;
+        row=rows[index];return attended::ScanStep::Item;
+    }
+};
 int main() {
+    for(const char* helper:{"BorderlessGaming.exe","steam.exe","steamwebhelper.exe","EpicGamesLauncher.exe","GravelLauncher.exe","artofrally-helper.exe","iRacingArcadeUpdater.exe"})assert(!attended::recognizedGame(helper));
+    for(const char* game:{"artofrally.exe","ART OF RALLY.EXE","OR2006C2C.exe","Gravel.exe","Gravel-Win64-Shipping.exe","iRacingArcade.exe"})assert(attended::recognizedGame(game));
+    FakeProcesses helpers;assert(!attended::checkGames(helpers).blocked);
+    FakeProcesses running;running.rows[1]={"artofrally.exe",1234};auto check=attended::checkGames(running);
+    assert(check.blocked && strstr(check.reason,"artofrally.exe") && strstr(check.reason,"1234"));
+    FakeProcesses failedFirst;failedFirst.firstFailure=true;assert(attended::checkGames(failedFirst).blocked);
+    FakeProcesses failedNext;failedNext.nextFailure=true;assert(attended::checkGames(failedNext).blocked);
     using attended::Mode;attended::Policy p;
     assert(p.percent==5 && p.magnitude()==500 && !p.active && !p.connected);
     assert(!p.begin(Mode::Constant,true,true,false,0));p.connected=true;
@@ -77,5 +96,5 @@ int main() {
         FakeDevice rejected;rejected.effect.readResult=adjusted;FakeEffect* rejectedFx=nullptr;
         assert(attended::finiteConstant(&rejected,rejectedFx,2,500,[]{return true;})==adjusted && !rejectedFx && rejected.effect.starts==0);
     }
-    puts("PASS: explicit dispatch, default5/cap20, focus/game/cooldown gates, finite120ms constant and no SOLO; no DirectInput device created.");
+    puts("PASS: exact game/helper matching and fail-closed scan; explicit dispatch, default5/cap20, focus/game/cooldown gates, finite120ms constant and no SOLO; no DirectInput device created.");
 }
