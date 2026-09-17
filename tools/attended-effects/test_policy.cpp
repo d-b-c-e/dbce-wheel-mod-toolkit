@@ -52,12 +52,12 @@ int main() {
     FakeProcesses failedFirst;failedFirst.firstFailure=true;assert(attended::checkGames(failedFirst).blocked);
     FakeProcesses failedNext;failedNext.nextFailure=true;assert(attended::checkGames(failedNext).blocked);
     using attended::Mode;attended::Policy p;
-    assert(p.percent==5 && p.magnitude()==500 && !p.active && !p.connected);
+    assert(p.percent==50 && p.magnitude()==5000 && !p.active && !p.connected);
     assert(!p.begin(Mode::Constant,true,true,false,0));p.connected=true;
     assert(!p.begin(Mode::Constant,false,true,false,0)); // No implicit dispatch.
     assert(!p.begin(Mode::Constant,true,false,false,0)); // Background blocked.
     assert(!p.begin(Mode::Constant,true,true,true,0)); // Game process blocks.
-    for(int invalid:{-1,0,6,21,39,41,100}) assert(!p.select(invalid));
+    for(int invalid:{-1,0,6,21,39,41,101}) assert(!p.select(invalid));
     assert(p.begin(Mode::Constant,true,true,false,0) && !p.zeroUpdate());
     assert(!p.select(20) && !p.begin(Mode::Shaped,true,true,false,1));
     p.finish(120);assert(!p.begin(Mode::Shaped,true,true,false,1119));
@@ -75,14 +75,14 @@ int main() {
         assert(fx->playing());fx->now=119999;assert(fx->playing());fx->now=120000;assert(!fx->playing()); // No UI callback.
         assert(fx->starts==1 && fx->stops==0);
     }
-    assert(attended::defaultPercent==5 && attended::maxPercent==40 && attended::magnitudeCap==4000);
+    assert(attended::defaultPercent==50 && attended::defaultIndex==5 && attended::maxPercent==100 && attended::magnitudeCap==10000);
     for(int level:attended::levels) {
         attended::Policy choice;assert(choice.select(level) && choice.magnitude()==level*100);
         FakeActions selected;
         for(auto mode:{Mode::Constant,Mode::Shaped,Mode::ShapedWithZero})assert(attended::dispatch(mode,choice.magnitude(),selected)==S_OK);
     }
     FakeActions rejectedDispatch;
-    for(auto mode:{Mode::Constant,Mode::Shaped,Mode::ShapedWithZero}) assert(attended::dispatch(mode,4010,rejectedDispatch)==E_INVALIDARG);
+    for(auto mode:{Mode::Constant,Mode::Shaped,Mode::ShapedWithZero}) assert(attended::dispatch(mode,10010,rejectedDispatch)==E_INVALIDARG);
     assert(rejectedDispatch.baselineStops==0);
     FakeActions a;
     assert(attended::dispatch(Mode::Constant,500,a)==S_OK && a.baselineStops==1 && a.constants==1 && !a.shapes);
@@ -92,9 +92,9 @@ int main() {
     p.mode=Mode::ShapedWithZero;assert(attended::updateZero(p,a) && a.zeros==1);
     p.active=false;assert(attended::updateZero(p,a) && a.zeros==1);
     a.stopResult=E_FAIL;assert(attended::dispatch(Mode::Shaped,500,a)==E_FAIL && a.shapes==2);
-    assert(attended::dispatch(Mode::Constant,4001,a)==E_INVALIDARG);
+    assert(attended::dispatch(Mode::Constant,10001,a)==E_INVALIDARG);
     FakeDevice device;FakeEffect* fx=nullptr;
-    for(int invalid:{-1,0,4001,4010,10000}) assert(attended::finiteConstant(&device,fx,2,invalid,[]{return true;})==E_INVALIDARG);
+    for(int invalid:{-1,0,10001,10010,20000}) assert(attended::finiteConstant(&device,fx,2,invalid,[]{return true;})==E_INVALIDARG);
     assert(device.creates==0);
     device.effect.startResult=E_FAIL;assert(attended::finiteConstant(&device,fx,2,500,[]{return true;})==E_FAIL && !fx && device.effect.releases==1 && device.effect.starts==1);
     FakeDevice lostFocus;FakeEffect* blockedFx=nullptr;
@@ -105,5 +105,5 @@ int main() {
         FakeDevice rejected;rejected.effect.readResult=adjusted;FakeEffect* rejectedFx=nullptr;
         assert(attended::finiteConstant(&rejected,rejectedFx,2,500,[]{return true;})==adjusted && !rejectedFx && rejected.effect.starts==0);
     }
-    puts("PASS: exact game/helper matching and fail-closed scan; explicit dispatch, default5/cap40, focus/game/cooldown gates, finite120ms constant and no SOLO; no DirectInput device created.");
+    puts("PASS: exact game/helper matching and fail-closed scan; explicit dispatch, default50/cap100, focus/game/cooldown gates, finite120ms constant and no SOLO; no DirectInput device created.");
 }

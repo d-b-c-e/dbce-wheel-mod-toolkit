@@ -270,8 +270,8 @@ int WINAPI WinMain(HINSTANCE instance,HINSTANCE,LPSTR commandLine,int show) {
     child("STATIC",intro,20,18,760,24,0);
     scanButton=child("BUTTON","Find wheels",20,52,110,30,1);devices=child("COMBOBOX","",145,52,630,140,5,CBS_DROPDOWNLIST|WS_VSCROLL);
     connectButton=child("BUTTON","Connect selected wheel",20,98,190,32,2);child("BUTTON","STOP / Disconnect",225,98,175,32,3);
-    child("STATIC","Matched peak:",425,105,100,24,0);strength=child("COMBOBOX","",530,98,130,160,4,CBS_DROPDOWNLIST);
-    for(int level:attended::levels) {char label[40];sprintf_s(label,"%d%%%s",level,level==attended::defaultPercent?" (default)":level==attended::maxPercent?" (cap)":"");SendMessageA(strength,CB_ADDSTRING,0,(LPARAM)label);}SendMessage(strength,CB_SETCURSEL,0,0);
+    child("STATIC","Matched peak:",425,105,100,24,0);strength=child("COMBOBOX","",530,98,130,280,4,CBS_DROPDOWNLIST|WS_VSCROLL);
+    for(int level:attended::levels) {char label[40];sprintf_s(label,"%d%%%s",level,level==attended::defaultPercent?" (default)":level==attended::maxPercent?" (cap)":"");SendMessageA(strength,CB_ADDSTRING,0,(LPARAM)label);}SendMessage(strength,CB_SETCURSEL,attended::defaultIndex,0);
     buttons[0]=child("BUTTON","A: finite constant X pulse",20,155,245,40,10);
     buttons[1]=child("BUTTON","B: shaped sine alone",280,155,235,40,11);
     buttons[2]=child("BUTTON","C: sine + zero steering updates",530,155,245,40,12);

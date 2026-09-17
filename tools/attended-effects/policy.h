@@ -1,9 +1,10 @@
 #pragma once
 namespace attended {
 constexpr int durationMs=120, cooldownMs=1000;
-constexpr int levels[]={5,10,20,30,40};
+constexpr int levels[]={5,10,20,30,40,50,60,70,80,90,100};
 constexpr int levelCount=sizeof(levels)/sizeof(levels[0]);
-constexpr int defaultPercent=levels[0], maxPercent=levels[levelCount-1];
+constexpr int defaultIndex=5;
+constexpr int defaultPercent=levels[defaultIndex], maxPercent=levels[levelCount-1];
 constexpr int magnitudeCap=maxPercent*100;
 inline bool allowedLevel(int value) {for(int level:levels)if(value==level)return true;return false;}
 enum class Mode { None, Constant, Shaped, ShapedWithZero };
