@@ -1029,7 +1029,7 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 // without the caller noticing. Whether a driver accepts SetParameters without
 // DIEP_START (no phase reset) is probed once and remembered.
 static const int kMaxPeriodic = 4;
-struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; int durationMs; bool used; bool started; ULONGLONG holdoff; };
+struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; int durationMs; bool envelopeApplied; bool used; bool started; ULONGLONG holdoff; };
 static PeriodicSlot g_periodic[kMaxPeriodic] = {};
 static int  g_periodicStrategy = -1;   // -1 untested, 0 without DIEP_START, 1 with
 static bool g_periodicProbed = false;
@@ -1068,6 +1068,7 @@ static BOOL CALLBACK EnumPeriodicCb(LPCDIEFFECTINFO info, LPVOID)
 static HRESULT CreatePeriodicInSlot(int i)
 {
     PeriodicSlot& s = g_periodic[i];
+    s.envelopeApplied = false; // New COM handle cannot inherit a previous envelope.
     if (s.durationMs > 0) {
         HRESULT hr = wheel_burst::create(g_device, s.fx, s.hz, s.durationMs);
         s.started = false; s.lastMag = 0; s.holdoff = 0;
@@ -1115,7 +1116,7 @@ static void ReleasePeriodics()
     for (int i = 0; i < kMaxPeriodic; ++i) {
         PeriodicSlot& s = g_periodic[i];
         if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
-        s.durationMs = 0; s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
+        s.envelopeApplied = false; s.durationMs = 0; s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
     }
 }
 
@@ -1240,7 +1241,9 @@ static int PlayBurst(int slot, int magnitude, int freqMilliHz, int phase, int fa
     if (!s.used || s.durationMs == 0 || fadeMs > s.durationMs) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
     HRESULT hr = S_OK;
     if (!s.fx && magnitude > 0) hr = CreatePeriodicInSlot(slot);
-    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz, phase, fadeMs);
+    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz, phase, fadeMs, s.envelopeApplied);
+    if (!s.fx) s.envelopeApplied = false;
+    else if (magnitude > 0 && (shaped ? hr == S_OK : SUCCEEDED(hr))) s.envelopeApplied = shaped;
     s.started = (shaped ? hr == S_OK : SUCCEEDED(hr)) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
     if (SUCCEEDED(hr)) { s.hz = freqMilliHz / 1000; g_lastUpdateTick = GetTickCount64(); }
     g_lastHr = hr;

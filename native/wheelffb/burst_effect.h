@@ -29,7 +29,7 @@ HRESULT create(Device* device, Effect*& effect, int hz, int ms) {
     return hr; // Created at zero magnitude and NEVER started here.
 }
 template<class Effect>
-HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz, int phase = 0, int fadeMs = 0) {
+HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz, int phase = 0, int fadeMs = 0, bool clearEnvelope = false) {
     if (!effect || ms < 1 || ms > 500 || magnitude < 0 || magnitude > 10000 || milliHz < 1000 || milliHz > 100000 || phase < 0 || phase > 35999 || fadeMs < 0 || fadeMs > ms)
         return E_INVALIDARG;
     HRESULT hr = stop(effect); // Each event restarts; no change gate, even at one unit.
@@ -41,7 +41,7 @@ HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz, int phase = 0,
     DIEFFECT e = {}; e.dwSize = sizeof e; e.dwDuration = ms * 1000;
     e.lpEnvelope = fadeMs ? &envelope : nullptr; // Legacy explicitly clears a previous shape.
     e.cbTypeSpecificParams = sizeof periodic; e.lpvTypeSpecificParams = &periodic;
-    const DWORD flags = DIEP_DURATION | DIEP_TYPESPECIFICPARAMS | DIEP_ENVELOPE;
+    const DWORD flags = DIEP_DURATION | DIEP_TYPESPECIFICPARAMS | ((fadeMs || clearEnvelope) ? DIEP_ENVELOPE : 0);
     hr = effect->SetParameters(&e, flags);
     if (fadeMs && hr == S_OK) {
         // Parameter echo is an API check, not proof of physical force. Refuse

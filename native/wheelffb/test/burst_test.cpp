@@ -14,7 +14,7 @@ struct FakeEffect : IDirectInputEffect {
     int starts=0, stops=0, releases=0, sets=0; DWORD duration=0, magnitude=0, flags=0;
     ULONGLONG now=0, deadline=0; bool active=false;
     HRESULT setResult=S_OK, startResult=S_OK, stopResult=S_OK, readResult=S_OK;
-    DIPERIODIC savedPeriodic={}; DIENVELOPE savedEnvelope={}; bool hasEnvelope=false, mismatch=false;
+    DIPERIODIC savedPeriodic={}; DIENVELOPE savedEnvelope={}; bool hasEnvelope=false, mismatch=false, sineOnly=false;
     bool playing() const { return active && now < deadline; }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID,void**) override {return E_NOINTERFACE;}
     ULONG STDMETHODCALLTYPE AddRef() override {return 1;}
@@ -29,6 +29,7 @@ struct FakeEffect : IDirectInputEffect {
         return readResult;
     }
     HRESULT STDMETHODCALLTYPE SetParameters(LPCDIEFFECT e,DWORD f) override {
+        if (sineOnly && (f & DIEP_ENVELOPE)) return DIERR_UNSUPPORTED;
         sets++; flags=f; duration=e->dwDuration;
         savedPeriodic=*(DIPERIODIC*)e->lpvTypeSpecificParams;
         hasEnvelope=e->lpEnvelope!=nullptr; if(hasEnvelope) savedEnvelope=*e->lpEnvelope;
@@ -61,7 +62,7 @@ int main() {
         FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr;
         assert(SUCCEEDED(wheel_burst::create(&d,fx,25,ms)) && d.effect.starts==0 && !d.effect.playing());
         assert(SUCCEEDED(wheel_burst::play(fx,ms,1,25000)) && d.effect.magnitude==1);
-        assert(d.effect.flags==(DIEP_DURATION|DIEP_TYPESPECIFICPARAMS|DIEP_ENVELOPE) && d.effect.playing());
+        assert(d.effect.flags==(DIEP_DURATION|DIEP_TYPESPECIFICPARAMS) && d.effect.playing());
         d.effect.now=ms*1000-1; assert(d.effect.playing());
         d.effect.now++; assert(!d.effect.playing()); // No toolkit callback needed to expire.
         assert(SUCCEEDED(wheel_burst::play(fx,ms,20,25000)) && d.effect.starts==2);
@@ -93,7 +94,7 @@ int main() {
     assert(shaped.effect.savedEnvelope.dwAttackLevel==1952 && shaped.effect.savedEnvelope.dwAttackTime==0);
     assert(shaped.effect.savedEnvelope.dwFadeLevel==0 && shaped.effect.savedEnvelope.dwFadeTime==120000);
     shaped.effect.now=119999; assert(shaped.effect.playing()); shaped.effect.now++; assert(!shaped.effect.playing());
-    assert(wheel_burst::play(shapedFx,120,500,25000)==S_OK);
+    assert(wheel_burst::play(shapedFx,120,500,25000,0,0,true)==S_OK);
     assert(!shaped.effect.hasEnvelope && shaped.effect.savedPeriodic.dwPhase==0 && shaped.effect.savedPeriodic.dwPeriod==40000);
     for(int stage=0;stage<4;stage++) for(HRESULT code : {(HRESULT)E_FAIL,(HRESULT)DI_TRUNCATED}) {
         FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr; wheel_burst::create(&d,fx,25,120);
@@ -102,6 +103,12 @@ int main() {
         assert(wheel_burst::play(fx,120,2000,6250,9000,120)!=S_OK && !fx && d.effect.releases==1);
         assert(d.effect.starts==(stage==2?1:0));
     }
+    FakeDevice sineOnly; sineOnly.effect.sineOnly=true; LPDIRECTINPUTEFFECT sineFx=nullptr;
+    wheel_burst::create(&sineOnly,sineFx,25,120);
+    assert(wheel_burst::play(sineFx,120,500,25000)==S_OK);
+    assert(wheel_burst::play(sineFx,120,2000,6250,9000,120)==DIERR_UNSUPPORTED && !sineFx);
+    wheel_burst::create(&sineOnly,sineFx,25,120);
+    assert(wheel_burst::play(sineFx,120,500,25000)==S_OK && !(sineOnly.effect.flags&DIEP_ENVELOPE));
     // Exercise production watchdog and window procedure against fake effects.
     InitializeCriticalSection(&g_lock); g_lockInit=true;
     FakeEffect periodic,condition;
@@ -129,9 +136,13 @@ int main() {
     assert(PlayShapedPeriodicBurst(0,2000,6250,9000,121)==0 && exported.sets==sets);
     testForegroundPid=0; assert(PlayShapedPeriodicBurst(0,2000,6250,9000,120)==0);
     assert(PlayShapedPeriodicBurst(0,0,6250,9000,120)==1); testForegroundPid=GetCurrentProcessId();
-    assert(PlayPeriodicBurst(0,500,25000)==1 && !exported.hasEnvelope && exported.savedPeriodic.dwPhase==0);
+    assert(g_periodic[0].envelopeApplied);
+    assert(PlayPeriodicBurst(0,500,25000)==1 && (exported.flags&DIEP_ENVELOPE) && !exported.hasEnvelope && exported.savedPeriodic.dwPhase==0);
     exported.mismatch=true; assert(PlayShapedPeriodicBurst(0,2000,6250,9000,120)==0);
     assert(g_periodic[0].used && g_periodic[0].durationMs==120 && !g_periodic[0].fx && !g_periodic[0].started);
+    assert(!g_periodic[0].envelopeApplied);
+    FakeEffect recovered; recovered.sineOnly=true; g_periodic[0].fx=&recovered;
+    assert(PlayPeriodicBurst(0,500,25000)==1 && !(recovered.flags&DIEP_ENVELOPE));
     g_device=nullptr;
     ReleasePeriodics(); ReleaseConditions(); DeleteCriticalSection(&g_lock); g_lockInit=false;
     std::puts("finite burst and production focus/watchdog fake-effect checks passed; no hardware acquired");

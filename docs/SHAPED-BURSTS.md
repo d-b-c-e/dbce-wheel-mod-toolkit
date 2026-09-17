@@ -34,8 +34,11 @@ crash, and must not advertise an unshaped fallback as a shaped kick.
 LastError/GetLastHResult and a bounded native rejection log report failure.
 API echo is not measurement of physical output, even when every call succeeds.
 
-Every positive legacy PlayPeriodicBurst explicitly sends phase0 and a null
-DIENVELOPE with DIEP_ENVELOPE, clearing any preceding shape in the SAME slot.
+Every positive legacy PlayPeriodicBurst sends phase0. After successful shaping
+on the same handle, it sends null DIENVELOPE with DIEP_ENVELOPE to clear that
+shape. Pristine or recreated legacy handles omit DIEP_ENVELOPE, preserving
+sine-only driver compatibility. Zero stops retain the envelope tracking until
+a later positive play clears it; releasing/recreating a handle resets tracking.
 Continuous Update still rejects finite slots. Optional binding leaves old
 0.6.x DLLs usable for legacy bursts and 0.5.x DLLs usable for their existing API;
 missing shaped exports return false with an explanatory error, without an
