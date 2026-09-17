@@ -29,6 +29,33 @@ result below is an enumeration suggestion, not a replacement for this product
 policy and not permission to fall back to the first wheel. The shared library
 does not know the consumer's Steering binding or draw its dropdown.
 
+### Input and FFB may report different device identities
+
+During the 2026-09-16 UX rollout, iRacing's Unity Input System Steering binding
+exposed HID identity/serial while the toolkit's DirectInput enumeration exposed
+instance GUID/name. The current exported enumeration does not provide a verified
+HID path/serial association. `DeviceInfo.VendorId`/`ProductId` are nullable and
+the current enumeration wrappers do not populate them. A display-name match,
+even unique, or VID:PID alone cannot prove the two interfaces are one device.
+[iracing-arcade-wheel and toolkit source review, 2026-09-16]
+
+Keep **Use steering wheel** as the default mode, but show an unresolved reason
+and an explicit device choice in Simple when identity cannot be established.
+The consumer can offer a saved, owner-confirmed association between the exact
+Steering identity and the selected physical FFB GUID, separate from an FFB
+override. Label that action clearly; do not silently call an old name-derived
+GUID an owner-confirmed association. Record the source of the association.
+Rebinding Steering must not reuse an association for a different input device;
+disconnect/reorder must retain the missing selection and never choose a substitute.
+This extra association step is a current capability gap in automatic setup,
+not evidence that cross-backend matching has been verified.
+
+An additive shared metadata API would need real cross-backend validation,
+including identical devices and reconnect/reorder cases. It is not part of the
+UI rollout; do not update a consumer's native pin on the assumption it exists.
+
+### Resolve the saved output identity
+
 `DevicePreference.Resolve(snapshot)` is pure and returns a
 `DeviceSelectionResult`: stable `Status`, suggested `Message`, `Success`,
 `ArrayPosition`, nullable `Device`, and nullable `PersistentId`.
