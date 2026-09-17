@@ -47,6 +47,12 @@ override. Label that action clearly; do not silently call an old name-derived
 GUID an owner-confirmed association. Record the source of the association.
 Rebinding Steering must not reuse an association for a different input device;
 disconnect/reorder must retain the missing selection and never choose a substitute.
+The Steering binding itself must retain that exact identity. A generic legacy
+path such as `<Joystick>/stick/x` must not look up the association of whichever
+device currently satisfies it. Require an explicit identity-bound Steering rebind,
+or atomically upgrade the binding when the owner confirms the association.
+Check a previously saved pair of devices A/B: disconnecting A and leaving B as
+the only matching input must not silently switch force output to B.
 This extra association step is a current capability gap in automatic setup,
 not evidence that cross-backend matching has been verified.
 

@@ -145,3 +145,81 @@ the existing v0.8 baseline. The older force model, profiles and encoder remain
 unchanged; a whole-package bump would bring unrelated model behavior changes.
 The worker is implementing the actual picker and offline validation. Consumer
 status tooling is being reconciled to report this split accurately.
+
+### Review checkpoint, 2026-09-17 shortly after midnight
+
+- **Art of Sim Rally** finished its separate finite crash candidate first:
+  consumer main `992ed83`, installed RC6 source `1cd7814`, exact toolkit
+  `358add53af220eb95bf606e240b230e23a6ea197`. The existing owner task now implements
+  UX in `art-of-sim-rally-ux` / `codex/ux-simple-advanced`, preserving main,
+  installed RC6, the native pin and owner tunes. Its pending physical acceptance
+  is separate from this UI work.
+- **#DRIVE Rally** code candidate `10622c06c5da627f93d47ebcd11412a0111f9908`
+  adds actual Simple/Advanced research settings with atomic migration and guarded
+  connection edits. The coordinator reviewed transaction/Unity adapter source and
+  three production-content HTML screenshots, including 150% save-failure Help.
+  The worker reports 12 suites / 92 assertions and 60 layout renders passing.
+  This is a diagnostics candidate: wheel bindings, mod FFB and added cameras
+  remain unimplemented; Unity runtime and physical acceptance remain untested.
+  No installation was changed. The consumer's overnight report records the
+  exact package, hashes and remaining checks.
+- **Milestone** now implements saved telemetry Off/On and an atomic connection
+  draft in its existing setup tool. Source review confirms the native proxy
+  loads configuration once; the UI correctly says changes apply next game
+  launch, with delivery unverified. Review requested recovery from malformed
+  view-preference JSON through explicit view selection, retaining an invalid-file
+  backup. Both review fixes require their own offline fixtures.
+- **OutRun** now builds with a strict device dropdown and native/header-only
+  override. The coordinator reviewed selection, owned-window checks and output
+  gates. Follow-up targets actual headless visual evidence and bounded basic
+  calibration; source/text fixtures alone do not establish a readable game UI.
+- **Cruis'n** implements and tests the actual frontend draw method in an isolated
+  UX worktree. Its CPU-only packaging build is allowed; the timing replay remains
+  held until a quiet serial window. The source-based personal launcher stays on
+  the previous frozen checkpoint.
+
+Woden and iRacing remain actively implementing. Every owner received the reviewed
+visual reference published in toolkit `95cbd89`; receipt is not adoption evidence.
+
+### Frozen first candidates and further work
+
+| Product | Reviewable source checkpoint | Evidence / next step |
+|---|---|---|
+| #DRIVE Rally | Code `10622c0`, report `8b5e11e`, pushed `codex/ux-simple-advanced` | 0.1.1 development ZIP verified; source/layout review has no blocking finding in reviewed scope. Installed/runtime state unchanged. |
+| Milestone | `4ac0f11` plus `05fd6dc`, pushed `codex/simple-advanced-setup` | 106 fixture checks pass on PowerShell 5.1 and 7.6.5; coordinator reviewed telemetry and preference repair. Next add a bounded, read-only device-input preview. |
+| OutRun | Native override `7fd8be4`, UI `4c29490`, local `codex/ux-simple-settings-2026-09-16` | First build and fixtures frozen. Next export actual ImGui draw data for software rendering and add opt-in transactional axis endpoints/centre; legacy input behavior remains until explicit calibration. |
+| Cruis'n | `dd4e7ff`, pushed `codex/ux-simple-advanced` in isolated worktree | 39 focused tests, 10 actual draw-method images and frozen frontend config checks pass. Coordinator inspected 720p Controls. Telemetry editing and separate saved FFB Off/On are next. |
+
+These checkpoints are candidates, not merges, deployments or full UX acceptance.
+Per-consumer `docs/UX-OVERNIGHT-2026-09-16.md` files hold the detailed inventories,
+artifact hashes and gaps. Cruis'n's future in-game F8/device selection work must
+be assessed separately from the frontend, preserving the owner's World menu-force
+exception and the frozen native timing candidate.
+
+Coordinator review of iRacing's in-progress association code identified a legacy
+generic-binding risk: creating a saved device association did not itself replace
+the generic Steering path. A later sole matching input could resolve a different
+previously saved association. The owner task was asked to require an identity-bound
+Steering path (or upgrade it atomically), with an A/B replacement regression before
+freezing. [Shared integration guidance](../CONSUMER-EXPERIENCE.md) now spells out
+that case. This finding is not yet a verified fix or evidence of observed torque.
+
+### Consumer registry verification
+
+The register and `Get-ConsumerStatus.ps1` now include all seven consumers and
+their actual pin sources. OutRun's baseline and native/header override are two
+separate rows; the override files are checked against their provenance hashes.
+Drive is evaluated only against Telemetry sources, and Recording extensions keep
+their own provenance. Missing/malformed pins and Art's local build require review
+without suggesting a release downgrade. iRacing's explicit `toolkit.version`
+precedes labeled legacy changelog inference.
+
+The isolated status-tool suite passed **76 assertions under both PowerShell 5.1
+and 7.6.5**, including output, exit status, source filtering and unchanged file
+hashes/timestamps. A real read-only comparison against v0.13.0 produced the
+expected eight component rows and exit 1 for review items. This is dependency
+inventory evidence, not installed-game or UX adoption certification.
+
+The toolkit reference push also created an automatic hosted CI run, but its jobs
+were refused before starting. Hosted CI is not part of the passing evidence above;
+subsequent coordination pushes use `[skip ci]` and retain local verification.

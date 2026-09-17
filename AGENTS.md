@@ -20,17 +20,21 @@ repo owns everything on the *other* side of the car-state struct: device →
 forces, frame → telemetry, device identification, diagnostics, installers,
 knowledge and templates.
 
-Consumers, and what each is on. **`docs/CONSUMERS.md` is the register**;
-`tools/Get-ConsumerStatus.ps1` reads the real pins off disk and says who is
-behind, so prefer it over the table below, which is a summary:
+**`docs/CONSUMERS.md` is the consumer register.**
+`tools/Get-ConsumerStatus.ps1 -Root E:\Source -Current vX.Y.Z` reads actual pins
+and compares the components each project uses. The table below describes scope,
+not current versions or installed adoption. Keep local candidate provenance and
+component overrides separate; never infer a whole-package update from one DLL.
 
-| Repo | Runtime | On |
+| Repo | Runtime | Shared components |
 |---|---|---|
-| `art-of-sim-rally` | Unity 2019 Mono, Unity Mod Manager | 0.2.0 — telemetry + native DLL |
-| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | 0.2.0 — telemetry + native DLL. **`lib/` is gitignored there**; its pin lives in its CHANGELOG |
-| `OutRun2006Tweaks-FFB` | native dinput8 proxy, x86 | 0.2.0 — the whole FFB device layer via the C ABI |
-| `milestone-wheel-tools` | native dinput8 proxy, UE4 | 0.2.0 — `forza_packet.h` + `DbceWheel.psm1` |
-| `cruisn-collection` | MAME fork, SDL2 | not yet; it is the seed for the SDL2 backend, not a consumer of the DirectInput one |
+| `art-of-sim-rally` | Unity 2019 Mono, Unity Mod Manager | Ffb, Telemetry and native output; inspect exact local/release provenance |
+| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | Ffb, Telemetry and native output; tracked `toolkit.version` precedes historical changelog inference |
+| `woden-rally-edge-wheel` | Unity 6 IL2CPP, BepInEx 6 | Ffb, Telemetry and native output; Recording is separately pinned |
+| `drive-rally-wheel` | Unity Mono, BepInEx 5 | Telemetry only from the release; Recording is separately pinned |
+| `OutRun2006Tweaks-FFB` | native dinput8 proxy, x86 | Model/encoder/proxy headers and profiles; matching native DLL/ABI header may have a separate override pin |
+| `milestone-wheel-tools` | native dinput8 proxy, UE4 | `forza_packet.h` and `DbceWheel.psm1` |
+| `cruisn-collection` | MAME fork, SDL2 | Force/shaping headers and profiles; SDL device output remains consumer-owned |
 
 Adjacent: `cannonball-se`, `mame-racing`, `xoutput-redux`, `wheel-db`,
 `controller-input-db`.

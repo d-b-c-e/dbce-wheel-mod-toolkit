@@ -7,6 +7,12 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Reconcile the consumer register/status tool with all seven products, explicit
+  pin sources and OutRun's native/header override. Compare only used components,
+  verify override hashes, and preserve local candidate provenance without
+  suggesting a downgrade. Isolated fixtures exercise output, exit status and
+  read-only behavior.
+
 - Add an offline interactive Simple/Advanced UI reference and begin the
   coordinated consumer rollout, with independent layout/interaction evidence.
   Clarify the explicit-association fallback when input and FFB backends cannot
