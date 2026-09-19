@@ -19,10 +19,10 @@ tracked separately; a file copy does not establish input, camera or force behavi
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
 | Woden Rally Edge | Source `df0e4dc`, 0.2.8; prior work preserved separately in `9d28b83` | Deployed; 35 suites/942 assertions, 459 UI assertions and 59 installer checks; nine payloads and four owner files independently verified. Installer concurrency correction follows separately | No-output run exited normally; F6 panel did not open, diagnosis/retest required |
-| iRacing Arcade | Source `4a06481`, packaged 0.4.2; 248 consumer, 151 overlapping core, 10 config, 56 installer checks | Successor deployed; conflict/save-retry checks passed in game. 0.4.3 addresses stock menu dispatch behind panel | 0.4.2 normal exit and six restored owner/receipt hashes verified; physical acceptance pending |
-| Art of Sim Rally | Source `44e11dd`, 0.2.6-rc.9; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files and ZIP independently verified; RC9 corrects installer completion wording | No-output UMM menu check queued |
+| iRacing Arcade | Source `0b5f40e`, packaged 0.4.4; 259 consumer, 162 overlapping core, 10 config, 56 installer checks | Deployed and eight payload/five owner/ZIP hashes verified; stock menu dispatch and full held-navigation release corrections included | 0.4.2 conflict/save-retry passed; 0.4.4 menu isolation retest queued |
+| Art of Sim Rally | Source `44e11dd`, 0.2.6-rc.9; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files and ZIP independently verified | Actual check found stock navigation/cancel leakage and small 4K layout; successor required. Normal exit/restoration verified |
 | #DRIVE Rally | Source `ebb9e39`, 0.1.3; save-retry and rollback corrections included | Self-contained PS5.1 player package installed; all 28 installed files and package hash independently verified | Pending; wheel/FFB/added cameras remain future game capabilities |
-| OutRun2006Tweaks-FFB | Stage 3 source `8ac4d9f`; missing-section and disconnected-primary-pedal fixes included | Stage 3 deployed; two runtime DLLs, five owner files and ZIP independently verified | Fixed launch/F6 and stock camera identification queued |
+| OutRun2006Tweaks-FFB | Stage 3 source `8ac4d9f`; missing-section and disconnected-primary-pedal fixes included | Stage 3 deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual F6/tabs/Off passed; launch must use game folder. 4K scale and remaining bindings/camera work continue |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified | External setup/native calibration exception; physical/game acceptance pending |
 | Cruis'n Collection | Frontend source `79a192b`, integrated into master `eb78f4f` | Source launcher deployed; seven source files and 22 owner files independently verified; native UX work continues from accepted renderer baseline | Pending; preserve World menu-force exception |
 
@@ -157,8 +157,22 @@ live Unity input evidence. The force-disabled run exited normally, reported
 physical output suppressed, zero writes/failures, and finalized 3,206 recording
 samples with zero drops/errors. Its owner verified all four original config files
 after restoration and archived the consumed one-launch diagnostic request.
+The coordinator also independently verified those four restored files.
 F6 injection did not open the panel during stock attract mode; Simple/Advanced
 and binding interaction remain unverified and assigned for diagnosis/retest.
+Source review found a hotkey exception could be hidden in the closed panel; it
+did not establish the root cause. Better diagnostics and a held-input close barrier
+are assigned to a distinct runtime successor.
+
+The installer-only corrections passed independent source review and 81 actual
+Windows PowerShell 5.1 assertions, including game start during a transaction,
+external replacement before/after writes and retained recovery evidence. Distinct
+package `WodenRallyEdgeWheel-0.2.8-installer-r2-9b4d75e.zip` has SHA-256
+`1992551438aa7e5d46c66500f53d3189f5552bbcb815ec169b5c04ca976dcbb5`.
+Its installer script SHA-256 is
+`c1091e39ecd851a6eeec20a7ff8057587139c5f57e7243755cec5dc4f5eeb46c`.
+Both hashes and the unchanged nine installed runtime files were independently
+checked; an installer-only correction does not imply another runtime deployment.
 
 Milestone 0.2.0 was deployed from `3545810f4fd33647ff19ab87ab02a9aec0afa47a` to
 Gravel's `gravel/Binaries/Win64`, with `Wheel settings.bat` at the game root.
@@ -184,6 +198,13 @@ verified all six restored owner/config receipt hashes afterward. Evidence:
 The source game screen was 2560×1440 and captured images 1280×720. Stock Free Play
 opened behind the panel during this run; 0.4.3 must close and recheck that observed
 input propagation defect before claiming complete menu isolation.
+The uninstalled 0.4.3 candidate missed held wheel/pad navigation in its release
+aggregation. That finding is closed by independent source review in 0.4.4 source
+`0b5f40e4379fd1a6c878c28e827831af355e165a`, now installed. Package SHA-256:
+`DFAA4921D391472644AD4B47B5D66339A89181407E8F36BD8143994B4A448FE3`.
+The coordinator verified eight payloads, five retained owner files, ZIP and backup
+against `E:/Source/iracing-arcade-wheel/dist/deployment-0.4.4-20260919-143808/deployment-receipt.json`.
+Actual Unity dispatch behavior remains queued for its own no-output check.
 
 Art's RC8 source is `2517162d71fc12e030ecda64d8b46d31f0d56b20`; ZIP:
 `E:/Source/art-of-sim-rally-ux/dist/ArtOfSimRally-0.2.6-rc.8.zip`, SHA-256
@@ -203,6 +224,16 @@ and ZIP against `results/ux-0.2.6-rc.9-install-3570eb7cbaf247c4b2c74ee9824ef17a/
 in `E:/Source/art-of-sim-rally-ux`. The old saved FFB name/index has no strict GUID;
 the player must explicitly choose Use steering wheel or reselect the FFB device.
 No tune or binding was silently migrated to a guessed device.
+The actual RC9 run at 3840×2160 opened the mod panel, but Down changed the stock
+menu selection underneath and Escape from camera capture opened the stock Quit
+dialog. UMM's pointer-blocking canvas alone does not establish keyboard/submit
+isolation. The panel/font was also too small at the preserved host settings;
+the successor must distinguish readable defaults from explicit owner scaling.
+The game exited through its native Quit confirmation and the coordinator
+independently verified all sixteen protected owner/UMM/probe/payload hashes.
+Receipt: `E:/Source/art-of-sim-rally-ux/results/ux-rc9-smoke-12a43ac2eeb447b9b4335889edd160a3/receipt.json`,
+restored at 19:52:01 UTC. FFB and telemetry were temporarily Off; originals are
+restored. These findings remain assigned work, not a passed whole-UX audit.
 
 Drive 0.1.3 source `ebb9e3992709e86f00f63948d363afe7169a4499` installed through
 its packaged Windows PowerShell 5.1 route with Steam discovery. Player ZIP SHA-256:
@@ -227,6 +258,15 @@ The v0.13 native component override remains distinct from the package pin.
 Independent source review found calibrated pedals on the primary device could
 reuse stale samples after disconnect; stage 3 gates current/previous/telemetry
 paths and includes a lost-read regression. Physical reconnect remains unverified.
+Stage 3 subsequently opened F6 and its tabs with FFB visibly Off. Launching the
+executable without the game working directory produced blank stock assets;
+launching it inside the game folder showed the stock presentation correctly.
+Normal exit completed at 19:44:13 UTC. The coordinator verified all five restored
+owner files and both unchanged runtime DLLs against
+`E:/Source/OutRun2006Tweaks-FFB/build/camera-live-stage3/restore-verification.json`.
+The temporary override was removed. The actual 3840×2160 screenshot showed a
+small default panel/font; viewport scaling is assigned. Only title/attract mode
+was reached, so stock player-camera identification remains unverified.
 
 The expired September 17 build hold was explicitly released. Offline builds and
 deployment to closed targets may proceed. Live games share one desktop; request a
