@@ -19,10 +19,10 @@ tracked separately; a file copy does not establish input, camera or force behavi
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
 | Woden Rally Edge | Source `141bbab`, 0.2.9; 35 suites/942 assertions, 506 UI assertions, 81 installer checks | Deployed; nine payloads and four restored owner files independently verified. Final docs `68efd73` local, unpushed | F6/Advanced/capture Cancel/close handoff passed without force. Startup MOTD opening edge and physical interaction remain unverified |
-| iRacing Arcade | Source `9f83d07`, 0.4.5; 271 consumer, 174 overlapping core, 10 config, 56 installer checks | Deployed; eight payloads, five owner files and ZIP independently verified | 0.4.4 stock menu isolation passed; 0.4.5 module/pending-pointer retest in progress |
-| Art of Sim Rally | Source `2ab6fb5`, 0.2.6-rc.10; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files and ZIP independently verified | RC10 stock keyboard isolation passed; readable text clips in the preserved UMM host. RC11 responsive layout assigned; sixteen restored files verified |
-| #DRIVE Rally | Source `d8e5df4`, 0.1.5; 17 suites/230 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified | 4K Simple/Advanced/F6 passed; direct Welcome shortcut bypass found. 0.1.6 source review underway; wheel/FFB/added cameras remain future capabilities |
-| OutRun2006Tweaks-FFB | Stage 4 source `72730f5`; viewport scale, optional devices and dispatch isolation included | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Stage 3 F6/tabs/Off passed. Stage 4 live retest queued; Steering role-retarget conflict correction and stock camera identification continue |
+| iRacing Arcade | Source `299a85e`, 0.4.6; 279 consumer, 182 overlapping core, 10 config, 56 installer checks | Deployed; eight payloads, five owner files and ZIP independently verified | 0.4.5 actual module confirmed; stationary-pointer reset correction reviewed in 0.4.6, live retest queued |
+| Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified | RC10 stock keyboard isolation passed; RC12 addresses actual host width and custom-scale rows. Final visual/capture retest queued |
+| #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified | 0.1.5 4K Simple/Advanced/F6 passed; reviewed 0.1.6 Welcome shortcut correction awaits actual retest. Wheel/FFB/added cameras remain future capabilities |
+| OutRun2006Tweaks-FFB | Stage 5 source `3d0b51d`; Steering retarget/first-assignment conflicts corrected | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual 4K panel/F6/pages passed. Stock title input did not respond before first F6 either; cause and player cameras unverified |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified | External setup/native calibration exception; physical/game acceptance pending |
 | Cruis'n Collection | Frontend source `79a192b`, integrated into master `eb78f4f`; final controls integration ongoing | Source launcher deployed; seven source files and 22 owner files verified. Native strict identity/calibration and frontend integration not yet deployed | Device-free native stop replay passed; physical output and final integrated UI pending. Accepted renderer and World menu-force exception preserved |
 
@@ -354,7 +354,7 @@ five retained owner files were verified against the game's
 `.wheel-settings-backups/20260919-201322-358-4c7ea01f/receipt.json`.
 A stage-3 test-created `imgui.ini`, missed by the first restoration inventory,
 was removed only after its exact archived hash established test provenance;
-`build/additional-ui-layout-restoration.json` records that correction. No unknown
+`build/camera-live-stage3/additional-ui-layout-restoration.json` records that correction. No unknown
 owner layout was removed. Live 4K/native camera checks and a subsequent Steering
 role-retarget conflict correction are still assigned.
 
@@ -370,3 +370,78 @@ explicit clear tombstones and the new Controls modal are being integrated.
 The accepted renderer baseline `4ac6a84b51b4` and installed native hash
 `87d04de42d10a731f1d951a1fa378d784059d862063b224764ca6294fa5fe9d8`
 remain the preservation baseline; the unrelated graphics candidate is excluded.
+
+### Final candidate receipts after the interaction findings
+
+Art **RC12**, source `cbcf76c5d6401dd8a0c511acfe7ded201df6a99d`, supersedes
+the uninstalled RC11 candidate. Review caught aggregate binding-row overflow at
+explicit 4x scale; rows now stack when the actual host width cannot accommodate
+their combined controls. All sixteen gates pass, including 126 settings assertions.
+The coordinator verified six payloads, six preserved files and ZIP/gate hashes
+against `E:/Source/art-of-sim-rally-ux/results/ux-0.2.6-rc.12-install-787e550c1c6b4fa2bc307e3efb32d5ae/receipt.json`.
+ZIP SHA-256 `88A9B71D43F4A0788112CC987EEEB02407BCB43F9D6AECDA8BCAC93F1927B0C4`;
+gate SHA-256 `9FC72450E3F8306FE9AF44FC52AA112E07A62008D6D70523073B3F5ED3E32856`.
+Main and candidate docs are clean/pushed at `bf3dbbb`; live retest is separate.
+
+Drive **0.1.6**, source `44e42221043c2f2b5de305ad9d2d5e666c28fecd`, ZIP
+SHA-256 `C5CD3820B56327DFC6EFB142CE2C2BAA10E3167045E026733C6A890925D9F6D1`,
+passed review of both actual direct shortcut components and eighteen suites with
+251 assertions. All 28 installed files and ZIP were independently verified against
+`C:/Users/antho/AppData/Local/Dbce/DriveRallyWheel/Backups/20260919-153126-adf17b5f/receipt.json`.
+Its actual run passed Home-screen F6 Simple/Advanced, Enter isolation, Tab focus,
+neutral close and normal native Quit. The Welcome screen did not appear, so that
+specific correction remains source-verified only. Registry writes alone did not
+establish effective Unity preference readback; the log does explicitly confirm
+the temporarily absent Logitech DLL disabled stock FFB. No driving or recording.
+The coordinator verified four tracked file states, original profile absence, SDK
+hash and equality of all before/restored registry export records in
+`E:/Source/drive-rally-wheel/artifacts/runtime-smoke/20260919-1542-0.1.6/`.
+Restoration completed at 15:45:11 Central. This run used the correct registry key;
+it does not retroactively prove the first run's missing baseline.
+
+OutRun **stage 5**, source `3d0b51dc14b3e585854e399a426c407ff36eb478`, adds
+whole-Steering retarget and first-assignment conflict checks before persistence.
+All four production fixtures passed. ZIP SHA-256:
+`016fdc8c2068b162b9e35b6a5e586b79e6e25c08c609abc92932ea7049c9408c`.
+Installed proxy SHA-256 `58fe0efeecc80b88c8a8b5177fd1892a3a98cb4396b36f22dc9f253d5751a600`;
+the separate native component is unchanged. The coordinator verified the ZIP,
+two installed DLLs, five owner files and backup in `build/deployment-stage5-result.json`.
+The actual 3840x2160 run showed readable F6 Setup/Controls/FFB pages, working
+scrolling and provisional Settings-to-F9 capture followed by Escape cancellation
+and the original F6 close. The temporary INI remained byte-identical after Cancel.
+Normal exit/restoration completed at 15:41:14 Central. The coordinator verified
+the five restored files, two DLLs, absent test INIs and still-empty SaveGame against
+`E:/Source/OutRun2006Tweaks-FFB/build/camera-live-stage5/restore-verification.json`.
+Native Return failed before the first F6 too; its cause and player-camera framing
+remain unverified. A subsequently identified native WM_CHAR text-entry bypass is
+assigned for a narrow correction; the installed stage-5 artifact remains immutable.
+
+iRacing's **0.4.5** run confirmed the actual InputSystemUIInputModule but could
+not establish the stationary-click target. A follow-up proved the native hitpoint
+before F6, but did not finish the dependent check before its slot ended. Both
+runs exited normally and all six owner hashes were restored and independently
+verified. Source review then confirmed ResetPointers discards the pointer pose;
+the next stationary click allocates a zero-position pointer. **0.4.6** retains
+gesture cancellation while rebuilding only connected, still-bound pointer poses.
+Review also caught an IL2CPP generic value-copy setter hazard; explicit inline /
+additional array setters plus module-field writeback now match the generated ABI.
+Twenty source-linked adapter fixtures cover pose-only restoration and partial
+failure without repeated cancellation callbacks.
+Source `299a85ef3f9cb1390e885fa3d181329e59404e52`; ZIP SHA-256:
+`9348A335F61F52F1B0890F045EDD325AECEF866AF6D8A97EF47D339666E86C3B`.
+The coordinator verified eight payloads, five retained owner files, ZIP and backup
+against `E:/Source/iracing-arcade-wheel/dist/deployment-0.4.6-20260919-154816/deployment-receipt.json`.
+Actual stationary-pointer recovery remains queued for this exact build.
+
+Cruis'n's final native candidate is source
+`707fd6a8f0a83379e6c96b5b87ee1e24b305bb44`, 142 reconstructable patches,
+executable SHA-256 `f1f908e66784b657d892e651850693c99e606ffcf093397f9a994975f1c51c01`.
+The preceding `e5e7777` candidate is explicitly unqualified: review found it could
+wait on stop-file persistence before canceling actuator effects. The successor
+attempts all stop families before persistence on the output owner. A fixture
+extracts the actual functions and blocks a fake flush to verify that ordering;
+failed stops remain unacknowledged and retryable. This is software evidence, not
+physical cancellation timing. The frontend has guided calibration and a strict
+FFB picker; final packaging/deployment awaits visible legacy-device readiness
+and the explicit one-launch Continue without FFB path. The owner settings and
+accepted renderer remain unchanged while that integration completes.
