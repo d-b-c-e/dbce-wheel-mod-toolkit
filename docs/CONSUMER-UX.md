@@ -144,6 +144,11 @@ pixels, secondary help at 14, headings at 20. These are design targets, not raw
 Unity pixels: scale all text, hit targets and spacing together. Offer UI scale
 or honor the host's scale setting. Never fix help text to a tiny font that ignores
 the player's chosen scale. Adapt to 1280×720 and verify a readable 4K rendering.
+Measure the actual settings content rectangle, including a loader's smaller host
+window. A 4K screen does not imply a 4K panel. Wrap navigation and label/action
+rows within that rectangle; keep Close and Stop FFB reachable at the default and
+explicit scales. Do not enlarge or overwrite the owner's loader window settings
+to make an overflowing layout appear to pass.
 
 Align labels and values in consistent columns. Put **Bind** / **Clear** at the
 same position on each binding row. Long device names wrap or show their full
@@ -163,6 +168,12 @@ close, wait for every active keyboard, wheel/pad navigation, submit/cancel and
 Settings control to be released before returning input to the game; a held D-pad
 direction must not move the underlying menu. Verify the actual control aggregation
 as well as the release-delay policy and an in-game open/close interaction.
+Cover direct game shortcut components as well as the UI event dispatcher: a
+Welcome screen may invoke a button directly from its own Update method. Cancel
+retained pointer presses/drags before handing control back so closing the panel
+cannot replay a queued click/drop. Preserve native selection and action maps;
+disabling the whole input backend is not the isolation mechanism. Include the
+opening key edge and first-use screens in the actual interaction check.
 
 ## 4. Binding and calibration are one guided operation — UX-04
 
