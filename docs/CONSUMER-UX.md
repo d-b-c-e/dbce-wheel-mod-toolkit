@@ -156,6 +156,13 @@ release requires a mouse, say so in setup and record the gap in its UX checklist
 Opening the panel suppresses driving input, camera shortcuts and FFB. Pause the
 game only when allowed and only resume a pause the panel itself introduced.
 Restore cursor/focus and release held inputs on close, focus loss and cancellation.
+The stock menu must not also receive pointer, navigation or submit events while
+the mod panel owns input. Test the real stock dispatch route, including consumers
+that retain action references rather than calling patched input getters. On
+close, wait for every active keyboard, wheel/pad navigation, submit/cancel and
+Settings control to be released before returning input to the game; a held D-pad
+direction must not move the underlying menu. Verify the actual control aggregation
+as well as the release-delay policy and an in-game open/close interaction.
 
 ## 4. Binding and calibration are one guided operation — UX-04
 
@@ -187,6 +194,10 @@ and tested accordingly. Do not synthesize repeated presses while a button is hel
 Unplugging a device preserves its bindings, releases its contributions and shows
 `Saved device disconnected — reconnect it, then Refresh.` A different device is
 an explicit replacement. Calibration/refresh uses no force output.
+This applies equally when several roles share the primary steering device and
+when a former pedal device becomes the primary device. Failed reads must remove
+that device's current, previous-frame and reported effective contributions;
+cached samples and unresolved numeric device slots must not feed another binding.
 
 ### Analog handbrake hardware is part of the controls baseline
 

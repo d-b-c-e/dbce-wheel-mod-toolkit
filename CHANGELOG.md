@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Clarify stock-menu input isolation and held navigation release, including the
+  actual control aggregation. Require shared-primary pedal roles to become
+  neutral on failed reads; retain device identity through role changes.
+
 - Track the resumed seven-product UX completion and local deployment with exact
   package, backup and settings-retention evidence. Keep installed state separate
   from in-game interaction and physical-force acceptance.
