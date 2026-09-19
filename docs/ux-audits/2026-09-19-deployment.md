@@ -18,13 +18,13 @@ tracked separately; a file copy does not establish input, camera or force behavi
 
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
-| Woden Rally Edge | Source `df0e4dc`, 0.2.8; prior work preserved separately in `9d28b83` | Deployed; 35 suites/942 assertions, 459 UI assertions and 59 installer checks; nine payloads and four owner files independently verified. Installer concurrency correction follows separately | No-output run exited normally; F6 panel did not open, diagnosis/retest required |
-| iRacing Arcade | Source `0b5f40e`, packaged 0.4.4; 259 consumer, 162 overlapping core, 10 config, 56 installer checks | Deployed and eight payload/five owner/ZIP hashes verified; stock menu dispatch and full held-navigation release corrections included | 0.4.2 conflict/save-retry passed; 0.4.4 menu isolation retest queued |
-| Art of Sim Rally | Source `44e11dd`, 0.2.6-rc.9; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files and ZIP independently verified | Actual check found stock navigation/cancel leakage and small 4K layout; successor required. Normal exit/restoration verified |
-| #DRIVE Rally | Source `ebb9e39`, 0.1.3; save-retry and rollback corrections included | Self-contained PS5.1 player package installed; all 28 installed files and package hash independently verified | Pending; wheel/FFB/added cameras remain future game capabilities |
-| OutRun2006Tweaks-FFB | Stage 3 source `8ac4d9f`; missing-section and disconnected-primary-pedal fixes included | Stage 3 deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual F6/tabs/Off passed; launch must use game folder. 4K scale and remaining bindings/camera work continue |
+| Woden Rally Edge | Source `141bbab`, 0.2.9; 35 suites/942 assertions, 506 UI assertions, 81 installer checks | Deployed; nine payloads and four restored owner files independently verified. Final docs `68efd73` local, unpushed | F6/Advanced/capture Cancel/close handoff passed without force. Startup MOTD opening edge and physical interaction remain unverified |
+| iRacing Arcade | Source `9f83d07`, 0.4.5; 271 consumer, 174 overlapping core, 10 config, 56 installer checks | Deployed; eight payloads, five owner files and ZIP independently verified | 0.4.4 stock menu isolation passed; 0.4.5 module/pending-pointer retest in progress |
+| Art of Sim Rally | Source `2ab6fb5`, 0.2.6-rc.10; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files and ZIP independently verified | RC10 stock keyboard isolation passed; readable text clips in the preserved UMM host. RC11 responsive layout assigned; sixteen restored files verified |
+| #DRIVE Rally | Source `d8e5df4`, 0.1.5; 17 suites/230 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified | 4K Simple/Advanced/F6 passed; direct Welcome shortcut bypass found. 0.1.6 source review underway; wheel/FFB/added cameras remain future capabilities |
+| OutRun2006Tweaks-FFB | Stage 4 source `72730f5`; viewport scale, optional devices and dispatch isolation included | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Stage 3 F6/tabs/Off passed. Stage 4 live retest queued; Steering role-retarget conflict correction and stock camera identification continue |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified | External setup/native calibration exception; physical/game acceptance pending |
-| Cruis'n Collection | Frontend source `79a192b`, integrated into master `eb78f4f` | Source launcher deployed; seven source files and 22 owner files independently verified; native UX work continues from accepted renderer baseline | Pending; preserve World menu-force exception |
+| Cruis'n Collection | Frontend source `79a192b`, integrated into master `eb78f4f`; final controls integration ongoing | Source launcher deployed; seven source files and 22 owner files verified. Native strict identity/calibration and frontend integration not yet deployed | Device-free native stop replay passed; physical output and final integrated UI pending. Accepted renderer and World menu-force exception preserved |
 
 ## Deployment evidence required per product
 
@@ -273,5 +273,100 @@ deployment to closed targets may proceed. Live games share one desktop; request 
 bounded serialized slot with output policy and normal-exit handling. Do not kill
 a running game for deployment. No unattended nonzero torque is authorized.
 
-The unrelated Cruis'n timing replay remains queued without a granted slot. The
-old overnight automation remains paused; this is an active coordinated rollout.
+The old overnight automation remains paused; this is an active coordinated rollout.
+
+### September 19 final verification pass (in progress)
+
+Guidance `483bebd` requires whole-batch camera-default conflict preflight and
+persist-before-effective-swap binding changes. Revision `12df6b3` makes stock
+dispatch isolation, held-input release and disconnect neutralization explicit.
+These corrections were reviewed in consumer code rather than inferred from the
+reference page. Newly discovered live defects remain assigned until retested.
+
+Woden **0.2.9**, runtime `141bbab73740feadc8d35e038a1bebc7f821622d`, includes
+the installer correction and fresh-device capture/release guards. ZIP
+`E:/Source/woden-rally-edge-wheel/dist/WodenRallyEdgeWheel-0.2.9-dev.zip` has
+SHA-256 `961fc545f3ac5e9821518154f0a1580d99e57644815fdd92306d5dec50367438`.
+Installed receipt is the game's `BepInEx/WodenWheel-install.json`; backup is
+`WodenWheelBackups/before-install-20260919-145924-b22eb10f`.
+The coordinator verified all nine payloads and four original config files.
+The actual 15:01–15:06 Central run opened F6 through the logged IMGUI fallback,
+showed Advanced, canceled a provisional Steering capture and returned stock
+control after Close. It exited normally with zero force writes/failures and
+2,888 recorded samples, zero drops/errors. Evidence:
+`E:/Source/woden-rally-edge-wheel/artifacts/deployment-0.2.9/live-smoke/verification.json`.
+Only the after-close screenshot is retained as a standalone image; earlier
+screens were viewed inline. Initial F6 also advanced the startup MOTD and attract
+mode continued behind the panel, so complete opening-edge/held-controller behavior
+is not certified. Final documentation commit `68efd73` is clean locally and unpushed.
+
+iRacing's actual **0.4.4** check passed steady panel mouse/Enter/Down isolation,
+Close preserving Main Menu, and deliberate Free Play/Back after release. Source
+screen was 2560×1440; captured images were 1280×720, not native 720p evidence.
+No FFB opened. Six restored hashes were independently verified against
+`E:/Source/iracing-arcade-wheel/dist/smoke-0.4.4-20260919/smoke-receipt.json`.
+**0.4.5** subsequently added per-module cancellation of retained pointer presses
+and drags without deferred click/drop, including partial-failure retry handling.
+ZIP SHA-256 `EA8A57D74F4E2FFA12A4CC17CE3B4374F387D7917CA1D382D2FD720D565CDBC7`;
+source `9f83d0792ebb0c84b7eff45ec252e6e8b43b1df9`.
+The coordinator verified eight installed files, five retained owner files and ZIP
+against `dist/deployment-0.4.5-20260919-151504/deployment-receipt.json` in its repo.
+Physical pre-existing held mouse/controller interactions still require attended
+acceptance; the automation cannot split mouse-down and mouse-up.
+
+Art **RC10** source `2ab6fb5f27be570693ebe856b48259456f55007f` passed sixteen
+gates and independent source review, including dynamically observed replay axes.
+ZIP SHA-256 `F4A46410F5B8F9CD82121C8B183BC161E2788BB47E6F0A1BFF222FC7AD89B9E6`.
+Deployment receipt:
+`E:/Source/art-of-sim-rally-ux/results/ux-0.2.6-rc.10-install-073c05f30a374727b3a29ac3ac50046a/receipt.json`.
+The actual 3840×2160 test isolated Down and Return from the native main menu;
+first Escape closed only the mod, and subsequent Escape/Up/Return exited through
+the stock Quit dialog. The larger text was readable but overflowed the preserved
+approximately 960-pixel UMM host, clipping Close/Stop FFB and later tabs. RC11 must
+adapt to the actual host width. No all-pages or capture-Cancel pass is claimed.
+The coordinator independently verified all sixteen restored protected hashes in
+`results/ux-rc10-smoke-a11a727a92124d04a2e095762e4a6874/receipt.json`.
+The finite-force native override and owner UMM parameters remain unchanged.
+
+Drive **0.1.5** source `d8e5df4fcda9c978513666bcc041b5784e9bd197`, ZIP SHA-256
+`7B8DD6826958FA675A25A3A1B82E43337DD5E0C6B954CAADF23AC3BC6A77A5B0`, was
+verified against all 28 installed entries in
+`C:/Users/antho/AppData/Local/Dbce/DriveRallyWheel/Backups/20260919-150045-68c3161a/receipt.json`.
+The actual 4K run passed Simple/Advanced/Tab/Enter view changes and F6 close;
+43,124 EventSystem dispatches were blocked. A separate Welcome-screen component
+invoked its button directly on Enter, bypassing EventSystem. The owner is fixing
+both direct button and axis shortcut routes in 0.1.6. No driving, capture or UDP
+was used. The stock Logitech SDK DLL was temporarily quarantined to disable output
+and restored with SHA-256 `84968D7A68AB5759B00B82668C12972C15A08323E12E066772C5798137895EE6`.
+Evidence: `E:/Source/drive-rally-wheel/artifacts/runtime-smoke/20260919-150427-0.1.5`.
+The first preflight used the wrong Unity profile/registry name. Newly created
+`DRIVERally` profile files were archived, but the actual registry state was
+retained because an exact original snapshot was unavailable. Do not describe
+that run as exact registry restoration. The successor uses the actual key.
+
+OutRun **stage 4**, source `72730f51cf270672ebe46e16fd3793562486b21e`, ZIP
+`E:/Source/OutRun2006Tweaks-FFB/build/packages/wheel-settings-20260919-stage4.zip`,
+SHA-256 `8c36c259e6e2b1426e3b2883abbc3d416394f647f50c0ede163819e7584532be`,
+passed four actual-source fixture executables and 33 rendered layouts. Independent
+review closed optional-device snapshot freshness, retained-binding retarget
+conflicts and original multi-bit SDL action semantics. Two installed DLLs and
+five retained owner files were verified against the game's
+`.wheel-settings-backups/20260919-201322-358-4c7ea01f/receipt.json`.
+A stage-3 test-created `imgui.ini`, missed by the first restoration inventory,
+was removed only after its exact archived hash established test provenance;
+`build/additional-ui-layout-restoration.json` records that correction. No unknown
+owner layout was removed. Live 4K/native camera checks and a subsequent Steering
+role-retarget conflict correction are still assigned.
+
+Cruis'n's device-free stop replay used exact frozen native source
+`0913925c858ec9297e8553b183da4850195fe183`, executable SHA-256
+`69bf482f396b13687541b564076d9fe9313469f7ec262afdb2979dcba37e414b`.
+All 3,300 replay inputs/snapshots matched, and 324 worker ticks after Stop stayed
+zero despite 227 later nonzero source writes. This proves software stop behavior,
+not hardware latency or force feel. Report:
+`E:/Source/cruisn-collection/results/diagnostics/ux-20260919/stop-prefix-run/report.json`.
+Strict physical identity, endpoint calibration, hash-bound native capabilities,
+explicit clear tombstones and the new Controls modal are being integrated.
+The accepted renderer baseline `4ac6a84b51b4` and installed native hash
+`87d04de42d10a731f1d951a1fa378d784059d862063b224764ca6294fa5fe9d8`
+remain the preservation baseline; the unrelated graphics candidate is excluded.
