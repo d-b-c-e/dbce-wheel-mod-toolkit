@@ -79,6 +79,9 @@ goes in a clearly named sub-package.
 
 ## Conventions
 
+- Track consumer completion in [the deployment ledger](docs/ux-audits/2026-09-19-deployment.md).
+  Record source/package identity, verified install target, backup, payload hashes
+  and retained owner settings. Deployment is separate from live UX/force acceptance.
 - Consumer UI and installer work follows [UX-1](docs/CONSUMER-UX.md),
   [install/setup guidance](docs/CONSUMER-SETUP.md), and the
   [audit checklist](docs/CONSUMER-UX-CHECKLIST.md). Preserve the standard labels,

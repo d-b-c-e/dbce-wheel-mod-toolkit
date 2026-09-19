@@ -27,7 +27,8 @@ player experience; adoption and runtime verification remain per consumer.
 The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
 Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,
-upgrade rules and acceptance checks; existing consumer UIs still need adoption.
+upgrade rules and acceptance checks. The [consumer deployment ledger](docs/ux-audits/2026-09-19-deployment.md)
+tracks implementation, installed packages and remaining live checks separately.
 The [interactive reference](docs/reference/wheel-settings.html) provides a common
 visual and interaction target; see its [preview guide](docs/reference/README.md).
 It is an offline browser demo, with no game connection or force output.
@@ -59,7 +60,8 @@ Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
 (`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
 (`dotnet/Dbce.Wheel.Ffb`), planned shared input kit
 (`dotnet/Dbce.Wheel.Input`, currently empty), the dinput8 proxy scaffold (`native/dinput-proxy`),
-tooling (`tools/`), knowledge (`knowledge/`), planned scaffolds (`templates/`, currently empty).
+tooling (`tools/`), knowledge (`knowledge/`), and documentation starting points
+in `templates/` (not compilable scaffolds or a shared UI).
 
 **Not here:** anything that knows a particular game — hooks, samplers, force
 signals and their tuning, physics changes and their online gates, cameras, UI
@@ -69,6 +71,8 @@ content. Those stay in each game's repo and consume this one.
 
 - [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally) — art of rally, Unity 2019 Mono, Unity Mod Manager
 - iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6
+- woden-rally-edge-wheel — Super Woden Rally Edge, Unity 6 IL2CPP, BepInEx 6
+- drive-rally-wheel — #DRIVE Rally, Unity Mono, BepInEx 5; telemetry/research foundation
 - cruisn-collection — Cruis'n USA / World / Off Road / Exotica, MAME fork
 - OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy
 - milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy

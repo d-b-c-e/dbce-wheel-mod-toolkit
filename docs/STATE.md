@@ -21,6 +21,15 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Consumer deployment coordination, 2026-09-19
+
+The owner authorized completing and deploying the seven consumer UX updates.
+See the [deployment ledger](ux-audits/2026-09-19-deployment.md) for exact package,
+installation and verification status. The September 17 build hold has expired;
+no live-game slot follows from it. Preserve this checkout's independent runtime
+and Recording work. Consumer deployment does not imply a toolkit package bump
+or completed attended input/force acceptance.
+
 Updated 2026-09-07. Source/package version **0.12.0**, native device component
 **0.5.0** (38 additive C exports). Consumer pins remain separate: inspect
 `tools/Get-ConsumerStatus.ps1` and `docs/CONSUMERS.md`; never infer adoption from

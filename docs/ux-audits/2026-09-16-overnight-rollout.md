@@ -223,3 +223,33 @@ inventory evidence, not installed-game or UX adoption certification.
 The toolkit reference push also created an automatic hosted CI run, but its jobs
 were refused before starting. Hosted CI is not part of the passing evidence above;
 subsequent coordination pushes use `[skip ci]` and retain local verification.
+
+### Follow-up review, 2026-09-17
+
+- **Milestone** completed its bounded external-setup pass at `fe87e78`, published
+  on `codex/simple-advanced-setup`. Simple now includes a read-only preview using
+  staged mappings, with one input-only helper, cancellation and bounded cleanup.
+  The coordinator reviewed normalization and the actual helper heartbeat source.
+  **140 checks pass in both PowerShell versions**; real device/console interaction
+  remains untested. Original main and game installations are unchanged.
+- **iRacing** fixed the identified generic-path association issue. The coordinator
+  re-read the actual resolver, saved-input lookup and role policy: follow now
+  requires the exact persisted role before association lookup, and association
+  no longer creates an inferred mapping while leaving the action generic. The
+  owner reports A/B replacement/reorder regressions passing. Runtime acceptance
+  and final package checks are still separate.
+- **OutRun** now exports actual ImGui draw data/font atlas to a software renderer.
+  The coordinator inspected 720p and scaled 4K FFB frames from the 26-frame fixture;
+  layout has no blocking finding in that scope. These are renderer-level images,
+  not game screenshots. Transactional calibration is still being checked.
+- **#DRIVE Rally** received a second independent review. It reproduced a save
+  recovery bug in the frozen Core DLL: fail Apply for ports 9000/9001, edit the
+  visible draft to 9100/9101, then Retry writes the older pair. The owner is fixing
+  the pending-transaction/edit relationship and reviewing Cancel recovery before
+  a replacement candidate is accepted. No additional concrete keyboard/focus
+  defect was established; Unity interaction remains untested by HTML fixtures.
+- **Cruis'n** added atomic telemetry settings at `360d9ed` and a saved FFB switch
+  retaining Strength at `3229661`. Both are launcher preferences applying next
+  game launch. In-game F8 needs a new latched gate across all native effect types;
+  strict stable identity needs a binding/native contract, not a display-name
+  inference. The native timing checkpoint remains separately frozen.

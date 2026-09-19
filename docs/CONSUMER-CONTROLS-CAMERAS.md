@@ -107,6 +107,19 @@ together silently. Reject unsupported chords with a clear message rather than
 quietly storing only one key. Help shows saved assignments, never a hardcoded
 numpad legend after a rebind.
 
+Apply those checks to **Default** and **Restore numpad defaults** as well as
+Bind. Preflight the entire proposed reset against the current game, mod and
+reserved assignments before changing any key. A conflicting batch leaves every
+existing assignment intact and explains which action needs resolving. For example,
+after moving Camera Up off numpad8 and assigning Settings or Handbrake to numpad8,
+restoring camera defaults must not silently create a duplicate. Cover both the
+individual and batch paths in consumer interaction fixtures.
+
+Persist a binding/calibration proposal before replacing its effective assignment.
+If the save fails, keep the last working assignment and a visible Retry/Cancel
+route to the proposal. The same transaction rule applies to Clear and reset;
+an error label alone does not make a discarded proposal recoverable.
+
 Do not tune/reset while settings, capture or text input is active, after focus
 loss, or while the game/another camera writer owns the view. Wait for captured
 or held keys/buttons to be released before re-enabling shortcuts. Normal camera

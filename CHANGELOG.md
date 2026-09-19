@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Track the resumed seven-product UX completion and local deployment with exact
+  package, backup and settings-retention evidence. Keep installed state separate
+  from in-game interaction and physical-force acceptance.
+
 - Reconcile the consumer register/status tool with all seven products, explicit
   pin sources and OutRun's native/header override. Compare only used components,
   verify override hashes, and preserve local candidate provenance without
