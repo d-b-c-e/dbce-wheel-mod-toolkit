@@ -63,6 +63,9 @@ optional details; required setup must stay in Simple.
 **Close**, **Stop FFB**, save failure and current blocking errors stay visible in
 both views. A connected device or ready state needs one short status, not a
 permanent diagnostics dashboard. Stop FFB remains available on every page.
+An installed feature is **Available**, not proof the player's setup is **Ready**.
+With no device or required binding, Simple shows the specific next action even
+when the installed binary supports calibration and feedback.
 Ordinary control-level default restoration remains beside its control in either
 view; moving broader reset tools to Advanced does not remove that affordance.
 

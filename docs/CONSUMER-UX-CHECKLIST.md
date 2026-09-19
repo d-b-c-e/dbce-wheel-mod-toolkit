@@ -84,7 +84,9 @@ or actions change:
 
 1. Install from its player ZIP into a clean fixture, then a supported real install.
 2. Find Wheel settings without opening developer docs; verify Simple Setup is the
-   fresh-config default. Stay in Simple to bind three axes, cancel a
+   fresh-config default. With no devices or required bindings, verify it shows
+   the next setup action rather than calling the player Ready merely because the
+   binary supports the feature. Stay in Simple to bind three axes, cancel a
    capture, save calibration, bind Pause and Change camera. Check left/right and
    released/full pedal values against effective game input.
    If the game has a handbrake, bind a separate analog device and a button;

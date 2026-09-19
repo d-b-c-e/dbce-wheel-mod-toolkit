@@ -1,10 +1,17 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, revised 2026-09-16 (initially 2026-09-13). This is the product standard for consuming mods,
+Baseline **UX-1**, clarified 2026-09-19 (Simple/Advanced revision 2026-09-16;
+initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
+
+The September 19 rollout clarifies actual host-content bounds, direct stock-input
+consumers and pointer cancellation, and the distinction between installed feature
+support and a connected, configured player setup. See the
+[deployment evidence](ux-audits/2026-09-19-deployment.md) for discovered gaps and
+the verification limits of each consumer; written guidance is not adoption proof.
 
 The 2026-09-16 revision adds [Simple and Advanced settings](CONSUMER-SETTINGS-VIEWS.md)
 (UX-01-S): Simple by default, complete basic setup there, and Advanced for detailed
@@ -101,6 +108,15 @@ show its value. Buttons name an action. State is visible in text, not color alon
 | Reset | **Reset FFB settings** / **Restore default binding** | An ambiguous global **Reset** next to a single row |
 | Successful persistence | `Saved` | A Save button that is unnecessary or leaves changes silently pending |
 | Unsupported | `Unavailable in this game: tyre temperature is not exposed.` | Plausible zero readings or permanently disabled unexplained widgets |
+| Installed capability | `Controls support: Available` | `Ready to drive` when only the binary's capabilities were checked |
+
+Keep capability, saved setup and current device readiness distinct. An installed
+calibration feature does not mean a wheel is connected or its axes are bound.
+Use **Choose your steering wheel**, **Not bound**, or **Saved device disconnected**
+for the next required action. Reserve **Ready to drive** for the consumer's checked
+required controls and device availability; optional hardware must not block it.
+If availability has not been checked, say **Device saved**, not **Connected**.
+These statuses do not claim attended driving or physical force validation.
 
 An Off/On pair has fixed left-to-right order, a clear selected outline/fill, and
 a text value that remains legible when disabled. A platform-native switch may

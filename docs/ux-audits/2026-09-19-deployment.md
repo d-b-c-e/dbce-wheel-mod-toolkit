@@ -19,11 +19,11 @@ tracked separately; a file copy does not establish input, camera or force behavi
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
 | Woden Rally Edge | Source `141bbab`, 0.2.9 remains installed; 0.2.10 startup guard correction in progress | Nine installed payloads and four restored owner files independently verified; prior docs `68efd73` local | F6/Advanced/capture Cancel/close passed. Final source audit confirms unguarded MOTD any-key and title Return routes; correction/retest assigned |
-| iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.6 failed actual runtime and was rolled back; 0.4.7 stationary-pointer recovery check queued |
+| iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.7 native Free Play/Back/F6 passed without the prior immediate exception; user stopped desktop interaction before final stationary-pointer check, so recovery remains unverified |
 | Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified; final docs `1a72fd9` pushed | Actual 4K default host/all six tabs, Simple pages, camera nested scroll and timed Bind/Escape cancellation passed; full Advanced/scale/hardware matrix remains pending |
 | #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
-| OutRun2006Tweaks-FFB | Stage 6 source `d3d7f23`; direct native text-entry guard and read-only diagnostics | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Stage 5 actual 4K panel/F6/pages/capture Cancel passed. Stage 6 vs pre-session title-input comparison pending; player cameras unverified |
-| Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified | External setup/native calibration exception; physical/game acceptance pending |
+| OutRun2006Tweaks-FFB | Stage 6 source `d3d7f23`; direct native text-entry guard and read-only diagnostics | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual 4K panel/capture Cancel/diagnostics passed. Both new and pre-session builds failed title Return before F6; cause and player cameras remain unverified |
+| Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified; current-scope docs `cb7a452` pushed | External setup/native calibration exception; physical/game acceptance pending |
 | Cruis'n Collection | Package source `6c4407e`, main merge `1e6b4ec`, native `707fd6a` | Final source launcher and reviewed native deployed; 26 source files, 43 owner states and three native receipt/runtime files independently verified | Final frozen UI check queued. Software stop-order fixture passed; physical output pending. Accepted renderer and World menu-force exception preserved |
 
 ## Deployment evidence required per product
@@ -522,3 +522,69 @@ without FFB disables it only for that launch, even with an inherited enabled
 environment, and preserves saved On and tuning. All common launch routes use that
 policy. The frozen frontend's actual isolated-configuration check remains queued;
 software stop-order and calibration fixtures do not establish physical feel.
+
+OutRun's stage-6 comparison completed and restored at **16:13:42 Central**.
+Both the new proxy and the exact known pre-session proxy failed two Return
+attempts from the settled title before F6 and subsequently entered attract mode.
+The new build's actual 4K Help showed 31,464 input queries: 15,896 forwarded,
+15,568 blocked for the open UI, and **zero blocked for release**. Two Return
+messages were counted, but the specifically instrumented Confirm-edge query was
+never called. That rules out a stuck release latch in the observed query history;
+it does not explain other native aggregate inputs or establish tool-input delivery
+to every game path. Both logs recorded new input Off and all three vibration
+settings zero; the native output DLL was absent during both runs. Both exited
+normally. The coordinator verified seven restored settings/runtime hashes, absent
+test user/layout overrides and an empty SaveGame against
+`E:/Source/OutRun2006Tweaks-FFB/build/camera-live-stage6/restore-verification.json`.
+No camera classification, speculative hooks or physical output were attempted.
+
+Woden's final audit confirms two additional native input consumers: DailyMessage
+reads legacy anyKey after readiness, and TitleScreen reads Return independently
+of the guarded menu system. The title's timed attract transition is a separate
+autonomous path. The observed MOTD dismissal is consistent with the anyKey gap,
+but its exact triggering event was not logged. The 0.2.10 successor therefore
+guards these specific consumers and observes opening intent before they execute,
+with shared per-frame input polling and delayed-IMGUI deduplication. Its candidate
+passes 35 regression suites/942 assertions and 532 actual-source UI assertions;
+independent review, packaging and the actual startup check remain separate gates.
+Details: `E:/Source/woden-rally-edge-wheel/docs/STARTUP-INPUT-ISOLATION.md`.
+
+Woden's independent review subsequently closed without a concrete blocker in all
+nine recorded source hashes (manifest SHA-256
+`81A13D919817A941BEBF9F6A37B47E7057C6E7A98BB1736622D12F8EDC016DAE`).
+Missing/unplugged readers leave closed-panel keyboard startup usable; early polling
+does not enumerate or open devices. The exact generated native callbacks and
+legacy GetKeyDown wrapper were checked. These are source/ABI findings, not live
+Harmony acceptance. The distinct 0.2.10 package is being installed while desktop
+interaction is paused.
+
+At approximately **16:21 Central**, a physical Escape stopped computer-use input
+during iRacing's 0.4.7 test. All further desktop interaction and queued game tests
+were paused. The native Free Play target, Back and F6 opening had succeeded, with
+no immediate ResetPointers exception; the next panel click and final stationary
+native click were not completed. This is partial evidence only. The game was
+absent at the coordinator's 16:22:14 read-only process check, allowing exact
+filesystem restoration without resuming desktop control. No force or race was
+part of that run.
+
+Cruis'n's final 6c4407e frozen frontend was exercised at 3840x2160 with a private
+configuration and MIDV_FFB=0. The unresolved-device launch warning, Cancel back to
+menu, mouse Controls opening, F6 modal cancellation, F8 saving Off while retaining
+strength 50, and focus loss/return preserving Off were observed. Both the frozen
+and source providers returned no devices: actual axis preview/calibration and
+in-game F8 delivery remain unqualified. The original screenshots exist only as
+inline computer-use images; local `observed.json` and before/after private INIs
+are retained at
+`E:/Source/cruisn-collection-ux-review/results/diagnostics/ux-20260919/live-final-6c4407e/`.
+The run found a misleading **Ready for next launch** message describing native
+capability beside an empty device list. A wording-only frontend successor changes
+that row to **Controls support: Available** with the required next setup action;
+the native 707 candidate is unchanged. The shared wording/view/checklist guidance
+now explicitly distinguishes installed capability, saved setup and checked device
+readiness. The earlier live run is not relabeled as a run of the successor.
+
+The final documentation audit also corrected outdated opening summaries in the
+Cruis'n and Milestone adoption reports. Milestone docs `cb7a452` now lead with the
+deployed Gravel-only scope and **Save binding** boundary, while preserving dated
+hardware evidence and marking the original pending work as historical. No package,
+native binary or owner setting changed in that documentation correction.

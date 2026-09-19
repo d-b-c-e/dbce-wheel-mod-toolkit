@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Distinguish installed feature support from configured, connected device
+  readiness in Simple. An available calibration implementation must not label
+  an empty device list Ready to drive; preserve a clear next setup action.
+
 - Clarify stock-menu input isolation and held navigation release, including the
   actual control aggregation. Require shared-primary pedal roles to become
   neutral on failed reads; retain device identity through role changes.
