@@ -18,7 +18,7 @@ tracked separately; a file copy does not establish input, camera or force behavi
 
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
-| Woden Rally Edge | Runtime `25797b3`, 0.2.10; installer revision 3 `e5da2d5` | Deployed; nine payloads, four owner files, final ZIP and its installer independently verified | Earlier 0.2.9 F6/Advanced/capture Cancel passed. 0.2.10 startup guards passed source/ABI review and fixtures; actual startup/title retest not run after user paused desktop input |
+| Woden Rally Edge | Runtime `25797b3`, 0.2.10; installer revision 3 `e5da2d5` | Deployed; nine payloads, four owner files, final ZIP and its installer independently verified; final docs `8b070eb` pushed | Earlier 0.2.9 F6/Advanced/capture Cancel passed. 0.2.10 startup guards passed source/ABI review and fixtures; actual startup/title retest not run after user paused desktop input |
 | iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.7 native Free Play/Back/F6 passed without the prior immediate exception; user stopped desktop interaction before final stationary-pointer check, so recovery remains unverified |
 | Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified; final docs `1a72fd9` pushed | Actual 4K default host/all six tabs, Simple pages, camera nested scroll and timed Bind/Escape cancellation passed; full Advanced/scale/hardware matrix remains pending |
 | #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
@@ -683,3 +683,8 @@ does not add its future wheel, FFB or camera implementation. Milestone's support
 deployment is Gravel's external setup flow with game-owned calibration/cameras/FFB.
 The separate Cruis'n rendering replay remains prepared-only. Art and legacy
 Cruis'n setups require explicit one-time device confirmation before FFB resumes.
+
+Final consumer documentation checkpoints are pushed: Woden `8b070eb`, iRacing
+`ecaf0e8`, Art `1a72fd9`, Drive `7b3ac18`, OutRun `cb0f0f1`, Milestone `cb7a452`,
+and Cruis'n `282b151`. These documentation revisions are separate from the
+runtime/package revisions in the table and receipts above.
