@@ -148,6 +148,13 @@ Exercise fresh install, update with personal bindings, unsupported/conflicting
 install, failed update/recovery, and uninstall with a second mod present in a
 disposable fixture. Verify first launch and setup in the game's actual runtime
 separately. Fixture success does not prove text readability, live input or feel.
+Exercise the actual player entry point with its normal omitted arguments, from
+another working directory and with spaces in package/game paths. On Windows,
+include built-in Windows PowerShell 5.1 when the batch launcher invokes
+`powershell.exe`; a test that always supplies the package root cannot establish
+that its default works. Preserve and check the child process exit code through
+any batch pause, including an invalid/tampered-package failure. Do not replace
+this check with extracted script text or a developer-only invocation.
 Check Simple on fresh installs and upgrades without a view preference, including
 upgrades with an existing custom tune. Verify the explicit view choice persists
 and that changing views preserves all effective settings.

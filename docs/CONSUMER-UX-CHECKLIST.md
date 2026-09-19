@@ -83,6 +83,9 @@ With each game in turn, perform the same sequence and record where instructions
 or actions change:
 
 1. Install from its player ZIP into a clean fixture, then a supported real install.
+   Invoke the shipped launcher with normal defaults, paths containing spaces and
+   another working directory; verify success and failure exit codes in the
+   interpreter the launcher actually uses.
 2. Find Wheel settings without opening developer docs; verify Simple Setup is the
    fresh-config default. With no devices or required bindings, verify it shows
    the next setup action rather than calling the player Ready merely because the

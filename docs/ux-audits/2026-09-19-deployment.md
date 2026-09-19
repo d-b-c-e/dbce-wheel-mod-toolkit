@@ -18,13 +18,13 @@ tracked separately; a file copy does not establish input, camera or force behavi
 
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
-| Woden Rally Edge | Source `141bbab`, 0.2.9 remains installed; 0.2.10 startup guard correction in progress | Nine installed payloads and four restored owner files independently verified; prior docs `68efd73` local | F6/Advanced/capture Cancel/close passed. Final source audit confirms unguarded MOTD any-key and title Return routes; correction/retest assigned |
+| Woden Rally Edge | Runtime `25797b3`, 0.2.10; installer revision 3 `e5da2d5` | Deployed; nine payloads, four owner files, final ZIP and its installer independently verified | Earlier 0.2.9 F6/Advanced/capture Cancel passed. 0.2.10 startup guards passed source/ABI review and fixtures; actual startup/title retest not run after user paused desktop input |
 | iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.7 native Free Play/Back/F6 passed without the prior immediate exception; user stopped desktop interaction before final stationary-pointer check, so recovery remains unverified |
 | Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified; final docs `1a72fd9` pushed | Actual 4K default host/all six tabs, Simple pages, camera nested scroll and timed Bind/Escape cancellation passed; full Advanced/scale/hardware matrix remains pending |
 | #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
-| OutRun2006Tweaks-FFB | Stage 6 source `d3d7f23`; direct native text-entry guard and read-only diagnostics | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual 4K panel/capture Cancel/diagnostics passed. Both new and pre-session builds failed title Return before F6; cause and player cameras remain unverified |
+| OutRun2006Tweaks-FFB | Runtime stage 6 `d3d7f23`; installer-only successor `8159184` | Deployed through corrected default player installer; two runtime DLLs, five owner files and final ZIP independently verified | Actual 4K panel/capture Cancel/diagnostics passed. Both new and pre-session builds failed title Return before F6; cause and player cameras remain unverified |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified; current-scope docs `cb7a452` pushed | External setup/native calibration exception; physical/game acceptance pending |
-| Cruis'n Collection | Package source `6c4407e`, main merge `1e6b4ec`, native `707fd6a` | Final source launcher and reviewed native deployed; 26 source files, 43 owner states and three native receipt/runtime files independently verified | Final frozen UI check queued. Software stop-order fixture passed; physical output pending. Accepted renderer and World menu-force exception preserved |
+| Cruis'n Collection | Final frontend source `b8d2c49`, deployed merge `753b2de`, native `707fd6a` | Deployed; 26 source Git objects, 43 owner states, three runtime/receipt files, ZIP and frozen frontend independently verified; docs `282b151` pushed | Prior 6c4407e actual 4K warning/Cancel/F8/focus checks passed; final wording successor has 29 setup/32 layout checks. Device enumeration was empty, so physical preview/output remain unverified |
 
 ## Deployment evidence required per product
 
@@ -588,3 +588,98 @@ Cruis'n and Milestone adoption reports. Milestone docs `cb7a452` now lead with t
 deployed Gravel-only scope and **Save binding** boundary, while preserving dated
 hardware evidence and marking the original pending work as historical. No package,
 native binary or owner setting changed in that documentation correction.
+
+Cruis'n's final wording successor is source
+`b8d2c4926aa5e3fa89c0313796a9e2f9fe666b83`, package
+`E:/Source/cruisn-collection-ux-review/build/CruisnCollection-dev-20260919-162140.zip`,
+SHA-256 `adbd5854869b5fd36da3347ca79e34082681c41c05457fcd724d5d0ca441f1b9`.
+Frozen frontend SHA-256
+`10058cc02de6b2e78a95511a582a1a01f43754e6c381b1c7930ef296df6aae21`.
+Main merge `753b2de` deploys the source route; current documentation is `282b151`.
+Twenty-nine setup tests, 32 CPU-rendered 720p/4K layouts, package/default checks
+and frozen fresh/legacy/saved-Off checks passed. The coordinator independently
+verified all 26 recorded source Git objects, 43 owner states, three native files,
+ZIP and the frontend inside that ZIP at 16:28:49 Central against
+`E:/Source/cruisn-collection/results/diagnostics/ux-20260919-deployment-v2/verified-wording.json`.
+The native runtime remains exactly the reviewed 707 candidate. No further desktop
+interaction followed the user stop. The separate rendering lifetime replay is
+prepared only and was not granted a run as part of this UX completion.
+
+iRacing cleanup completed after the game closed: the coordinator independently
+verified all six original configuration/receipt hashes and eight installed 0.4.7
+payloads at 16:23:51 Central. Temporary FFB was Off and DevInputCommandFile was On;
+there was no force probe, race or recording. The full original config was restored
+byte-for-byte, including removal of newly saved default keys. Final docs `ecaf0e8`
+are clean and pushed. `dist/smoke-0.4.7-20260919/smoke-receipt.json` explicitly
+records the interruption and unfinished stationary-click check. Captured shutdown
+also showed no prior ResetPointers/callback exception; that does not replace the
+unfinished interaction test.
+
+### Final Windows player-installer correction
+
+The real Woden Windows PowerShell 5.1 `-File` invocation exposed an omitted-root
+failure before any game writes. Under its advanced-script parameter binding,
+`PackageRoot = $PSScriptRoot` evaluated empty even though `$PSScriptRoot` was valid
+in the body. An actual on-disk minimal probe confirmed the distinction; this was
+not an extracted-scriptblock artifact. Earlier fixtures always passed the root.
+Moving fallback resolution into the body fixes that route. Independent review
+closed production hash `59EA5636E55C4B4E3C894CE22A729457A4578BA2FAED620FA6AAC1EFD42402BD`
+and the actual-batch fixture. All 84 checks passed with spaced package/game paths,
+another working directory and an omitted package-root argument. The failed ZIP
+remains immutable; the runtime is unchanged by installer revision 3.
+
+A targeted family scan found the same pattern in OutRun. The untouched stage-6
+package reproduced an empty LiteralPath failure under real PS5.1 without changing
+the target. Its correction resolves the root in the script body and saves the
+batch child's exit code before pause. Six actual player workflows passed,
+including omitted-root install/restore, the batch prompt with no arguments,
+explicit override, a locked second DLL causing rollback, and tamper rejection
+with a nonzero batch exit. They passed again against the copied final package.
+The earlier retention/backup tests also passed; no native rebuild was needed.
+
+Final OutRun package:
+`E:/Source/OutRun2006Tweaks-FFB/build/packages/wheel-settings-20260919-stage6-installer1.zip`,
+SHA-256 `E0F62FAD11EA6BD49DEC69CB9AF393A63FCEF4627E98F2619470AFAF372511E5`.
+Runtime source remains `d3d7f2361813b393f137fbdb3be17f4fae825d40`; installer/packaging
+source is `81591845ccfcd50c3630477c45e330373ae742ca`, recorded separately in the
+manifest and installation receipt. The actual closed-game install with omitted
+package root succeeded at 16:35:11 Central. The coordinator verified both installed
+DLLs, all five owner files and the ZIP against
+`E:/Source/OutRun2006Tweaks-FFB/build/deployment-stage6-installer1-result.json`.
+Backup: `.wheel-settings-backups/20260919-213510-975-baa2df1d/receipt.json` beneath
+the recorded game directory. The shared setup/checklist now requires testing the
+real player entry point and its defaults, interpreter, paths and exit behavior.
+
+Final Woden package:
+`E:/Source/woden-rally-edge-wheel/dist/WodenRallyEdgeWheel-0.2.10-installer-r3-e5da2d5.zip`,
+SHA-256 `06976b0f9d06caded3faace123fe76342e4f3aa971db4cbee25a278129dfdee8`.
+Runtime source `25797b3f3cacb4a2ddaf671a7165af097abf4633`; installer source
+`e5da2d5b1c48cb6e9bf3adbece9ea9d57bd54858`. The default-root PS5.1 installation
+succeeded at **16:35:30 Central**. The coordinator verified all nine installed
+payloads, four unchanged owner files, the ZIP and the installer inside it, plus
+the actual version/revision-3 receipt and backup at 16:36:55. Evidence:
+`E:/Source/woden-rally-edge-wheel/artifacts/deployment-0.2.10/verification.json`.
+Backup: `WodenWheelBackups/before-install-20260919-163528-d7fe2d2b` under the game.
+The package contains 15 files with 14 manifest entries. All 35 regression suites /
+942 assertions, 532 source UI assertions and 84 installer checks passed. Four older
+ZIPs remain unchanged. The game stayed closed; **0.2.10 live startup/title behavior
+has not been tested** after the desktop pause.
+
+## Final handoff boundary
+
+All seven consumers have built local artifacts and verified local deployments.
+The shared standards, consumer guides and adoption records distinguish source,
+fixture, package, installed and actual-game evidence. Owner settings and existing
+component/renderer overrides were retained; temporary test configurations were
+restored. No public release was created by this rollout. Future desktop tests
+remain paused after the user's Escape stop; no game is intentionally left open.
+
+Remaining acceptance is explicit: attended wheel/calibration/FFB checks across
+the family, Woden 0.2.10 startup/title dispatch, iRacing's final stationary click,
+Drive's unreached Welcome screen, and OutRun's title-input cause/player cameras.
+Art's full resolution/scale/Advanced matrix and Cruis'n physical previews also
+remain unverified. Drive is still a research/telemetry foundation; this UX rollout
+does not add its future wheel, FFB or camera implementation. Milestone's supported
+deployment is Gravel's external setup flow with game-owned calibration/cameras/FFB.
+The separate Cruis'n rendering replay remains prepared-only. Art and legacy
+Cruis'n setups require explicit one-time device confirmation before FFB resumes.

@@ -24,6 +24,11 @@ The previous release handoff below remains historical context.
 ## Consumer deployment coordination, 2026-09-19
 
 The owner authorized completing and deploying the seven consumer UX updates.
+All seven now have built artifacts and verified local deployments. Consumer
+documentation and the Simple/Advanced/readiness/install guidance are updated.
+Desktop testing is paused after the user's Escape stop; all games are closed
+and temporary test configurations restored. Woden's latest startup guards,
+iRacing's final stationary click and attended hardware acceptance remain unverified.
 See the [deployment ledger](ux-audits/2026-09-19-deployment.md) for exact package,
 installation and verification status. The September 17 build hold has expired;
 no live-game slot follows from it. Preserve this checkout's independent runtime

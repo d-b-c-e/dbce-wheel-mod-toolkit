@@ -29,6 +29,8 @@ Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,
 upgrade rules and acceptance checks. The [consumer deployment ledger](docs/ux-audits/2026-09-19-deployment.md)
 tracks implementation, installed packages and remaining live checks separately.
+All seven consumers have local deployed builds as of September 19; the ledger
+retains the specific game/physical acceptance still outstanding.
 The [interactive reference](docs/reference/wheel-settings.html) provides a common
 visual and interaction target; see its [preview guide](docs/reference/README.md).
 It is an offline browser demo, with no game connection or force output.
