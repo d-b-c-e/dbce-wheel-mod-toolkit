@@ -18,13 +18,13 @@ tracked separately; a file copy does not establish input, camera or force behavi
 
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
-| Woden Rally Edge | Source `141bbab`, 0.2.9; 35 suites/942 assertions, 506 UI assertions, 81 installer checks | Deployed; nine payloads and four restored owner files independently verified. Final docs `68efd73` local, unpushed | F6/Advanced/capture Cancel/close handoff passed without force. Startup MOTD opening edge and physical interaction remain unverified |
-| iRacing Arcade | Source `299a85e`, 0.4.6; 279 consumer, 182 overlapping core, 10 config, 56 installer checks | Deployed; eight payloads, five owner files and ZIP independently verified | 0.4.5 actual module confirmed; stationary-pointer reset correction reviewed in 0.4.6, live retest queued |
-| Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified | RC10 stock keyboard isolation passed; RC12 addresses actual host width and custom-scale rows. Final visual/capture retest queued |
-| #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified | 0.1.5 4K Simple/Advanced/F6 passed; reviewed 0.1.6 Welcome shortcut correction awaits actual retest. Wheel/FFB/added cameras remain future capabilities |
-| OutRun2006Tweaks-FFB | Stage 5 source `3d0b51d`; Steering retarget/first-assignment conflicts corrected | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Actual 4K panel/F6/pages passed. Stock title input did not respond before first F6 either; cause and player cameras unverified |
+| Woden Rally Edge | Source `141bbab`, 0.2.9 remains installed; 0.2.10 startup guard correction in progress | Nine installed payloads and four restored owner files independently verified; prior docs `68efd73` local | F6/Advanced/capture Cancel/close passed. Final source audit confirms unguarded MOTD any-key and title Return routes; correction/retest assigned |
+| iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.6 failed actual runtime and was rolled back; 0.4.7 stationary-pointer recovery check queued |
+| Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified; final docs `1a72fd9` pushed | Actual 4K default host/all six tabs, Simple pages, camera nested scroll and timed Bind/Escape cancellation passed; full Advanced/scale/hardware matrix remains pending |
+| #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
+| OutRun2006Tweaks-FFB | Stage 6 source `d3d7f23`; direct native text-entry guard and read-only diagnostics | Deployed; two runtime DLLs, five owner files and ZIP independently verified | Stage 5 actual 4K panel/F6/pages/capture Cancel passed. Stage 6 vs pre-session title-input comparison pending; player cameras unverified |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified | External setup/native calibration exception; physical/game acceptance pending |
-| Cruis'n Collection | Frontend source `79a192b`, integrated into master `eb78f4f`; final controls integration ongoing | Source launcher deployed; seven source files and 22 owner files verified. Native strict identity/calibration and frontend integration not yet deployed | Device-free native stop replay passed; physical output and final integrated UI pending. Accepted renderer and World menu-force exception preserved |
+| Cruis'n Collection | Package source `6c4407e`, main merge `1e6b4ec`, native `707fd6a` | Final source launcher and reviewed native deployed; 26 source files, 43 owner states and three native receipt/runtime files independently verified | Final frozen UI check queued. Software stop-order fixture passed; physical output pending. Accepted renderer and World menu-force exception preserved |
 
 ## Deployment evidence required per product
 
@@ -445,3 +445,80 @@ physical cancellation timing. The frontend has guided calibration and a strict
 FFB picker; final packaging/deployment awaits visible legacy-device readiness
 and the explicit one-launch Continue without FFB path. The owner settings and
 accepted renderer remain unchanged while that integration completes.
+
+### Final deployment and live-check follow-ups after 16:00 Central
+
+iRacing **0.4.6 failed its actual stationary-pointer check**: ResetPointers threw
+NullReferenceException after the saved pose was written back, leaving stock input
+blocked. Normal window close and exact restoration succeeded; the packaged 0.4.5
+rollback was installed and independently verified before further work. The failed
+artifact and `dist/smoke-0.4.6-20260919` evidence remain intact. Independent analysis
+of the exact installed Il2CppInterop DLL found that the generated `firstValue`
+getter boxes the value twice. Fixing only its setter, as the earlier review did,
+was insufficient. **0.4.7** reads through the runtime-invoke indexer, validates the
+native pointer record, then uses the reviewed explicit native-value setters.
+Source `f213a4dc2aec3686e1340876d6c0b9eae6d5ce51`; ZIP SHA-256
+`206FA70B85CB709355C6499C9425375153ABE30ADA85CCC87602ECD7827C39AF`.
+All 279 consumer, 182 core, 10 configuration and 56 installer checks passed;
+281 package files were checked. The coordinator independently verified eight
+installed payloads, five owner files, eight rollback payloads and the ZIP against
+`E:/Source/iracing-arcade-wheel/dist/deployment-0.4.7-20260919-160659/deployment-receipt.json`.
+Fourteen bindings survive; docs `ebbd813` are pushed. Actual 0.4.7 stationary-pointer
+recovery still requires the queued test; offline fixtures did not prove 0.4.6 safe.
+
+Art **RC12** completed two bounded actual 3840x2160 checks. The preserved default
+UMM host showed readable header, Stop/Close and all six tabs without horizontal
+clipping. Setup, Controls, FFB, Telemetry and Help were visited. The second run
+verified nested camera scrolling and Bind followed by Escape at 8218 ms, before
+the ten-second timeout: the panel stayed open, native Career selection did not
+change and the original Up:T binding survived. Earlier untimed/late attempts are
+inconclusive, not passes. Advanced Cameras' top was readable; the entire Advanced
+matrix, other resolutions/scales and physical calibration remain unverified.
+Normal Quit and exact restoration completed at 16:05:25 Central. The coordinator
+verified all sixteen protected hashes against
+`E:/Source/art-of-sim-rally-ux/results/ux-rc12-smoke-74c19cbf1bf5462ead1dad05bbdaff67/receipt.json`.
+Evidence is copied into the main repo; final docs `1a72fd9` are pushed. The installed
+RC12 artifact is unchanged. The preserved legacy FFB name/index lacks a stable
+GUID: the player must choose **Use steering wheel** or explicitly reselect the
+FFB device once before driving. Existing strength and crash/landing tunes survive.
+
+OutRun **stage 6**, source `d3d7f2361813b393f137fbdb3be17f4fae825d40`, closes a
+confirmed native WM_CHAR text-entry path that bypassed the panel's normal input
+guard. ImGui receives the character first; stock delivery remains blocked through
+the held/queued input until a fresh unblocked keydown. Normal lifecycle messages
+remain available. Advanced Help exposes read-only dispatch counters. Four actual
+production fixtures and the x86 Release build passed; source was independently
+reviewed. ZIP SHA-256
+`558834F7E82C843B923971698B6CA8D737A652B5B526984DCBD493095136FDCC`;
+installed proxy `61B701FD7899AAD693FDC37A7D5D2A873967C4747D236C26529D9EA5B34487DF`.
+The coordinator verified two DLLs, five owner files, ZIP and backup against
+`E:/Source/OutRun2006Tweaks-FFB/build/deployment-stage6-result.json`.
+The separately pinned native output component is unchanged. A two-run comparison
+with the known pre-session proxy is queued, with output disabled and the exact
+native output DLL temporarily absent in both runs. The baseline is known local
+provenance, not independently attested as an upstream release.
+
+Cruis'n's final package is
+`E:/Source/cruisn-collection-ux-review/build/CruisnCollection-dev-20260919-160053.zip`,
+SHA-256 `f6bf2ef6a4bd2f74473ea7d871a4e7b1c6514a3b74bf28c7c527bcdb69d95653`,
+source `6c4407e80a95a1e21318dfcd78898ea118848fad`. It is integrated into main
+`1e6b4ecc25ae7606d757edd353d8f189009878d8`; final deployment docs `882c9ad` are pushed.
+The existing Stream Deck launcher still enters the main source checkout, and
+`E:/Source/mame-src/vunit.exe` now matches the reviewed native `707fd6a` candidate
+above. The coordinator independently verified 26 installed source hashes,
+43 unchanged owner states, all three native runtime/receipt hashes, the ZIP,
+launcher wrapper and retained force profiles/dependencies against
+`E:/Source/cruisn-collection/results/diagnostics/ux-20260919-deployment-v2/verified.json`
+and its `before.json`. Candidate-versus-main CRLF differences are explicitly
+recorded; matching Git content does not imply identical bytes. The personal MAME
+source remains `4df727d`; its unrelated graphics candidate was not deployed.
+
+The Simple Controls workflow now provides device/axis selection, calibration,
+preview, Save/Cancel/Retry/Clear and a strict FFB dropdown. Existing legacy device
+names are not silently promoted to stable identities: **Choose your steering
+wheel** / **Confirm FFB device** explain what is missing. If saved FFB is On but
+unresolved, launch offers Configure, Continue without FFB, or Cancel. Continuing
+without FFB disables it only for that launch, even with an inherited enabled
+environment, and preserves saved On and tuning. All common launch routes use that
+policy. The frozen frontend's actual isolated-configuration check remains queued;
+software stop-order and calibration fixtures do not establish physical feel.
