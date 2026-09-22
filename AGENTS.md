@@ -88,6 +88,9 @@ goes in a clearly named sub-package.
   navigation and workflows across games; record concrete game constraints as
   exceptions. The toolkit does not yet ship a common UI/calibration library,
   and a written standard is not evidence of consumer adoption.
+  UX-03-G requires bounded binding groups, local edit instructions and a complete
+  actionable group in the initial Controls viewport. Verify the actual game host;
+  a page-heading screenshot or browser reference does not establish acceptance.
   The 2026-09-14 revision requires analog handbrake axis binding/calibration
   (with an explicit digital-game fallback when necessary) and an FFB device
   dropdown defaulting to the saved Steering device. Retain explicit FFB overrides;

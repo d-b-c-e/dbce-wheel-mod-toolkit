@@ -21,6 +21,16 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Art visual hierarchy follow-up, 2026-09-21
+
+Owner feedback and an independent review of Art RC12 source/retained screenshots
+found ambiguous binding ownership and too little actionable body space in Simple.
+[UX-03-G](CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g) now specifies
+bounded groups, local instructions, clear disclosure controls and useful initial
+viewport checks. See the [review](ux-audits/2026-09-21-art-visual-hierarchy.md).
+Art's implementation/deployment is recorded in its own review and deployment log;
+new live-game acceptance is pending. Other consumers are not newly certified.
+
 ## Consumer deployment coordination, 2026-09-19
 
 The owner authorized completing and deploying the seven consumer UX updates.

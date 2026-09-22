@@ -1,6 +1,6 @@
 # Consumer UX audit and acceptance checklist
 
-Baseline **UX-1**, revised 2026-09-16. Copy the report template below into the consuming
+Baseline **UX-1**, clarified 2026-09-21. Copy the report template below into the consuming
 repo when adopting [the standard](CONSUMER-UX.md) and
 [setup contract](CONSUMER-SETUP.md). Keep source review, fixture checks, visual
 inspection and attended hardware evidence separate.
@@ -15,7 +15,7 @@ successful runtime behavior.
 
 ```text
 Consumer / game:
-Audit date / UX baseline revision: YYYY-MM-DD / UX-1 revised 2026-09-16
+Audit date / UX baseline revision: YYYY-MM-DD / UX-1 clarified 2026-09-21
 Guidance commit/hash and any local owner clarifications:
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
@@ -35,6 +35,7 @@ No-touch scope (other active work or installations):
 | UX-02 | Explicit label/value Off/On controls, common action names, units, readable device labels, scoped reset wording | String/source review + visual inspection |
 | UX-03 | Opaque readable layout within the actual host content rectangle, stable navigation, unified scale, long names, keyboard focus, no stock pointer/submit/navigation/direct-shortcut dispatch through the panel; held controls release and queued pointer gestures cancel before handoff; clean cursor/pause restoration | 720p and high-DPI/4K views at actual host size + input aggregation and stock/first-use screen opening/close interaction |
 | UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect and shared-primary roles become neutral on failed reads | Source + calibration/persistence/shared-device loss tests + attended input |
+| UX-03-G | Each binding's name, assignment, actions and active editor form one bounded group; target remains clear when wrapped or partly scrolled; compact header and local help leave useful body space; disclosures differ from runtime toggles | Actual default-host Controls screenshot with one complete actionable group; Setup meters/next action without scrolling; narrow/custom-scale, long-name, error and edit screenshots. Source/design fixtures alone remain Partial |
 | UX-04-H | Bind starts capture directly; provisional analog handbrake calibration with visible inversion/deadzone/0–100%; cancel preserves effective old input, independent additive button/axis rows; progressive game route or labeled digital fallback | Exact binding walkthrough + calibration/persistence fixtures + final-input evidence; no exclusive mode saved before successful calibration |
 | UX-05 | Clear Off/Ready/Inactive/Active/Error/Stopped states; visible Stop FFB + F8; strict selection, zero during setup, latched panic and ramped normal recovery | Policy/lifecycle tests + attended low-force check |
 | UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves saved Off and normal driving gates |

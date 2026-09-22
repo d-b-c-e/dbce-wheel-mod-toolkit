@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Clarify binding ownership and visual hierarchy (UX-03-G) following Art's
+  cluttered Simple panel: bounded groups, compact routine status, local edit
+  instructions, clear disclosures and complete actionable viewport evidence.
+
 - Distinguish installed feature support from configured, connected device
   readiness in Simple. An available calibration implementation must not label
   an empty device list Ready to drive; preserve a clear next setup action.

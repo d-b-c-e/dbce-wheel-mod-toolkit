@@ -15,6 +15,12 @@ and Reset browser demo affect only that storage.
 
 ## Reference decisions
 
+The 2026-09-21 [grouping clarification](../CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
+also applies when translating this reference into a limited game-mod host.
+Retain row boundaries and action ownership as rows wrap. The browser's spacious
+viewport does not prove that an actual UMM window shows an actionable group.
+The historical browser verification below predates this clarification.
+
 - Simple opens on Setup by default. The stable View selector, six core pages,
   Close and Stop FFB remain visible; Driving appears only in Advanced.
 - The same data backs both views. Advanced keeps the basic controls first and

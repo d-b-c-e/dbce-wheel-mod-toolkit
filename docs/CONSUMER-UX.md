@@ -1,11 +1,15 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, clarified 2026-09-19 (Simple/Advanced revision 2026-09-16;
+Baseline **UX-1**, clarified 2026-09-21 (Simple/Advanced revision 2026-09-16;
 initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
+
+The September 21 [Art visual hierarchy review](ux-audits/2026-09-21-art-visual-hierarchy.md)
+adds **UX-03-G**: visibly group each binding and require useful content in the
+initial viewport. A short option list alone does not make Simple understandable.
 
 The September 19 rollout clarifies actual host-content bounds, direct stock-input
 consumers and pointer cancellation, and the distinction between installed feature
@@ -170,6 +174,45 @@ Align labels and values in consistent columns. Put **Bind** / **Clear** at the
 same position on each binding row. Long device names wrap or show their full
 value on focus; they must not hide action buttons. Use section headings and short
 help text instead of long paragraphs between every control.
+
+### Binding ownership and useful space — UX-03-G
+
+Each repeated binding is one visibly bounded group: **action name → current
+assignment / live value → actions → active editor**. Use a subtle surface,
+border or separator plus spacing; proximity alone is insufficient when rows
+wrap or scroll. A compact table row can satisfy this just as a card can. Keep
+the action name stronger than its secondary device/calibration detail. The
+container encloses Bind, Calibrate, Clear and any provisional Save/Cancel.
+One camera adjustment group contains both its keyboard and USB assignments.
+
+Use more space between groups than within them (target 16 versus 8 logical
+units, scaled with the content). Include container padding when deciding
+whether actions fit side by side. In stacked/wrapped layouts, repeat the target
+where necessary: **Bind steering**, **Calibrate steering**, **Clear steering**.
+Scrolling past part of a group must not make its buttons look owned by the
+next heading. Preserve full friendly names and disconnected/error messages.
+
+Keep routine save status compact, beside existing header controls where it fits.
+Put capture instructions beside the named control being edited. Long permanent
+instructions and raw calibration summaries must not displace the basic actions;
+show instructions during the operation and detailed summaries in Advanced.
+Essential preconditions must be visible before capture starts: for example,
+centre the wheel or release the pedal/button before clicking Bind when that
+click records the resting state. A later instruction cannot repair that sample.
+Do not hide errors, calibration controls, Save/Cancel or recovery to gain space.
+Use **Show shifter bindings** / **Hide shifter bindings** or a recognizable
+disclosure arrow for optional groups; expansion is navigation, not an Off/On
+setting. Keep an active editor visible until it is saved or cancelled.
+
+At the actual default host size and readable scale, Controls must initially
+show at least one **complete actionable binding group**, including its buttons.
+Setup must show its basic meters, next action and persistent controls without
+scrolling. A screenshot showing only page headings is not acceptance evidence.
+Check long names, partial scrolling, active edits, errors and narrow/custom
+scales too. Reducing header content must reclaim space in the page layout;
+do not leave the old fixed-height budget unchanged. Document host constraints
+and pending rendered checks explicitly. Source or browser fixtures cannot
+certify a game's actual renderer.
 
 Support mouse, keyboard focus and keyboard activation; wheel/pad navigation is
 the target once menu bindings are available. Show the focused control. If a

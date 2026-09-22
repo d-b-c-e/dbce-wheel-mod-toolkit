@@ -24,6 +24,8 @@ For a consistent experience across games, use the [shared UX standard](docs/CONS
 [install and first-drive guide](docs/CONSUMER-SETUP.md), and
 [consumer audit checklist](docs/CONSUMER-UX-CHECKLIST.md). They define the intended
 player experience; adoption and runtime verification remain per consumer.
+The [binding-group guidance](docs/CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
+defines visual ownership, local instructions and useful initial viewport checks.
 The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
 Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,

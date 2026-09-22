@@ -84,6 +84,12 @@ names, dense graphs or long explanatory paragraphs. Common button-binding groups
 start collapsed and are clearly labeled; the four main axis rows remain easy to
 find. Showing a group is navigation, not another operating mode.
 
+Apply [UX-03-G](CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g):
+bound each action and its editor visually, keep help local, and use recognizable
+Show/Hide disclosures. At the default host size, initial Controls must include
+one complete binding group with its actions. Fewer options do not compensate
+for ambiguous button ownership or a header that consumes the usable page.
+
 At 1280×720 and the default readable scale, the Setup introduction, next action
 and persistent controls must fit without scrolling. Its first screen must not
 present all bindings or the entire device inventory at once. Longer optional
