@@ -20,13 +20,23 @@ tracked separately; a file copy does not establish input, camera or force behavi
 |---|---|---|---|
 | Woden Rally Edge | Runtime `25797b3`, 0.2.10; installer revision 3 `e5da2d5` | Deployed; nine payloads, four owner files, final ZIP and its installer independently verified; final docs `8b070eb` pushed | Earlier 0.2.9 F6/Advanced/capture Cancel passed. 0.2.10 startup guards passed source/ABI review and fixtures; actual startup/title retest not run after user paused desktop input |
 | iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.7 native Free Play/Back/F6 passed without the prior immediate exception; user stopped desktop interaction before final stationary-pointer check, so recovery remains unverified |
-| Art of Sim Rally | Source `cbcf76c`, 0.2.6-rc.12; all sixteen RC gates passed | Deployed; six payloads, six retained owner/game files, ZIP and gate hashes independently verified; final docs `1a72fd9` pushed | Actual 4K default host/all six tabs, Simple pages, camera nested scroll and timed Bind/Escape cancellation passed; full Advanced/scale/hardware matrix remains pending |
+| Art of Sim Rally | Source `470e398`, 0.2.6-rc.13; all sixteen RC gates passed | RC13 grouping follow-up deployed September21 local; six payloads, second native DLL and six retained owner/game files verified; docs `7675ed2` | RC12 had limited actual 4K/menu/cancel checks. RC13 visual grouping has source/offline evidence only; its actual rendered and full scale/hardware matrix remain pending (KI-41) |
 | #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
 | OutRun2006Tweaks-FFB | Runtime stage 6 `d3d7f23`; installer-only successor `8159184` | Deployed through corrected default player installer; two runtime DLLs, five owner files and final ZIP independently verified | Actual 4K panel/capture Cancel/diagnostics passed. Both new and pre-session builds failed title Return before F6; cause and player cameras remain unverified |
 | Milestone Wheel Tools | Source `3545810`, 0.2.0; 140 UX + 81 installer checks in PS5.1 and PS7 | Deployed to Gravel; fourteen installed files and three owner files independently verified; current-scope docs `cb7a452` pushed | External setup/native calibration exception; physical/game acceptance pending |
 | Cruis'n Collection | Final frontend source `b8d2c49`, deployed merge `753b2de`, native `707fd6a` | Deployed; 26 source Git objects, 43 owner states, three runtime/receipt files, ZIP and frozen frontend independently verified; docs `282b151` pushed | Prior 6c4407e actual 4K warning/Cancel/F8/focus checks passed; final wording successor has 29 setup/32 layout checks. Device enumeration was empty, so physical preview/output remain unverified |
 
 ## Deployment evidence required per product
+
+Art's [September21 visual follow-up](2026-09-21-art-visual-hierarchy.md) supersedes
+its original rollout package. RC13 ZIP SHA-256 is
+`E9F37818C82D957DE67EC5E039BEF89AE6FDD55B872FFFB4397993E26297A058`.
+The exact gate and backup/install receipt are retained under
+`E:/Source/art-of-sim-rally/results/rc-0.2.6-rc.13-56173d7bf1914b7aaa76da395dbc7bbe/`
+and `results/ux-0.2.6-rc.13-install-f013528bf9c24b15bbf08ca587f0264e/`.
+Game target remains `D:/Program Files (x86)/Steam/steamapps/common/artofrally`.
+All 155 package/evidence files copied to main were hash-verified. No new live
+layout or physical-force acceptance is implied by this deployment.
 
 Record these in the consumer's adoption/deployment report and link the report here:
 

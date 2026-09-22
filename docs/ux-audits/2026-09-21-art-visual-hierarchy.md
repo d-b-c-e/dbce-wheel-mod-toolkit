@@ -25,3 +25,16 @@ its `docs/LOCAL-DEPLOYMENT.md`. A source review and offline checks can establish
 implementation, but **rendered acceptance remains pending** until the actual
 host shows the complete initial Controls group and Setup next action, with
 long names, active edits, errors, partial scrolling and custom scales checked.
+
+## Implemented and deployed follow-up
+
+Art source `470e398` implements the groups, local preconditions, compact header
+and explicit disclosures. Independent source review closed its findings. RC13
+passed all 16 local release gates and was installed with the game closed at
+2026-09-22 04:15:29 UTC (September 21 local). Its six mod files and second native
+copy match; six current owner/game files retain their pre-install hashes.
+Current settings, UMM preferences, toolkit `358add5` and probe0.2.5.4 are retained.
+The exact [consumer review](https://github.com/d-b-c-e/art-of-sim-rally/blob/main/docs/reviews/2026-09-21-visual-grouping.md)
+and [deployment record](https://github.com/d-b-c-e/art-of-sim-rally/blob/main/docs/LOCAL-DEPLOYMENT.md)
+separate source, package and installation evidence from the still-pending
+rendered checks (KI-41). This turn did not launch the game or apply force.
