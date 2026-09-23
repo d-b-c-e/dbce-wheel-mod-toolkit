@@ -1,6 +1,6 @@
 # Install to first drive: consumer guide
 
-Part of [UX-1](CONSUMER-UX.md), revised 2026-09-16. This is a release/installer contract
+Part of [UX-1](CONSUMER-UX.md), clarified 2026-09-22. This is a release/installer contract
 and a reusable player-guide template. It does not claim these installers or a
 shared setup wizard already exist. Replace examples with the consumer's verified
 names, defaults and capabilities; ship only instructions that its package supports.
@@ -72,11 +72,13 @@ because this mod uses it. Show what remains and how to reinstall.
 
 ## UX-11 — First use, without a manual beside the wheel
 
-Make **Simple → Setup** the first-use view/page. The header offers
+Make **Simple → Controls** the first-use view/page, or **Simple → Setup** when
+Setup provides a distinct guided workflow. Remove a duplicate overview. The header offers
 **View: [Simple] [Advanced]**; remember an explicit choice as specified in
 [UX-01-S](CONSUMER-SETTINGS-VIEWS.md). Complete the normal first-drive sequence
-entirely in Simple. On later opens, remember the last page and keep
-Setup easy to find. Do not force a wizard over every launch or assume one physical
+entirely in Simple. On later opens, remember the last page and keep a retained
+guided Setup easy to find. Migrate removed page identities without shifting
+surviving selections. Do not force a wizard over every launch or assume one physical
 device contains all pedals and controls.
 
 | Step | Player action | What the mod shows / checks |
@@ -103,7 +105,8 @@ The following text is a template, not a statement about every current release:
 > **Install:** Close [Game], extract [release ZIP], and run **Install.bat**.
 > Confirm the detected game folder. Launch the game normally.
 >
-> **Set up:** Press **F6** for Wheel settings. Start in **Simple → Setup**, then
+> **Set up:** Press **F6** for Wheel settings. Start in **Simple → Controls**
+> [or the consumer's distinct guided **Setup**, if provided], then
 > bind and calibrate Steering, Throttle and Brake. The wheel bar should move left when you turn left;
 > each pedal should read 0% released and 100% fully pressed. Bind **Change camera**
 > and **Pause**, then any other buttons you want.

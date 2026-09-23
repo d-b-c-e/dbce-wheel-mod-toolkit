@@ -1,6 +1,6 @@
 # Consumer UX audit and acceptance checklist
 
-Baseline **UX-1**, clarified 2026-09-21. Copy the report template below into the consuming
+Baseline **UX-1**, clarified 2026-09-22. Copy the report template below into the consuming
 repo when adopting [the standard](CONSUMER-UX.md) and
 [setup contract](CONSUMER-SETUP.md). Keep source review, fixture checks, visual
 inspection and attended hardware evidence separate.
@@ -15,7 +15,7 @@ successful runtime behavior.
 
 ```text
 Consumer / game:
-Audit date / UX baseline revision: YYYY-MM-DD / UX-1 clarified 2026-09-21
+Audit date / UX baseline revision: YYYY-MM-DD / UX-1 clarified 2026-09-22
 Guidance commit/hash and any local owner clarifications:
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
@@ -30,12 +30,12 @@ No-touch scope (other active work or installations):
 
 | ID | Acceptance check | Required evidence |
 |---|---|---|
-| UX-01 | F6, Settings button, Close and Esc share one panel; six core pages have standard names/order; no duplicate binding stores | Source + live open/close/navigation |
+| UX-01 | F6, Settings button, Close and Esc share one panel; five core pages retain standard names/order; optional Setup adds a distinct guided workflow, not a duplicate overview; no duplicate binding stores | Source + live navigation/first-use flow; every legacy page identity retains its meaning or has an explicit removed-page fallback |
 | UX-01-S | Simple by default; persistent explicit View choice; complete basic setup and recovery in Simple; Advanced adds tuning; one settings store, preserved effective hidden values/custom summary, no runtime side effects from switching | Per-setting inventory + fresh/legacy configuration checks + all [view walkthroughs](CONSUMER-SETTINGS-VIEWS.md), including Simple first use, errors, capture/edit guards and both views at 720p/high DPI |
 | UX-02 | Explicit label/value Off/On controls, common action names, units, readable device labels, scoped reset wording | String/source review + visual inspection |
 | UX-03 | Opaque readable layout within the actual host content rectangle, stable navigation, unified scale, long names, keyboard focus, no stock pointer/submit/navigation/direct-shortcut dispatch through the panel; held controls release and queued pointer gestures cancel before handoff; clean cursor/pause restoration | 720p and high-DPI/4K views at actual host size + input aggregation and stock/first-use screen opening/close interaction |
+| UX-03-G | Perceptible surface/border plus spacing separates each binding and its editor; compact commands right and instruction left when space permits; named stacked fallback; flat tabs/selection indicator and disclosures differ from raised commands and plain status | Actual-host screenshots at normal viewing size with one complete initial Controls group, visible group boundaries, compact default-host tabs and clear selected/focused states; a retained Setup's guided step/next action fits; narrow/custom-scale, long-name, error, edit and partial-scroll checks. Source/design fixtures alone remain Partial |
 | UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect and shared-primary roles become neutral on failed reads | Source + calibration/persistence/shared-device loss tests + attended input |
-| UX-03-G | Each binding's name, assignment, actions and active editor form one bounded group; target remains clear when wrapped or partly scrolled; compact header and local help leave useful body space; disclosures differ from runtime toggles | Actual default-host Controls screenshot with one complete actionable group; Setup meters/next action without scrolling; narrow/custom-scale, long-name, error and edit screenshots. Source/design fixtures alone remain Partial |
 | UX-04-H | Bind starts capture directly; provisional analog handbrake calibration with visible inversion/deadzone/0–100%; cancel preserves effective old input, independent additive button/axis rows; progressive game route or labeled digital fallback | Exact binding walkthrough + calibration/persistence fixtures + final-input evidence; no exclusive mode saved before successful calibration |
 | UX-05 | Clear Off/Ready/Inactive/Active/Error/Stopped states; visible Stop FFB + F8; strict selection, zero during setup, latched panic and ramped normal recovery | Policy/lifecycle tests + attended low-force check |
 | UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves saved Off and normal driving gates |
@@ -87,8 +87,10 @@ or actions change:
    Invoke the shipped launcher with normal defaults, paths containing spaces and
    another working directory; verify success and failure exit codes in the
    interpreter the launcher actually uses.
-2. Find Wheel settings without opening developer docs; verify Simple Setup is the
-   fresh-config default. With no devices or required bindings, verify it shows
+2. Find Wheel settings without opening developer docs; verify Simple Controls
+   (or a distinct guided Setup) is the fresh-config default. A duplicate overview
+   is removed, and legacy saved page IDs retain their meaning after migration.
+   With no devices or required bindings, verify the initial page shows
    the next setup action rather than calling the player Ready merely because the
    binary supports the feature. Stay in Simple to bind three axes, cancel a
    capture, save calibration, bind Pause and Change camera. Check left/right and

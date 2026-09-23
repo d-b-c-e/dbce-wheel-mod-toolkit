@@ -91,6 +91,11 @@ goes in a clearly named sub-package.
   UX-03-G requires bounded binding groups, local edit instructions and a complete
   actionable group in the initial Controls viewport. Verify the actual game host;
   a page-heading screenshot or browser reference does not establish acceptance.
+  The 2026-09-22 clarification requires perceptible group boundaries/spacing,
+  flat compact navigation/disclosures and compact commands. Keep Setup only
+  for a distinct guided workflow; remove duplicate overviews while preserving
+  saved page meanings through explicit migration. The HTML reference predates
+  this clarification; its six-page layout/button styling is not normative.
   The 2026-09-14 revision requires analog handbrake axis binding/calibration
   (with an explicit digital-game fallback when necessary) and an FFB device
   dropdown defaulting to the saved Steering device. Retain explicit FFB overrides;

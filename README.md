@@ -26,6 +26,9 @@ For a consistent experience across games, use the [shared UX standard](docs/CONS
 player experience; adoption and runtime verification remain per consumer.
 The [binding-group guidance](docs/CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
 defines visual ownership, local instructions and useful initial viewport checks.
+The September 22 clarification requires perceptible boundaries and distinct flat
+navigation, and makes Setup optional when it merely duplicates Controls/FFB.
+Consumers preserve old saved page meanings when migrating their navigation.
 The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
 Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,
@@ -33,8 +36,9 @@ upgrade rules and acceptance checks. The [consumer deployment ledger](docs/ux-au
 tracks implementation, installed packages and remaining live checks separately.
 All seven consumers have local deployed builds as of September 19; the ledger
 retains the specific game/physical acceptance still outstanding.
-The [interactive reference](docs/reference/wheel-settings.html) provides a common
-visual and interaction target; see its [preview guide](docs/reference/README.md).
+The [interactive reference](docs/reference/wheel-settings.html) illustrates the
+flows; its [preview guide](docs/reference/README.md) identifies newer guidance
+that supersedes the demo's layout and styling.
 It is an offline browser demo, with no game connection or force output.
 The 2026-09-14 revision requires analog handbrake hardware support and an
 FFB device dropdown that defaults to the wheel bound to Steering, while retaining

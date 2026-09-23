@@ -21,6 +21,17 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Rendered Art feedback clarification, 2026-09-22
+
+Art's task forwarded owner feedback from the rendered RC13 panel: weak card
+contrast, button-like navigation/disclosures, full-width command noise and a
+duplicated Setup page. UX-1/UX-03-G now require perceptible boundaries/spacing,
+distinct flat compact navigation and compact grouped commands. Setup remains
+only for a distinct guided workflow; saved page meanings must survive removal.
+See the [audit and provenance](ux-audits/2026-09-22-art-rendered-hierarchy.md).
+This is guidance only. Art implements the consumer change in its own task;
+the HTML demo remains historical and no toolkit runtime/binary is changed.
+
 ## Art visual hierarchy follow-up, 2026-09-21
 
 Owner feedback and an independent review of Art RC12 source/retained screenshots

@@ -7,6 +7,12 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Refine UX-1 from rendered Art RC13 feedback: perceptible group boundaries,
+  compact flat tabs with a clear selection indicator, left-aligned instructions
+  and compact commands grouped right. Raised styling is for commands. Setup is
+  optional for distinct guided first use; remove duplicate overviews and preserve
+  saved page identities during migration. Actual-host acceptance remains required.
+
 - Clarify binding ownership and visual hierarchy (UX-03-G) following Art's
   cluttered Simple panel: bounded groups, compact routine status, local edit
   instructions, clear disclosures and complete actionable viewport evidence.

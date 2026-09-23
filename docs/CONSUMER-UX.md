@@ -1,11 +1,16 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, clarified 2026-09-21 (Simple/Advanced revision 2026-09-16;
+Baseline **UX-1**, clarified 2026-09-22 (Simple/Advanced revision 2026-09-16;
 initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
+
+The September 22 [rendered Art feedback](ux-audits/2026-09-22-art-rendered-hierarchy.md)
+requires perceptible group boundaries, distinct compact navigation and grouped
+commands. Setup is now optional: retain it only for a distinct guided first-use
+workflow, with explicit migration of any removed page's saved identity.
 
 The September 21 [Art visual hierarchy review](ux-audits/2026-09-21-art-visual-hierarchy.md)
 adds **UX-03-G**: visibly group each binding and require useful content in the
@@ -66,31 +71,38 @@ on-demand basic setup and Advanced additions. View choice changes presentation
 only; hidden settings remain effective. Essential bindings, recovery and Stop FFB
 stay reachable in Simple. Do not add separate per-page expert-mode toggles.
 
-Use these pages, in this order. The table summarizes page ownership; the linked
+Use these pages in this order, omitting Setup when it adds no distinct guided
+workflow. Controls, FFB, Cameras, Telemetry and Help are the five core pages.
+The table summarizes page ownership; the linked
 view contract determines which details appear initially:
 
 | Page | What belongs here | First things visible |
 |---|---|---|
-| **Setup** | First use, reconnect, quick readiness check | Wheel, steering/throttle/brake bars, the next incomplete step |
+| **Setup (optional)** | Distinct guided first-use workflow | The current incomplete step, its check and next action; omit a duplicate overview |
 | **Controls** | All supported bindings and calibration | Steering, Throttle, Brake, Handbrake; then Driving buttons, Menu buttons, Shifter |
 | **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, FFB device dropdown defaulting to the bound steering wheel, Strength, current status, Stop FFB |
 | **Cameras** | Cycle membership and view adjustment | Bonnet and Bumper Off/On, Change camera binding, live-adjustment hint; Adjustment bindings on demand |
 | **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, receiver preset/destination, sending facts; status/Stop if recording |
 | **Help** | Version, troubleshooting, support evidence and reset | Version, short symptom-based help, UI scale, Create support file; device details in Advanced |
 
-Setup links to the same Controls/FFB values, not another set of bindings. Keep
-raw action maps, HID reports, native device indices and library versions in
+Remove Setup/Overview pages that merely repeat Controls/FFB values and links.
+Keep Setup only when it guides the player through distinct, state-aware setup
+steps; it uses the same bindings and values as the regular pages. First use opens
+that workflow when present, otherwise Controls. Preserve saved page meanings
+when removing or reordering navigation: see [page migration](CONSUMER-SETTINGS-VIEWS.md#defaults-and-migration).
+Do not silently turn a saved FFB page into Cameras by shifting numeric indices.
+Keep raw action maps, HID reports, native device indices and library versions in
 advanced details. Recording is a section of Telemetry, not a competing top-level
 page. Refresh is beside the relevant device picker, with full inventory in Help.
 
 If a game has handling/transmission modifications, put them in an optional
-**Driving** page between Cameras and Telemetry. Preserve the six core page names
+**Driving** page between Cameras and Telemetry. Preserve the five core page names
 and relative order. Show experimental handling/assist tuning in Advanced; only
 ordinary-driving essentials such as a required transmission selector belong in
 Simple. Explain the actual mode restrictions at the controls. Do not
 make a gearbox experiment the first thing a wheel user must configure.
 
-Unsupported pages stay recognizable with a brief capability message and help;
+Unsupported core pages stay recognizable with a brief capability message and help;
 omit unsupported controls within them. An unsupported feature must not appear
 enabled, silently do nothing, or offer invented telemetry as a substitute.
 
@@ -158,6 +170,15 @@ warning/error colors for actual conditions. Keep a stable title/navigation area,
 a scrollable page body, and visible Close and Stop FFB actions. Changing pages
 resets that page's scroll sensibly and never moves the navigation off screen.
 
+Navigation must look different from commands. Prefer flat page tabs with a clear
+selected indicator, such as an accent underline, and a separate keyboard-focus
+indicator. Keep tabs compact enough for one row in the default host when readable
+labels and hit targets permit; wrap at narrow/custom scales instead of shrinking
+text or clipping. The View selector and Off/On segments communicate selection.
+Reserve raised/button styling for commands such as Bind, Save, Close and Stop FFB;
+use flat disclosures for Show/Hide, and plain text for status. A section expander
+must not compete visually with a command just because both accept a click.
+
 The reference layout uses an 8-unit spacing grid, 16-unit page padding and
 32-unit minimum row/button height at 100% scale. Body text starts at 16 logical
 pixels, secondary help at 14, headings at 20. These are design targets, not raw
@@ -178,12 +199,23 @@ help text instead of long paragraphs between every control.
 ### Binding ownership and useful space — UX-03-G
 
 Each repeated binding is one visibly bounded group: **action name → current
-assignment / live value → actions → active editor**. Use a subtle surface,
-border or separator plus spacing; proximity alone is insufficient when rows
+assignment / live value → actions → active editor**. Use a perceptibly separate
+surface or visible border/separator **plus inter-group spacing**. If the fill
+contrast is too weak to distinguish adjacent cards, add a visible boundary;
+merely drawing a box in code does not establish grouping. Verify separation in
+the real host at normal viewing size, including disabled controls and partial
+scrolling. Proximity alone is insufficient when rows
 wrap or scroll. A compact table row can satisfy this just as a card can. Keep
 the action name stronger than its secondary device/calibration detail. The
 container encloses Bind, Calibrate, Clear and any provisional Save/Cancel.
 One camera adjustment group contains both its keyboard and USB assignments.
+
+Within a binding group, keep its short instruction left-aligned and compact
+command buttons grouped on the right when space permits. Avoid stretching each
+Bind/Calibrate/Clear across the page: repeated full-width buttons add noise and
+weaken the hierarchy. At narrow widths, stack inside the same group, keep usable
+hit targets and repeat the action's target name. Help must wrap without pushing
+commands outside their container or hiding a required precondition.
 
 Use more space between groups than within them (target 16 versus 8 logical
 units, scaled with the content). Include container padding when deciding
@@ -206,7 +238,7 @@ setting. Keep an active editor visible until it is saved or cancelled.
 
 At the actual default host size and readable scale, Controls must initially
 show at least one **complete actionable binding group**, including its buttons.
-Setup must show its basic meters, next action and persistent controls without
+When retained, Setup must show its current guided step, next action and persistent controls without
 scrolling. A screenshot showing only page headings is not acceptance evidence.
 Check long names, partial scrolling, active edits, errors and narrow/custom
 scales too. Reducing header content must reclaim space in the page layout;

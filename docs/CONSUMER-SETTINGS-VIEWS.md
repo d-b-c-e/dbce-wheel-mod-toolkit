@@ -1,6 +1,6 @@
 # Simple and Advanced settings — UX-01-S
 
-Normative [UX-1](CONSUMER-UX.md) detail, 2026-09-16. Every consuming mod starts
+Normative [UX-1](CONSUMER-UX.md) detail, clarified 2026-09-22. Every consuming mod starts
 with **Simple** settings: the minimum needed to connect, bind, check and drive
 using a conservative, game-tested default tune. **Advanced** adds customization
 and detailed diagnostics. This is a shared product contract; publishing it does
@@ -21,9 +21,12 @@ through individual pages. Selecting Advanced needs no warning or confirmation.
 - New configurations and upgrades with no saved view preference open in Simple.
   Remember an explicit view choice per mod across panel closes and game restarts.
   Existing bindings or custom tuning do not imply an Advanced preference.
-- First use opens Setup. Thereafter retain the selected page when switching
-  views, keeping the six core page names and order. If an Advanced-only page or
-  section disappears, return to its Simple parent or Setup and restore focus.
+- First use opens Controls, or Setup when it provides a distinct guided workflow.
+  Omit a Setup/Overview that merely duplicates Controls/FFB. Thereafter retain
+  the selected page when switching views, keeping the five core page names and
+  relative order. If an Advanced-only section disappears, return to its Simple
+  parent or the consumer's first-use page and restore focus. Preserve serialized
+  page meanings when removing a page; see the migration contract below.
 - Advanced includes the same basic controls in the same order, followed by
   clearly grouped extras. Both views edit the **same saved values**. There is no
   Simple profile, second binding store or separate Apply step for the view.
@@ -53,7 +56,7 @@ optional details; required setup must stay in Simple.
 
 | Page | Simple: visible initially | Simple: on demand | Advanced adds |
 |---|---|---|---|
-| **Setup** | Wheel/readiness, Steering/Throttle/Brake bars, one next incomplete step or Ready to drive | Direct binding/calibration for that step; optional handbrake/shifter setup; Refresh when needed | Detailed input/device inspection, reached through the relevant page; no second setup wizard |
+| **Setup (optional)** | A distinct guided first-use step, check and next action; omit duplicated overview content | Binding/calibration or recovery for the current step, using the same settings | Detailed inspection via its owning page; no second setup wizard |
 | **Controls** | Steering, Throttle, Brake, Handbrake (axis) rows with friendly assignment, live value and Bind/Calibrate/Clear | Grouped Driving buttons, Menu buttons, Mod buttons and Shifter bindings; clutch where supported; all ordinary keyboard/wheel rebinding; calibration with direction/inversion, endpoints and deadzone | Response curves, sensitivity shaping, saturation, manual raw-range editing, digital handbrake threshold tuning, raw action/device details |
 | **FFB** | FFB Off/On, FFB device dropdown, Strength, plain status/recovery | Refresh or explicit device replacement; brief explanation of Strength | Per-effect gains, model/profile selection, smoothing, damping/friction, slip/load scaling, editable limits, response graphs and delivery counters |
 | **Cameras** | Bonnet and Bumper Off/On, Change camera binding, short live-adjustment hint | Look behind binding, **Adjustment bindings** with the full rebind workflow and actual saved keys | Selected mount's position/tilt/FOV sliders, numeric tuning, adjustment speed/step settings and scoped pose reset |
@@ -86,12 +89,15 @@ find. Showing a group is navigation, not another operating mode.
 
 Apply [UX-03-G](CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g):
 bound each action and its editor visually, keep help local, and use recognizable
-Show/Hide disclosures. At the default host size, initial Controls must include
+flat Show/Hide disclosures. Perceptible surfaces/borders and spacing must separate
+groups in the real host. Use compact flat tabs with a clear selected indicator;
+keep instructions left and compact commands right, with a named stacked fallback.
+Reserve raised/button styling for commands. At the default host size, initial Controls must include
 one complete binding group with its actions. Fewer options do not compensate
 for ambiguous button ownership or a header that consumes the usable page.
 
-At 1280×720 and the default readable scale, the Setup introduction, next action
-and persistent controls must fit without scrolling. Its first screen must not
+At 1280×720 and the default readable scale, a retained Setup's current guided
+step, next action and persistent controls must fit without scrolling. Its first screen must not
 present all bindings or the entire device inventory at once. Longer optional
 binding lists may scroll inside the page; keep navigation and the view selector
 fixed. Do not shrink text to meet this requirement. Verify high DPI/4K as well.
@@ -146,6 +152,15 @@ use Simple for the absent view field. Unknown view values fall back to Simple
 without resetting unrelated data. Never infer "new user" from a missing view
 field and rerun first-use defaults over an existing tune.
 
+Page identity is saved meaning, not the position of a visible tab. Prefer stable
+page IDs; a consumer that already stores numeric IDs must retain their meanings
+or migrate them explicitly with a versioned, idempotent map. For example, if old
+IDs are Setup=0, Controls=1, FFB=2 and Cameras=3, hiding Setup must not reinterpret
+the saved 2 as Cameras. Redirect only the removed Setup selection to Controls;
+preserve all surviving page choices and the Simple/Advanced preference. Define
+a safe first-use fallback for unknown IDs without resetting runtime settings.
+Verify each legacy page ID, both views, unknown IDs and a second load/save cycle.
+
 Reset FFB settings, Reset this view and Restore numpad defaults retain their
 existing, distinct scopes. Returning to Simple invokes none of them. Agent-led
 recording retains its one-launch bounds, expiry and output policy; hiding its
@@ -175,8 +190,9 @@ with all the old controls still exposed in Simple, is not reconciliation.
 
 Complete the [UX checklist](CONSUMER-UX-CHECKLIST.md), including **UX-01-S**:
 
-1. **Fresh configuration:** F6 opens Simple Setup. Complete a first drive using
-   only Simple, including direct analog handbrake setup and camera shortcut
+1. **Fresh configuration:** F6 opens Simple Controls, or a distinct guided Setup
+   if retained. Confirm the page is useful rather than a duplicate overview.
+   Complete a first drive using only Simple, including direct analog handbrake setup and camera shortcut
    rebinding where required by UX-04/06. Verify no required step sends the player
    into Advanced or a config file.
 2. **Existing configuration:** Start from a copy with custom tuning, saved FFB
@@ -194,9 +210,13 @@ Complete the [UX checklist](CONSUMER-UX-CHECKLIST.md), including **UX-01-S**:
    device, unavailable output, stopped FFB, write failure and active/failed capture
    where applicable. Check recovery/stop actions and one-click routes to the
    matching Advanced detail. Inspect both views at 720p and high DPI/4K.
+6. **Page migration:** Load every old page ID after removing/reordering pages.
+   Surviving choices retain their meaning, removed Setup goes to Controls, and
+   unknown values use the documented fallback. Repeat save/load and verify no
+   binding, tune, output preference or view choice changed.
 
 Record guidance commit/hash, source and packaged version, the per-setting
 inventory and results/screenshots. Source/configuration fixtures can establish
 policy and persistence; they cannot establish readability or attended wheel
 behavior. Mark live steps Not tested until performed. Earlier consumer audits
-remain historical; none establishes adoption of this 2026-09-16 requirement.
+remain historical; none establishes adoption of this 2026-09-22 clarification.

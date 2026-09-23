@@ -15,13 +15,21 @@ and Reset browser demo affect only that storage.
 
 ## Reference decisions
 
+**September 22 superseding guidance:** the HTML has not been redrawn for the
+latest [rendered Art findings](../ux-audits/2026-09-22-art-rendered-hierarchy.md).
+Apply current UX-1 when implementing a consumer: perceptible group boundaries,
+flat compact tabs/disclosures, compact commands and optional guided Setup.
+The demo's six-page layout and button-like selectors are historical examples,
+not requirements to copy. Removing Setup requires preserved saved page meanings.
+The recorded browser checks below do not validate these newer requirements.
+
 The 2026-09-21 [grouping clarification](../CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
 also applies when translating this reference into a limited game-mod host.
 Retain row boundaries and action ownership as rows wrap. The browser's spacious
 viewport does not prove that an actual UMM window shows an actionable group.
 The historical browser verification below predates this clarification.
 
-- Simple opens on Setup by default. The stable View selector, six core pages,
+- This demo opens Simple on Setup by default. Its stable View selector, six pages,
   Close and Stop FFB remain visible; Driving appears only in Advanced.
 - The same data backs both views. Advanced keeps the basic controls first and
   adds tuning below. A custom tune has a quiet summary in Simple; switching view
