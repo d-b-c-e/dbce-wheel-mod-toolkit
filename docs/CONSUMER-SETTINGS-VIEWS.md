@@ -92,7 +92,11 @@ bound each action and its editor visually, keep help local, and use recognizable
 flat Show/Hide disclosures. Perceptible surfaces/borders and spacing must separate
 groups in the real host. Use compact flat tabs with a clear selected indicator;
 keep instructions left and compact commands right, with a named stacked fallback.
-Reserve raised/button styling for commands. At the default host size, initial Controls must include
+Reserve raised/button styling for commands, at content-sized or bounded widths;
+do not stretch support, reset, preset or native-menu commands across a wide page.
+Use compact segments for short mutually exclusive settings, and flat links for
+Advanced navigation. Stack/expand only when the narrow layout needs it for access.
+At the default host size, initial Controls must include
 one complete binding group with its actions. Fewer options do not compensate
 for ambiguous button ownership or a header that consumes the usable page.
 
@@ -108,6 +112,12 @@ tuning are optional. Readiness must not report an incomplete setup merely
 because one of these optional features is unconfigured.
 
 ### Do not make basic setup depend on Advanced
+
+A Simple command that opens the game's own binder follows
+[UX-03-H](CONSUMER-UX.md#programmatic-native-menu-handoff--ux-03-h): release the
+actual initiating control, pass a short neutral-frame barrier and explicitly
+transfer ownership. Resting mapped wheel/pedal axes or a held gear must not trap
+that destination behind the overlay's input block.
 
 - **Handbrake:** Bind must start capture directly in Simple. Complete rest/full
   calibration, inversion, deadzone, Save/Cancel and a live 0–100% preview there.

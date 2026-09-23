@@ -21,6 +21,18 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Art RC14 commands and native-menu handoff, 2026-09-22
+
+The Art task forwarded two further owner-test findings. UX-03-C now covers
+compact commands across all pages, and UX-03-H defines a programmatic handoff
+that waits only for the actual initiating gesture's release plus neutral frames
+before explicitly releasing overlay ownership. It must not wait for all mapped
+axes/buttons: resting pedals and held gear buttons can keep them active forever.
+Focus/cancellation and ordinary-close gesture suppression remain required.
+[Provenance and acceptance](ux-audits/2026-09-22-art-rc14-commands-handoff.md).
+This update is documentation only; consumer runtime/interaction fixes stay with
+Art's task. No toolkit binary, game or device changes are implied.
+
 ## Rendered Art feedback clarification, 2026-09-22
 
 Art's task forwarded owner feedback from the rendered RC13 panel: weak card

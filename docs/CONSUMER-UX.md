@@ -7,6 +7,10 @@ Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
 
+The subsequent [RC14 owner-test findings](ux-audits/2026-09-22-art-rc14-commands-handoff.md)
+extend compact command sizing across the panel and define **UX-03-H**, a scoped
+release barrier for programmatic transitions from the overlay to native menus.
+
 The September 22 [rendered Art feedback](ux-audits/2026-09-22-art-rendered-hierarchy.md)
 requires perceptible group boundaries, distinct compact navigation and grouped
 commands. Setup is now optional: retain it only for a distinct guided first-use
@@ -179,6 +183,16 @@ Reserve raised/button styling for commands such as Bind, Save, Close and Stop FF
 use flat disclosures for Show/Hide, and plain text for status. A section expander
 must not compete visually with a command just because both accept a click.
 
+**Command sizing — UX-03-C.** Ordinary commands use compact content-sized or bounded fixed-width buttons,
+usually right-aligned beside their explanation. In a wide panel, a full-width
+raised command reads as a section divider; this applies to support, reset,
+preset and native-menu commands as well as binding actions. Reserve full-row
+surface treatments for actual groups or navigation, not ordinary commands.
+Use compact segmented controls for short mutually exclusive values and flat
+links/disclosures for **Review in Advanced**, **Details**, and **Show/Hide**.
+Narrow layouts may stack and expand commands only when reachability requires it;
+keep the target clear and do not use expansion as the wide-layout default.
+
 The reference layout uses an 8-unit spacing grid, 16-unit page padding and
 32-unit minimum row/button height at 100% scale. Body text starts at 16 logical
 pixels, secondary help at 14, headings at 20. These are design targets, not raw
@@ -255,16 +269,49 @@ Restore cursor/focus and release held inputs on close, focus loss and cancellati
 The stock menu must not also receive pointer, navigation or submit events while
 the mod panel owns input. Test the real stock dispatch route, including consumers
 that retain action references rather than calling patched input getters. On
-close, wait for every active keyboard, wheel/pad navigation, submit/cancel and
-Settings control to be released before returning input to the game; a held D-pad
-direction must not move the underlying menu. Verify the actual control aggregation
-as well as the release-delay policy and an in-game open/close interaction.
+ordinary close, prevent the opening/closing gesture and genuinely held navigation,
+submit/cancel and Settings controls from replaying into the underlying menu.
+A held D-pad must not move it merely because the overlay closed. Identify the
+actual gestures; do not infer them from every non-zero mapped game axis/button.
+Verify the aggregation, release policy and actual open/close interaction.
+Programmatic transitions to a native menu use the scoped handoff below, not a
+global wait for all mapped controls to become neutral.
 Cover direct game shortcut components as well as the UI event dispatcher: a
 Welcome screen may invoke a button directly from its own Update method. Cancel
 retained pointer presses/drags before handing control back so closing the panel
 cannot replay a queued click/drop. Preserve native selection and action maps;
 disabling the whole input backend is not the isolation mechanism. Include the
 opening key edge and first-use screens in the actual interaction check.
+
+### Programmatic native-menu handoff — UX-03-H
+
+A command such as **Open game bindings** deliberately transfers input ownership
+from the overlay to the game's own screen. Treat it as an explicit transition:
+
+1. Record and consume the actual initiating mouse button, key or physical control.
+   Keep the pending transition guarded until that initiating control is released.
+2. After release, require a short neutral-frame barrier before completing the
+   transition. Neutral refers to the initiating gesture, not the full game's
+   mapped input state. Document and test the consumer's frame count; a timer
+   alone must not bypass a still-held initiating control.
+3. Cancel retained pointer presses/drags and queued activation from the overlay.
+   Once the release/barrier and destination/focus checks pass, explicitly release
+   overlay ownership and its pending-close/global input block so the destination
+   screen can receive fresh input. Preserve the intended destination focus.
+4. Preserve cancellation and focus-loss guards. A cancelled or invalid transition
+   must not later open the destination unexpectedly or leave a stale input lock.
+
+**Do not wait on all mapped game UI axes/buttons.** Wheel or pedal maps can rest
+non-zero, and an H-pattern shifter button may remain held indefinitely. Those
+unrelated states must not keep a programmatically opened native menu blocked.
+This scoped transition does not permit the initiating click/submit to leak into
+the destination, disable the game's input backend or weaken cancellation guards.
+
+Verify both outcomes: a held initiating mouse/key/control cannot activate the
+destination, and after its release plus the barrier the native screen works even
+with an unrelated pedal axis non-zero or shifter gear held. Check fresh input,
+return navigation, cancellation and focus loss; retain source/fixture and actual
+game interaction evidence separately.
 
 ## 4. Binding and calibration are one guided operation — UX-04
 

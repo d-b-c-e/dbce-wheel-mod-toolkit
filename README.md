@@ -29,6 +29,9 @@ defines visual ownership, local instructions and useful initial viewport checks.
 The September 22 clarification requires perceptible boundaries and distinct flat
 navigation, and makes Setup optional when it merely duplicates Controls/FFB.
 Consumers preserve old saved page meanings when migrating their navigation.
+The [RC14 follow-up](docs/ux-audits/2026-09-22-art-rc14-commands-handoff.md) extends
+compact commands across all pages and specifies a scoped native-menu handoff
+that cannot be trapped by unrelated resting wheel inputs.
 The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
 Simple the default for basic setup and driving. Advanced adds detailed tuning
 and diagnostics over the same saved settings. It includes exact page placement,

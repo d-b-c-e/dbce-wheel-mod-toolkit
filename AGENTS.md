@@ -96,6 +96,12 @@ goes in a clearly named sub-package.
   for a distinct guided workflow; remove duplicate overviews while preserving
   saved page meanings through explicit migration. The HTML reference predates
   this clarification; its six-page layout/button styling is not normative.
+  RC14 adds compact intrinsic/bounded command widths across every page (UX-03-C)
+  and scoped programmatic native-menu handoff (UX-03-H): wait for the actual
+  initiating control's release plus a short neutral-frame barrier, then release
+  overlay ownership. Never gate that handoff on all mapped axes/buttons becoming
+  neutral; resting pedals and held H-pattern gears can trap it. Keep focus/cancel
+  guards and require actual destination interaction evidence.
   The 2026-09-14 revision requires analog handbrake axis binding/calibration
   (with an explicit digital-game fallback when necessary) and an FFB device
   dropdown defaulting to the saved Steering device. Retain explicit FFB overrides;

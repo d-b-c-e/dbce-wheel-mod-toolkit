@@ -7,6 +7,12 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Clarify RC14 owner-test findings: compact command widths across all pages,
+  segmented short settings and flat Advanced/Show navigation. Programmatic native
+  menus wait for the initiating control's release and a short neutral-frame
+  barrier, then explicitly regain input ownership; unrelated resting pedal axes
+  or held shifter buttons must not trap the destination. Preserve focus/cancel guards.
+
 - Refine UX-1 from rendered Art RC13 feedback: perceptible group boundaries,
   compact flat tabs with a clear selection indicator, left-aligned instructions
   and compact commands grouped right. Raised styling is for commands. Setup is
