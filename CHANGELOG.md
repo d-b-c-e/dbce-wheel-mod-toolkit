@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Clarify device-picker presentation from Art RC16: bounded current/expanded
+  choices, flat rows with visible selection, retained but disabled disconnected
+  choices, and a separate compact Refresh command beside the picker.
+
 - Clarify RC14 owner-test findings: compact command widths across all pages,
   segmented short settings and flat Advanced/Show navigation. Programmatic native
   menus wait for the initiating control's release and a short neutral-frame

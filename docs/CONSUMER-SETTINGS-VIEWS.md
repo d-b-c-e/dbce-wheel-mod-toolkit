@@ -1,6 +1,6 @@
 # Simple and Advanced settings — UX-01-S
 
-Normative [UX-1](CONSUMER-UX.md) detail, clarified 2026-09-22. Every consuming mod starts
+Normative [UX-1](CONSUMER-UX.md) detail, clarified 2026-09-23. Every consuming mod starts
 with **Simple** settings: the minimum needed to connect, bind, check and drive
 using a conservative, game-tested default tune. **Advanced** adds customization
 and detailed diagnostics. This is a shared product contract; publishing it does
@@ -129,6 +129,9 @@ that destination behind the overlay's input block.
   and preserving an explicit override. A missing/ambiguous/non-FFB selection
   shows its reason and the relevant Bind/Refresh/select action there. No silent
   fallback, Next-device-only picker, or second session-start switch.
+  The bounded expanded list uses flat choices and a visible selected marker;
+  a saved-disconnected choice remains visible but unselectable. Refresh is a
+  separate compact command beside the picker, not a device-choice row.
 - **Camera adjustments:** Live numpad defaults work regardless of settings view.
   Simple Cameras exposes Adjustment bindings directly, so someone without a
   numpad can rebind movement, tilt, FOV and reset without entering Advanced.

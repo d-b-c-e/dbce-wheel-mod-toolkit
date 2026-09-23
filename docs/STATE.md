@@ -21,6 +21,16 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Art RC16 device-picker guidance, 2026-09-23
+
+Art's task reported that expanded FFB device choices and Refresh looked like
+full-width command bars. UX-05-D now requires bounded/flat choices, visible
+selection, retained but disabled saved-disconnected choices, and compact Refresh
+beside the picker. Simple/Advanced guidance and the checklist match. Art's
+deployment record identifies installed RC16 source `e854b994125494fb38442a1c41476c42befad934`;
+this task read that record, but did not independently test its renderer or devices.
+This is guidance only: no toolkit binary change, package bump or consumer repin.
+
 ## Art RC14 commands and native-menu handoff, 2026-09-22
 
 The Art task forwarded two further owner-test findings. UX-03-C now covers

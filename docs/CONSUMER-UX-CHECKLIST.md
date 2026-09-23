@@ -1,6 +1,6 @@
 # Consumer UX audit and acceptance checklist
 
-Baseline **UX-1**, clarified 2026-09-22. Copy the report template below into the consuming
+Baseline **UX-1**, clarified 2026-09-23. Copy the report template below into the consuming
 repo when adopting [the standard](CONSUMER-UX.md) and
 [setup contract](CONSUMER-SETUP.md). Keep source review, fixture checks, visual
 inspection and attended hardware evidence separate.
@@ -15,7 +15,7 @@ successful runtime behavior.
 
 ```text
 Consumer / game:
-Audit date / UX baseline revision: YYYY-MM-DD / UX-1 clarified 2026-09-22
+Audit date / UX baseline revision: YYYY-MM-DD / UX-1 clarified 2026-09-23
 Guidance commit/hash and any local owner clarifications:
 Source commit and branch:
 Working-tree changes included / source hashes where needed:
@@ -40,7 +40,7 @@ No-touch scope (other active work or installations):
 | UX-04 | Independent wheel/pedal/shifter/handbrake identities; bind/cancel/timeout; centre/endpoints; conflicts; live final-input bars; saved bindings survive disconnect and shared-primary roles become neutral on failed reads | Source + calibration/persistence/shared-device loss tests + attended input |
 | UX-04-H | Bind starts capture directly; provisional analog handbrake calibration with visible inversion/deadzone/0–100%; cancel preserves effective old input, independent additive button/axis rows; progressive game route or labeled digital fallback | Exact binding walkthrough + calibration/persistence fixtures + final-input evidence; no exclusive mode saved before successful calibration |
 | UX-05 | Clear Off/Ready/Inactive/Active/Error/Stopped states; visible Stop FFB + F8; strict selection, zero during setup, latched panic and ramped normal recovery | Policy/lifecycle tests + attended low-force check |
-| UX-05-D | FFB device defaults to the saved Steering device; dropdown or documented directly selectable list; persistent follow mode/explicit override, strict identity, missing/non-FFB handling; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + visual interaction; switching preserves saved Off and normal driving gates |
+| UX-05-D | FFB device defaults to saved Steering; bounded selector/flat mutually exclusive choices with visible selected state; saved-disconnected choice visible but disabled, Refresh a separate compact command beside the picker; persistent follow/override and strict identity; no Next-device-only picker | No-output selection/reorder/disconnect fixtures + actual-host collapsed/expanded/selected/disconnected views and Refresh interaction; unavailable row cannot be selected or lose saved identity; available alternatives work; selection/Refresh preserve saved Off and driving gates |
 | UX-06 | Native camera action cycles stock/Bonnet/Bumper; disabled views skip; held Look behind releases; game takeover releases camera and stops FFB | Cycle tests + intro/pause/replay/finish/focus/camera-conflict drive |
 | UX-06-K | Default live numpad movement/tilt/FOV/reset of the active mount; F6 camera adjustment Bind/Clear/Cancel/defaults/conflicts and keyboard-without-numpad support; saved mappings/pose scope, capture/focus/camera suppression | Full [camera interaction walk](CONSUMER-CONTROLS-CAMERAS.md) on the actual package, with screenshots and saved/reloaded bindings; record concrete unavailable adjustments |
 | UX-07 | Telemetry Sending is truthful, missing/estimated signals labeled; opt-in bounded recording and local support file; no automatic sharing | Source + receiver/capture checks + saved artifact inspection |

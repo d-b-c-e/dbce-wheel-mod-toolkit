@@ -1,6 +1,6 @@
 # Shared player experience for wheel mods
 
-Baseline **UX-1**, clarified 2026-09-22 (Simple/Advanced revision 2026-09-16;
+Baseline **UX-1**, clarified 2026-09-23 (Simple/Advanced revision 2026-09-16;
 initially 2026-09-13). This is the product standard for consuming mods,
 written in response to the owner's reports that Art of Sim Rally, iRacing
 Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently.
@@ -412,6 +412,15 @@ when disconnected. Use a visible, directly selectable device list as the fallbac
 when a dropdown cannot be implemented; document the renderer limitation.
 **Next device alone is not an acceptable picker.** Distinguish duplicate friendly
 names with a readable identifier suffix; keep full GUIDs in device details.
+
+Device choices are mutually exclusive values, not commands. Keep the current
+selector and expanded list bounded; use flat choice rows with a visible selected
+marker, not full-width raised buttons. Keep a saved-but-disconnected choice
+visible, labeled and disabled/unselectable without clearing its saved identity.
+Available alternatives remain selectable. **Refresh** is a separate compact
+command beside the picker, not another choice or full-width bar. Apply this
+treatment to other device pickers too; check expanded, selected and disconnected
+states in the actual host. [Owner feedback: art-of-sim-rally RC16, 2026-09-23]
 
 Persist whether the player follows Steering or chose an explicit FFB override.
 Follow mode resolves the saved steering device by stable identity, not by
