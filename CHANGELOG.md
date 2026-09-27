@@ -67,7 +67,17 @@ only ever gains exports.
   defaults to the saved Steering wheel while preserving explicit overrides.
   Add setup and acceptance checks. This is guidance, not consumer implementation.
 
-## [0.13.0] - 2026-09-12 (local candidate, unpublished)
+## [0.15.0] - 2026-09-27
+
+- Publish the unchanged frozen `358add53` archive (native 0.8.0, 46 exports),
+  including finite constant impacts, shaped sine bursts and opt-in force tracing.
+  This is a tagged runtime branch, separate from the newer UX documentation here.
+- Verify Art's official repin preserves all five DLL/XML payloads, and publish
+  archive checksums, a 63-file payload inventory and portable provenance. See
+  [the release handoff](docs/RELEASE-0.15.0.md) for exact identity and test limits.
+  No native/managed rebuild or hardware validation accompanied publication.
+
+## [0.13.0] - 2026-09-13 (prepared 2026-09-12)
 
 - Add idle-created finite sine bursts, explicit play/restart and idempotent stop
   (1..500 ms, 1..100 Hz). Native 0.6.0 adds three exports; optional managed binding

@@ -10,7 +10,7 @@ consumer's real pin off disk:
 ```powershell
 .\tools\Get-ConsumerStatus.ps1 -Root E:\Source -All
 # Structured output for tooling, with the same exit semantics:
-.\tools\Get-ConsumerStatus.ps1 -Root E:\Source -Current v0.13.0 -AsJson
+.\tools\Get-ConsumerStatus.ps1 -Root E:\Source -Current v0.15.0 -AsJson
 ```
 
 It distinguishes **behind** from **affected**: for each declared component it
@@ -30,6 +30,13 @@ adoption; use the consumer's package/runtime and UX evidence for those claims.
 
 This page carries what the script cannot know: which parts each consumer takes,
 where its pin lives, and what breaks if you get it wrong.
+
+**Release update, 2026-09-27:** official v0.15.0 promotes Art's frozen
+`local+358add53af220eb95bf606e240b230e23a6ea197.clean` payloads. An isolated repin
+using Art's current sync script proved all five DLL/XML files byte-identical;
+only provenance changed. [Exact release evidence](RELEASE-0.15.0.md).
+This publication does not change another consumer's pin or install. Inspect
+effective components before adopting it; Recording remains separately pinned.
 
 ---
 

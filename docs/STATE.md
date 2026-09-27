@@ -1,4 +1,20 @@
-# 0.13.0 local candidate, 2026-09-12
+# Release handoff, 2026-09-27
+
+Official **v0.15.0** now publishes the original frozen archive from
+`358add53af220eb95bf606e240b230e23a6ea197` (native 0.8.0, 46 exports).
+No binaries were rebuilt. Art's actual sync script passed against draft and
+published assets in an isolated fixture; all five DLL/XML files matched its
+local pin byte-for-byte. The Art task owns its real repin and final release.
+See [artifact hashes, source identity and validation](RELEASE-0.15.0.md).
+
+The runtime source is on `codex/finite-constant-bursts`, separate from this
+documentation branch and the main workspace's independent runtime/Recording work.
+Do not infer a source merge or other consumers' adoption. Fresh 121 managed
+tests, native fake-effect checks and 46-export/version checks passed on both
+architectures. No device was opened; this candidate's hardware smoke remains
+compiled-only. The candidate snapshot immediately below is historical.
+
+# Historical 0.13.0 candidate snapshot, 2026-09-12
 
 This isolated branch adds finite periodic bursts (native 0.6.0, 41 exports),
 all-family focus/watchdog stopping and first-low-magnitude periodic delivery.

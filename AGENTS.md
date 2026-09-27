@@ -187,9 +187,13 @@ goes in a clearly named sub-package.
 
 ## Where the work stands
 
-Local candidate 0.13.0 adds finite periodic bursts (native 0.6.0, 41 exports).
-Read docs/PERIODIC-BURSTS.md. No workflows or publication without authorization;
-nonzero physical force tests are not part of local package gates.
+Published v0.15.0 promotes frozen source `358add53af220eb95bf606e240b230e23a6ea197`
+from `codex/finite-constant-bursts`: native 0.8.0, 46 exports. Read
+[the release handoff](docs/RELEASE-0.15.0.md) for artifact identity and verification.
+The default documentation branch does not contain that runtime branch. Use its
+tag for reproduction; do not rebuild a published archive or infer consumer adoption.
+Art's isolated official repin preserved all five payloads. Hardware smoke for
+this candidate was compiled only; publication's load/export checks did not use devices.
 
 Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve

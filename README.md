@@ -11,8 +11,12 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
-Local candidate **0.13.0** adds finite periodic bursts and all-family focus/watchdog
-stopping. It is not published. See [burst API and validation limits](docs/PERIODIC-BURSTS.md).
+Published **[v0.15.0](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/releases/tag/v0.15.0)**
+promotes the frozen finite-constant branch (native **0.8.0**, 46 exports).
+It includes shaped sine bursts, independent finite constant impacts and opt-in
+force tracing. See the [release handoff](docs/RELEASE-0.15.0.md) for exact hashes,
+verification limits and Art's binary-identical repin. The default branch holds
+newer UX guidance but not that runtime branch; use the tag to reproduce the release.
 
 Source version **0.12.0** adds transactional updates, exact-module managed
 loading, strict saved-wheel selection, force-state recovery and actionable
