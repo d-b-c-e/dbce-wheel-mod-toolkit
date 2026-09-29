@@ -11,6 +11,11 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
+[Recorded playback tooling](docs/RECORDED-PLAYBACK.md) validates portable case
+identities and compares bounded device-free force observations. Game adapters
+retain their input formats and replay execution; signal reprocessing does not
+imply deterministic gameplay or physical force acceptance.
+
 Published **[v0.15.0](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/releases/tag/v0.15.0)**
 promotes the frozen finite-constant branch (native **0.8.0**, 46 exports).
 It includes shaped sine bursts, independent finite constant impacts and opt-in

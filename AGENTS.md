@@ -55,6 +55,7 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. Cdecl delegates bound to the exact native module (Mono-compatible APIs and CoreCLR), force-shaping chain, `ForceModel`, device selection, diagnostics. |
 | `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
 | `tools/` | `Sync-Toolkit.ps1` (consumers vendor with this), `ffbprobe/` (scripted constant force against a real base), `forza/` (probe and synth), `dev/` (unattended-test helpers), `package/package.ps1`. |
+| `tools/replay/` | ROM/device-free case identity validation, ordered force-observation sink and comparison. `docs/RECORDED-PLAYBACK.md` defines v1; game codecs, execution and force signals remain consumer-owned. |
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 

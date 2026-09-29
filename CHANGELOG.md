@@ -7,6 +7,10 @@ only ever gains exports.
 
 ## [Unreleased]
 
+- Add source-only recorded-playback case validation, a bounded no-device force
+  observation sink and ordered request comparison. Consumer game input formats
+  and deterministic replay remain adapter-owned; no native release/pin changes.
+
 - Clarify device-picker presentation from Art RC16: bounded current/expanded
   choices, flat rows with visible selection, retained but disabled disconnected
   choices, and a separate compact Refresh command beside the picker.

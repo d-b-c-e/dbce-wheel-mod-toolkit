@@ -37,6 +37,17 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Shared recorded playback and Woden readiness, 2026-09-28
+
+The owner authorized coordination with F-Zero Deluxe followed by Woden capture
+readiness. Source-only [v1 tooling](RECORDED-PLAYBACK.md) adds case/artifact identity,
+bounded no-device force observations and comparison. ROM-free tests: 16 passed,
+one symlink privilege skip. This does not change native/Recording package pins.
+Woden's task is adding capture provenance/reset events, a correlated one-command
+recording flow and actual-model offline reprocessing. Its existing two recordings
+contain no driving data; new capture/deployment and attended acceptance remain
+pending. See [owners, contract and checkpoints](research/2026-09-28-recorded-playback-coordination.md).
+
 ## Sonic CrossWorlds project kickoff, 2026-09-28
 
 The owner authorized a dedicated Sonic task and ongoing toolkit coordination
