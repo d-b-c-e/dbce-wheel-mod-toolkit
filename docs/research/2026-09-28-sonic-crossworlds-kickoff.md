@@ -63,8 +63,76 @@ exactly eight axes/four hats and zero to 128 buttons, optional managed capabilit
 neutral hats on failure, and a single existing-handle snapshot. Failed raw axes
 must not be treated as neutral pedals. Before promoting an input-only reader to
 FFB ownership, neutralize virtual output, close readers, initialize FFB and reopen
-the saved GUIDs to share the FFB handle. The consumer must not adopt partial files
-or treat offline candidate tests as hardware acceptance.
+the saved GUIDs to share the FFB handle. Disabling FFB or changing its device also
+requires neutral output and reopening affected readers by GUID; FFB Off must
+leave input operational. The consumer must not adopt partial files or treat
+offline candidate tests as hardware acceptance.
+
+## Reviewed toolkit candidate handoff, 2026-09-28
+
+The POV subtask is complete and the coordinator has sent the Sonic task a
+reviewed offline candidate. This is available for deliberate adoption, not
+evidence that the consumer has adopted it. The source branch remains separate
+from master and no official release was created.
+
+| Identity | Value |
+|---|---|
+| Candidate / native component | `0.16.0-pov.1` / `0.9.0`, 47 exports |
+| Clean source, pushed branch | `397a5f22af38b2459f18ffa2e1d685ee838cce8f`, `codex/toolkit-pov-input` |
+| Worktree | `C:\Users\antho\.codex\worktrees\toolkit-pov-input\dbce-wheel-mod-toolkit` |
+| Archive within worktree | `dist/dbce-wheel-mod-toolkit-0.16.0-pov.1.zip` |
+| Archive SHA-256 | `0718CACC01718DF25F326E2C6B22C5CBA700170ECCF86A6790092B0FD5F69FB4` |
+| Receipt | `dist/POV-HANDOFF.json` |
+| Receipt SHA-256 | `93220C09ADE38DDF52EF33A3D4DB9ED0CD80BBAB64EBFED61D7F698175F08EB8` |
+| Default local sync identity | `local+397a5f22af38b2459f18ffa2e1d685ee838cce8f.clean` |
+
+The [contract at the reviewed source](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/397a5f22af38b2459f18ffa2e1d685ee838cce8f/docs/POV-INPUT.md)
+defines the native API and optional managed `SupportsPovRead` capability with
+`Read(slot, axes8, buttons, pov4)`. Existing native modules remain loadable;
+missing capability fails explicitly. No live native-module replacement is
+supported. Zeroed raw axes after failure must never be mapped as valid pedals.
+
+The subtask reported 121 managed tests, 24 sync assertions, native production-path
+POV fakes on x64/x86, current and legacy managed-binding checks on two runtimes,
+and existing conformance suites passing. Actual DLL load, all exports, version
+and invalid-slot clearing were checked on both architectures without acquiring
+a wheel. The coordinator independently verified the clean source/remote branch,
+archive and receipt hashes, and all 64 archived payload hashes. The receipt
+records exact component hashes and the five default synced payloads. A pre-existing
+`-Parts include` discrepancy omits `impact_mixer.h` from the package; default
+native/managed adoption and the separately checked `wheelffb.h` are unaffected.
+
+Both hardware smoke harnesses were **compiled only, not run**. No game, virtual
+controller or physical force acceptance is established by this handoff.
+
+## External companion ownership gate
+
+POV support does not settle the companion's FFB integration. The v0.15.0 native
+finite-burst paths require the foreground process to be the DLL's own process.
+An external launcher therefore cannot use them unchanged while Sonic has focus.
+[Microsoft's DirectInput cooperative-level contract](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417921(v=vs.85))
+also requires the supplied top-level window to belong to the calling process.
+Passing the game's window to a companion is not a valid shortcut. The current
+input-only shared reader's window fallback also needs review before adoption.
+
+The Sonic task must choose an in-process output backend or propose a separate,
+reviewed external-session focus/lifecycle contract with its own owned window.
+Do not weaken foreground safety checks or spoof process identity. Preserve
+single-owner input/output lifecycle, explicit target identity, neutral output
+on focus loss/disconnect/stale game state and both FFB transition directions.
+This constraint was sent to the task; it is not part of the POV candidate and
+does not prevent continued offline UI, mapping or telemetry-probe work.
+
+The next Sonic checkpoint reports a building WinForms launcher and 15 passing
+offline mapper/telemetry checks. The coordinator's follow-up source inspection
+confirmed required-axis fail-closed handling, raw opposing-direction cancellation,
+right-stick release/rearm and process-owned input HWND changes. The task reports
+the probe callback is now single-flight. The source was still uncommitted at this
+review, and no window was opened for visual acceptance. Follow-up findings sent
+to the task cover Item/Pause rearming, virtual-controller exclusion by identity,
+explicit GroupBox interior layout and meaningful calibration/config validation.
+Request an immutable source/package checkpoint before deployment or adoption
+claims; do not confuse this review with completion of those remaining fixes.
 
 ## Initial evidence
 
