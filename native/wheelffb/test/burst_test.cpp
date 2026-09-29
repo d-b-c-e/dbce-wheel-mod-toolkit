@@ -62,22 +62,29 @@ int main() {
         FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr;
         assert(SUCCEEDED(wheel_burst::create(&d,fx,25,ms)) && d.effect.starts==0 && !d.effect.playing());
         assert(SUCCEEDED(wheel_burst::play(fx,ms,1,25000)) && d.effect.magnitude==1);
+        assert(d.effect.stops==0); // Never stop an idle, undownloaded handle.
         assert(d.effect.flags==(DIEP_DURATION|DIEP_TYPESPECIFICPARAMS) && d.effect.playing());
         d.effect.now=ms*1000-1; assert(d.effect.playing());
         d.effect.now++; assert(!d.effect.playing()); // No toolkit callback needed to expire.
         assert(SUCCEEDED(wheel_burst::play(fx,ms,20,25000)) && d.effect.starts==2);
         assert(SUCCEEDED(wheel_burst::play(fx,ms,20,25000)) && d.effect.starts==3); // Identical event restarts.
+        assert(d.effect.stops==0); // DirectInput Start restarts a playing effect.
         assert(SUCCEEDED(wheel_burst::play(fx,ms,0,25000)) && !d.effect.playing() && d.effect.starts==3);
         assert(SUCCEEDED(wheel_burst::stop(fx)) && SUCCEEDED(wheel_burst::stop(fx)));
     }
     for(HRESULT error : {(HRESULT)DIERR_NOTACQUIRED,(HRESULT)DIERR_INPUTLOST,(HRESULT)DIERR_NOTEXCLUSIVEACQUIRED,(HRESULT)E_HANDLE,(HRESULT)DIERR_NOTDOWNLOADED,(HRESULT)E_FAIL}) {
-        for(int step=0;step<3;step++) {
+        for(int step=0;step<2;step++) {
             FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr; wheel_burst::create(&d,fx,25,50);
-            if(step==0)d.effect.stopResult=error; if(step==1)d.effect.setResult=error; if(step==2)d.effect.startResult=error;
+            if(step==0)d.effect.setResult=error; if(step==1)d.effect.startResult=error;
             assert(wheel_burst::play(fx,50,20,25000)==error && fx==nullptr);
-            assert(d.effect.starts==(step==2?1:0) && d.effect.releases==1 && !d.effect.playing());
+            assert(d.effect.starts==(step==1?1:0) && d.effect.releases==1 && !d.effect.playing());
             d.effect.now=999999; assert(!d.effect.playing()); // Dropped event never replays after recovery.
         }
+    }
+    {
+        FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr; wheel_burst::create(&d,fx,25,50);
+        d.effect.stopResult=DIERR_NOTDOWNLOADED;
+        assert(wheel_burst::play(fx,50,20,25000)==S_OK && d.effect.stops==0 && d.effect.playing());
     }
     FakeDevice unsupported; unsupported.result=DIERR_UNSUPPORTED; LPDIRECTINPUTEFFECT nofx=nullptr;
     assert(wheel_burst::create(&unsupported,nofx,25,50)==DIERR_UNSUPPORTED && nofx==nullptr);
