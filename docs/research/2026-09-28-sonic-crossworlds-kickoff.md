@@ -473,6 +473,40 @@ exact developer artifact/import/toolchain inspection, game-thread hook semantics
 and missing dependency identification before implementation or an owner handoff.
 The shared-desktop pause and all frozen pins/packages remain unchanged.
 
+### Owner handoff: producer prerequisite unresolved
+
+Consumer `1620dec945d94a975d9f28420c38d0393e67e308` completes the bounded C++
+alternative review. The coordinator independently verified the official developer
+ZIP SHA-256 `AF777D2AF33FCE4D520DE35A8665E417376BCC530FEC647778012CE6CDF51B2B`,
+its 166-entry inventory with no `.lib`, `.h` or `.hpp`, and the included DLL's
+exact match to the basic release. It contains a PDB, not a standalone SDK.
+The tagged repository's `deps/first/Unreal` points to UEPseudo commit
+`d09b7218bfe7392adeffb500fdeee0b42ca1cd27`; a fresh read-only GitHub request in
+the coordinator's current context also returns HTTP 404. This establishes
+unavailability in this context, not that the repository cannot be accessed by
+an appropriately authorized owner.
+
+The [tagged build instructions](https://github.com/UE4SS-RE/RE-UE4SS/blob/v3.0.1/README.md#build-instructions)
+require Epic-linked source access. The coordinator inspected `UE4SSProgram.cpp`:
+`on_update` runs from an auxiliary `std::jthread`, not a demonstrated game-thread
+capture. The ProcessEvent callback used by Lua's game-thread helper has an
+explicit asynchronous-UFunction caveat. Neither route is ready to produce
+force-eligible game state merely from export names or a host fixture.
+
+The **Sonic heartbeat is paused** at this confirmed prerequisite/owner choice.
+The next step is legitimate access to the pinned dependency and a reproducible
+matching loader/mod build, or selection of a separately reviewed supported SDK.
+After that, a newly authorized game-only slot must verify loader compatibility,
+callback thread/QPC/deadline/shutdown and real local-player/driving/mode fields.
+Wheel input, virtual-pad and physical force acceptance remain separate.
+No account/access change, game installation/launch, device acquisition or force
+test was performed. This is not a conclusion that Sonic modding is impossible.
+
+Preserved deliverables: clean input-only package `7347442`, accepted offline
+adapter `d142721` with coordinator 14+83 passing tests, frozen toolkit external
+candidate `06340b3` and its receipt, and the consumer's detailed
+`docs/PRODUCER-BRIDGE.md`. No new consumer pin or official release is implied.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

@@ -65,10 +65,13 @@ gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps
 Adapter repair `d142721` passes 14 optional and 83 standard tests in coordinator
 reruns. Retained authenticated client-pipe liveness closes the reproduced exit
 race; pre-client samples are consumed and fake expiry now observes old deadlines.
-Producer review `eddb4e6` pins UE4SS v3.0.1 but cannot substantiate the native
-Lua module link ABI. A bounded review of its documented C++ mod SDK and
-game-thread hook is active before deciding whether owner input is needed.
-The launcher package stays at `7347442`.
+Producer review `1620dec` confirms an unresolved prerequisite for both inspected
+UE4SS v3.0.1 extension routes: no supported native Lua link target, no developer
+SDK/import library, and the pinned Unreal submodule is unavailable to current
+GitHub access. The coordinator verified archive inventory, hashes and HTTP 404.
+Sonic coordination is **paused for an owner decision**: legitimate source access
+and matching loader/mod build, or a reviewed alternative SDK. Game-thread and
+real driving-field validation remain pending. The package stays at `7347442`.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
