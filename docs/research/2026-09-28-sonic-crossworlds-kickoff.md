@@ -209,6 +209,34 @@ with a boot-fixed frequency and a documented one-tick cross-thread ambiguity;
 see [Microsoft's timing guidance](https://learn.microsoft.com/en-us/windows/win32/sysinfo/acquiring-high-resolution-time-stamps).
 The current diagnostic JSONL cannot refresh a force lease.
 
+## External-session implementation assigned
+
+The native specialist's design review is complete and the coordinator approved
+an **offline experimental implementation**, separate from the published runtime
+and preserved POV candidate. The planned `codex/external-session-ffb` branch starts
+from `397a5f22af38b2459f18ffa2e1d685ee838cce8f` in the existing free POV worktree.
+No resulting native implementation or artifact has been accepted yet.
+
+The first output surface is one finite constant effect, bounded to 50 ms and the
+remaining source/client lease. It uses a new owned-window initialization path
+that never creates or starts the legacy infinite steering effect. External mode
+remains selected for process lifetime; legacy force paths cannot bypass it.
+Native independently checks pinned target/client/producer lifetimes, foreground
+target ownership, strict wheel identity, producer-capture age and a fresh native
+arm-generation ticket. Revocation cannot wait for the driver lock. Device calls
+and destruction remain serialized, including shared wheel reads. Old consumers
+that never enter this mode retain their behavior.
+
+The native-issued challenge must reach the actual producer and be echoed from
+a newly captured game sample. Helper-side restamping of cached JSONL proves
+nothing. Sonic is assigned the required bidirectional source control design and
+verification of whether UE4SS Lua can provide genuine QPC/IPC or needs a native
+producer bridge. Native cannot establish the truth of player/race attestations.
+Hung driver calls may still complete late; physical duration is unverified and
+must never be described as a guaranteed wall-clock stop bound. The next review
+is the finalized ABI/status contract and lifecycle implementation, followed by
+offline fake/legacy/architecture checks and a clean-source candidate receipt.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
