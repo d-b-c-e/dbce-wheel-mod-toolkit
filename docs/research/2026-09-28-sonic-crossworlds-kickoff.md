@@ -23,6 +23,19 @@ This is a **research candidate**, not a verified toolkit consumer. Neither the
 task's creation nor the planned repository establishes working game support.
 Inspect its `docs/STATE.md` and `docs/RESEARCH.md` for subsequent progress.
 
+The private [repository](https://github.com/d-b-c-e/sonic-crossworlds-wheel) is
+now created and verified private. The task proposes a companion launcher with
+calibrated wheel-to-virtual-controller input, followed by a game-state bridge
+for telemetry. ViGEmBus availability is a local prerequisite observation, not
+proof that this game accepts the output. The coordinator accepted this as an
+investigation route, with the following integration gate: v0.15.0's toolkit
+reader does not expose POV state, so a separate DirectInput reader must not
+silently create a second DirectInput instance alongside toolkit FFB in the
+same process. Resolve a single-owner reader/output design before enabling FFB;
+separate processes alone do not prove competing wheel handles will coexist.
+An additive shared-reader API or a verified HID/RawInput route needs its own
+identity, lifecycle and hardware evidence. Input/UI work can proceed meanwhile.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
