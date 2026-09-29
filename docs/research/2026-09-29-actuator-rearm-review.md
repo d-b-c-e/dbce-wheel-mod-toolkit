@@ -19,7 +19,7 @@ physical feel remains unverified. The coordinator independently built and ran
 the current fake burst/production focus-watchdog suite on x64 and x86: both
 passed without opening hardware. The tests do not close the findings below.
 
-## Required corrections before shared acceptance
+## Findings at the original checkpoint
 
 1. **Preserve shape verification before playback.** Removing Stop for every
    retrigger also changes a still-playing shaped effect. DirectInput may update
@@ -46,6 +46,30 @@ Focused feedback was sent to the owning task, which acknowledged and began the
 repairs. Preserve its source ownership and wait for a clean repaired checkpoint
 and exact DLL receipt. No new official release or hardware claim is authorized
 by this review.
+
+## Repaired source review
+
+Clean `02fb715531f8c857f5d66c89382da3c724fde7d8`, tree
+`d224cba3e59f87c0a8680394cf8f7cb2d02900ec`, follows burst repair `44ca79d`.
+Stop again precedes parameter changes, with idle `DIERR_NOTDOWNLOADED` tolerated;
+the test models implicit restart and rejects a mismatched shape before playback.
+All inspected FFB acquisition/recovery paths use the shared cache invalidation
+helper; finite events are not restarted. The threshold is restored to 500.
+Production fake-COM tests cover public Acquire, constant/periodic/condition
+recovery, creation Start retry and open failures/success.
+
+The coordinator independently built and ran burst and production POV/recovery/open
+suites on x64 and x86: all four passed. This closes the targeted source findings.
+The following existing DLL hashes were independently checked without rebuilding
+the DLLs:
+
+- x64: `F2D9DD3059A75ED381446C30488F5B75670642AF8972F2A2D593F983B9BE7972`.
+- x86: `DB9BAC4EE11A8DCCA0C6F43185C1060292F84C8E4448E699DC14F2FE61FDEE5A`.
+
+The consumer is asked to retain a clean-source component receipt with architecture,
+version/export and build/test identities, and compile-only smoke status. No device
+was opened in coordinator validation. Shared release/adoption and physical feel
+are not established by this source review.
 
 Microsoft documents both [SetParameters playback behavior](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417952(v=vs.85))
 and [Start downloading/restarting an effect](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417955(v=vs.85)).

@@ -117,7 +117,41 @@ transitions. Preserve this first package and return a new immutable receipt.
 Recorded preview is a model value, not delivered/measured torque. Default
 force-disabled captures preserve the controller's gate resets, which reset
 shaping on each blocked sample; trial documentation must state this limitation.
-The installed game remains 0.2.10 with owner settings retained.
+The installed game remained 0.2.10 at that first review checkpoint.
+
+## Woden ready for the owner's next recording, 2026-09-29
+
+The replacement **0.2.12** candidate closes both findings. Clean runtime source
+`bf58042fbf6ebea9175d8a85f332dd1ffd203ea6`; package
+`E:\Source\woden-rally-edge-wheel\dist\WodenRallyEdgeWheel-0.2.12-dev.zip`,
+SHA-256 `09088883102cc212b8fd0119b09fe1440efb9e1bb2158b3a60666185df7d279c`.
+The coordinator reviewed the trial/reader/controller fixtures, independently ran
+37 suites / 965 assertions, and verified every one of the 14 manifest payloads
+in ZIP and stage. The task also reports 532 UI assertions, 84 installer checks,
+zero-warning build and PrepareOnly fixtures. A fresh coordinator-generated
+synthetic case passed the shared reference: 77 of 100 magnitudes differ for a
+20%-strength tune, maximum delta 0.14840785413980484, with original artifacts
+preserved and the original case hash retained in the trial.
+
+Installed with Woden closed at **2026-09-29T05:35:51.1480383Z**, installer
+revision 3. The coordinator independently verified the installed receipt,
+all nine payload hashes and all four byte-identical owner config/binding files.
+Backup under the game: `WodenWheelBackups/before-install-20260929-003548-381c44f1`.
+No capture request exists, game remains closed, and no device/force test occurred.
+The original 0.2.11 candidate and native/Recording dependency pins are retained.
+
+When seated, the owner can run this PowerShell command:
+
+```powershell
+& 'E:\Source\woden-rally-edge-wheel\tools\Start-RecordedGame.ps1' -AttendedFfb
+```
+
+It creates the expiring request at invocation, launches the attended session,
+waits for normal exit and reports the validated capture/case/observation paths.
+Drive with stable FFB tuning, then quit normally. Without `-AttendedFfb`, force
+is suppressed and shaping history has the limitation described above. First
+real driving capture, startup/title guard interaction and physical feel remain
+unverified. This is capture readiness, not completed driving acceptance.
 
 F-Zero then reported committed recorder `4784b3f` and an 11,364-frame real
 playthrough replay with all WRAM checkpoints matching. Reproduction requires
@@ -134,11 +168,12 @@ game-run result or physical output. The shared case/config adapter is still open
 
 Separate native actuator commits `43c5e3c`, `6b6e29b`, `ca24f1e` received
 [source and x86/x64 fake-test review](2026-09-29-actuator-rearm-review.md).
-Current tests pass, but shaped retrigger verification and incomplete shared-device
-reacquire coverage require corrections; open/reopen coverage and the unrelated
-coefficient threshold also need resolution. The owning task is repairing them.
-They remain separate from this playback contribution and all frozen candidates.
+Repairs `44ca79d` and `02fb715` close shaped retrigger, shared-device reacquire,
+open/reopen coverage and coefficient-threshold findings. Coordinator tests pass
+on both architectures. An immutable component receipt is requested; these fixes
+remain separate from playback and every frozen candidate. F-Zero still owns the
+remaining shared case/config adapter; Woden capture readiness is complete.
 
 Latest compact cursors:
 F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:12`;
-Woden `5365458d-4949-42ac-a750-938f7b10372d:8`.
+Woden `5365458d-4949-42ac-a750-938f7b10372d:10`.

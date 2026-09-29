@@ -43,13 +43,14 @@ The owner authorized coordination with F-Zero Deluxe followed by Woden capture
 readiness. Source-only [v1 tooling](RECORDED-PLAYBACK.md) adds case/artifact identity,
 bounded no-device force observations and comparison. ROM-free tests: 16 passed,
 one symlink privilege skip. This does not change native/Recording package pins.
-Woden candidate `fea6c996` adds capture provenance/reset events, a correlated
-owner command and actual-model baseline reprocessing. Coordinator verification:
-36 suites / 951 assertions, all 14 package payloads and the shared synthetic
-case/100-request comparison pass. Preinstall review requires a separate immutable
-tuning-trial path and strict comparison rejection before deployment. Its existing
-two real recordings contain no driving data; first attended capture remains
-pending. See [owners, contract and checkpoints](research/2026-09-28-recorded-playback-coordination.md).
+Woden **0.2.12 / `bf58042` is installed** for the next seated recording. Source
+review and 37 suites / 965 assertions cover immutable tuning trials, strict
+comparison and controller reset/gate transitions. The coordinator verified the
+package, all nine deployed payloads, backup and four unchanged owner files.
+No expiring request exists; the owner command creates it only when invoked.
+The shared synthetic trial reports 77 changed magnitudes on the same 100-request
+timeline. Real driving capture and physical acceptance remain pending.
+See [owner command, identities and limits](research/2026-09-28-recorded-playback-coordination.md).
 
 ## Sonic CrossWorlds project kickoff, 2026-09-28
 
@@ -71,9 +72,10 @@ reviewed for offline integration; all 66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
-F-Zero's separate actuator branch through `ca24f1e` passes existing x86/x64 fake
-burst checks, but [review findings](research/2026-09-29-actuator-rearm-review.md)
-remain open. It is not merged into any frozen candidate or official release.
+F-Zero's separate actuator repairs through `02fb715` close the targeted
+[source findings](research/2026-09-29-actuator-rearm-review.md); coordinator burst
+and production recovery/open tests pass on x86/x64. Immutable component receipt
+and physical acceptance remain separate; no frozen candidate/release is changed.
 
 ## Art RC16 device-picker guidance, 2026-09-23
 

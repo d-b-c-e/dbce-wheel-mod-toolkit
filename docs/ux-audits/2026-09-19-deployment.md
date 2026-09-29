@@ -18,7 +18,7 @@ tracked separately; a file copy does not establish input, camera or force behavi
 
 | Consumer | Starting point | Current rollout status | Live acceptance |
 |---|---|---|---|
-| Woden Rally Edge | Runtime `25797b3`, 0.2.10; installer revision 3 `e5da2d5` | Deployed; nine payloads, four owner files, final ZIP and its installer independently verified; final docs `8b070eb` pushed | Earlier 0.2.9 F6/Advanced/capture Cancel passed. 0.2.10 startup guards passed source/ABI review and fixtures; actual startup/title retest not run after user paused desktop input |
+| Woden Rally Edge | Runtime `bf58042`, 0.2.12; installer revision 3 | Deployed 2026-09-29 for recorded-drive capture and immutable tuning trials; nine payloads, four owner files, ZIP/stage and backup independently verified | Earlier 0.2.9 F6/Advanced/capture Cancel passed. Startup/title retest, first real driving capture and physical acceptance remain pending |
 | iRacing Arcade | Source `f213a4d`, 0.4.7; exact installed-ABI correction independently reviewed | Deployed; eight payloads, five owner files, eight previous-payload backups and ZIP independently verified | 0.4.7 native Free Play/Back/F6 passed without the prior immediate exception; user stopped desktop interaction before final stationary-pointer check, so recovery remains unverified |
 | Art of Sim Rally | Source `470e398`, 0.2.6-rc.13; all sixteen RC gates passed | RC13 grouping follow-up deployed September21 local; six payloads, second native DLL and six retained owner/game files verified; docs `7675ed2` | RC12 had limited actual 4K/menu/cancel checks. RC13 visual grouping has source/offline evidence only; its actual rendered and full scale/hardware matrix remain pending (KI-41) |
 | #DRIVE Rally | Source `44e4222`, 0.1.6; 18 suites/251 assertions, 14 packaged installer checks | Self-contained PS5.1 player package installed; all 28 installed files and ZIP independently verified; docs `7b3ac18` pushed | Home-screen F6 Simple/Advanced, Enter isolation, Tab and neutral close passed. Welcome did not appear; its fix remains source-only. Wheel/FFB/added cameras remain future capabilities |
@@ -698,3 +698,20 @@ Final consumer documentation checkpoints are pushed: Woden `8b070eb`, iRacing
 `ecaf0e8`, Art `1a72fd9`, Drive `7b3ac18`, OutRun `cb0f0f1`, Milestone `cb7a452`,
 and Cruis'n `282b151`. These documentation revisions are separate from the
 runtime/package revisions in the table and receipts above.
+
+## Woden recorded-drive follow-up, 2026-09-29
+
+Installed 0.2.12 from clean source `bf58042fbf6ebea9175d8a85f332dd1ffd203ea6`
+at `2026-09-29T05:35:51.1480383Z`, with Woden closed. Package
+`E:/Source/woden-rally-edge-wheel/dist/WodenRallyEdgeWheel-0.2.12-dev.zip`,
+SHA-256 `09088883102cc212b8fd0119b09fe1440efb9e1bb2158b3a60666185df7d279c`.
+The coordinator independently verified all 14 ZIP/stage manifest entries, all
+nine installed payloads, the revision-3 receipt and four unchanged owner files.
+Backup: `WodenWheelBackups/before-install-20260929-003548-381c44f1` under the
+same verified game root. Prior packages and dependency pins remain unchanged.
+
+37 regression suites / 965 assertions passed in a coordinator rerun; the task
+reports 532 UI assertions and 84 installer checks. Shared-format baseline/trial
+comparison passes with original hashes preserved. No expiring request was left,
+no game launched and no physical force tested. [Recording command, provenance
+and acceptance limits](../research/2026-09-28-recorded-playback-coordination.md).
