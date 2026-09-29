@@ -451,6 +451,28 @@ ABI cannot be established offline, return a precise feasibility handoff instead
 of guessing bindings. Launcher, package, pins and all desktop/device paths remain
 unchanged; the Sonic heartbeat continues.
 
+### Producer ABI checkpoint
+
+Clean consumer `eddb4e6787558580bc765358ed83614afa68ff08` pins prospective
+UE4SS v3.0.1 source `d935b5b23bac03b65c14ae38382b02007204cc2e` and official
+archive SHA-256 `4B47D4BCEDDD2F561A4E395BFA00924CCFC945AF576A2D0C613E6537846C57EC`.
+The extracted DLL is `8AC18FBFFC1EF96B0662D4A2D537B3F224C26D65CAABA7989A9404C566102B26`.
+The coordinator independently verified both hashes, x64 PE format, absence of a
+Lua DLL import, and zero standard Lua C API export names. Tagged Lua 5.4.4 and
+module search-path support alone do not establish a supported native Lua module
+link/state ABI. No guessed bridge is accepted or installed.
+
+This is a route limitation, not a project-wide blocker. The official
+[tagged C++ mod guide](https://github.com/UE4SS-RE/RE-UE4SS/blob/v3.0.1/docs/guides/creating-a-c%2B%2B-mod.md)
+and [base class](https://github.com/UE4SS-RE/RE-UE4SS/blob/v3.0.1/UE4SS/include/Mod/CppUserModBase.hpp)
+provide an alternative worth a bounded offline check; the latter explicitly
+requires matching C runtime/configuration. The inspected DLL has 12 base-class
+export names, and the official release lists a developer archive. These facts
+do not yet prove SDK compatibility or game-thread execution. Sonic is assigned
+exact developer artifact/import/toolchain inspection, game-thread hook semantics
+and missing dependency identification before implementation or an owner handoff.
+The shared-desktop pause and all frozen pins/packages remain unchanged.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

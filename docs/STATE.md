@@ -65,8 +65,10 @@ gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps
 Adapter repair `d142721` passes 14 optional and 83 standard tests in coordinator
 reruns. Retained authenticated client-pipe liveness closes the reproduced exit
 race; pre-client samples are consumed and fake expiry now observes old deadlines.
-The next bounded assignment is the actual game producer's loader/Lua ABI
-feasibility and timing/IPC bridge. The launcher package stays at `7347442`.
+Producer review `eddb4e6` pins UE4SS v3.0.1 but cannot substantiate the native
+Lua module link ABI. A bounded review of its documented C++ mod SDK and
+game-thread hook is active before deciding whether owner input is needed.
+The launcher package stays at `7347442`.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
