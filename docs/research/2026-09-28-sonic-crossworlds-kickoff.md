@@ -237,6 +237,16 @@ must never be described as a guaranteed wall-clock stop bound. The next review
 is the finalized ABI/status contract and lifecycle implementation, followed by
 offline fake/legacy/architecture checks and a clean-source candidate receipt.
 
+Consumer commit `62d338cdc27d63a163d06474ec0f29f55b702caa` adds a pure, device-free
+mailbox/source-lease/input-gate implementation and reports 29 tests passing. It
+does not replace the running launcher's input path or implement an OS pipe or
+FFB call. Its 26 JSON vectors remain design data, separate from executed tests.
+The coordinator inspected the helpers and tests and requested one further
+regression: when the consumer loop itself stalls, accepting a fresh new input
+frame must first notice that the previous sample expired and reset recovery.
+It cannot rely on a timer having called the stale-sample check during the stall.
+The current launcher package remains the separately recorded `7347442` artifact.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
