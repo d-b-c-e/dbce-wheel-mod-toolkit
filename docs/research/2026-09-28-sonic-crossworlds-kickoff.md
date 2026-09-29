@@ -368,9 +368,24 @@ time before observing the previous lease, allowing a stalled timer to miss a
 generation-revoking expiry. Required tests isolate a headless target exiting
 while owner traffic stays fresh, and both heartbeat roles crossing expiry
 without Tick while input/game samples stay young. Mutable settings/known-device
-sets must also be frozen for a session. These findings are not yet closed.
+sets must also be frozen for a session. These were the open findings at that checkpoint.
 Per-drained-frame semantic application and producer-side invalidation latching
 address the prior coalescing defect. No launcher/package/native adoption changed.
+
+Repair source `a41a9d1a801487f30af45d0e0360916579ff291a` closes those findings.
+The coordinator reviewed the diff and independently reran all 83 tests with no
+failures. A real separate headless target exits while owner process/pipe remain
+live; input neutralizes and the session cannot restart. Both heartbeat roles
+cross their old lease without a Tick while state remains young; renewal cannot
+retain the old generation. Owner expiry retires input, while producer recovery
+requires a new generation. Caller settings and GUID-set mutation no longer
+changes a running session. No device/game/virtual-pad path was exercised.
+
+The next focused assignment is an offline adapter to the reviewed toolkit
+external-session wrapper, with a fake native API testing lifecycle, native-issued
+ticket/QPC translation, expiry, revocation and cleanup. Production launcher
+integration, consumer pins and the package remain unchanged. Exact UE4SS/Lua ABI,
+the native producer bridge and verified local-player signals remain unverified.
 
 ## Initial evidence
 

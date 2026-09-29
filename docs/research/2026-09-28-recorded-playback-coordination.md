@@ -83,8 +83,41 @@ acceptance remain separate from source/package/deployment readiness.
 Shared source checkpoint `87b47d53121c0b3fc8479e622ae8a79c8ca3fa58` is
 clean/pushed and landed on private master via `8bd119c9d67e5e9e951c05394a062460ba13f141`.
 Both consumers received the exact reference, including the final required
-`caseSha256` header binding. Woden is implementing and testing its adapter and
-owner command; deployment has not yet been reviewed or performed.
+`caseSha256` header binding. Woden's first candidate reached preinstall review;
+deployment has not been approved or performed.
+
+## Woden preinstall review, 2026-09-29
+
+Candidate source `fea6c996d89ed09a125e71524d4335a994078afc`, documentation
+follow-up `b5e46c3`, product 0.2.11. Frozen ZIP
+`WodenRallyEdgeWheel-0.2.11-dev.zip` SHA-256
+`7600587155f9d45e16dc7c402127b3531017864213a991fff47c412f23d48e29`.
+The coordinator independently verified the ZIP identity and all 14 manifest
+payloads against both ZIP and stage, then ran 36 regression suites / 951
+assertions. The task also reports zero-warning build, 532 UI assertions,
+84 PowerShell installer checks and PrepareOnly fixtures. No game/device run.
+
+The synthetic 100-sample actual-model case passes shared artifact validation and
+self-comparison. Exact case hash
+`9516dab277b506e7a94e161d0648fee2478e68a8126c44670741e9af66ac7129`;
+observation hash
+`8a54f18c803e3da34eb40d9511b89fd89fd83d579a0783c89712b3a4bc5d22ce`.
+This establishes baseline signal reproduction, not real driving coverage.
+
+Installation is held for two focused corrections. The adapter currently only
+creates a verified baseline and refuses subsequent runs or changed tuning. Add a
+separate trial command that verifies the unchanged original case/source/baseline,
+uses a separately hashed candidate tune, and writes a new observation bound to
+the original case hash. Also reject invalid identifiers, negative ticks and
+structurally mismatched timelines/counts before calculating numeric deltas.
+Regressions must cover a changed tune with original artifacts retained, tampered
+inputs, malformed observations and actual-controller pause/camera/discontinuity
+transitions. Preserve this first package and return a new immutable receipt.
+
+Recorded preview is a model value, not delivered/measured torque. Default
+force-disabled captures preserve the controller's gate resets, which reset
+shaping on each blocked sample; trial documentation must state this limitation.
+The installed game remains 0.2.10 with owner settings retained.
 
 F-Zero then reported committed recorder `4784b3f` and an 11,364-frame real
 playthrough replay with all WRAM checkpoints matching. Reproduction requires
@@ -98,5 +131,5 @@ contribution or any frozen official/POV/external-session candidate. Preserve the
 actuator worktree; no native adoption or physical acceptance is inferred.
 
 Latest compact cursors:
-F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:10`;
-Woden `5365458d-4949-42ac-a750-938f7b10372d:5`.
+F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:11`;
+Woden `5365458d-4949-42ac-a750-938f7b10372d:7`.

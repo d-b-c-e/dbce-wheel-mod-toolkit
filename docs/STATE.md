@@ -43,9 +43,12 @@ The owner authorized coordination with F-Zero Deluxe followed by Woden capture
 readiness. Source-only [v1 tooling](RECORDED-PLAYBACK.md) adds case/artifact identity,
 bounded no-device force observations and comparison. ROM-free tests: 16 passed,
 one symlink privilege skip. This does not change native/Recording package pins.
-Woden's task is adding capture provenance/reset events, a correlated one-command
-recording flow and actual-model offline reprocessing. Its existing two recordings
-contain no driving data; new capture/deployment and attended acceptance remain
+Woden candidate `fea6c996` adds capture provenance/reset events, a correlated
+owner command and actual-model baseline reprocessing. Coordinator verification:
+36 suites / 951 assertions, all 14 package payloads and the shared synthetic
+case/100-request comparison pass. Preinstall review requires a separate immutable
+tuning-trial path and strict comparison rejection before deployment. Its existing
+two real recordings contain no driving data; first attended capture remains
 pending. See [owners, contract and checkpoints](research/2026-09-28-recorded-playback-coordination.md).
 
 ## Sonic CrossWorlds project kickoff, 2026-09-28
@@ -55,14 +58,14 @@ for wheel input, FFB, meaningful telemetry and right-stick-to-hat bindings.
 [Task identity, installed-build evidence and acceptance scope](research/2026-09-28-sonic-crossworlds-kickoff.md).
 The implementation task owns `E:\Source\sonic-crossworlds-wheel`; an hourly
 heartbeat reviews milestones. This is research, not verified consumer adoption.
-Consumer integration source `7a6967b252a747d82b54f34b9ec5831ad5c8b498` reports
-80 offline tests; the prior transport source passed67 in a coordinator rerun.
-The launcher package remains separately pinned to `7347442`. Review of the
-device-free schema/peer/eligibility integration found target-exit input gating
-and old-heartbeat-before-renewal gaps; focused fixes/regressions are assigned.
-Session settings/device sets also need immutable snapshots. Native external-session source
+Consumer repair source `a41a9d1a801487f30af45d0e0360916579ff291a` passes all
+83 offline tests in a coordinator rerun. Source review closes target-exit input
+gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps.
+The next assignment is a device-free adapter tested against a fake native session
+API. The launcher package remains separately pinned to `7347442`.
+Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
-reviewed for offline integration; all66 ZIP payload hashes were independently
+reviewed for offline integration; all 66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
