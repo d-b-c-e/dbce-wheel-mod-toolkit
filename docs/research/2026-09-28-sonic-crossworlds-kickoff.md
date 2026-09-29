@@ -247,6 +247,23 @@ frame must first notice that the previous sample expired and reset recovery.
 It cannot rely on a timer having called the stale-sample check during the stall.
 The current launcher package remains the separately recorded `7347442` artifact.
 
+The 2026-09-29 04:09 UTC coordinator heartbeat reviewed Sonic checkpoint
+`e31cbcb9514cea63148d4b0943a3065757346f41`. The stalled-loop fix and regressions are
+present; the task reports 37 offline tests passing and 34 separate JSON design
+vectors, which are not mechanically executed. Its producer review finds no
+documented built-in UE4SS Lua QPC/pipe primitive and proposes a native Lua C
+library for timing and bounded IPC, contingent on the exact loader/Lua ABI.
+Neither that bridge nor real game-state sampling has been implemented or tested.
+
+The heartbeat also resolved an inter-project timing ambiguity: ticket expiry
+bounds the **initial producer echo**, not the whole healthy arm generation.
+Fresh source/client leases may keep that generation eligible after the initial
+ticket deadline. Any fault/revocation requires a new handshake; delayed cached
+state cannot revive it. Both tasks received this clarification. The native
+provisional header/policy review requested explicit source-first/client-first
+startup handling and rejection of oversized handle values on x86. Runtime work
+is active on `codex/external-session-ffb`; no candidate artifact has been accepted.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
