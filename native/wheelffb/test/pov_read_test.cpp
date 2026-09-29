@@ -4,10 +4,31 @@
 #include <cassert>
 #include <initializer_list>
 
+struct FakeForceEffect : IDirectInputEffect {
+    int starts=0, stops=0, sets=0, releases=0;
+    HRESULT firstSet=S_OK, firstStart=S_OK;
+    DWORD lastFlags=0;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID,void**) override {return E_NOINTERFACE;}
+    ULONG STDMETHODCALLTYPE AddRef() override {return 1;}
+    ULONG STDMETHODCALLTYPE Release() override {++releases;return 1;}
+    HRESULT STDMETHODCALLTYPE Initialize(HINSTANCE,DWORD,REFGUID) override {return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetEffectGuid(LPGUID) override {return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetParameters(LPDIEFFECT,DWORD) override {return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE SetParameters(LPCDIEFFECT,DWORD flags) override {lastFlags=flags;return ++sets==1?firstSet:S_OK;}
+    HRESULT STDMETHODCALLTYPE Start(DWORD,DWORD) override {return ++starts==1?firstStart:S_OK;}
+    HRESULT STDMETHODCALLTYPE Stop() override {++stops;return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetEffectStatus(LPDWORD status) override {*status=0;return S_OK;}
+    HRESULT STDMETHODCALLTYPE Download() override {return S_OK;}
+    HRESULT STDMETHODCALLTYPE Unload() override {return S_OK;}
+    HRESULT STDMETHODCALLTYPE Escape(LPDIEFFESCAPE) override {return S_OK;}
+};
+
 struct FakeDevice : IDirectInputDevice8A {
     DIJOYSTATE2 state = {};
     int polls=0, reads=0, acquires=0, releases=0, unacquires=0;
-    HRESULT pollResult=S_OK, readResult=S_OK;
+    HRESULT pollResult=S_OK, readResult=S_OK, acquireResult=S_OK, formatResult=S_OK, commandResult=S_OK;
+    FakeForceEffect force;
+    int forceCreates=0, actuatorOns=0;
     bool omitPov=false;
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID,void**) override {return E_NOINTERFACE;}
     ULONG STDMETHODCALLTYPE AddRef() override {return 1;}
@@ -16,7 +37,7 @@ struct FakeDevice : IDirectInputDevice8A {
     HRESULT STDMETHODCALLTYPE EnumObjects(LPDIENUMDEVICEOBJECTSCALLBACKA,LPVOID,DWORD) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE GetProperty(REFGUID,LPDIPROPHEADER) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE SetProperty(REFGUID,LPCDIPROPHEADER) override {return E_NOTIMPL;}
-    HRESULT STDMETHODCALLTYPE Acquire() override {++acquires;return S_OK;}
+    HRESULT STDMETHODCALLTYPE Acquire() override {++acquires;return acquireResult;}
     HRESULT STDMETHODCALLTYPE Unacquire() override {++unacquires;return S_OK;}
     HRESULT STDMETHODCALLTYPE GetDeviceState(DWORD size,LPVOID data) override {
         assert(size==sizeof(state));++reads;
@@ -27,18 +48,22 @@ struct FakeDevice : IDirectInputDevice8A {
         return readResult;
     }
     HRESULT STDMETHODCALLTYPE GetDeviceData(DWORD,LPDIDEVICEOBJECTDATA,LPDWORD,DWORD) override {return E_NOTIMPL;}
-    HRESULT STDMETHODCALLTYPE SetDataFormat(LPCDIDATAFORMAT) override {return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE SetDataFormat(LPCDIDATAFORMAT) override {return formatResult;}
     HRESULT STDMETHODCALLTYPE SetEventNotification(HANDLE) override {return E_NOTIMPL;}
-    HRESULT STDMETHODCALLTYPE SetCooperativeLevel(HWND,DWORD) override {return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE SetCooperativeLevel(HWND,DWORD) override {return S_OK;}
     HRESULT STDMETHODCALLTYPE GetObjectInfo(LPDIDEVICEOBJECTINSTANCEA,DWORD,DWORD) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE GetDeviceInfo(LPDIDEVICEINSTANCEA) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE RunControlPanel(HWND,DWORD) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE Initialize(HINSTANCE,DWORD,REFGUID) override {return E_NOTIMPL;}
-    HRESULT STDMETHODCALLTYPE CreateEffect(REFGUID,LPCDIEFFECT,LPDIRECTINPUTEFFECT*,LPUNKNOWN) override {assert(false);return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE CreateEffect(REFGUID guid,LPCDIEFFECT,LPDIRECTINPUTEFFECT* out,LPUNKNOWN) override {
+        assert(IsEqualGUID(guid,GUID_ConstantForce));++forceCreates;*out=&force;return S_OK;
+    }
     HRESULT STDMETHODCALLTYPE EnumEffects(LPDIENUMEFFECTSCALLBACKA,LPVOID,DWORD) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE GetEffectInfo(LPDIEFFECTINFOA,REFGUID) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE GetForceFeedbackState(LPDWORD) override {return E_NOTIMPL;}
-    HRESULT STDMETHODCALLTYPE SendForceFeedbackCommand(DWORD) override {assert(false);return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE SendForceFeedbackCommand(DWORD cmd) override {
+        assert(cmd==DISFFC_SETACTUATORSON);++actuatorOns;return commandResult;
+    }
     HRESULT STDMETHODCALLTYPE EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK,LPVOID,DWORD) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE Escape(LPDIEFFESCAPE) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE Poll() override {++polls;return pollResult;}
@@ -52,10 +77,13 @@ struct FakeDevice : IDirectInputDevice8A {
 
 struct FakeInput : IDirectInput8A {
     int creates=0;
+    FakeDevice* candidate=nullptr;
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID,void**) override {return E_NOINTERFACE;}
     ULONG STDMETHODCALLTYPE AddRef() override {return 1;}
     ULONG STDMETHODCALLTYPE Release() override {return 1;}
-    HRESULT STDMETHODCALLTYPE CreateDevice(REFGUID,LPDIRECTINPUTDEVICE8A*,LPUNKNOWN) override {++creates;return E_NOTIMPL;}
+    HRESULT STDMETHODCALLTYPE CreateDevice(REFGUID,LPDIRECTINPUTDEVICE8A* out,LPUNKNOWN) override {
+        ++creates;if(!candidate)return E_NOTIMPL;*out=candidate;return S_OK;
+    }
     HRESULT STDMETHODCALLTYPE EnumDevices(DWORD,LPDIENUMDEVICESCALLBACKA,LPVOID,DWORD) override {assert(false);return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE GetDeviceStatus(REFGUID) override {return E_NOTIMPL;}
     HRESULT STDMETHODCALLTYPE RunControlPanel(HWND,DWORD) override {return E_NOTIMPL;}
@@ -155,5 +183,54 @@ int main() {
     assert(!out.read() && reader.reads==2 && reader.acquires==3);out.cleared();
     CloseReadDevices();assert(reader.releases==1 && reader.unacquires==1 && input.creates==0);
     g_di=nullptr;g_device=nullptr;g_auxCount=0;
-    puts("PASS production POV snapshot: eight directions/four hats, neutral/invalid angles, bounds/canaries, one read, failure invalidation, shared handle/no reacquire, GUID swap, legacy unchanged; no hardware opened");
+
+    // Production FFB recovery routes, with actual exported calls and fake COM.
+    InitializeCriticalSection(&g_lock);g_lockInit=true;
+    FakeDevice ffb;FakeForceEffect periodic,condition;
+    g_device=&ffb;g_effect=&ffb.force;g_effectAxes=1;g_panicked=false;
+    g_periodic[0].used=true;g_periodic[0].durationMs=0;g_periodic[0].fx=&periodic;
+    g_periodic[0].started=true;g_periodic[0].lastMag=1000;g_periodic[0].lastPeriod=40000;
+    g_condition[0].used=true;g_condition[0].fx=&condition;
+    g_condition[0].started=true;g_condition[0].lastCoeff=1000;
+    ffb.acquireResult=S_FALSE;Aquire();
+    assert(g_periodic[0].started && g_condition[0].started);
+    ffb.acquireResult=S_OK;Aquire();
+    assert(!g_periodic[0].started && !g_condition[0].started);
+    g_periodic[0].started=true;g_condition[0].started=true;
+    ffb.force.firstSet=DIERR_INPUTLOST;
+    assert(SetDeviceForcesXY(100,0)==1 && ffb.unacquires==1 && ffb.force.sets==2);
+    assert(!g_periodic[0].started && !g_condition[0].started);
+    g_periodic[0].started=true;g_condition[0].started=true;
+    periodic.firstSet=DIERR_NOTACQUIRED;g_periodicStrategy=0;
+    assert(UpdatePeriodicEffect(0,1800,25000)==1 && periodic.sets==2);
+    assert((periodic.lastFlags&DIEP_START) && g_periodic[0].started && !g_condition[0].started);
+    g_condition[0].started=true;g_periodic[0].started=true;
+    condition.firstSet=DIERR_NOTEXCLUSIVEACQUIRED;
+    assert(UpdateConditionEffect(0,1800,1000,0,0)==1 && condition.sets==2);
+    assert((condition.lastFlags&DIEP_START) && g_condition[0].started && !g_periodic[0].started);
+    g_condition[0].started=true;g_periodic[0].started=true;
+    ffb.force.firstStart=DIERR_INPUTLOST;
+    assert(StartEffect() && ffb.force.starts==2 && !g_condition[0].started && !g_periodic[0].started);
+    // Finite slots are never marked for automatic replay during reacquire.
+    g_periodic[1].used=true;g_periodic[1].durationMs=50;g_periodic[1].started=true;
+    Aquire();assert(g_periodic[1].started);
+    g_effect=nullptr;g_device=nullptr;
+    g_periodic[0]={};g_periodic[1]={};g_condition[0]={};
+
+    // The real open/reopen routine must fail closed at every newly guarded
+    // stage; actuator-on only follows an acquired, created effect.
+    FakeInput opener;g_di=&opener;g_hwnd=(HWND)1;
+    g_candidates[0].guid=GUID_ConstantForce;g_candidates[0].axes=1;
+    strcpy_s(g_candidates[0].name,"Fake wheel");
+    FakeDevice badFormat;badFormat.formatResult=E_FAIL;opener.candidate=&badFormat;
+    assert(!OpenCandidate(0) && !g_device && badFormat.acquires==0 && !badFormat.actuatorOns);
+    FakeDevice badAcquire;badAcquire.acquireResult=DIERR_NOTACQUIRED;opener.candidate=&badAcquire;
+    assert(!OpenCandidate(0) && !g_device && badAcquire.forceCreates==0 && !badAcquire.actuatorOns);
+    FakeDevice badActuator;badActuator.commandResult=E_FAIL;opener.candidate=&badActuator;
+    assert(!OpenCandidate(0) && !g_device && badActuator.forceCreates==1 && badActuator.actuatorOns==1);
+    FakeDevice good;opener.candidate=&good;
+    assert(OpenCandidate(0) && g_device==&good && good.forceCreates==1 && good.actuatorOns==1);
+    CloseCandidate();assert(!g_device && good.releases==1);
+    g_di=nullptr;DeleteCriticalSection(&g_lock);g_lockInit=false;
+    puts("PASS production POV and FFB acquire/recovery/open routes with fake COM; no hardware opened");
 }

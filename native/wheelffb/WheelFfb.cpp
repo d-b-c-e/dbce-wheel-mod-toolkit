@@ -916,15 +916,31 @@ __declspec(dllexport) void CloseReadDevices(void)
     g_readCount = 0;
 }
 
+static void MarkPersistentEffectsStopped();
+
+// Caller holds g_lock. Unacquire can stop all effects even if the subsequent
+// Acquire fails; a successful first Acquire can do the same on some drivers.
+static HRESULT AcquireFfbDevice(bool reset)
+{
+    if (!g_device) return E_POINTER;
+    if (reset) {
+        g_device->Unacquire();
+        MarkPersistentEffectsStopped();
+    }
+    HRESULT hr = g_device->Acquire();
+    if (!reset && hr == S_OK) MarkPersistentEffectsStopped();
+    return hr;
+}
+
 __declspec(dllexport) void Aquire(void)
 {
     if (!g_device) { Log("Aquire() with no device"); return; }
-    HRESULT hr = g_device->Acquire();
+    EnterCriticalSection(&g_lock);
+    HRESULT hr = AcquireFfbDevice(false);
+    LeaveCriticalSection(&g_lock);
     // S_FALSE simply means "already acquired" - not worth logging every frame.
     if (hr != S_FALSE) Log("Aquire() -> 0x%08lX", hr);
 }
-
-static void MarkPersistentEffectsStopped();
 
 // Called every frame while driving. Force samples are explicitly opt-in;
 // lifecycle/error logging remains available without per-update file I/O.
@@ -1004,13 +1020,8 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
         if (lastReacquire == 0 || now - lastReacquire > 250) {
             lastReacquire = now;
             HRESULT lost = hr;
-            g_device->Unacquire();
-            HRESULT ah = g_device->Acquire();
+            HRESULT ah = AcquireFfbDevice(true);
             if (SUCCEEDED(ah)) {
-                // Reacquiring can stop every downloaded effect, even when its
-                // handle and last parameters remain valid. Make the next
-                // condition/periodic update explicitly start each one again.
-                MarkPersistentEffectsStopped();
                 hr = g_effect->SetParameters(
                     &update, DIEP_DIRECTION | DIEP_TYPESPECIFICPARAMS | DIEP_START);
             }
@@ -1035,7 +1046,7 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
         if (lastHeal == 0 || now - lastHeal > 1000) {
             lastHeal = now;
             Log("SetParameters failed 0x%08lX - recreating the effect (heal #%d)", hr, ++healCount);
-            g_device->Acquire();
+            AcquireFfbDevice(false);
             if (g_effect) { g_effect->Stop(); g_effect->Release(); g_effect = nullptr; }
             HRESULT ch = CreateForceEffect();
             if (SUCCEEDED(ch) && g_effect) {
@@ -1049,13 +1060,14 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
         }
     }
 
-    if (FAILED(hr)) g_lastHr = hr;
-    LeaveCriticalSection(&g_lock);
-
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
-        g_device->Acquire();
+        AcquireFfbDevice(false);
+        g_lastHr = hr;
+        LeaveCriticalSection(&g_lock);
         return 0;
     }
+    if (FAILED(hr)) g_lastHr = hr;
+    LeaveCriticalSection(&g_lock);
 
     // Log failures, rate-limited. Without this a wheel that accepts the effect
     // and then rejects every update looks identical in the log to one that is
@@ -1109,10 +1121,9 @@ static HRESULT StartEffectRetrying(LPDIRECTINPUTEFFECT fx, const char* what)
     HRESULT hr = fx->Start(1, 0);
     if (hr == DIERR_NOTEXCLUSIVEACQUIRED || hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
         if (g_device) {
-            g_device->Unacquire();
-            HRESULT ah = g_device->Acquire();
+            HRESULT ah = AcquireFfbDevice(true);
             HRESULT first = hr;
-            hr = fx->Start(1, 0);
+            if (SUCCEEDED(ah)) hr = fx->Start(1, 0);
             Log("  %s Start 0x%08lX -> re-acquire 0x%08lX -> 0x%08lX", what, first, ah, hr);
             return hr;
         }
@@ -1258,8 +1269,11 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
         return 0;
     }
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
-        g_device->Unacquire(); g_device->Acquire();
-        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+        HRESULT ah = AcquireFfbDevice(true);
+        if (SUCCEEDED(ah)) {
+            hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            flags |= DIEP_START;
+        }
     }
     if (SUCCEEDED(hr)) { s.lastMag = mag; s.lastPeriod = period; if (flags & DIEP_START) s.started = true; }
     else {
@@ -1547,7 +1561,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
     }
     g_lastUpdateTick = GetTickCount64();
     bool silence = (coefficient == 0 && s.lastCoeff != 0);
-    bool moved = (!s.started && coefficient != 0) || labs((long)coefficient - (long)s.lastCoeff) > 50 ||
+    bool moved = (!s.started && coefficient != 0) || labs((long)coefficient - (long)s.lastCoeff) > 500 ||
                  labs((long)saturation  - (long)s.lastSat)   > 500 ||
                  s.lastDead != deadband || s.lastOffset != offset;
     if (!moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
@@ -1570,8 +1584,11 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
         return 0;
     }
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
-        g_device->Unacquire(); g_device->Acquire();
-        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+        HRESULT ah = AcquireFfbDevice(true);
+        if (SUCCEEDED(ah)) {
+            hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            flags |= DIEP_START;
+        }
     }
     if (SUCCEEDED(hr)) {
         s.lastCoeff = coefficient; s.lastSat = saturation;
@@ -1752,7 +1769,9 @@ __declspec(dllexport) int GetWheelFfbVersion(void) { return kVersion; }
 __declspec(dllexport) BOOL StartEffect(void)
 {
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
+    EnterCriticalSection(&g_lock);
     HRESULT hr = StartEffectRetrying(g_effect, "constant force");
+    LeaveCriticalSection(&g_lock);
     Log("StartEffect() -> 0x%08lX", hr);
     if (FAILED(hr)) g_lastHr = hr;
     return SUCCEEDED(hr) ? TRUE : FALSE;
