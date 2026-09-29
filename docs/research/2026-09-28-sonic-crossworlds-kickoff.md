@@ -403,6 +403,31 @@ coordinator rechecked the immutable external ZIP and receipt hashes afterward;
 both remain unchanged. No native DLL was loaded, no device was opened, and no
 launcher/pin/package was changed. The Sonic task owns these focused repairs.
 
+### Adapter repair review, 2026-09-29
+
+Clean consumer source `4817f4649ebc31a57f5c1b00419de7b6c0ca4015` addresses the
+prior result, identity, zero-force and fixture isolation findings. The UI/client
+now has its own pinned process and authenticated bounded eligibility frames;
+native renewal retains that client's original post-ticket QPC. The toolkit's
+managed source reference builds in the consumer's ignored fixture directory.
+
+This checkpoint remains **unaccepted**. The consumer reported 11 optional and
+83 standard passing tests. The coordinator's independent optional run passed
+10/11: `SeparateClientExitRevokesWhileOwnerAndProducerRemainHealthy` returned
+Applied rather than Ineligible after the headless client exited. One immediate
+isolated rerun passed; this is an intermittent failure requiring diagnosis,
+not evidence that production process-lifetime checks are proven broken.
+
+Source review also found a local Waiting return before source-sequence/capture
+consumption. A source submitted before client renewal could be reused after
+renewal; it must instead require a genuinely newer capture. The fake native API
+does not observe old client/source deadlines before replacement and incorrectly
+expects Waiting at the initial client deadline, where native revokes. Focused
+regressions and faithful half-open expiry behavior are assigned to Sonic.
+
+No native DLL was loaded, device acquired, game launched or virtual pad attached.
+Production launcher, vendor pins and the clean `7347442` package remain unchanged.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
