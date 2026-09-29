@@ -292,6 +292,28 @@ Its preserved ZIP/manifest/receipt, at the hashes recorded above, remain the
 reviewed frozen artifacts. Sonic received this provenance reminder and continues
 to hold native adoption pending a separate external-session handoff.
 
+The 04:38 UTC follow-up reviewed consumer transport checkpoint
+`456155af34860b2978a08f2bce78e2ce48021800` and its executable tests. The task
+reports 55/55 passing tests, including 13 framing, queue and headless peer-process
+cases. This separate library is not wired into the launcher or its prior package.
+Review found a synchronous server pipe and no actual blocked-peer cancellation
+test; a partial prefix/body can keep a read waiting. The consumer is assigned
+overlapped cancellable I/O, bounded whole-frame/drain deadlines, and real headless
+tests of pending accept, partial messages and a peer that stops reading. The
+review also requires length checks before parsing/retention, immutable bounded
+payload snapshots, and endpoint/kind/epoch/sequence validation for every drained
+frame. Fault/control messages must not be silently replaced on the state channel.
+Expected executable identity and exact payload schemas remain integration gates.
+
+The native specialist reports 814 x64 production-path fake checks after fixing
+the intermediate review findings. The coordinator inspected the revised logical
+in-flight guard, deferred same-thread cleanup, input-struct copies, finite
+duration/trigger/start-delay readback, prior-autocentre restoration, and retained
+closed cleanup-failure status. These address the source review findings.
+x86/x64 ABI, managed optional/legacy bindings and an immutable clean-source
+candidate receipt remain required before artifact acceptance. No consumer pin
+changed, no official release was published, and no game/device was opened.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
