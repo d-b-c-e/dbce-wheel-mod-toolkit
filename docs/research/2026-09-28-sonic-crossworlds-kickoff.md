@@ -357,6 +357,21 @@ Sonic received this concrete API reference for offline work. No automatic
 consumer repin, deployment or official release was performed; genuine producer
 integration and attended force behavior remain open.
 
+Consumer source `7a6967b252a747d82b54f34b9ec5831ad5c8b498` adds exact v1
+payload decoding, independently pinned expected peers, producer invalidation
+latching/reliable notification and an observation-only session coordinator.
+The task reports80/80 tests, including actual headless pipe scenarios. The
+coordinator reviewed the source/test checkpoint and assigned two defects:
+target liveness gates force but not input, allowing healthy owner traffic to
+retain nonneutral input after target exit; and ApplyControl replaces heartbeat
+time before observing the previous lease, allowing a stalled timer to miss a
+generation-revoking expiry. Required tests isolate a headless target exiting
+while owner traffic stays fresh, and both heartbeat roles crossing expiry
+without Tick while input/game samples stay young. Mutable settings/known-device
+sets must also be frozen for a session. These findings are not yet closed.
+Per-drained-frame semantic application and producer-side invalidation latching
+address the prior coalescing defect. No launcher/package/native adoption changed.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

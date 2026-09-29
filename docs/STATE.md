@@ -55,11 +55,12 @@ for wheel input, FFB, meaningful telemetry and right-stick-to-hat bindings.
 [Task identity, installed-build evidence and acceptance scope](research/2026-09-28-sonic-crossworlds-kickoff.md).
 The implementation task owns `E:\Source\sonic-crossworlds-wheel`; an hourly
 heartbeat reviews milestones. This is research, not verified consumer adoption.
-Consumer source `7e46ac88eff58ce321ccb7e7e21ac49ee11e4d40` passed 67 offline
-tests in an independent coordinator rerun; the existing launcher package remains
-separately pinned to `7347442`. The transport review fixes are addressed. Next is
-device-free schema/peer-identity/eligibility integration, including revocation
-that cannot disappear through state coalescing. Native external-session source
+Consumer integration source `7a6967b252a747d82b54f34b9ec5831ad5c8b498` reports
+80 offline tests; the prior transport source passed67 in a coordinator rerun.
+The launcher package remains separately pinned to `7347442`. Review of the
+device-free schema/peer/eligibility integration found target-exit input gating
+and old-heartbeat-before-renewal gaps; focused fixes/regressions are assigned.
+Session settings/device sets also need immutable snapshots. Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
