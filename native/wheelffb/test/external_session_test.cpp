@@ -107,7 +107,9 @@ struct ExternalFakeInput : IDirectInput8A {
 
 static int64_t fakeQpc(){return fakeNow.load();}
 static int64_t fakeFrequency(){return 1000;}
-static bool fakeInstall(HWND h){return h==(HWND)100 && fakeOwner;}
+static int forwardedMessages=0;
+static LRESULT CALLBACK fakeOriginal(HWND,UINT,WPARAM,LPARAM){++forwardedMessages;return 123;}
+static bool fakeInstall(HWND h){if(h!=(HWND)100 || !fakeOwner)return false;g_externalOriginal=fakeOriginal;return true;}
 static bool fakeOwnerValid(HWND h){return h==(HWND)100 && fakeOwner;}
 static bool fakePin(const ExternalProcessV1& p,HANDLE* h){if(p.creationFileTime!=99 || p.handle<1 || p.handle>3)return false;*h=(HANDLE)(uintptr_t)p.handle;return true;}
 static bool fakePathMatches(HANDLE,const wchar_t* path,unsigned count){return fakePath && std::wstring(path,count)==L"C:\\Game.exe";}
@@ -307,9 +309,10 @@ int main() {
         if(stage==ReadDevice)readWheel();else CHECK(submit(2)!=EXT_APPLIED);
         driverHook={};CHECK(once);CHECK(ExternalTryService());CHECK(status().state==EXT_SESSION_CLOSED && fakeWheel.releases==beforeReleases+1);
     }
-    ready();fakeNow++;bool once=false;driverHook=[&](Stage enteredStage){if(enteredStage==StartFx && !once){once=true;
-        int before=fakeWheel.releases;ExternalWndProc((HWND)100,WM_CLOSE,0,0);CHECK(fakeWheel.releases==before);
+    ready();fakeNow++;bool once=false;int forwarded=forwardedMessages;driverHook=[&](Stage enteredStage){if(enteredStage==StartFx && !once){once=true;
+        int before=fakeWheel.releases;CHECK(ExternalWndProc((HWND)100,WM_CLOSE,0,0)==0);CHECK(fakeWheel.releases==before && forwardedMessages==forwarded);
     }return S_OK;};CHECK(submit(2)!=EXT_APPLIED);driverHook={};CHECK(status().state==EXT_SESSION_CLOSED);
+    CHECK(ExternalWndProc((HWND)100,WM_CLOSE,0,0)==123 && forwardedMessages==forwarded+1);
 
     // Autocentre baseline is preserved exactly and restored AFTER Unacquire.
     for(DWORD prior:{0UL,1UL}){reset(prior);operations.clear();CHECK(ExternalFfbClose(session)==EXT_CLOSED && fakeWheel.autocentre==prior);
@@ -324,6 +327,9 @@ int main() {
     CHECK(ExternalFfbClose(session)==EXT_FAULT);driverHook={};CHECK(ExternalFfbClose(session)==EXT_FAULT);
     CHECK(status().state==EXT_SESSION_CLOSED && status().cancellation==EXT_CANCEL_API_FAILED);
     CHECK(ExternalTryService() && ExternalFfbClose(session)==EXT_FAULT); // Watchdog cannot erase recorded restoration failure.
+    forwarded=forwardedMessages;CHECK(!g_device && !g_externalEffect);
+    CHECK(ExternalWndProc((HWND)100,WM_CLOSE,0,0)==123 && forwardedMessages==forwarded+1);
+    CHECK(ExternalFfbClose(session)==EXT_FAULT && !(status().flags&EXT_CLOSE_PENDING));
     // A failed Unacquire forbids an acquired autocentre write; report lost
     // preservation rather than claiming orderly success.
     session=0;CloseReadDevices();reset();operations.clear();driverHook=[](Stage stage){return stage==UnacquireDevice?E_FAIL:S_OK;};
