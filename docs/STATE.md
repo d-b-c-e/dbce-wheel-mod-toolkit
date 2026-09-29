@@ -37,6 +37,15 @@ The previous release handoff below remains historical context.
 
 # Current handoff
 
+## Sonic CrossWorlds project kickoff, 2026-09-28
+
+The owner authorized a dedicated Sonic task and ongoing toolkit coordination
+for wheel input, FFB, meaningful telemetry and right-stick-to-hat bindings.
+[Task identity, installed-build evidence and acceptance scope](research/2026-09-28-sonic-crossworlds-kickoff.md).
+The implementation task owns `E:\Source\sonic-crossworlds-wheel`; an hourly
+heartbeat reviews milestones. This is research, not verified consumer adoption.
+Read-only inspection/offline work can proceed; the shared-desktop pause persists.
+
 ## Art RC16 device-picker guidance, 2026-09-23
 
 Art's task reported that expanded FFB device choices and Refresh looked like
