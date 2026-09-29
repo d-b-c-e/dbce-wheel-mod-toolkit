@@ -111,10 +111,18 @@ int main() {
     assert(wheel_burst::play(sineFx,120,500,25000)==S_OK && !(sineOnly.effect.flags&DIEP_ENVELOPE));
     // Exercise production watchdog and window procedure against fake effects.
     InitializeCriticalSection(&g_lock); g_lockInit=true;
-    FakeEffect periodic,condition;
+    FakeEffect periodic,continuous,condition;
     g_periodic[0].used=true; g_periodic[0].durationMs=50; g_periodic[0].fx=&periodic;
     g_periodic[0].started=true; g_periodic[0].lastMag=20;
+    g_periodic[1].used=true; g_periodic[1].durationMs=0; g_periodic[1].fx=&continuous;
+    g_periodic[1].started=true; g_periodic[1].lastMag=20;
     g_condition[0].used=true; g_condition[0].fx=&condition; g_condition[0].started=true; g_condition[0].lastCoeff=10;
+    MarkPersistentEffectsStopped();
+    assert(!g_condition[0].started && g_condition[0].lastCoeff==10);
+    assert(!g_periodic[1].started && g_periodic[1].lastMag==20);
+    // Finite collisions are not persistent; reacquisition must not replay them.
+    assert(g_periodic[0].started);
+    g_condition[0].started=true;
     g_lastForce=0; g_lastUpdateTick=100; g_holdMs=100;
     assert(!ApplyHoldTimeout(200)); assert(ApplyHoldTimeout(201));
     assert(periodic.stops==1 && condition.stops==1 && !g_periodic[0].started && !g_condition[0].started);

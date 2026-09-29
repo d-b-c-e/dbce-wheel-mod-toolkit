@@ -924,6 +924,8 @@ __declspec(dllexport) void Aquire(void)
     if (hr != S_FALSE) Log("Aquire() -> 0x%08lX", hr);
 }
 
+static void MarkPersistentEffectsStopped();
+
 // Called every frame while driving. Force samples are explicitly opt-in;
 // lifecycle/error logging remains available without per-update file I/O.
 __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
@@ -1004,9 +1006,14 @@ __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
             HRESULT lost = hr;
             g_device->Unacquire();
             HRESULT ah = g_device->Acquire();
-            if (SUCCEEDED(ah))
+            if (SUCCEEDED(ah)) {
+                // Reacquiring can stop every downloaded effect, even when its
+                // handle and last parameters remain valid. Make the next
+                // condition/periodic update explicitly start each one again.
+                MarkPersistentEffectsStopped();
                 hr = g_effect->SetParameters(
                     &update, DIEP_DIRECTION | DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            }
             if (++reacquires <= 20 || reacquires % 100 == 0)
                 Log("access lost (0x%08lX); re-acquire -> 0x%08lX, update -> 0x%08lX (#%ld)",
                     lost, ah, hr, reacquires);
@@ -1413,6 +1420,12 @@ struct ConditionSlot {
 };
 static ConditionSlot g_condition[kMaxCondition] = {};
 
+static void MarkPersistentEffectsStopped()
+{
+    for (auto& s : g_condition) if (s.used) s.started = false;
+    for (auto& s : g_periodic) if (s.used && s.durationMs == 0) s.started = false;
+}
+
 static const GUID* ConditionGuid(int type)
 {
     switch (type) {
@@ -1534,7 +1547,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
     }
     g_lastUpdateTick = GetTickCount64();
     bool silence = (coefficient == 0 && s.lastCoeff != 0);
-    bool moved = (!s.started && coefficient != 0) || labs((long)coefficient - (long)s.lastCoeff) > 500 ||
+    bool moved = (!s.started && coefficient != 0) || labs((long)coefficient - (long)s.lastCoeff) > 50 ||
                  labs((long)saturation  - (long)s.lastSat)   > 500 ||
                  s.lastDead != deadband || s.lastOffset != offset;
     if (!moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
