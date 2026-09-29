@@ -33,11 +33,13 @@ HRESULT play(Effect*& effect, int ms, int magnitude, int milliHz, int phase = 0,
     if (!effect || ms < 1 || ms > 500 || magnitude < 0 || magnitude > 10000 || milliHz < 1000 || milliHz > 100000 || phase < 0 || phase > 35999 || fadeMs < 0 || fadeMs > ms)
         return E_INVALIDARG;
     if (magnitude == 0) return stop(effect);
-    /* A newly created (or reacquired) effect may not be downloaded yet.
-     * Stop() on that idle handle can fail with DIERR_NOTDOWNLOADED and discard
-     * the very first collision. Start() downloads it if necessary and restarts
-     * an already playing effect, so no pre-emptive Stop is needed. */
-    HRESULT hr = S_OK;
+    /* Stop before updating: SetParameters may implicitly restart a playing
+     * effect, which would expose unverified shaped parameters to hardware.
+     * Moza reports NOTDOWNLOADED for an idle/new handle; that means nothing is
+     * playing and is safe to treat as an already-stopped effect. */
+    HRESULT hr = effect->Stop();
+    if (hr == DIERR_NOTDOWNLOADED) hr = S_OK;
+    if (FAILED(hr)) { effect->Release(); effect = nullptr; return hr; }
     DIPERIODIC periodic = {}; periodic.dwMagnitude = magnitude; periodic.dwPeriod = (DWORD)(1000000000LL / milliHz);
     periodic.dwPhase = phase;
     DIENVELOPE envelope = {}; envelope.dwSize = sizeof envelope;
