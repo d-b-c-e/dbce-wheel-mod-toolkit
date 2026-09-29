@@ -60,6 +60,12 @@ Write-Host "== sync and native binding regression ==" -ForegroundColor Cyan
 & (Join-Path $root 'tools/tests/Test-SyncToolkit.ps1') | Out-Host
 & (Join-Path $root 'tools/tests/Test-NativeBinding.ps1') | Out-Host
 
+Write-Host "== coherent POV snapshot fake devices (no hardware) ==" -ForegroundColor Cyan
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_pov_read_test.bat') $arch | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw "POV snapshot checks failed: $arch" }
+}
+
 Write-Host "== finite burst fake effects (no hardware) ==" -ForegroundColor Cyan
 foreach ($arch in @('x64','x86')) {
  & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_burst_test.bat') $arch | Out-Host

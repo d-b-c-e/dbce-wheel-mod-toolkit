@@ -13,6 +13,11 @@ set "OUT=%HERE%build"
 if /i "%ARCH%"=="x86" set "OUT=%HERE%build\x86"
 set "FIXTUREDEF=%HERE%fixture.def"
 set "EXTRA="
+if /i "%~2"=="nopov" (
+ set "OUT=%OUT%\nopov"
+ set "FIXTUREDEF=%HERE%fixture.nopov.def"
+ set "EXTRA=/DNO_POV"
+)
 if /i "%~2"=="legacy" (
  set "OUT=%OUT%\legacy"
  set "FIXTUREDEF=%HERE%fixture.legacy.def"

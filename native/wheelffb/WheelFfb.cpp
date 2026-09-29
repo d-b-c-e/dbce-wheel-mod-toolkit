@@ -57,7 +57,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 800;            // 0.8.0
+static const int  kVersion      = 900;            // 0.9.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -852,6 +852,49 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     if (buttons && buttonCount > 0) {
         int n = buttonCount < 128 ? buttonCount : 128;
         for (int i = 0; i < n; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
+    }
+    return 1;
+}
+
+// Additive coherent snapshot. Counts are exact for axes/POV; buttons may be
+// omitted. Clear only independently valid buffer extents, even on bad arguments.
+// Zero axes are invalid on failure, NOT a safe neutral pedal position.
+__declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCount,
+    unsigned char* buttons, int buttonCount, int* pov, int povCount)
+{
+    const bool axesOk = axes && axisCount == 8;
+    const bool buttonsOk = buttonCount >= 0 && buttonCount <= 128 && (buttons || buttonCount == 0);
+    const bool povOk = pov && povCount == 4;
+    if (axesOk) memset(axes, 0, 8 * sizeof(*axes));
+    if (buttonsOk && buttonCount) memset(buttons, 0, buttonCount);
+    if (povOk) for (int i = 0; i < 4; ++i) pov[i] = -1;
+    if (!axesOk || !buttonsOk || !povOk || slot < 0 || slot >= g_readCount) return 0;
+
+    ReadSlot& s = g_read[slot];
+    // A slot must never silently follow a newly selected FFB wheel.
+    if (s.isWheel && (!g_device || !IsEqualGUID(s.guid, g_activeGuid))) return 0;
+    LPDIRECTINPUTDEVICE8 dev = s.isWheel ? g_device : s.dev;
+    if (!dev) return 0;
+    DIJOYSTATE2 st = {};
+    // Missing hats stay neutral even if a driver does not write those members.
+    for (int i = 0; i < 4; ++i) st.rgdwPOV[i] = 0xFFFFFFFF;
+    HRESULT hr = dev->Poll();
+    if (FAILED(hr) && !s.isWheel) { dev->Acquire(); dev->Poll(); }
+    hr = dev->GetDeviceState(sizeof(st), &st); // Exactly one coherent snapshot.
+    if (FAILED(hr)) {
+        // Never reacquire the shared FFB handle: its effect lifecycle owns it.
+        if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
+        return 0;
+    }
+    axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
+    axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
+    axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
+    for (int i = 0; i < buttonCount; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
+    for (int i = 0; i < 4; ++i) {
+        const DWORD angle = st.rgdwPOV[i];
+        // Drivers may use only the low word for centered. Invalid angles are
+        // neutral for this hat; they do not invalidate the rest of the snapshot.
+        pov[i] = LOWORD(angle) == 0xFFFF || angle > 35999 ? -1 : (int)angle;
     }
     return 1;
 }

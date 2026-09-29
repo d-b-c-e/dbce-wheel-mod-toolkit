@@ -11,8 +11,10 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
-Local candidate **0.13.0** adds finite periodic bursts and all-family focus/watchdog
-stopping. It is not published. See [burst API and validation limits](docs/PERIODIC-BURSTS.md).
+Local candidate **0.16.0-pov.1**, based on the `v0.15.0` runtime tag, adds a
+coherent axes/buttons/four-POV snapshot (native **0.9.0**, 47 exports) and an
+optional managed reader. It is not published or hardware-validated. See the
+[POV contract and integration order](docs/POV-INPUT.md).
 
 Source version **0.12.0** adds transactional updates, exact-module managed
 loading, strict saved-wheel selection, force-state recovery and actionable
@@ -38,7 +40,8 @@ Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
 (`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
 (`dotnet/Dbce.Wheel.Ffb`), planned shared input kit
 (`dotnet/Dbce.Wheel.Input`, currently empty), the dinput8 proxy scaffold (`native/dinput-proxy`),
-tooling (`tools/`), knowledge (`knowledge/`), planned scaffolds (`templates/`, currently empty).
+tooling (`tools/`), knowledge (`knowledge/`), documentation starting points
+(`templates/`, not compilable projects or a shared UI).
 
 **Not here:** anything that knows a particular game — hooks, samplers, force
 signals and their tuning, physics changes and their online gates, cameras, UI
@@ -85,6 +88,7 @@ Either way the consumer vendors a **built, pinned** version under `lib/toolkit`
 dotnet test Dbce.Wheel.sln
 .\native\wheelffb\build.ps1                     # x64, verifies every export
 .\native\wheelffb\build.bat x86                 # 32-bit games
+.\native\wheelffb\test\build_pov_read_test.bat  # production read path, fake devices only
 .\native\wheelffb\test\build_smoke.bat x86     # then build\x86\smoke.exe
 .\native\forza\build_test.bat                   # packet conformance
 .\tools\powershell\Test-DbceWheel.ps1

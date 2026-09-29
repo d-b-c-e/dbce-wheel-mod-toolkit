@@ -84,6 +84,10 @@ namespace Dbce.Wheel.Ffb
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate int ReadDeviceStateCall(int slot, [Out] int[] axes, [Out] byte[] buttons, int buttonCount);
         private static ReadDeviceStateCall ReadDeviceState;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ReadDeviceStateWithPovCall(int slot, [Out] int[] axes, int axisCount,
+            [Out] byte[] buttons, int buttonCount, [Out] int[] pov, int povCount);
+        private static ReadDeviceStateWithPovCall _readDeviceStateWithPov;
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate void CloseReadDevicesCall();
         private static CloseReadDevicesCall CloseReadDevices;
@@ -213,6 +217,7 @@ namespace Dbce.Wheel.Ffb
                 CloseAuxDevice = Bind<CloseAuxDeviceCall>(h, "CloseAuxDevice");
                 OpenReadDevice = Bind<OpenReadDeviceCall>(h, "OpenReadDevice");
                 ReadDeviceState = Bind<ReadDeviceStateCall>(h, "ReadDeviceState");
+                _readDeviceStateWithPov = Optional<ReadDeviceStateWithPovCall>(h, "ReadDeviceStateWithPov");
                 CloseReadDevices = Bind<CloseReadDevicesCall>(h, "CloseReadDevices");
                 PanicStop = Bind<PanicStopCall>(h, "PanicStop");
                 ZeroForces = Bind<ZeroForcesCall>(h, "ZeroForces");
@@ -616,6 +621,40 @@ namespace Dbce.Wheel.Ffb
             try { return Result(ReadDeviceState(slot, axes8, buttons, buttons?.Length ?? 0) != 0, "Read"); }
             catch (Exception ex) { LastError = ex.Message; return false; }
         }
+        /// <summary>Whether the loaded module supports coherent axes/buttons/four-POV snapshots (native 0.9.0).</summary>
+        public static bool SupportsPovRead => _loaded && _readDeviceStateWithPov != null;
+
+        /// <summary>
+        /// Reads one coherent snapshot: exactly eight axes, zero to 128 buttons (null allowed), and exactly four POVs.
+        /// POVs are clockwise hundredths of degrees, north=0/east=9000; -1 means neutral, absent or invalid angle.
+        /// Returns false if unavailable or failed; all supplied managed arrays are cleared (POV to -1).
+        /// Zero axes on failure are NOT neutral pedal values: gate all mapped output on the return value.
+        /// Serialize with device lifecycle; open FFB before its shared reader, or close/reopen readers when promoting to FFB.
+        /// </summary>
+        public static bool Read(int slot, int[] axes8, byte[] buttons, int[] pov4)
+        {
+            ClearSnapshot(axes8, buttons, pov4);
+            if (!SupportsPovRead) { LastError = "POV reading requires native 0.9.0 support"; return false; }
+            if (slot < 0 || axes8 == null || axes8.Length != 8 || pov4 == null || pov4.Length != 4 ||
+                (buttons != null && buttons.Length > 128) || ReferenceEquals(axes8, pov4))
+            { LastError = "Read with POV requires a valid slot, exactly eight axes, four POVs and at most 128 buttons"; return false; }
+            try
+            {
+                if (Result(_readDeviceStateWithPov(slot, axes8, 8, buttons, buttons?.Length ?? 0, pov4, 4) != 0, "ReadDeviceStateWithPov")) return true;
+            }
+            catch (Exception ex) { LastError = ex.Message; }
+            // Fail closed even if an incompatible native module partially wrote output before failing.
+            ClearSnapshot(axes8, buttons, pov4);
+            return false;
+        }
+
+        private static void ClearSnapshot(int[] axes, byte[] buttons, int[] pov)
+        {
+            if (axes != null) Array.Clear(axes, 0, axes.Length);
+            if (buttons != null) Array.Clear(buttons, 0, buttons.Length);
+            if (pov != null) for (int i = 0; i < pov.Length; ++i) pov[i] = -1;
+        }
+
         public static void CloseRead() { try { if (_loaded) CloseReadDevices(); } catch (Exception ex) { LastError = ex.Message; } }
     }
 }

@@ -54,9 +54,10 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 
-**Empty on purpose, not yet written** — `dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
-directories. They mark where those modules belong. Do not go looking for code
-in them; see the deferred list in `docs/PLAN.md`.
+**No shared input/calibration library yet** — `dotnet/Dbce.Wheel.Input/` is a
+`.gitkeep` directory. `templates/` contains README and working-notes starting
+points, not compilable projects or shared UI. The native input reader and its
+managed binding exist separately; see [POV input](docs/POV-INPUT.md).
 
 ## Runtime matrix — the reason the core is native
 
@@ -140,9 +141,13 @@ goes in a clearly named sub-package.
 
 ## Where the work stands
 
-Local candidate 0.13.0 adds finite periodic bursts (native 0.6.0, 41 exports).
-Read docs/PERIODIC-BURSTS.md. No workflows or publication without authorization;
-nonzero physical force tests are not part of local package gates.
+Local candidate 0.16.0-pov.1 adds coherent POV input (native 0.9.0, 47 exports)
+from the exact v0.15.0 runtime tag. Read docs/POV-INPUT.md for buffer validity,
+single-owner integration order and optional managed binding. Existing force
+arithmetic/lifecycle and the old read export are unchanged. This branch is not
+the current documentation branch; historical consumer/version entries above
+are not adoption evidence. No official release or consumer edits are included.
+Hardware smoke is compiled only, blocked by the standing desktop pause.
 
 Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve
@@ -161,6 +166,7 @@ The hardware smoke is separate and requires a wheel; default operation is zero-o
 dotnet test Dbce.Wheel.sln                     # managed regression suite
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
+.\native\wheelffb\test\build_pov_read_test.bat # fake COM devices, no hardware acquisition
 .\native\forza\build_test.bat                 # packet conformance
 .\native\forcemodel\build_conformance.bat     # C++ model vs the golden file
 .\tools\powershell\Test-DbceWheel.ps1         # INI edge cases + discovery

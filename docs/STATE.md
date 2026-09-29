@@ -1,3 +1,32 @@
+# POV input candidate - 2026-09-28
+
+Local candidate **0.16.0-pov.1**, native **0.9.0 / 47 exports**, from exact
+`v0.15.0` source `358add53af220eb95bf606e240b230e23a6ea197`. This isolated
+branch adds coherent axes/buttons/four-POV snapshots and optional managed
+binding. It is not an official release, consumer deployment or hardware claim.
+Read [POV contract](POV-INPUT.md) before integration: output must be gated on
+read validity, and both enabling and disabling FFB require deliberate reader
+ownership transitions. The old read export and force lifecycle are unchanged.
+
+Offline package gates passed: 121 managed tests; current and legacy native
+binding fixtures on x64 CoreCLR and x86 .NET Framework; production POV fake
+COM device tests on x64/x86; existing burst/logging/constant fake effects,
+24 sync assertions, packet/model/proxy conformance and PowerShell helpers.
+Both DLLs expose all 47 undecorated exports and match the C header. The package
+helper enumerated controller identities only; it did not read/acquire devices.
+Final local package identity and gate logs are recorded in ignored
+`dist/POV-HANDOFF.json` and `dist/pov-evidence/` in this worktree.
+
+**Hardware smoke compiled only on x64/x86; NOT RUN.** The standing desktop
+pause remains in force. No game launch, input injection or torque output was
+performed. Next: parent review and explicit consumer adoption; then coordinate
+an attended zero-output smoke/hat-direction/disconnect/FFB-toggle check before
+claiming physical wheel support. Current default-branch UX guidance is separate
+from this runtime branch; older handoff/candidate/adoption entries below remain
+historical, including the original pre-publication wording for v0.15.0.
+
+---
+
 Offline candidate gates passed: 121 managed tests; 104+9+8+8 binding assertions
 per runtime; sync and native conformance/fake-effect suites on x64/x86.
 46 exports verified. Smoke harnesses compile only; hardware execution not run.

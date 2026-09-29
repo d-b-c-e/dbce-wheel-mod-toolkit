@@ -212,6 +212,40 @@ int main(int argc, char** argv)
     }
     stage("InitDirectInput", 1, "device opened exclusive, constant force created");
 
+    /* Read hats through the already-open FFB handle. No output is requested.
+     * Valid range is checked here; real cardinal/diagonal mapping still needs
+     * an attended user moving the hat and reviewing its reported values. */
+    {
+        GUID selected, candidate;
+        int readSlot = -1, axes[8], pov[4], ok = 0, p;
+        unsigned char buttons[128];
+        if (ffb.GetDeviceGuid(0, &selected)) {
+            for (i = 0; i < allCount; ++i) {
+                if (ffb.GetAnyDeviceGuid(i, &candidate) && !memcmp(&selected, &candidate, sizeof(GUID))) {
+                    readSlot = ffb.OpenReadDevice(i);
+                    break;
+                }
+            }
+        }
+        stage("OpenReadDevice (FFB wheel)", readSlot >= 0, "shared handle; no second acquisition");
+        if (readSlot >= 0) {
+            ok = ffb.ReadDeviceStateWithPov(readSlot, axes, 8, buttons, 128, pov, 4);
+            if (ok) {
+                for (p = 0; p < 4; ++p) if (pov[p] < -1 || pov[p] > 35999) ok = 0;
+                sprintf_s(detail, sizeof detail, "POV %d %d %d %d", pov[0], pov[1], pov[2], pov[3]);
+            } else strcpy_s(detail, sizeof detail, "state read failed; all mapped output must remain gated");
+            stage("ReadDeviceStateWithPov", ok, detail);
+        }
+        memset(axes, 0x7F, sizeof axes); memset(buttons, 1, sizeof buttons);
+        for (p = 0; p < 4; ++p) pov[p] = 9000;
+        ok = !ffb.ReadDeviceStateWithPov(-1, axes, 8, buttons, 128, pov, 4);
+        for (p = 0; p < 8; ++p) if (axes[p] != 0) ok = 0;
+        for (p = 0; p < 128; ++p) if (buttons[p] != 0) ok = 0;
+        for (p = 0; p < 4; ++p) if (pov[p] != -1) ok = 0;
+        stage("invalid POV read clears snapshot", ok, "zero axes are invalid, not pedal neutral");
+        ffb.CloseReadDevices();
+    }
+
     if (ffb.StartEffect()) {
         stage("StartEffect", 1, "");
     } else {

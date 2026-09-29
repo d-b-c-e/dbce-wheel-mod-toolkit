@@ -38,3 +38,12 @@ foreach ($arch in @('x64','x86')) {
 if ($LASTEXITCODE -ne 0) { throw 'CoreCLR shape-only binding failed' }
 & (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root 'tests/NativeBinding/build/x86/shapeonly/UnityForceFeedback.dll') shapeonly
 if ($LASTEXITCODE -ne 0) { throw 'Framework shape-only binding failed' }
+
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'tests/NativeBinding/build_fixture.bat') $arch nopov | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw 'Native0.8.0 fixture build failed' }
+}
+& dotnet run --no-build --project $project -c Release -f net8.0 -- (Join-Path $root 'tests/NativeBinding/build/nopov/UnityForceFeedback.dll') nopov
+if ($LASTEXITCODE -ne 0) { throw 'CoreCLR optional POV binding failed' }
+& (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root 'tests/NativeBinding/build/x86/nopov/UnityForceFeedback.dll') nopov
+if ($LASTEXITCODE -ne 0) { throw 'Framework optional POV binding failed' }

@@ -23,6 +23,7 @@ EXPORTS
     CloseAuxDevice
     OpenReadDevice
     ReadDeviceState
+    ReadDeviceStateWithPov
     CloseReadDevices
     GetDeviceInfo
     GetDeviceGuid
