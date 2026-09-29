@@ -162,6 +162,41 @@ input/FFB lifecycle transitions. Calling an older continuous-force path merely
 to avoid finite-effect foreground checks is not an accepted workaround. The
 implementation still needs verified player-driving telemetry before force work.
 
+## Reproducible package and next architecture review
+
+The packaging follow-up is complete. Source commit
+`73474427a3321b87e4249ed344e940aeaf3a7af4`, tree
+`aadab7a9c91d1200d31faffe2d6584e0e94dcde9`, now rejects dirty-source packaging
+and records source and build-runtime identity. The fresh `dist/package-7347442`
+manifest records `SourceDirty=false`, SDK `10.0.401`, `net10.0-windows` / `win-x64`
+and framework-dependent output. Its manifest SHA-256 is
+`696ED2A536DAFFF77B5E9CBD7675335A6F0D92B54862A6A9C27C9AF731FE2392`;
+the launcher SHA-256 is
+`8700BE0A783F90D1B6510445F63298B4D8F7E7CE13EEA1AE2778A8C2E7F7F8AD`.
+The separately committed receipt `docs/receipts/package-7347442.json` is in
+consumer commit `70a32d1889041dacfacf2193711f2cd13e826af7` and hashes to
+`9B07F9385807F917F77DE3AFD7E4BB549AE4A4685BAEA93E424A274862BFD697`.
+The coordinator verified those three hashes and the clean checkout. The task
+reports dirty-source refusal and the fresh disposable install/uninstall fixture
+passing. The earlier review package remains a separate artifact.
+
+Sonic's revised `docs/EXTERNAL-FFB.md` chooses a dedicated external device-owner
+process for the next prototype, with in-process ownership retained as a fallback.
+The coordinator assigned the native toolkit specialist a **design-first** review
+of a possible additive external-session API; runtime implementation has not been
+approved or begun at this checkpoint. Reuse of the free POV worktree on a new
+`codex/external-session-ffb` branch is planned if the design is accepted. Preserve
+the frozen POV branch/artifacts and all published v0.15.0 identities.
+
+Review priorities include finite constant output as the minimum surface, exact
+target lifetime, own-window initialization, sticky prevention of legacy force
+bypasses, explicit rearm, and age-aware source leases. The existing watchdog
+takes a lock around driver calls: it cannot promise timely cancellation through
+a stalled driver or after its own process has died. Short device-side effect
+duration is therefore required, with physical driver behavior still unverified.
+The Sonic task is assigned independent, device-free IPC/lease design and fixtures;
+it must wait for a reviewed native interface before implementing FFB bindings.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
