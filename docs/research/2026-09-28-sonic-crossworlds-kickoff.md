@@ -387,6 +387,22 @@ ticket/QPC translation, expiry, revocation and cleanup. Production launcher
 integration, consumer pins and the package remain unchanged. Exact UE4SS/Lua ABI,
 the native producer bridge and verified local-player signals remain unverified.
 
+Adapter checkpoint `b7cafe2a6e8047648ca4e36b0c4384dad6255cad` adds an opt-in
+managed reference and five fake-API tests, all independently rerun successfully.
+It is **not accepted**: the fake does not match actual native semantics and
+conceals integration errors. Successful native Arm returns Waiting with a ticket,
+not Ok. Native client authority must come from the separately pinned UI/client,
+not the device owner's input samples; the first client capture must follow Arm.
+The adapter also rejects zero despite native zero submission canceling the old
+pulse. Repairs require distinct-role lifetime tests, genuine client-QPC frames,
+faithful result/lease boundaries, and fresh nonzero-to-zero cancellation coverage.
+
+The candidate-reference project also builds into the toolkit checkout's normal
+managed output folders. Future optional tests must isolate those outputs. The
+coordinator rechecked the immutable external ZIP and receipt hashes afterward;
+both remain unchanged. No native DLL was loaded, no device was opened, and no
+launcher/pin/package was changed. The Sonic task owns these focused repairs.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

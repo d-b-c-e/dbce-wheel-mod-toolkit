@@ -125,11 +125,20 @@ its recorded `FZERO_ASPECT=16:9`; 4:3 diverges at race entry. The consumer is
 assigned hashed effective aspect/MSU/gameplay configuration artifacts and adapter
 enforcement. This is consumer-reported game evidence, not a toolkit test result.
 
-Separate native actuator commits `43c5e3c`, `6b6e29b`, `ca24f1e` were reported
-by F-Zero for future source/regression review. They are not part of this playback
-contribution or any frozen official/POV/external-session candidate. Preserve the
-actuator worktree; no native adoption or physical acceptance is inferred.
+F-Zero source `0fe1e6452de2b182300ccb72e96080d9054f38ba` now also supports
+SDL/Surround replay with physical FFB initialization and SRAM writes disabled.
+It rejects mutation hotkeys/state scripts during replay. The consumer reports
+all 11,364 WRAM checkpoints matching in both headless and SDL paths. Coordinator
+source review confirms these guards, but does not independently establish that
+game-run result or physical output. The shared case/config adapter is still open.
+
+Separate native actuator commits `43c5e3c`, `6b6e29b`, `ca24f1e` received
+[source and x86/x64 fake-test review](2026-09-29-actuator-rearm-review.md).
+Current tests pass, but shaped retrigger verification and incomplete shared-device
+reacquire coverage require corrections; open/reopen coverage and the unrelated
+coefficient threshold also need resolution. The owning task is repairing them.
+They remain separate from this playback contribution and all frozen candidates.
 
 Latest compact cursors:
-F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:11`;
-Woden `5365458d-4949-42ac-a750-938f7b10372d:7`.
+F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:12`;
+Woden `5365458d-4949-42ac-a750-938f7b10372d:8`.

@@ -61,13 +61,19 @@ heartbeat reviews milestones. This is research, not verified consumer adoption.
 Consumer repair source `a41a9d1a801487f30af45d0e0360916579ff291a` passes all
 83 offline tests in a coordinator rerun. Source review closes target-exit input
 gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps.
-The next assignment is a device-free adapter tested against a fake native session
-API. The launcher package remains separately pinned to `7347442`.
+Adapter `b7cafe2` passes five fake-API tests but source review found incorrect
+Arm result handling, conflated owner/client authority and rejected zero submits.
+Focused repairs and faithful native-contract regressions are assigned. The
+launcher package remains separately pinned to `7347442`.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
+
+F-Zero's separate actuator branch through `ca24f1e` passes existing x86/x64 fake
+burst checks, but [review findings](research/2026-09-29-actuator-rearm-review.md)
+remain open. It is not merged into any frozen candidate or official release.
 
 ## Art RC16 device-picker guidance, 2026-09-23
 
