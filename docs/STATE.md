@@ -62,21 +62,23 @@ heartbeat reviews milestones. This is research, not verified consumer adoption.
 Consumer repair source `a41a9d1a801487f30af45d0e0360916579ff291a` passes all
 83 offline tests in a coordinator rerun. Source review closes target-exit input
 gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps.
-Adapter repair `4817f46` addresses Arm's Waiting result, separate authenticated
-client authority, zero submits and isolated build outputs. It remains unaccepted:
-the coordinator's optional run passed 10/11 with an intermittent client-exit
-failure; source review found pre-client source reuse and a permissive fake expiry
-policy. Focused repairs are active. The launcher package stays at `7347442`.
+Adapter repair `d142721` passes 14 optional and 83 standard tests in coordinator
+reruns. Retained authenticated client-pipe liveness closes the reproduced exit
+race; pre-client samples are consumed and fake expiry now observes old deadlines.
+The next bounded assignment is the actual game producer's loader/Lua ABI
+feasibility and timing/IPC bridge. The launcher package stays at `7347442`.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
-F-Zero adapter `7a585a2` produces shared observations from its reported matching
+F-Zero adapter `d84c60d` produces shared observations from its reported matching
 11,364-frame replay. Independent artifact/comparison checks confirm 45,461 aligned
-requests and 29,083 differences between two tunes. A snapshot-path binding repair
-and capture-provenance confirmation remain assigned before adapter acceptance.
+requests and 29,083 differences between two tunes. Snapshot-path binding is fixed;
+four ROM-free adapter tests pass independently. Capture provenance is documented
+separately from the observation runner. Shared playback/Woden coordination is
+complete and its heartbeat paused; Woden awaits the owner's actual recording.
 Its separate actuator repairs through `02fb715` and component receipt `ea25ea8`
 pass targeted [source, fake-test and identity review](research/2026-09-29-actuator-rearm-review.md).
 Physical acceptance remains separate; no frozen candidate/release is changed.

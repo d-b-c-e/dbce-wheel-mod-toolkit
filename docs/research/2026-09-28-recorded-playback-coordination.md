@@ -209,3 +209,27 @@ The separate experimental native receipt committed at `ea25ea8` is reviewed;
 source/tree and both DLL hashes, including the preview copy, match. See the
 [actuator review](2026-09-29-actuator-rearm-review.md). No game/device/force was
 opened by the coordinator. Woden readiness remains complete and its task idle.
+
+## Shared contribution and readiness complete
+
+Clean F-Zero repair `d84c60df7f91b16333b15ca139fd53e74c83bbd8`, tree
+`b9b21f4122781789cc6def9beb154da6f55d4238`, closes the snapshot finding. Both
+create and observe require the exact sibling the runner loads; a ROM-free test
+rejects a validly hashed different manifest state before any process launch.
+The coordinator reviewed the diff and independently passed all four adapter
+tests. The original case and observations remain unchanged:
+
+- Strength 12 observation: `097CD6B9B5A9111743142C39FE7949817841DF3877FD27CA0CCC37B4D9E78DFA`.
+- Strength 20 observation: `EF6B7C8A598E082792C7954418E51DD8FFAE42EC0A0EF76893E3BD9532203CAC`.
+
+F-Zero documents capture executable/source separately from the headless runner.
+The existing `dirty:false` is its prior build-time assertion, not retroactive
+binary attestation. Future cases default to `dirty:true` unless a matching
+build-time receipt identifies source/tree and executable; this checks consistency,
+not a cryptographic proof of the build. The adapter source and native receipt are
+accepted for offline use with these limits.
+
+The requested shared-playback contribution and Woden capture preparation are
+complete. The coordination heartbeat is **paused**; Woden stays idle for the
+owner's seated command above. No recording request is left running. First Woden
+driving capture and physical output/feel acceptance remain future owner work.

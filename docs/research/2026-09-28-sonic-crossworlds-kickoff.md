@@ -428,6 +428,29 @@ regressions and faithful half-open expiry behavior are assigned to Sonic.
 No native DLL was loaded, device acquired, game launched or virtual pad attached.
 Production launcher, vendor pins and the clean `7347442` package remain unchanged.
 
+### Accepted offline adapter repair
+
+Clean `d1427217fd2ff5a4827bd5f171ea13811aa0ed6b` closes the focused findings.
+The consumer reproduced the client-exit failure in 9 of 15 runs: the authenticated
+pipe was disconnected while the separately pinned process still appeared live.
+The gate now retains that authenticated pipe lease and checks it on every use;
+the task reports 12 subsequent focused passes without a delay workaround.
+Source-first Waiting consumes the capture, so renewal cannot replay it. The fake
+now observes old client/source deadlines before replacement at exact expiry.
+The coordinator reviewed the diff and independently passed all 14 optional and
+83 standard tests. This accepts the offline adapter checkpoint only.
+
+The next bounded assignment is actual producer feasibility: establish a specific
+prospective UE4SS/native Lua ABI from official sources and read-only installed
+evidence, then implement the smallest timing/IPC bridge only if that ABI can be
+substantiated. Require designated-thread single-use capture tokens, actual QPC,
+bounded capture duration, native ticket propagation, immutable bounded messages,
+and reliable invalidation or abort before coalescing. Headless fixtures may test
+transport behavior but must not claim real local-player/driving fields. If the
+ABI cannot be established offline, return a precise feasibility handoff instead
+of guessing bindings. Launcher, package, pins and all desktop/device paths remain
+unchanged; the Sonic heartbeat continues.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
