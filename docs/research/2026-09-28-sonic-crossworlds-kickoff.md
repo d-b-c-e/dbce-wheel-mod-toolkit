@@ -507,6 +507,32 @@ adapter `d142721` with coordinator 14+83 passing tests, frozen toolkit external
 candidate `06340b3` and its receipt, and the consumer's detailed
 `docs/PRODUCER-BRIDGE.md`. No new consumer pin or official release is implied.
 
+### Owner-requested source/build preparation, 2026-09-29
+
+The owner separately requested dependency installation, source import and build
+setup in the Sonic repository. Clean source
+`750121fb882af9fee6f1000b342bf662a0878a70` adds the pinned UE4SS submodule,
+`scripts/Build-Ue4ssCpp.ps1`, and a field-free C++ smoke target built alongside
+UE4SS. It does not use the separate official release DLL as its link target.
+Outputs and paired build hashes belong under ignored `obj/ue4ss-cpp`; nothing
+is installed into the game or package by this script.
+
+The consumer installed Rustup/stable and attempted recursive import/build under
+that request. Import stopped at the same private Unreal dependency before
+compilation. The coordinator independently reviewed the source, passed script
+parsing and `-ToolsOnly` without installing tools or retrying the full import.
+Preflight reports Git 2.55.0, bundled CMake 3.31.6, Rust 1.98.1 and VS2022
+BuildTools. Recursive status pins UE4SS `d935b5b` and public patternsleuth
+`33e731e99f2a6bb7f65a8e95e89fd1c06ce9d1d2`; Unreal `d09b721` is uninitialized.
+
+This is prepared build setup, not successful compilation or a proven SDK/game
+interface. Upstream configure still uses some moving dependency references;
+the notes explicitly avoid a byte-for-byte reproducibility claim. After legitimate
+source access is available, the consumer's rerun command is
+`.\scripts\Build-Ue4ssCpp.ps1`. The coordination heartbeat stays paused. No new
+game slot, loader installation, virtual pad, device acquisition or force testing
+is authorized by this follow-up.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

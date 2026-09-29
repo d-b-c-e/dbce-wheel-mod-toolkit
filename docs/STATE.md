@@ -72,6 +72,9 @@ GitHub access. The coordinator verified archive inventory, hashes and HTTP 404.
 Sonic coordination is **paused for an owner decision**: legitimate source access
 and matching loader/mod build, or a reviewed alternative SDK. Game-thread and
 real driving-field validation remain pending. The package stays at `7347442`.
+Owner-requested follow-up `750121f` adds Sonic's pinned UE4SS source and paired
+build script. Coordinator parser/tool preflight passes; public dependencies are
+present, private Unreal remains unavailable, and no loader/mod binary is built.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
