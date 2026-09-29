@@ -80,6 +80,23 @@ No real launch, input injection, wheel acquisition, virtual pad or physical forc
 is authorized by this coordination. First owner driving capture and physical
 acceptance remain separate from source/package/deployment readiness.
 
-Latest compact cursors before implementation handoff:
-F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:1`;
-Woden `5365458d-4949-42ac-a750-938f7b10372d:1`.
+Shared source checkpoint `87b47d53121c0b3fc8479e622ae8a79c8ca3fa58` is
+clean/pushed and landed on private master via `8bd119c9d67e5e9e951c05394a062460ba13f141`.
+Both consumers received the exact reference, including the final required
+`caseSha256` header binding. Woden is implementing and testing its adapter and
+owner command; deployment has not yet been reviewed or performed.
+
+F-Zero then reported committed recorder `4784b3f` and an 11,364-frame real
+playthrough replay with all WRAM checkpoints matching. Reproduction requires
+its recorded `FZERO_ASPECT=16:9`; 4:3 diverges at race entry. The consumer is
+assigned hashed effective aspect/MSU/gameplay configuration artifacts and adapter
+enforcement. This is consumer-reported game evidence, not a toolkit test result.
+
+Separate native actuator commits `43c5e3c`, `6b6e29b`, `ca24f1e` were reported
+by F-Zero for future source/regression review. They are not part of this playback
+contribution or any frozen official/POV/external-session candidate. Preserve the
+actuator worktree; no native adoption or physical acceptance is inferred.
+
+Latest compact cursors:
+F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:10`;
+Woden `5365458d-4949-42ac-a750-938f7b10372d:5`.
