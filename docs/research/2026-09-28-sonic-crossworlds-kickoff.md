@@ -273,6 +273,25 @@ peer-process tests using fake frames only: framing limits, backpressure, exact
 OS peer lifetime, disconnect and capture-time preservation. These tests may not
 open devices, attach a virtual pad, load FFB, launch a game or display windows.
 
+The first uncommitted native implementation passed its reported x64 build and
+55-export/header check, then received an intermediate coordinator review. The
+review found that a recursive critical section permits same-thread window/driver
+callback reentry: cleanup must not stop/release objects while their driver call
+is still on the stack. The assigned fix must defer cleanup while independently
+revoking authorization, with synchronous reentry fakes in addition to stalled
+cross-thread calls. Further review requests cover copying call parameters before
+blocking driver work, verifying trigger/start-delay as well as finite duration,
+and reporting cleanup failures rather than unconditional successful Close.
+Orderly cleanup must restore the actual prior autocentre value after unacquiring;
+the task has incorporated that requirement and is adding ordering/failure tests.
+Physical behavior remains unverified and no native artifact is accepted.
+
+The reused worktree's live sources/build outputs now belong to the external-session
+work in progress. **Do not sync the old POV candidate from that live checkout.**
+Its preserved ZIP/manifest/receipt, at the hashes recorded above, remain the
+reviewed frozen artifacts. Sonic received this provenance reminder and continues
+to hold native adoption pending a separate external-session handoff.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
