@@ -314,6 +314,26 @@ x86/x64 ABI, managed optional/legacy bindings and an immutable clean-source
 candidate receipt remain required before artifact acceptance. No consumer pin
 changed, no official release was published, and no game/device was opened.
 
+The 04:47 UTC follow-up reviewed consumer repair commit
+`7e46ac88eff58ce321ccb7e7e21ac49ee11e4d40` and independently reran its Release
+suite: **67 passed, zero failed/skipped**. Actual overlapped accept/read/write
+cancellation, bounded immutable publication and every-drained-frame envelope
+checks address the previous transport findings. The next assigned checkpoint
+connects typed payloads, expected peer identity and existing eligibility gates
+in a device-free headless scenario. In particular, a not-driving/unknown sample
+must revoke its generation even if later eligible-looking state is coalesced or
+drained: the producer must latch/reliably report invalidation and the receiver
+must apply invalidating semantics before discarding intermediate frames. The
+launcher and preserved clean package remain unchanged.
+
+The native specialist's final self-review also bounded pulse duration by the
+remaining native wheel-read lease, added read-only real Win32 process-identity
+checks, and deferred owner WM_CLOSE forwarding while driver cleanup is pending.
+The owner must keep its window pumping and retry close after final status.
+The coordinator reviewed the lease clipping and managed optional API wrapper;
+final original-WndProc forwarding regressions and clean packaging are in flight.
+No candidate receipt is accepted yet.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
