@@ -264,6 +264,15 @@ provisional header/policy review requested explicit source-first/client-first
 startup handling and rejection of oversized handle values on x86. Runtime work
 is active on `codex/external-session-ffb`; no candidate artifact has been accepted.
 
+Sonic then committed the agreed initial-echo semantics and the analogous active
+source-lease stall fix in `c484f038ee570740e0b9ad8e63e64b6b1e7f6948`, reporting
+42 offline tests and 38 separate design vectors. The coordinator inspected the
+old-lease-before-replacement check and exclusive initial deadline. The next
+independent consumer assignment is bounded named-pipe transport and headless
+peer-process tests using fake frames only: framing limits, backpressure, exact
+OS peer lifetime, disconnect and capture-time preservation. These tests may not
+open devices, attach a virtual pad, load FFB, launch a game or display windows.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

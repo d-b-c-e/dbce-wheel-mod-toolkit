@@ -44,6 +44,10 @@ for wheel input, FFB, meaningful telemetry and right-stick-to-hat bindings.
 [Task identity, installed-build evidence and acceptance scope](research/2026-09-28-sonic-crossworlds-kickoff.md).
 The implementation task owns `E:\Source\sonic-crossworlds-wheel`; an hourly
 heartbeat reviews milestones. This is research, not verified consumer adoption.
+Consumer source `c484f038ee570740e0b9ad8e63e64b6b1e7f6948` reports 42 offline
+tests; the existing launcher package remains separately pinned to `7347442`.
+The native external-session prototype and consumer transport/lifetime tests are
+in progress. No game input, real telemetry or physical FFB has been accepted.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
 ## Art RC16 device-picker guidance, 2026-09-23
