@@ -484,7 +484,11 @@ static int OpenCandidate(int idx)
         g_device->SetProperty(DIPROP_RANGE, &range.diph);
     }
 
-    g_device->Acquire();
+    hr = g_device->Acquire();
+    if (FAILED(hr)) {
+        Log("  Acquire failed 0x%08lX", hr);
+        g_lastHr = hr; CloseCandidate(); return 0;
+    }
 
     hr = CreateForceEffect();
     if (FAILED(hr)) {
@@ -493,7 +497,11 @@ static int OpenCandidate(int idx)
         CloseCandidate();
         return 0;
     }
-    if (g_panicked && FAILED(hr = g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSON))) {
+    // A previous process may have turned the actuators off in PanicStop.
+    // The driver's state survives DLL unload, but g_panicked does not.
+    hr = g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSON);
+    Log("  actuators on -> 0x%08lX", hr);
+    if (FAILED(hr)) {
         g_lastHr = hr; CloseCandidate(); return 0;
     }
     g_panicked = false;
