@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <string.h>
+#include "../../native/wheelffb/include/external_ffb.h"
 static int fault,force,initCount,freeCount,active,hasName,hasGuid,strict,readCalls;
 static int selectedIndex=-1;
 static int povReadCalls;
@@ -49,7 +50,9 @@ __declspec(dllexport) void __cdecl SetHoldTimeoutMs(int ms) { (void)ms;  }
 __declspec(dllexport) void __cdecl SetLogPath(const char* path) { (void)path;  }
 __declspec(dllexport) int __cdecl GetLastHResult(void) { return 1234; }
 __declspec(dllexport) int __cdecl GetWheelFfbVersion(void) {
-#ifdef NO_BURST
+#ifdef WITH_EXTERNAL
+return 1000;
+#elif defined(NO_BURST)
 return 500;
 #elif defined(NO_SHAPED)
 return 601;
@@ -83,6 +86,37 @@ __declspec(dllexport) int __cdecl CreateConstantBurst(int ms) {constantDuration=
 __declspec(dllexport) int __cdecl PlayConstantBurst(int slot,int magnitude) {(void)slot;constantCalls++;constantMagnitude=magnitude;return fault==10?0:1;}
 __declspec(dllexport) int __cdecl StopConstantBurst(int slot) {(void)slot;constantStops++;return fault==11?0:1;}
 __declspec(dllexport) void __cdecl ReleaseConstantBursts() {constantReleases++;}
+#endif
+#ifdef WITH_EXTERNAL
+__declspec(dllexport) int ExternalFfbEnter(HWND window){return window==(HWND)123?EXT_OK:EXT_INVALID;}
+__declspec(dllexport) int ExternalFfbOpen(const ExternalFfbConfigV1* c,const wchar_t* path,unsigned chars,unsigned long long* session) {
+ *session=0;
+ if(c->cbSize!=112 || c->version!=1 || c->target.handle!=0x123456789ABCDEF0ULL || c->target.creationFileTime!=0x1122334455667788ULL ||
+ c->target.pid!=42 || c->target.reserved || c->client.pid!=43 || c->producer.pid!=44 || c->maxMagnitude!=3000 ||
+ c->sourceMaxAgeMs!=150 || c->clientMaxAgeMs!=250 || c->pulseMaxMs!=20 || c->wheelGuid[0]!=0x44 || c->wheelGuid[15]!=0xff ||
+ chars!=11 || wcscmp(path,L"C:\\Game.exe"))return EXT_INVALID;
+ *session=0xABCD123456789012ULL;return EXT_OK;
+}
+__declspec(dllexport) int ExternalFfbArm(unsigned long long session,ExternalFfbArmTicketV1* t) {
+ if(session!=0xABCD123456789012ULL || t->cbSize!=56 || t->version!=1)return EXT_INVALID;
+ t->generation=0x123456789ABCULL;t->nonceLow=111;t->nonceHigh=222;t->issuedQpc=0x123456789ABC;t->expiresQpc=t->issuedQpc+1500000;t->qpcFrequency=10000000;return EXT_WAITING;
+}
+__declspec(dllexport) int ExternalFfbRenewClient(unsigned long long session,const ExternalFfbClientFrameV1* f) {
+ return session==0xABCD123456789012ULL && f->cbSize==40 && f->flags==3 && f->generation==0x123456789ABCULL && f->sequence==0xABC12345678ULL && f->capturedQpc==0x123456789ABD && f->qpcFrequency==10000000?EXT_OK:EXT_INVALID;
+}
+__declspec(dllexport) int ExternalFfbSubmitConstant(unsigned long long session,const ExternalFfbForceFrameV1* f) {
+ return session==0xABCD123456789012ULL && f->cbSize==64 && f->attestations==15 && f->generation==0x123456789ABCULL && f->sequence==0xABC12345678ULL && f->nonceLow==111 && f->nonceHigh==222 && f->capturedQpc==0x123456789ABD && f->qpcFrequency==10000000 && f->signedMagnitude==-2345 && !f->reserved?EXT_APPLIED:EXT_INVALID;
+}
+__declspec(dllexport) int ExternalFfbDisarm(unsigned long long session,unsigned reason){return session==0xABCD123456789012ULL && reason==EXT_REASON_STOP?EXT_PENDING:EXT_INVALID;}
+#ifndef PARTIAL_EXTERNAL
+__declspec(dllexport) int ExternalFfbClose(unsigned long long session){return session==0xABCD123456789012ULL?EXT_FAULT:EXT_INVALID;}
+#endif
+__declspec(dllexport) int ExternalFfbGetStatus(unsigned long long session,ExternalFfbStatusV1* s) {
+ if(session!=0xABCD123456789012ULL || s->cbSize!=104 || s->version!=1)return EXT_INVALID;
+ s->session=session;s->generation=0x123456789ABCULL;s->state=EXT_SESSION_CLOSED;s->reason=EXT_REASON_DRIVER;s->cancellation=EXT_CANCEL_API_FAILED;
+ s->flags=EXT_MODE_ENTERED|EXT_PHYSICAL_UNVERIFIED;s->sourceSequence=9;s->clientSequence=10;s->sourceDeadlineQpc=11;s->clientDeadlineQpc=12;
+ s->wheelReadQpc=13;s->lastStartQpc=14;s->driverHResult=E_FAIL;s->reserved=0;s->qpcFrequency=10000000;return EXT_OK;
+}
 #endif
 __declspec(dllexport) void __cdecl TestFault(int value) { (void)value; fault=value; }
 __declspec(dllexport) int __cdecl TestMetric(int key) {

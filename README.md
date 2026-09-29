@@ -11,7 +11,15 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
-Local candidate **0.16.0-pov.1**, based on the `v0.15.0` runtime tag, adds a
+Local experiment **0.16.0-external.1** adds a dedicated-owner finite constant
+API (native **0.10.0**, 55 exports), optional managed binding, bounded original-
+capture leases and explicit lifecycle status. It is **offline verified only**;
+hardware and game integration remain untested. See the
+[external-session contract](docs/EXTERNAL-FFB.md) and exact clean-source receipt
+in `dist/EXTERNAL-HANDOFF.json`. Existing consumers retain the old behavior
+unless they explicitly opt in. No official release or adoption is implied.
+
+Preserved local candidate **0.16.0-pov.1**, based on the `v0.15.0` runtime tag, adds a
 coherent axes/buttons/four-POV snapshot (native **0.9.0**, 47 exports) and an
 optional managed reader. It is not published or hardware-validated. See the
 [POV contract and integration order](docs/POV-INPUT.md).

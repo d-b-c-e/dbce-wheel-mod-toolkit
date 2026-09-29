@@ -125,6 +125,22 @@ int main(int argc, char** argv)
     sprintf_s(detail, sizeof detail, "version %d", version);
     stage("GetWheelFfbVersion", version >= 200, detail);
 
+    /* Additive external API negative coverage only: do not switch this legacy
+     * smoke process into sticky external ownership or synthesize game truth. */
+    if(version>=1000) {
+        ExternalFfbStatusV1 status;
+        memset(&status,0,sizeof status);status.cbSize=sizeof status;status.version=1;
+        stage("external invalid owner",ffb.ExternalFfbEnter(NULL)==EXT_INVALID,"");
+        stage("external opt-in gate",
+            ffb.ExternalFfbOpen(NULL,NULL,0,NULL)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbArm(0,NULL)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbRenewClient(0,NULL)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbSubmitConstant(0,NULL)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbDisarm(0,EXT_REASON_STOP)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbClose(0)==EXT_WRONG_MODE &&
+            ffb.ExternalFfbGetStatus(0,&status)==EXT_WRONG_MODE,"");
+    }
+
     ffb.SetLogPath("smoke-ffb.log");
     stage("SetLogPath", 1, "smoke-ffb.log");
 

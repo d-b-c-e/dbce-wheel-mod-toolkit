@@ -43,6 +43,7 @@
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include <initializer_list>
 #include "burst_effect.h"
 #include "constant_burst.h"
 
@@ -57,7 +58,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 900;            // 0.9.0
+static const int  kVersion      = 1000;           // 0.10.0 experimental external sessions
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -110,6 +111,7 @@ static bool                 g_logging = false;
 static bool                 g_logChecked = false;
 static CRITICAL_SECTION     g_lock;
 static bool                 g_lockInit = false;
+#include "external_session_decl.h"
 
 // --------------------------------------------------------------------------
 // logging
@@ -503,6 +505,7 @@ static int OpenCandidate(int idx)
 
 __declspec(dllexport) int InitDirectInput(int hwnd)
 {
+    if(g_externalMode.load())return 0;
     Log("InitDirectInput(hwnd=%d)", hwnd);
     g_hwnd = ResolveGameWindow((HWND)(INT_PTR)hwnd);
     if (g_hwnd != (HWND)(INT_PTR)hwnd) Log("  using this process's own window %p instead of %p", (void*)g_hwnd, (void*)(INT_PTR)hwnd);
@@ -591,6 +594,7 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
 // instead of asking for an index. Safe to call at any time.
 __declspec(dllexport) int EnumerateDevices(void)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!EnsureDirectInput()) return 0;
 
     g_candidateCount = 0;
@@ -603,6 +607,7 @@ __declspec(dllexport) int EnumerateDevices(void)
 // range, so the caller can stop without knowing the count in advance.
 __declspec(dllexport) int GetDeviceName(int index, char* buffer, int size)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!buffer || size <= 0) return 0;
     buffer[0] = 0;
     if (index < 0 || index >= g_candidateCount) return 0;
@@ -614,6 +619,7 @@ __declspec(dllexport) int GetDeviceName(int index, char* buffer, int size)
 // before InitDirectInput. Harmless to the game, which never calls it.
 __declspec(dllexport) void SetPreferredDevice(const char* name)
 {
+    if(g_externalMode.load())return;
     if (!name || !*name) { g_preferred[0] = 0; return; }
     strncpy_s(g_preferred, sizeof(g_preferred), name, _TRUNCATE);
     Log("SetPreferredDevice(\"%s\")", g_preferred);
@@ -630,6 +636,7 @@ __declspec(dllexport) void SetPreferredDevice(const char* name)
 // null to clear. [OutRun2006Tweaks-FFB shares its remap layer's choice]
 __declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
 {
+    if(g_externalMode.load())return;
     if (!guid16) { g_preferredGuidSet = false; Log("SetPreferredDeviceGuid(null)"); return; }
     memcpy(&g_preferredGuid, guid16, sizeof(GUID));
     g_preferredGuidSet = true;
@@ -640,11 +647,13 @@ __declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
 // native consumers retain their historical fallback unless they call this.
 __declspec(dllexport) void SetStrictDeviceSelection(int enabled)
 {
+    if(g_externalMode.load())return;
     g_strictSelection = enabled != 0;
 }
 
 __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 {
+    if(g_externalMode.load())return;
     g_preferredIndex = index;
     Log("SetPreferredDeviceIndex(%d)", index);
 }
@@ -660,6 +669,7 @@ __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 // [art-of-sim-rally, 2026-09-04]
 __declspec(dllexport) int GetDeviceGuid(int index, void* guid16)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!guid16 || index < 0 || index >= g_candidateCount) return 0;
     memcpy(guid16, &g_candidates[index].guid, sizeof(GUID));
     return 1;
@@ -669,6 +679,7 @@ __declspec(dllexport) int GetDeviceGuid(int index, void* guid16)
 // pedal set can be pinned by identity too.
 __declspec(dllexport) int GetAnyDeviceGuid(int index, void* guid16)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!guid16 || index < 0 || index >= g_auxCount) return 0;
     memcpy(guid16, &g_aux[index].guid, sizeof(GUID));
     return 1;
@@ -676,6 +687,7 @@ __declspec(dllexport) int GetAnyDeviceGuid(int index, void* guid16)
 
 __declspec(dllexport) int GetDeviceInfo(int index, int* axes, int* buttons)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (index < 0 || index >= g_candidateCount || !axes || !buttons) return 0;
     *axes = (int)g_candidates[index].axes; *buttons = (int)g_candidates[index].buttons;
     return 1;
@@ -684,6 +696,7 @@ __declspec(dllexport) int GetDeviceInfo(int index, int* axes, int* buttons)
 // Capabilities of any enumerated controller.
 __declspec(dllexport) int GetAnyDeviceInfo(int index, int* axes, int* buttons, int* ffb)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (index < 0 || index >= g_auxCount || !axes || !buttons || !ffb) return 0;
     *axes = (int)g_aux[index].axes; *buttons = (int)g_aux[index].buttons; *ffb = g_aux[index].ffb;
     return 1;
@@ -691,6 +704,7 @@ __declspec(dllexport) int GetAnyDeviceInfo(int index, int* axes, int* buttons, i
 
 __declspec(dllexport) int EnumerateAllDevices(void)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!EnsureDirectInput()) return 0;
     Log("EnumerateAllDevices()");
     g_auxCount = 0;
@@ -700,6 +714,7 @@ __declspec(dllexport) int EnumerateAllDevices(void)
 
 __declspec(dllexport) int GetAnyDeviceName(int index, char* buffer, int size)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!buffer || size <= 0) return 0;
     buffer[0] = 0;
     if (index < 0 || index >= g_auxCount) return 0;
@@ -711,16 +726,19 @@ __declspec(dllexport) int GetAnyDeviceName(int index, char* buffer, int size)
 // it exclusively would stop anything else - including the game - from seeing it.
 __declspec(dllexport) int OpenAuxDevice(int index)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
+    if(g_externalMode.load() && !ExternalOwnerValid())return 0;
     // Enumerate if we have not yet, rather than only when DirectInput itself is
     // missing. Force feedback initialises first and leaves g_di set, so keying off
     // that skipped enumeration entirely and every open failed as "out of range".
-    if (g_auxCount == 0) { if (EnumerateAllDevices() <= 0) return 0; }
+    if (g_auxCount == 0) { if (g_externalMode.load() || EnumerateAllDevices() <= 0) return 0; }
 
     if (index < 0 || index >= g_auxCount) {
         Log("OpenAuxDevice(%d): out of range (%d devices)", index, g_auxCount);
         return 0;
     }
 
+    if(g_externalMode.load() && g_device && IsEqualGUID(g_aux[index].guid,g_activeGuid))return 0;
     if (!EnsureDirectInput()) return 0;
     if (g_auxDevice) { g_auxDevice->Unacquire(); g_auxDevice->Release(); g_auxDevice = nullptr; }
 
@@ -746,6 +764,7 @@ __declspec(dllexport) int OpenAuxDevice(int index)
 // Fills one byte per button, 1 = pressed. Returns how many were written.
 __declspec(dllexport) int ReadAuxButtons(unsigned char* buffer, int length)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return 0;
     if (!g_auxDevice || !buffer || length <= 0) return 0;
 
     DIJOYSTATE2 state = {};
@@ -765,6 +784,7 @@ __declspec(dllexport) int ReadAuxButtons(unsigned char* buffer, int length)
 
 __declspec(dllexport) void CloseAuxDevice(void)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed){ExternalQueueInputClose(true);return;}
     if (!g_auxDevice) return;
     g_auxDevice->Unacquire();
     g_auxDevice->Release();
@@ -797,7 +817,9 @@ static void SetFullRange(LPDIRECTINPUTDEVICE8 dev)
 // Returns the slot to read from, or -1.
 __declspec(dllexport) int OpenReadDevice(int index)
 {
-    if (g_auxCount == 0) { if (EnumerateAllDevices() <= 0) return -1; }
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed)return -1;
+    if(g_externalMode.load() && !ExternalOwnerValid())return -1;
+    if (g_auxCount == 0) { if (g_externalMode.load() || EnumerateAllDevices() <= 0) return -1; }
     if (index < 0 || index >= g_auxCount) { Log("OpenReadDevice(%d): out of range (%d devices)", index, g_auxCount); return -1; }
     if (g_readCount >= kMaxReadSlots) { Log("OpenReadDevice(%d): no free slot", index); return -1; }
     ReadSlot& s = g_read[g_readCount];
@@ -830,7 +852,8 @@ __declspec(dllexport) int OpenReadDevice(int index)
 // Returns 1 when a state was read.
 __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* buttons, int buttonCount)
 {
-    if (slot < 0 || slot >= g_readCount || !axes) return 0;
+    ExternalDeviceGuard externalDevice; ExternalReadResult externalResult(slot);
+    if (!externalDevice.allowed || slot < 0 || slot >= g_readCount || !axes) return 0;
     ReadSlot& s = g_read[slot];
     // A read slot belongs to the original controller, never whichever wheel
     // later replaces the FFB handle. Same-GUID reacquisition may resume it.
@@ -853,7 +876,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
         int n = buttonCount < 128 ? buttonCount : 128;
         for (int i = 0; i < n; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
     }
-    return 1;
+    externalResult.valid=true; return 1;
 }
 
 // Additive coherent snapshot. Counts are exact for axes/POV; buttons may be
@@ -862,13 +885,14 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
 __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCount,
     unsigned char* buttons, int buttonCount, int* pov, int povCount)
 {
+    ExternalDeviceGuard externalDevice; ExternalReadResult externalResult(slot);
     const bool axesOk = axes && axisCount == 8;
     const bool buttonsOk = buttonCount >= 0 && buttonCount <= 128 && (buttons || buttonCount == 0);
     const bool povOk = pov && povCount == 4;
     if (axesOk) memset(axes, 0, 8 * sizeof(*axes));
     if (buttonsOk && buttonCount) memset(buttons, 0, buttonCount);
     if (povOk) for (int i = 0; i < 4; ++i) pov[i] = -1;
-    if (!axesOk || !buttonsOk || !povOk || slot < 0 || slot >= g_readCount) return 0;
+    if (!externalDevice.allowed || !axesOk || !buttonsOk || !povOk || slot < 0 || slot >= g_readCount) return 0;
 
     ReadSlot& s = g_read[slot];
     // A slot must never silently follow a newly selected FFB wheel.
@@ -896,11 +920,13 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
         // neutral for this hat; they do not invalidate the rest of the snapshot.
         pov[i] = LOWORD(angle) == 0xFFFF || angle > 35999 ? -1 : (int)angle;
     }
-    return 1;
+    externalResult.valid=true; return 1;
 }
 
 __declspec(dllexport) void CloseReadDevices(void)
 {
+    ExternalDeviceGuard externalDevice; if(!externalDevice.allowed){ExternalQueueInputClose(false);return;}
+    if(g_externalMode.load())ExternalInvalidateReads();
     for (int i = 0; i < g_readCount; ++i) {
         if (g_read[i].dev) { g_read[i].dev->Unacquire(); g_read[i].dev->Release(); g_read[i].dev = nullptr; }
     }
@@ -910,6 +936,7 @@ __declspec(dllexport) void CloseReadDevices(void)
 
 __declspec(dllexport) void Aquire(void)
 {
+    if(g_externalMode.load())return;
     if (!g_device) { Log("Aquire() with no device"); return; }
     HRESULT hr = g_device->Acquire();
     // S_FALSE simply means "already acquired" - not worth logging every frame.
@@ -920,6 +947,7 @@ __declspec(dllexport) void Aquire(void)
 // lifecycle/error logging remains available without per-update file I/O.
 __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 {
+    if(g_externalMode.load()){if(x==0 && y==0)ExternalLegacyCancel(false);return 0;}
     if (!g_effect) return 0;
 
     if (x >  kForceMax) x =  kForceMax;
@@ -1173,6 +1201,7 @@ static void ReleasePeriodics()
 // the constant force). Call after InitDirectInput succeeded.
 __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 {
+    if(g_externalMode.load())return -1;
     if (!g_device) { Log("CreatePeriodicEffect(%d): no device", freqHz); return -1; }
     EnterCriticalSection(&g_lock);
     if (!g_periodicProbed) {
@@ -1197,6 +1226,7 @@ __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 // slot is empty, the update failed, or the effect is being recreated.
 __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz)
 {
+    if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
     if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || g_periodic[slot].durationMs != 0 || !g_device || g_panicked) return 0;
     PeriodicSlot& s = g_periodic[slot];
     if (magnitude < 0) magnitude = 0;
@@ -1261,6 +1291,7 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
 // continuous API. Only an explicit Play can start/recreate a burst.
 __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
 {
+    if(g_externalMode.load())return -1;
     if (!g_device || g_panicked || !wheel_burst::valid(freqHz, durationMs)) { g_lastHr = E_INVALIDARG; return -1; }
     EnterCriticalSection(&g_lock);
     int slot = -1;
@@ -1299,10 +1330,14 @@ static int PlayBurst(int slot, int magnitude, int freqMilliHz, int phase, int fa
 }
 
 __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
-{ return PlayBurst(slot, magnitude, freqMilliHz, 0, 0, false); }
+{
+    if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
+    return PlayBurst(slot, magnitude, freqMilliHz, 0, 0, false);
+}
 
 __declspec(dllexport) int PlayShapedPeriodicBurst(int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)
 {
+    if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
     int accepted = PlayBurst(slot, magnitude, freqMilliHz, phaseHundredths, fadeMs, true);
     if (!accepted) {
         static ULONGLONG lastReport = 0; ULONGLONG now = GetTickCount64();
@@ -1316,6 +1351,7 @@ __declspec(dllexport) int PlayShapedPeriodicBurst(int slot, int magnitude, int f
 
 __declspec(dllexport) int StopPeriodicBurst(int slot)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return 1;}
     if (!g_lockInit || slot < 0 || slot >= kMaxPeriodic) { g_lastHr = E_INVALIDARG; return 0; }
     EnterCriticalSection(&g_lock);
     auto& s = g_periodic[slot];
@@ -1330,6 +1366,7 @@ __declspec(dllexport) int StopPeriodicBurst(int slot)
 // this too; call it yourself only to switch effects off while the wheel stays.
 __declspec(dllexport) void ReleasePeriodicEffects(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return;}
     Log("ReleasePeriodicEffects()");
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
@@ -1351,6 +1388,7 @@ static void ReleaseConstantBurstsInternal() {
     for(auto& s:g_constantBurst) {if(s.fx){s.fx->Stop();s.fx->Release();}s=ConstantBurstSlot{};}
 }
 __declspec(dllexport) int CreateConstantBurst(int durationMs) {
+    if(g_externalMode.load())return -1;
     if(!g_device || g_panicked || durationMs<1 || durationMs>500){g_lastHr=E_INVALIDARG;return -1;}
     EnterCriticalSection(&g_lock);
     int slot=-1;for(int i=0;i<kMaxConstantBurst;i++)if(!g_constantBurst[i].used){slot=i;break;}
@@ -1361,6 +1399,7 @@ __declspec(dllexport) int CreateConstantBurst(int durationMs) {
     g_lastHr=hr;LeaveCriticalSection(&g_lock);return slot;
 }
 __declspec(dllexport) int PlayConstantBurst(int slot,int signedMagnitude) {
+    if(g_externalMode.load()){if(signedMagnitude==0)ExternalLegacyCancel(false);return 0;}
     if(!g_device || g_panicked || slot<0 || slot>=kMaxConstantBurst || signedMagnitude < -10000 || signedMagnitude>10000){g_lastHr=E_INVALIDARG;return 0;}
     EnterCriticalSection(&g_lock);
     auto& s=g_constantBurst[slot];DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
@@ -1374,6 +1413,7 @@ __declspec(dllexport) int PlayConstantBurst(int slot,int signedMagnitude) {
     g_lastHr=hr;LeaveCriticalSection(&g_lock);return hr==S_OK?1:0;
 }
 __declspec(dllexport) int StopConstantBurst(int slot) {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return 1;}
     if(!g_lockInit || slot<0 || slot>=kMaxConstantBurst){g_lastHr=E_INVALIDARG;return 0;}
     EnterCriticalSection(&g_lock);auto& s=g_constantBurst[slot];
     if(!s.used){g_lastHr=E_INVALIDARG;LeaveCriticalSection(&g_lock);return 0;}
@@ -1381,6 +1421,7 @@ __declspec(dllexport) int StopConstantBurst(int slot) {
     LeaveCriticalSection(&g_lock);return SUCCEEDED(hr)?1:0;
 }
 __declspec(dllexport) void ReleaseConstantBursts() {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return;}
     if(!g_lockInit)return;EnterCriticalSection(&g_lock);ReleaseConstantBurstsInternal();LeaveCriticalSection(&g_lock);
 }
 
@@ -1486,6 +1527,7 @@ static void ReleaseConditions()
 // without a hardware damper is normal, so treat -1 as "do it in the model".
 __declspec(dllexport) int CreateConditionEffect(int type)
 {
+    if(g_externalMode.load())return -1;
     if (!g_device) { Log("CreateConditionEffect(%s): no device", ConditionName(type)); return -1; }
     if (!ConditionGuid(type)) { Log("CreateConditionEffect: unknown type %d", type); return -1; }
     EnterCriticalSection(&g_lock);
@@ -1508,6 +1550,7 @@ __declspec(dllexport) int CreateConditionEffect(int type)
 // carries the values.
 __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset)
 {
+    if(g_externalMode.load()){if(coefficient==0)ExternalLegacyCancel(false);return 0;}
     if (slot < 0 || slot >= kMaxCondition || !g_condition[slot].used || !g_device || g_panicked) return 0;
     ConditionSlot& s = g_condition[slot];
     if (coefficient >  kForceMax) coefficient =  kForceMax;
@@ -1568,6 +1611,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
 
 __declspec(dllexport) void ReleaseConditionEffects(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return;}
     Log("ReleaseConditionEffects()");
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
@@ -1585,6 +1629,7 @@ __declspec(dllexport) void ReleaseConditionEffects(void)
 // the exclusive device and nothing reaches the wheel. [OutRun2006Tweaks-FFB]
 __declspec(dllexport) void PanicStop(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(true);return;}
     Log("PanicStop()");
     if (!g_device) return;
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
@@ -1616,6 +1661,7 @@ __declspec(dllexport) void PanicStop(void)
 // Zero force without releasing anything; for focus loss and menus.
 __declspec(dllexport) void ZeroForces(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return;}
     if (!g_lockInit) return;
     EnterCriticalSection(&g_lock);
     if (g_effect) { SetDeviceForcesXY(0, 0); if (g_effect) g_effect->Stop(); }
@@ -1654,6 +1700,7 @@ static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 // a P/Invoke from the game's main thread is.
 __declspec(dllexport) int InstallExitGuards(void)
 {
+    if(g_externalMode.load())return ExternalOwnerValid()?1:0;
     if (g_guardOrigProc) return 1;
     HWND h = g_hwnd ? g_hwnd : ResolveGameWindow(GetForegroundWindow());
     if (!h) { Log("InstallExitGuards: no window"); return 0; }
@@ -1702,6 +1749,7 @@ static DWORD WINAPI HoldWatchdog(LPVOID)
 
 __declspec(dllexport) void SetHoldTimeoutMs(int ms)
 {
+    if(g_externalMode.load())return;
     g_holdMs = ms;
     Log("SetHoldTimeoutMs(%d)", ms);
     if (ms > 0 && !g_holdThread) {
@@ -1730,6 +1778,7 @@ __declspec(dllexport) int GetWheelFfbVersion(void) { return kVersion; }
 
 __declspec(dllexport) BOOL StartEffect(void)
 {
+    if(g_externalMode.load())return FALSE;
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
     HRESULT hr = StartEffectRetrying(g_effect, "constant force");
     Log("StartEffect() -> 0x%08lX", hr);
@@ -1739,6 +1788,7 @@ __declspec(dllexport) BOOL StartEffect(void)
 
 __declspec(dllexport) BOOL StopEffect(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(false);return TRUE;}
     Log("StopEffect()");
     if (!g_effect) return FALSE;
     return SUCCEEDED(g_effect->Stop()) ? TRUE : FALSE;
@@ -1746,6 +1796,7 @@ __declspec(dllexport) BOOL StopEffect(void)
 
 __declspec(dllexport) BOOL SetAutoCenter(BOOL enable)
 {
+    if(g_externalMode.load())return FALSE;
     Log("SetAutoCenter(%d)", enable);
     if (!g_device) return FALSE;
 
@@ -1763,6 +1814,7 @@ __declspec(dllexport) BOOL SetAutoCenter(BOOL enable)
 
 __declspec(dllexport) void FreeDirectInput(void)
 {
+    if(g_externalMode.load()){ExternalLegacyCancel(true);return;}
     Log("FreeDirectInput()");
     RemoveExitGuards();
     g_stopThreads = true;
@@ -1778,6 +1830,8 @@ __declspec(dllexport) void FreeDirectInput(void)
 }
 
 } // extern "C"
+
+#include "external_session_impl.h"
 
 BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 {

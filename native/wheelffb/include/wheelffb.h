@@ -66,6 +66,7 @@
 
 #include <windows.h>
 #include <string.h>
+#include "external_ffb.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -119,7 +120,15 @@ extern "C" {
     X(int,  UpdateConditionEffect,  (int slot, int coefficient, int saturation, int deadband, int offset)) \
     X(void, ReleaseConditionEffects,(void)) \
     X(void, SetStrictDeviceSelection,(int enabled)) \
-    X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount))
+    X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount)) \
+    X(int, ExternalFfbEnter, (HWND ownerWindow)) \
+    X(int, ExternalFfbOpen, (const ExternalFfbConfigV1* config, const wchar_t* targetImagePath, unsigned int pathChars, unsigned long long* session)) \
+    X(int, ExternalFfbArm, (unsigned long long session, ExternalFfbArmTicketV1* ticket)) \
+    X(int, ExternalFfbRenewClient, (unsigned long long session, const ExternalFfbClientFrameV1* frame)) \
+    X(int, ExternalFfbSubmitConstant, (unsigned long long session, const ExternalFfbForceFrameV1* frame)) \
+    X(int, ExternalFfbDisarm, (unsigned long long session, unsigned int reason)) \
+    X(int, ExternalFfbClose, (unsigned long long session)) \
+    X(int, ExternalFfbGetStatus, (unsigned long long session, ExternalFfbStatusV1* status))
 
 #define WHEELFFB_TYPEDEF(ret, name, args) typedef ret (__cdecl *WheelFfb_##name##_t) args;
 WHEELFFB_API_LIST(WHEELFFB_TYPEDEF)

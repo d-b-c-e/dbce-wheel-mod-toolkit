@@ -10,7 +10,7 @@
 
     Exit code 0 = all passed, 1 = at least one failure.
 #>
-[CmdletBinding()] param()
+[CmdletBinding()] param([switch]$SkipDiscovery)
 
 Import-Module (Join-Path $PSScriptRoot 'DbceWheel.psm1') -Force
 $script:fails = 0
@@ -95,6 +95,7 @@ Set-IniValueCrlf -Path $path -Section 's' -Key 'Wheel_Steer' -Value 'C' -Warning
 $raw = [IO.File]::ReadAllText($path)
 Check 'a key that is a prefix of another is not overwritten' ($raw -match '(?m)^Wheel_Steer=C' -and $raw -match '(?m)^Wheel_SteerDeadzone=B')
 
+if (-not $SkipDiscovery) {
 Write-Host "`nDiscovery (reports this machine; not asserted)" -ForegroundColor Cyan
 $libs = @(Get-SteamLibraries)
 Check 'Get-SteamLibraries returns at least one existing folder' ($libs.Count -gt 0 -and (Test-Path $libs[0]))
@@ -105,10 +106,15 @@ Write-Host "       $($devs.Count) DirectInput controller(s)" -ForegroundColor Da
 foreach ($d in $devs) { Write-Host "       $($d.Key)  $($d.Name)  type=0x$('{0:x}' -f $d.Type) ffb=$($d.ForceFeedback)" -ForegroundColor DarkGray }
 Check 'every enumerated device has an 8-hex-digit product key' (($devs | Where-Object { $_.Key -notmatch '^[0-9a-f]{8}$' }).Count -eq 0)
 Check 'Vid and Pid are derived consistently from the key' (($devs | Where-Object { $_.Key -ne ($_.Pid + $_.Vid) }).Count -eq 0)
+} else { Write-Host 'Discovery explicitly skipped: no controller enumeration.' }
 
 Check 'Test-GameRunning is false for a name nothing uses' (-not (Test-GameRunning -ProcessName 'dbce-no-such-process'))
 
-Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+$resolvedTemp=[IO.Path]::GetFullPath($tmp)
+$tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'
+if (-not $resolvedTemp.StartsWith($tempRoot,[StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($resolvedTemp) -notmatch '^dbcewheel-[0-9a-f]{32}$') { throw 'Unexpected temporary test directory' }
+Remove-Item -LiteralPath $resolvedTemp -Recurse -Force -ErrorAction SilentlyContinue
 if ($fails) { Write-Host "`n$fails check(s) failed" -ForegroundColor Red; exit 1 }
 Write-Host "`nDbceWheel.psm1: all checks passed" -ForegroundColor Green
 exit 0

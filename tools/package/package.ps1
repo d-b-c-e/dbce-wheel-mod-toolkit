@@ -20,12 +20,17 @@
 
 .PARAMETER SkipNative
     Reuse the existing native\wheelffb\build\WheelFfb.dll instead of rebuilding.
+
+.PARAMETER Offline
+    Skip real-machine Steam/controller discovery. No hardware enumeration or
+    acquisition is performed; smoke harnesses are compiled separately only.
 #>
 [CmdletBinding()]
 param(
     [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$')]
     [string]$Version = '0.1.0',
-    [switch]$SkipNative
+    [switch]$SkipNative,
+    [switch]$Offline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,7 +46,9 @@ if (-not $SkipNative) { & cmd.exe /c "$(Join-Path $root 'native\wheelffb\build.b
 $nativeX86 = Join-Path $root 'native\wheelffb\build\x86\WheelFfb.dll'
 if (-not (Test-Path $nativeX86)) { throw "x86 WheelFfb.dll not built" }
 Write-Host "== DbceWheel.psm1 ==" -ForegroundColor Cyan
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') | Out-Host
+$helperArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $root 'tools\powershell\Test-DbceWheel.ps1'))
+if ($Offline) { $helperArgs+='-SkipDiscovery' }
+& powershell @helperArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "DbceWheel.psm1 tests failed" }
 
 Write-Host "== dinput proxy scaffold ==" -ForegroundColor Cyan
@@ -64,6 +71,12 @@ Write-Host "== coherent POV snapshot fake devices (no hardware) ==" -ForegroundC
 foreach ($arch in @('x64','x86')) {
  & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_pov_read_test.bat') $arch | Out-Host
  if ($LASTEXITCODE -ne 0) { throw "POV snapshot checks failed: $arch" }
+}
+
+Write-Host "== external sessions, fake platform and COM driver only ==" -ForegroundColor Cyan
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_external_session_test.bat') $arch | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw "External session checks failed: $arch" }
 }
 
 Write-Host "== finite burst fake effects (no hardware) ==" -ForegroundColor Cyan
@@ -99,12 +112,17 @@ if (-not (Test-Path (Join-Path $probeSrc 'ffbprobe.exe'))) {
 $name  = "dbce-wheel-mod-toolkit-$Version"
 $dist  = Join-Path $root 'dist'
 $stage = Join-Path $dist $name
-if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+$resolvedStage=[IO.Path]::GetFullPath($stage)
+$resolvedDist=[IO.Path]::GetFullPath($dist).TrimEnd('\')+'\'
+if (-not $resolvedStage.StartsWith($resolvedDist,[StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($resolvedStage) -ne $name) { throw 'Package stage outside dist' }
+if (Test-Path -LiteralPath $resolvedStage) { Remove-Item -LiteralPath $resolvedStage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native\x86'), (Join-Path $stage 'native\include'), (Join-Path $stage 'dotnet'), (Join-Path $stage 'tools\forza'), (Join-Path $stage 'tools\dev'), (Join-Path $stage 'tools\ffbprobe'), (Join-Path $stage 'tools\powershell'), (Join-Path $stage 'profiles'), (Join-Path $stage 'knowledge'), (Join-Path $stage 'docs\adr') | Out-Null
 
 Copy-Item $native (Join-Path $stage 'native')
 Copy-Item $nativeX86 (Join-Path $stage 'native\x86')
 Copy-Item (Join-Path $root 'native\wheelffb\include\wheelffb.h') (Join-Path $stage 'native\include')
+Copy-Item (Join-Path $root 'native\wheelffb\include\external_ffb.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forza\forza_packet.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_model.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_profile.h') (Join-Path $stage 'native\include')
