@@ -134,6 +134,34 @@ explicit GroupBox interior layout and meaningful calibration/config validation.
 Request an immutable source/package checkpoint before deployment or adoption
 claims; do not confuse this review with completion of those remaining fixes.
 
+## First committed consumer checkpoint
+
+Sonic pushed clean source `9e3f4cf849c07a99bd39c066432ce3ce64e432c0` to its private
+`main` branch. The coordinator verified that local and remote identities agree,
+and inspected the revised per-action rearm and calibration validation. The task
+reports 18 offline tests and a release build passing. Its disposable installer
+fixture reportedly rejects modified owned payloads and preserves settings and
+an unrelated mod. No actual deployment, virtual controller attachment, UI render,
+game drive or force output has occurred.
+
+The existing `dist/package-0.1.0-review` launcher hashes to
+`7C27D24703BD09AB5CC21FE046D76B76C12461D404A9099BD58826AD49712302`;
+the optional probe hashes to
+`7EDF275B20E97D4CEB3FD6B00D90D24400AB168449C38D73F6B1DE6D054D7330`.
+The coordinator verified those hashes. This package's manifest lacks source
+revision/tree/dirty provenance, so these are artifact identities, not a claim
+that it was built from the later clean commit. The next assignment requests
+provenance in the packaging script and a fresh build from committed source,
+preserving the existing review package.
+
+The Sonic task has **not adopted** the separate toolkit POV candidate. Its next
+offline architecture task compares in-process ownership against an explicit
+external-session contract, including process lifetime identity, foreground
+ownership, monotonic freshness, independently enforced cancellation and both
+input/FFB lifecycle transitions. Calling an older continuous-force path merely
+to avoid finite-effect foreground checks is not an accepted workaround. The
+implementation still needs verified player-driving telemetry before force work.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
