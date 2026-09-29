@@ -36,6 +36,36 @@ separate processes alone do not prove competing wheel handles will coexist.
 An additive shared-reader API or a verified HID/RawInput route needs its own
 identity, lifecycle and hardware evidence. Input/UI work can proceed meanwhile.
 
+## First offline review, 2026-09-28
+
+The Sonic task reported 11 passing mapper/parser checks and a matching installed
+executable preflight. Read-only enumeration identified the MOZA base, DS-8X and
+MOZA stalk; standalone pedals were not enumerated. No virtual controller was
+attached, game launched or FFB initialized. Its initial console wizard and
+uninstalled UE4SS diagnostic probe are prototypes, not accepted player UX or
+verified game telemetry.
+
+The coordinator inspected that first uncommitted source checkpoint and returned
+concrete fixes: neutralize all driving output when a required pedal reader fails;
+resolve opposing raw directions before flick timers; require a valid release
+after initial activation/focus loss/device discontinuity; make the expected game
+control layout explicit; capture new button edges while ignoring already-held
+gear/switch states; and add a graphical, grouped binding workflow. The Lua probe
+also needs single-flight scheduling so a stalled game thread cannot accumulate
+callbacks. Its coarse source time is not sufficient for a future FFB freshness
+gate. These findings are assigned work, not a claim that current source remains
+broken or that the 11 checks establish game acceptance.
+
+The toolkit POV subtask runs in the isolated `toolkit-pov-input` managed worktree,
+branch `codex/toolkit-pov-input` from v0.15.0. Its additive native 0.9.0 design is
+`ReadDeviceStateWithPov(slot, axes, axisCount, buttons, buttonCount, pov, povCount)`:
+exactly eight axes/four hats and zero to 128 buttons, optional managed capability,
+neutral hats on failure, and a single existing-handle snapshot. Failed raw axes
+must not be treated as neutral pedals. Before promoting an input-only reader to
+FFB ownership, neutralize virtual output, close readers, initialize FFB and reopen
+the saved GUIDs to share the FFB handle. The consumer must not adopt partial files
+or treat offline candidate tests as hardware acceptance.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
