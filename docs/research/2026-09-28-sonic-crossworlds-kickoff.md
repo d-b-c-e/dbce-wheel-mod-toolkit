@@ -334,6 +334,29 @@ The coordinator reviewed the lease clipping and managed optional API wrapper;
 final original-WndProc forwarding regressions and clean packaging are in flight.
 No candidate receipt is accepted yet.
 
+The final external-session candidate is clean/pushed source
+`06340b38ec5549ee3fa477668da097e559e61c6e`, tree
+`4743e646552f69faefb305baa1487a9e69ba0873`, on `codex/external-session-ffb`.
+Local candidate **0.16.0-external.1**, native **0.10.0 / 55 exports**, includes
+the final pending/final WM_CLOSE forwarding regressions. The coordinator
+verified the source/receipt identity and all66 archive payload hashes.
+
+- ZIP SHA-256: `D99FFBBF1C52C95703021DF5032C98B609564D80C9D9C042F70411D66FE0B5A8`.
+- `dist/EXTERNAL-HANDOFF.json` SHA-256: `1044CF6B409E0A5539663747725487B56E20C727C1D98A1687BA5DC1838D2E6F`.
+- Payload manifest SHA-256: `4D493AF28BDCF8224011CB5131941F494D9ABAAE271D5B7460FFB132DA9A14B5`.
+- Native x64: `968E548C8FFDFD1BEB1DE92C818316362C0F71E9FC1EA8CBB9CA15CB19491EF8`;
+  x86: `94B519DDCC96E8371CA7E3F1C71EE1F4C69B2D212531E9181318C7BB523EB2A6`.
+- Managed Ffb: `A5DFB5730861D5C6830EC1B7573B31523DA0C3743731DF071648E220268CDAC8`.
+
+The specialist reports851/852 native production checks (x64/x86),121 managed,
+24 sync, all55 exports, legacy/conformance checks and exact-packaged managed
+optional/legacy fixtures on both runtimes. Hardware smoke was compiled only;
+no enumeration/acquisition occurred. Artifacts remain in the toolkit-pov-input
+worktree's `dist`; frozen POV and official v0.15 identities remain unchanged.
+Sonic received this concrete API reference for offline work. No automatic
+consumer repin, deployment or official release was performed; genuine producer
+integration and attended force behavior remain open.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

@@ -59,9 +59,10 @@ Consumer source `7e46ac88eff58ce321ccb7e7e21ac49ee11e4d40` passed 67 offline
 tests in an independent coordinator rerun; the existing launcher package remains
 separately pinned to `7347442`. The transport review fixes are addressed. Next is
 device-free schema/peer-identity/eligibility integration, including revocation
-that cannot disappear through state coalescing. Native external-session final
-regressions and clean artifact handoff remain in progress. No game input, real
-telemetry or physical FFB has been accepted.
+that cannot disappear through state coalescing. Native external-session source
+`06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
+reviewed for offline integration; all66 ZIP payload hashes were independently
+verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
 ## Art RC16 device-picker guidance, 2026-09-23
