@@ -73,10 +73,13 @@ reviewed for offline integration; all 66 ZIP payload hashes were independently
 verified. No consumer repin, game input, real telemetry or physical FFB acceptance.
 Read-only inspection/offline work can proceed; the shared-desktop pause persists.
 
-F-Zero's separate actuator repairs through `02fb715` close the targeted
-[source findings](research/2026-09-29-actuator-rearm-review.md); coordinator burst
-and production recovery/open tests pass on x86/x64. Immutable component receipt
-and physical acceptance remain separate; no frozen candidate/release is changed.
+F-Zero adapter `7a585a2` produces shared observations from its reported matching
+11,364-frame replay. Independent artifact/comparison checks confirm 45,461 aligned
+requests and 29,083 differences between two tunes. A snapshot-path binding repair
+and capture-provenance confirmation remain assigned before adapter acceptance.
+Its separate actuator repairs through `02fb715` and component receipt `ea25ea8`
+pass targeted [source, fake-test and identity review](research/2026-09-29-actuator-rearm-review.md).
+Physical acceptance remains separate; no frozen candidate/release is changed.
 
 ## Art RC16 device-picker guidance, 2026-09-23
 

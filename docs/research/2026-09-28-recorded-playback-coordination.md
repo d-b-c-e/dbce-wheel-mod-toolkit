@@ -177,3 +177,35 @@ remaining shared case/config adapter; Woden capture readiness is complete.
 Latest compact cursors:
 F-Zero `166a5771-74fa-4c61-bf87-f03dd911821b:12`;
 Woden `5365458d-4949-42ac-a750-938f7b10372d:10`.
+
+## F-Zero adapter checkpoint review, 2026-09-29
+
+Consumer source `7a585a2` follows pure-model raw exporter `0e3ac07`. It consumes
+the shared Python implementation directly, retaining game-owned `.fzpt` and
+snapshot codecs. The clock now uses actual emulated master cycles at 21,477,272
+ticks/second, superseding the earlier nominal frame-rate proposal. The explicit
+profile assumes spring, damper and road slots, zero constant-force fallback,
+and 140 ms / 32 Hz impact events. These are model requests, not physical torque.
+
+The consumer reports two full 11,364-frame replays with matching WRAM checks at
+strengths 12 and 20. The coordinator did not launch either replay. Independent
+read-only validation accepts the original case hash
+`aaec60f5e370734536820accc262c0a9c7a268fdc19d594f90e63db8332720ce`.
+Shared comparison validates both complete 45,461-request streams on the same
+timeline and case identity, with 29,083 changed requests, maximum magnitude
+delta `0.08000000000000002`, RMS `0.042417871390897186`. Three ROM-free adapter
+tests passed independently; the task additionally reports 13 CTest cases.
+
+Adapter acceptance remains open for one concrete source finding: the manifest
+hashes an arbitrary `initialState`, while the game loads the source recording's
+`.state` sibling. Require those paths to identify the same validated artifact,
+or stage the validated pair explicitly. The owning task is assigned a regression
+that rejects a different manifest state before launching the runner. It is also
+asked to confirm actual capture executable/source provenance; `create` currently
+asserts `dirty:false` from caller input without independently checking a receipt.
+Preserve the original case and both observations while making the repair.
+
+The separate experimental native receipt committed at `ea25ea8` is reviewed;
+source/tree and both DLL hashes, including the preview copy, match. See the
+[actuator review](2026-09-29-actuator-rearm-review.md). No game/device/force was
+opened by the coordinator. Woden readiness remains complete and its task idle.

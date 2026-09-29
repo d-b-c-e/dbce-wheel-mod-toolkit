@@ -66,10 +66,16 @@ the DLLs:
 - x64: `F2D9DD3059A75ED381446C30488F5B75670642AF8972F2A2D593F983B9BE7972`.
 - x86: `DB9BAC4EE11A8DCCA0C6F43185C1060292F84C8E4448E699DC14F2FE61FDEE5A`.
 
-The consumer is asked to retain a clean-source component receipt with architecture,
-version/export and build/test identities, and compile-only smoke status. No device
-was opened in coordinator validation. Shared release/adoption and physical feel
-are not established by this source review.
+F-Zero committed its component receipt at `ea25ea8`,
+`docs/WHEELFFB_EXPERIMENTAL_RECEIPT.md`. It records the clean source/tree above,
+native 0.9.0 (version integer 900), 47 exports on both architectures, fake-suite
+builds and smoke compilation only. The coordinator rechecked the clean native
+source/tree and both DLL hashes, including the exact x64 rig-preview copy.
+The prior preview DLL hash is retained in the receipt; that old binary was not
+saved separately. Normal installed Stream Deck/LaunchBox files were not replaced.
+This closes the requested experimental component receipt review. No device was
+opened in coordinator validation. Shared release/adoption and physical feel are
+not established by this source review.
 
 Microsoft documents both [SetParameters playback behavior](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417952(v=vs.85))
 and [Start downloading/restarting an effect](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417955(v=vs.85)).
