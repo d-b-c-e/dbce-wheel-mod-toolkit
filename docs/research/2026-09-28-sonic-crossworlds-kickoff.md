@@ -197,6 +197,18 @@ duration is therefore required, with physical driver behavior still unverified.
 The Sonic task is assigned independent, device-free IPC/lease design and fixtures;
 it must wait for a reviewed native interface before implementing FFB bindings.
 
+Sonic commit `d2853b0b60ff2707c6ee94b31f266abb85d1938b` adds the IPC/source-lease
+draft and 18 design vectors; those vectors had not executed at review. The
+coordinator corrected its proposed global release/steering-center gate: held
+optional actions must not trap unrelated input, and valid steering does not need
+recentering after focus return. Per-action/pedal release masking remains separate
+from FFB eligibility. Sonic is now assigned an executable fake-clock/mailbox
+validator, including stale-at-use data and immediate invalidation by a new
+non-driving/unknown sample. Windows QPC is suitable for same-system comparisons,
+with a boot-fixed frequency and a documented one-tick cross-thread ambiguity;
+see [Microsoft's timing guidance](https://learn.microsoft.com/en-us/windows/win32/sysinfo/acquiring-high-resolution-time-stamps).
+The current diagnostic JSONL cannot refresh a force lease.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
