@@ -84,9 +84,13 @@ unchanged game executable, absence of owned paths and no remaining related proce
 Compatibility review `6710503` supports UE 5.4 and upstream candidate `6c26f038`,
 whose pinned source no longer requires the failed FText constructor scan.
 The coordinator verified the interview, local manifest, source pins, lifecycle
-interface and changed proxy layout. An isolated paired diagnostic build is active;
-the original checkout and frozen artifacts stay preserved. No second runtime
-slot is authorized, and the newer candidate is not yet built or game-verified.
+interface and changed proxy layout. Candidate source `60b500b` / receipt `d52d08c`
+now co-builds the newer loader/proxy/field-free mod. Independent checks pass the
+stage preflight, 149 proxy exports, four project inputs, five payloads and six
+log/patch/settings hashes. Handoff repair is active: anchor validation to the
+tracked receipt, account for loader/mod overrides, and freeze supporting evidence.
+No DLL rebuild is needed. Original artifacts remain preserved; no second runtime
+slot is authorized and the newer candidate is not game-verified.
 Consumer source remains local/unpushed. Game-thread delivery, real driving fields,
 usable input and physical FFB remain unverified. The limited loader start does not
 establish UE4SS compatibility or grant device-testing authorization.

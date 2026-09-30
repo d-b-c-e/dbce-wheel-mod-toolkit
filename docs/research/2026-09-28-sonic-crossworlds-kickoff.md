@@ -689,6 +689,47 @@ and updated absence-only staging/hash-owned rollback plan. Do not silently carry
 old patches or assume the old five-file layout. No second installation/launch,
 gameplay field, virtual-pad, wheel acquisition or force test is authorized.
 
+### Newer candidate built; handoff checks under repair, 2026-09-30
+
+Consumer build source `60b500b381a83843bb4138dae22a2354e9200f29`, tree
+`f689e0c3a591fb60a8322b888735ee508ffc524a`, and receipt follow-up `d52d08c`
+preserve an isolated paired `Game__Shipping__Win64` candidate. The coordinator
+read the PowerShell/CMake/diagnostic source, upstream fmt macro guard and generated
+Cargo.lock pruning, then independently ran both parsers and the read-only stage
+test. It passed exact paths, hashes, read-only flags, source pins, settings diff,
+x64 PE, mod lifecycle exports/import, 149 proxy exports and installed-game
+hash/absence/process preflight. Direct checks against the tracked receipt matched
+four project-input, five staged payload and six log/patch/settings hashes.
+
+Candidate identities:
+
+- Loader: `22E6BA06FA71EE17ABA31AD6FFF63F15C735BA0D21C97E25938A4B75F949BEE9`.
+- Proxy: `00232BE133FC1229B3DFD627E342E47B5D9147E2ACEBDD2A8A0BF570427F3BC9`.
+- Diagnostic: `ADED9DBBC89D8169BDC8D47CDAA066A0298CFC1668E837A5E860EC636009C3CA`.
+- Consumer receipt: `docs/receipts/ue4ss-candidate-6c26f038.json`.
+- Offline stage: `obj/ue4ss-candidate/review-stage-22e6ba06-aded9dbb`.
+
+The stock-settings stage and separate two-line UE5.4 settings candidate are
+distinct. No settings choice has been game-tested. The DLLs passed offline
+linkage review; nothing was rebuilt, loaded or installed by the coordinator.
+
+Three concrete handoff repairs were returned, without a DLL rebuild. First,
+the stage tool currently trusts replaceable `obj/build-info.json`; anchor it
+to the tracked accepted receipt and chosen settings hash, with a negative
+fixture for changed artifact/manifest. Second, the newer proxy can select another
+loader through `override.txt` or `--ue4ss-path`, and UE4SS can add mod directories
+through settings and `UE4SS_MODS_PATHS`. Preflight and the next attended plan must
+account for effective paths/arguments/environment without modifying owner settings,
+and confirm actual module/config/mod paths before accepting runtime evidence.
+Third, the supporting build-info/logs/patches/variant remain writable and would
+be replaced by a rerun; preserve immutable copies alongside the read-only payload.
+Build-info time precedes the source commit by ten seconds, so record actual
+chronology and proven input correspondence rather than claiming the build began
+from a committed clean checkout. Existing receipt/artifact identities stay intact.
+
+Handoff repair remains active. The next runtime gate is a separately authorized
+game-only slot after that review; no wheel, virtual pad, device or force work.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
