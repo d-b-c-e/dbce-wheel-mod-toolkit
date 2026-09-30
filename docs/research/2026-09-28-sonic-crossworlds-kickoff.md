@@ -533,6 +533,43 @@ source access is available, the consumer's rerun command is
 game slot, loader installation, virtual pad, device acquisition or force testing
 is authorized by this follow-up.
 
+### Access resolved and paired source build reviewed, 2026-09-29
+
+The owner's Epic-linked access now reaches the pinned Unreal dependency.
+Local consumer commit `122336a996a204abf2eaec82ddffbdd77cd9df3d`, tree
+`f5a89af389f4d4fb19962b85830975cdfbc79d07`, builds UE4SS and the field-free
+smoke mod together in `Game__Shipping__Win64`. At review, the consumer's 11
+commits after its remote main are local only. The official downloaded loader
+and all earlier package/toolkit artifacts remain separate.
+
+The build pins historical ImGuiColorTextEdit `af7821926251feca84e35f8fa83eee84dae90424`,
+temporarily applies then reverses two UEPseudo compilation fixes, supplies actual
+Rust compiler/Cargo paths, and filters a Corrosion/MSVC linker directive. Existing
+notes retain the limit that other moving dependencies/toolchains prevent a
+byte-for-byte rebuild promise. Source and nested submodules are clean after build.
+
+The coordinator reviewed those changes, parsed the script, and independently
+verified the local build receipt without rebuilding or loading the artifacts:
+
+- UE4SS.dll: `F2BCAEA1AAB001AB9E85567B05EBB151A25C78C336AE16C1BA0F609460B4F9CA`.
+- C++ main.dll: `F074E37FB62E31286E4ECDE3BEFC55334FAD7B3B59509B5A4E93F0AFC5DB8978`.
+- Compatibility patch: `C4B3596606EAE53DA9637EE9645FEE79D620B29DC4D7A7173ED2C0F7F67D0AC2`.
+
+Read-only PE inspection confirms x64, UE4SS/base-class imports, and the mod's
+`start_mod` / `uninstall_mod` exports. This closes the source-access/build
+prerequisite for this pair, not runtime compatibility or game-thread capture.
+
+Offline coordination resumes. The bounded next assignment preserves this pair
+and adds an immutable source/build receipt, then prepares a diagnostic candidate
+and reversible staging/rollback plan without installing anything. First inspect
+ProcessEvent callback lifetime: the now-available header registers a `void`
+callback with no visible unregister API, while UE4SS can destroy/unload a C++
+mod. Do not retain callbacks into a destroyed instance or unloaded module.
+Return the lifecycle design before adopting a workaround. Diagnostics may record
+bounded QPC/thread/lifecycle evidence, with no wheel, virtual pad, force or guessed
+gameplay fields. No game slot is authorized by the access change. The existing
+desktop pause remains until the owner separately authorizes runtime validation.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

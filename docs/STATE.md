@@ -65,16 +65,15 @@ gating, old-heartbeat-before-renewal and immutable settings/device snapshot gaps
 Adapter repair `d142721` passes 14 optional and 83 standard tests in coordinator
 reruns. Retained authenticated client-pipe liveness closes the reproduced exit
 race; pre-client samples are consumed and fake expiry now observes old deadlines.
-Producer review `1620dec` confirms an unresolved prerequisite for both inspected
-UE4SS v3.0.1 extension routes: no supported native Lua link target, no developer
-SDK/import library, and the pinned Unreal submodule is unavailable to current
-GitHub access. The coordinator verified archive inventory, hashes and HTTP 404.
-Sonic coordination is **paused for an owner decision**: legitimate source access
-and matching loader/mod build, or a reviewed alternative SDK. Game-thread and
-real driving-field validation remain pending. The package stays at `7347442`.
-Owner-requested follow-up `750121f` adds Sonic's pinned UE4SS source and paired
-build script. Coordinator parser/tool preflight passes; public dependencies are
-present, private Unreal remains unavailable, and no loader/mod binary is built.
+The owner resolved the source-access prerequisite. Local consumer `122336a`
+co-builds UE4SS and its field-free C++ smoke mod with recorded compatibility
+fixes. Coordinator checks confirm source/submodule pins, paired DLL and patch
+hashes, x64 imports and lifecycle exports; no DLL was loaded or rebuilt here.
+This source checkpoint is local and unpushed, distinct from package `7347442`.
+Offline coordination resumes for an immutable receipt and bounded game-only
+diagnostic preparation, starting with ProcessEvent callback lifetime review.
+Game-thread delivery, real driving fields and Sonic loader compatibility remain
+unverified. Source access does not authorize installation, launch or device tests.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently
