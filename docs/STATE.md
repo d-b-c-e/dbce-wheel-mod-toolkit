@@ -76,11 +76,15 @@ source identity; no ProcessEvent hook is used because callback detachment before
 mod unload is unsafe in this pin. The game-only staging/rollback plan is reviewed.
 Helper repair `29d1f7c` passes independent preflight and exact output-path/hash
 checks for both build trees with archived copies present. Frozen DLLs were not
-rebuilt. Offline preparation is complete; the heartbeat is paused pending an
-owner-authorized game-only loader/lifecycle slot, following the consumer's
-`docs/UE4SS-GAME-ONLY-PLAN.md`. Consumer source remains local and unpushed.
-Game-thread delivery, real driving fields and Sonic loader compatibility remain
-unverified. Source access does not authorize installation, launch or device tests.
+rebuilt. An owner-authorized game-only slot is now recorded at consumer `c047dd7`.
+The mod emitted one startup QPC/thread record, but UE4SS failed its default
+EngineVersion/FText scan after 34 attempts, before Unreal initialization.
+The coordinator verified the preserved log hash, staged-file receipt consistency,
+unchanged game executable, absence of owned paths and no remaining related process.
+Offline compatibility research is active; no second runtime slot is authorized.
+Consumer source remains local/unpushed. Game-thread delivery, real driving fields,
+usable input and physical FFB remain unverified. The limited loader start does not
+establish UE4SS compatibility or grant device-testing authorization.
 Native external-session source
 `06340b38ec5549ee3fa477668da097e559e61c6e` and its local candidate receipt are
 reviewed for offline integration; all 66 ZIP payload hashes were independently

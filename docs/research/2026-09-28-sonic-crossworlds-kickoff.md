@@ -619,6 +619,39 @@ cannot establish all of them. Wheel/pedal/hat acceptance, virtual-pad output and
 physical FFB remain separate. No additional offline assignment, consumer repin,
 official toolkit release, game installation or launch follows from this handoff.
 
+### First attended slot: startup succeeds, engine scan fails, 2026-09-29
+
+The owner authorized the documented game-only check in Sonic's task. Consumer
+`c047dd716ffb15e4198794b9c8a6328a5e90d4a1` records the result in
+`docs/receipts/ue4ss-game-only-2026-09-29.json`; the clean source is local and
+15 commits ahead of remote main at this checkpoint. The reviewed fixture was
+staged, Sonic launched through Steam, then all owned files were rolled back.
+
+The task reported game-local proxy, loader and mod modules loaded in the shipping
+process. The preserved UE4SS log independently establishes the C++ mod start and
+one constructor/start_mod event: QPC `3463767973089`, frequency `10000000`, PID
+`23140`, TID `34460`. UE4SS then made 34 pattern-scan attempts, each missing
+`EngineVersion` and `FText::FText(FString&&)`, ending with `PS scan timed out`.
+No later lifecycle/uninstall records, initialized Unreal state or gameplay fields
+were observed. Mod startup is useful evidence but not successful loader integration.
+
+The coordinator verified log SHA-256
+`7396827913FF1D24677B27E490BC4F35B95BBB44A1A68AF3A9306427418CA012`, the scan/event
+counts and failure, all five staged hashes against the tracked receipt, the game's
+unchanged executable hash, absence of all receipt-owned files/directories and no
+remaining Sonic/companion process. The task used normal window close and preserved
+evidence under ignored `obj/ue4ss-diagnostic/attended/2026-09-29-slot-01`.
+The coordinator did not repeat a game launch, load a DLL or acquire a device.
+
+The heartbeat resumes for one bounded offline compatibility review: trustworthy
+engine-build evidence, pinned scanner/settings behavior and source-backed upstream
+or game-specific compatibility changes. The consumer returns a minimal candidate
+with exact configuration/ABI implications or a concrete evidence gap before
+implementation. No guessed versions/signatures, reused runtime addresses, fatal
+check suppression or frozen-artifact replacement. Reconcile stale present-tense
+consumer status with this slot. A second runtime slot remains unauthorized;
+wheel/pad/FFB and safe game-thread producer acceptance remain separate gates.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
