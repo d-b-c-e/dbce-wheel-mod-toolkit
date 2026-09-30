@@ -81,7 +81,12 @@ The mod emitted one startup QPC/thread record, but UE4SS failed its default
 EngineVersion/FText scan after 34 attempts, before Unreal initialization.
 The coordinator verified the preserved log hash, staged-file receipt consistency,
 unchanged game executable, absence of owned paths and no remaining related process.
-Offline compatibility research is active; no second runtime slot is authorized.
+Compatibility review `6710503` supports UE 5.4 and upstream candidate `6c26f038`,
+whose pinned source no longer requires the failed FText constructor scan.
+The coordinator verified the interview, local manifest, source pins, lifecycle
+interface and changed proxy layout. An isolated paired diagnostic build is active;
+the original checkout and frozen artifacts stay preserved. No second runtime
+slot is authorized, and the newer candidate is not yet built or game-verified.
 Consumer source remains local/unpushed. Game-thread delivery, real driving fields,
 usable input and physical FFB remain unverified. The limited loader start does not
 establish UE4SS compatibility or grant device-testing authorization.

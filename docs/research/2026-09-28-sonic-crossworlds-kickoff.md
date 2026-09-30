@@ -652,6 +652,43 @@ check suppression or frozen-artifact replacement. Reconcile stale present-tense
 consumer status with this slot. A second runtime slot remains unauthorized;
 wheel/pad/FFB and safe game-thread producer acceptance remain separate gates.
 
+### Compatibility candidate accepted for isolated build, 2026-09-29
+
+Consumer research `6710503421eb0c61bdc2be552b6eef8ab778f20a` gives a source-backed
+next candidate. The coordinator independently read the team's explicit UE 5.4
+answer in the [developer interview](https://www.inven.co.kr/webzine/news/?game=12558&news=309965).
+Local `%LOCALAPPDATA%/UnrealEngine/5.4/Saved/Config/Windows/Manifest.ini` has creation
+time `2026-09-30 04:28:29 UTC`, seven seconds after diagnostic startup. That path
+and timing corroborate major/minor version; they do not attribute the write to a
+particular process or prove an exact patch/custom-engine version. `Version=2`
+inside the manifest is a file-format value.
+
+The [CrossWorlds package author's page](https://www.nexusmods.com/sonicracingcrossworlds/mods/116)
+names upstream `v3.0.1-1016-g6c26f038`. This identifies a candidate lineage, not
+compatibility with the owner's exact game build or a trusted paired C++ binary.
+The coordinator checked full upstream commit
+`6c26f038751b3d96059d4a9148f5d093012d55ad`, its tree pins UEPseudo
+`b2e876da82b17254c04304746341c8fde0ddb37c` and patternsleuth
+`da8bfe4c5a464be0ef225c2c9a6ccaa2d9284018`, and the relevant source. The old
+version override disables only `version_finder`; it cannot fix the separate
+FText error. The newer loader/signature scanner has no mandatory FText constructor
+scan, and FText uses a runtime size. Other initialization requirements remain.
+
+The newer C++ header retains the diagnostic lifecycle callbacks and the matching
+CRT requirement. Its proxy generator prefers `ue4ss/UE4SS.dll` beside the proxy,
+with explicit overrides and an older-layout fallback. Its CMake target/output
+layout also differs. These are reasons to co-build a new matched candidate and
+review its exact staging layout, not mix old artifacts with a newer loader.
+
+The consumer is assigned an isolated offline source/import/build for that full
+revision, preserving the original checkout, frozen pairs, prior slot evidence,
+launcher and toolkit pins. Deliver a bounded field-free diagnostic with no
+ProcessEvent hook, matching loader/proxy, exact settings provenance, immutable
+clean-source/dependency/toolchain/build-log/payload receipt, read-only PE review,
+and updated absence-only staging/hash-owned rollback plan. Do not silently carry
+old patches or assume the old five-file layout. No second installation/launch,
+gameplay field, virtual-pad, wheel acquisition or force test is authorized.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
