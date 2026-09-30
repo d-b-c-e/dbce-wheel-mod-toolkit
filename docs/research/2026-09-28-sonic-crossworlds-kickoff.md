@@ -730,6 +730,44 @@ from a committed clean checkout. Existing receipt/artifact identities stay intac
 Handoff repair remains active. The next runtime gate is a separately authorized
 game-only slot after that review; no wheel, virtual pad, device or force work.
 
+### Repaired newer-candidate handoff accepted, 2026-09-30
+
+Consumer repair `7e0599e92110eb312f9ee041db8d1f16926cfa25`, tree
+`fd4823bb4208b57cc6e1cfe108a6997977391d4f`, and tracked receipt follow-up
+`e93304541cbbf355a121f7980a2739605ca972ce` complete the bounded offline handoff.
+`docs/receipts/ue4ss-candidate-handoff-22e6ba06.json` hashes to
+`978DD813DF743DDF052FA879F973C08407AE7931DEB5F15220FA229D893CE20F`.
+It preserves original receipt SHA-256
+`A3E78189F2A6158235D242060BFDBBC36005B5B4FF489634D345B855617BE498`, the unchanged
+DLLs and the explicit build-before-project-commit chronology. The 12-file
+read-only checkpoint is `obj/ue4ss-candidate/checkpoint-22e6ba06-aded9dbb`.
+
+The coordinator independently passed all three repair-script parsers, both
+Stock and UE54 stage checks, four repair-input hashes and both exact five-file
+payload manifests. The preserved negative fixture is internally consistent but
+disables the diagnostic; the repaired checker rejects its changed build-info.
+Supplied `--ue4ss-path` and `--disable-ue4ss` are also rejected. The tracked
+receipts, frozen files, original source pins, x64 imports/exports, 149 proxy
+exports and read-only installed-game preflight all pass. No rebuild, DLL load,
+game launch or device action was performed for this review.
+
+The accepted second-slot plan in the consumer's
+`integration/ue4ss-candidate/README.md` selects **UE54**, settings SHA-256
+`0FE138385A989B70FE73B593E03EABF3FE878AFBAB18E6E0E499D15D0670D861`, and the
+separate `review-stage-22e6ba06-aded9dbb-ue54`. It requires effective Steam/bootstrap
+arguments, exact shipping-process module paths/hashes and UE4SS's logged
+config/root/mod directories, with no override paths, before accepting a runtime
+claim. Current-shell environment checks do not prove Steam's inherited environment.
+The plan retains absence-only ownership and hash-checked rollback.
+
+**Offline review is complete; Sonic coordination is paused at the next
+owner-authorized game-only slot.** No further offline assignment was sent.
+The first slot remains the only runtime evidence; the newer candidate has not
+run in Sonic. Engine initialization, lifecycle delivery, game-thread producer
+safety and real driving fields remain open, as do wheel/pedal/hat, virtual-pad
+and physical FFB acceptance. Consumer source remains local/unpushed; package,
+toolkit pins, frozen earlier candidates and Woden readiness are unchanged.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:

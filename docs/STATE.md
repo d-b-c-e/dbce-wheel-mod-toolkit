@@ -87,10 +87,13 @@ The coordinator verified the interview, local manifest, source pins, lifecycle
 interface and changed proxy layout. Candidate source `60b500b` / receipt `d52d08c`
 now co-builds the newer loader/proxy/field-free mod. Independent checks pass the
 stage preflight, 149 proxy exports, four project inputs, five payloads and six
-log/patch/settings hashes. Handoff repair is active: anchor validation to the
-tracked receipt, account for loader/mod overrides, and freeze supporting evidence.
-No DLL rebuild is needed. Original artifacts remain preserved; no second runtime
-slot is authorized and the newer candidate is not game-verified.
+log/patch/settings hashes. Handoff repair `7e0599e` / receipt `e933045` now passes
+independent Stock/UE54 checks, all 12 frozen evidence files, four repair inputs,
+both five-file variants and altered-manifest/loader-override rejection. Original
+DLLs and receipt are unchanged. The accepted second-slot plan selects UE54 and
+requires actual module/config/mod paths plus effective arguments before runtime
+acceptance. Offline review is complete; the heartbeat is paused for an owner-
+authorized game-only slot. The newer candidate is not game-verified.
 Consumer source remains local/unpushed. Game-thread delivery, real driving fields,
 usable input and physical FFB remain unverified. The limited loader start does not
 establish UE4SS compatibility or grant device-testing authorization.
