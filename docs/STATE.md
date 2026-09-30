@@ -70,8 +70,15 @@ co-builds UE4SS and its field-free C++ smoke mod with recorded compatibility
 fixes. Coordinator checks confirm source/submodule pins, paired DLL and patch
 hashes, x64 imports and lifecycle exports; no DLL was loaded or rebuilt here.
 This source checkpoint is local and unpushed, distinct from package `7347442`.
-Offline coordination resumes for an immutable receipt and bounded game-only
-diagnostic preparation, starting with ProcessEvent callback lifetime review.
+Lifecycle diagnostic source `afd6b53` and receipt `f18432f` preserve a separate
+loader/mod/proxy stage. Coordinator checks pass all 15 frozen file hashes and
+source identity; no ProcessEvent hook is used because callback detachment before
+mod unload is unsafe in this pin. The game-only staging/rollback plan is reviewed.
+Helper repair `29d1f7c` passes independent preflight and exact output-path/hash
+checks for both build trees with archived copies present. Frozen DLLs were not
+rebuilt. Offline preparation is complete; the heartbeat is paused pending an
+owner-authorized game-only loader/lifecycle slot, following the consumer's
+`docs/UE4SS-GAME-ONLY-PLAN.md`. Consumer source remains local and unpushed.
 Game-thread delivery, real driving fields and Sonic loader compatibility remain
 unverified. Source access does not authorize installation, launch or device tests.
 Native external-session source

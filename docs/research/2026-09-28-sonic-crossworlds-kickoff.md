@@ -570,6 +570,55 @@ bounded QPC/thread/lifecycle evidence, with no wheel, virtual pad, force or gues
 gameplay fields. No game slot is authorized by the access change. The existing
 desktop pause remains until the owner separately authorizes runtime validation.
 
+### Frozen diagnostic review, 2026-09-29
+
+Consumer diagnostic source `afd6b533715344f63fdc994eae66f885a9948e5c`, tree
+`f99c6d7f0aea855d4b9f486e4caffd3671145970`, and receipt follow-up
+`f18432fa4f54480f706962eb6c296f595a8d42c3` preserve separate smoke and diagnostic
+checkpoints. The coordinator independently checked both declared source trees,
+all eight source-file identities with Git's working-file line endings accounted
+for, and all 15 checkpoint/review-stage hashes and read-only attributes.
+
+Frozen diagnostic identities:
+
+- UE4SS.dll: `125BBF5E0A56B09BA41ECCC3424A2C3C59A39D45F676FD88659DE43A255901E9`.
+- main.dll: `614F8D467E889D1BE56B904AC1400F33E9977FE4BA91C8C73936BB2683509ECC`.
+- Source-built dwmapi.dll proxy: `AFCC9A731F3AD008356B01FE3B1C2D76411492EB9F5D51C95B2F8B0CDC0AB6C9`.
+- Consumer receipt: `docs/receipts/ue4ss-diagnostic-afd6b53.json`.
+- Offline layout: `obj/ue4ss-diagnostic/review-stage-125bbf5e-614f8d46`.
+
+The field-free diagnostic logs at most 16 lifecycle/QPC/thread records, including
+at most eight explicitly auxiliary `on_update` samples. It registers no
+ProcessEvent callback. The coordinator confirmed that pinned Hooks.cpp retains
+callbacks in a static vector while UE4SS can delete and unload a C++ mod;
+the auxiliary event-loop pause does not guard that dispatch. This remains a
+future game-thread producer design gate, not something the diagnostic solves.
+
+The consumer's `docs/UE4SS-GAME-ONLY-PLAN.md` describes exact target/receipt
+preflight, absence-only staging, a normal Steam launch, limited observations and
+hash-owned rollback after exit. It stops on conflicting mods/files, mismatch or
+unexpected behavior and does not silently switch injector/proxy strategies.
+No coordinator or consumer game installation/launch is established by this review.
+
+One reusable build-helper defect was returned for repair: recursive DLL searches
+also count the preserved checkpoint and review-stage copies. Independent read-only
+enumeration found three matches for each diagnostic DLL, making the next build's
+exactly-one check fail. Consumer repair `29d1f7c464fdb46dab87b48e10abdfbe901b10a2`
+uses exact target/configuration paths. The coordinator independently passed
+PowerShell parsing, `-ToolsOnly` and `Get-BuildOutputs` against both existing
+build trees, checking all five DLL paths and hashes against their original
+manifests with frozen copies present. No DLL was rebuilt or replaced. The clean
+consumer source is 14 commits ahead of remote main and remains local/unpushed.
+
+**Offline preparation is complete; Sonic coordination is paused for an
+owner-authorized game-only loader/lifecycle slot.** The reviewed consumer plan
+above defines that check and rollback. Source access is resolved. Actual proxy
+loading, lifecycle behavior, safe game-thread producer delivery and verified
+local-player/driving/mode fields remain unverified; the field-free diagnostic
+cannot establish all of them. Wheel/pedal/hat acceptance, virtual-pad output and
+physical FFB remain separate. No additional offline assignment, consumer repin,
+official toolkit release, game installation or launch follows from this handoff.
+
 ## Initial evidence
 
 The coordinator read the installed Steam manifest on 2026-09-28:
