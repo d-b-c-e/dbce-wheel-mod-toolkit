@@ -33,6 +33,17 @@ namespace Dbce.Wheel.Ffb
             if (age < .060) return (float)(-.25 * (age - .020) / .040);
             return (float)(-.25 * (.100 - age) / .040);
         }
+        /// <summary>Signed area of the unchanged legacy envelope from age zero through age.
+        /// Additive integration primitive; existing point-sampled output remains unchanged.</summary>
+        public static double EnvelopeIntegral(double age)
+        {
+            if (double.IsNaN(age) || double.IsInfinity(age)) return double.NaN;
+            if (age <= 0 || age >= .100) return 0;
+            if (age < .005) return age * age / .010;
+            if (age < .020) { double x = age - .005; return .0025 + x - x * x / .030; }
+            if (age < .060) { double x = age - .020; return .010 - 3.125 * x * x; }
+            double tail = age - .060; return .005 - .25 * tail + 3.125 * tail * tail;
+        }
         public float Mix(float structural, double seconds, float strength = 1)
         {
             if (!Finite(seconds) || seconds < 0 || seconds < _lastTime || !Finite(structural) || !Finite(strength) || !Finite(Headroom))

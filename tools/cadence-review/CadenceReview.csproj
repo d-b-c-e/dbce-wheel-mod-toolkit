@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+ <ItemGroup><ProjectReference Include="../../dotnet/Dbce.Wheel.Ffb/Dbce.Wheel.Ffb.csproj" /></ItemGroup>
+ <PropertyGroup Condition="'$(WodenSourceRoot)' != ''"><DefineConstants>$(DefineConstants);WODEN_REFERENCE</DefineConstants></PropertyGroup>
+ <ItemGroup Condition="'$(WodenSourceRoot)' != ''">
+  <Compile Include="$(WodenSourceRoot)/src/WodenRallyEdge.Core/ForceSignal.cs" Link="ConsumerReference/ForceSignal.cs" />
+  <Compile Include="$(WodenSourceRoot)/src/WodenRallyEdge.Core/TelemetrySample.cs" Link="ConsumerReference/TelemetrySample.cs" />
+  <Compile Include="$(WodenSourceRoot)/src/WodenRallyEdge.Core/TelemetrySchema.cs" Link="ConsumerReference/TelemetrySchema.cs" />
+ </ItemGroup>
+</Project>

@@ -10,6 +10,7 @@ static DWORD TestWindowProcess(HWND,DWORD* pid){*pid=testForegroundPid;return 1;
 #undef GetWindowThreadProcessId
 #include <cassert>
 #include <initializer_list>
+#include "../../forcemodel/cadence_impact_mixer.h"
 struct FakeEffect:IDirectInputEffect {
  int starts=0,stops=0,releases=0,sets=0;DWORD duration=0,axes=0,flags=0;LONG magnitude=0,direction=0;
  ULONGLONG now=0,end=0;bool active=false,mismatch=false;DWORD overrideDuration=0;
@@ -73,6 +74,25 @@ int main(){
  int originalStops=burst.stops,originalSets=burst.sets,originalStarts=burst.starts;
  assert(SetDeviceForcesXY(0,0)==1 && SetDeviceForcesXY(-2000,0)==1);
  assert(burst.stops==originalStops && burst.sets==originalSets && burst.starts==originalStarts && s.started);
+ ZeroForces(); // The bounded route owns one constant command, with no parallel fake bursts.
+ // New opt-in mixed commands use the unchanged production output route under fakes.
+ for(int hz:{20,30,50,60,120,250,1000}) {
+  dbce::force::CadenceImpactMixer mixed;
+  const double dt=1.0/hz;assert(mixed.trigger(1,1,1,true));float previous=0;int previousUnits=0;
+  for(int i=0;i<int(std::ceil(.4/dt))+2;i++){
+   double begin=1-dt+i*dt;float value=mixed.mix(.25f,begin,begin+dt,true,true);
+   assert(!mixed.last_input_rejected&&std::abs(value)<=.25f);
+   assert(std::abs(value-previous)<=1.5f*float(dt)+1e-6f);previous=value;
+   int command=int(std::round(value*10000));assert(std::abs(command)<=2500);
+   assert(std::abs(command-previousUnits)<=int(std::ceil(1.5*dt*10000+1e-6)));previousUnits=command;
+   assert(SetDeviceForcesXY(command,0)==1);assert(std::abs(g_lastForce)<=2500);
+  }
+  assert(mixed.mix(.25f,2,2+dt,false,true)==0);assert(SetDeviceForcesXY(0,0)==1);
+ }
+ assert(SetDeviceForcesXY(1000,0)==1);
+ g_lastUpdateTick=100;g_holdMs=150;
+ assert(!ApplyHoldTimeout(250)&&ApplyHoldTimeout(251)&&g_lastForce==0);
+ assert(SetDeviceForcesXY(1000,0)==1);GuardWndProc(nullptr,WM_ACTIVATEAPP,FALSE,0);assert(g_lastForce==0);
  int sets=burst.sets;assert(!PlayConstantBurst(0,10001) && !PlayConstantBurst(0,-10001) && !PlayConstantBurst(4,5000) && burst.sets==sets);
  testForegroundPid=0;assert(!PlayConstantBurst(0,5000));assert(PlayConstantBurst(0,0)==1);testForegroundPid=GetCurrentProcessId();
  assert(PlayConstantBurst(0,5000)==1);ZeroForces();assert(!s.started && s.lastMag==0 && burst.stops>0 && periodic.stops>0);

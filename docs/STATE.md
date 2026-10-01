@@ -1,3 +1,7 @@
+# Isolated cadence contract candidate - 2026-10-01
+
+Additive interval-integrated CadenceImpactMixer and C++ parity implementation; legacy output preserved. See [contract and evidence](CADENCE-IMPACTS.md). Based on official v0.15.0 source; no version/profile/native DLL repin, publication, consumer integration or physical validation. Woden collision inputs remain unverified/default-off. Prior entries below remain historical.
+
 Offline candidate gates passed: 121 managed tests; 104+9+8+8 binding assertions
 per runtime; sync and native conformance/fake-effect suites on x64/x86.
 46 exports verified. Smoke harnesses compile only; hardware execution not run.
@@ -21,7 +25,7 @@ logging candidate82c7891. Strict parameter echo, phase and finite fade, with
 explicit legacy envelope clearing. No public release or hardware launch.
 See [SHAPED-BURSTS.md](SHAPED-BURSTS.md). Earlier entries below are historical.
 
-# 0.13.1 local candidate — 2026-09-16
+# 0.13.1 local candidate ï¿½ 2026-09-16
 
 Native 0.6.1 makes per-update force tracing opt-in with
 `DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41

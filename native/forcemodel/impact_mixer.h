@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace dbce { namespace force {
 class ImpactMixer {
@@ -32,6 +33,15 @@ public:
         if (age < .060) return float(-.25 * (age - .020) / .040);
         return float(-.25 * (.100 - age) / .040);
     }
+    // Signed antiderivative of the unchanged legacy envelope.
+    static double envelope_integral(double age) {
+        if (!std::isfinite(age)) return std::numeric_limits<double>::quiet_NaN();
+        if (age <= 0 || age >= .100) return 0;
+        if (age < .005) return age*age/.010;
+        if (age < .020) { double x=age-.005; return .0025+x-x*x/.030; }
+        if (age < .060) { double x=age-.020; return .010-3.125*x*x; }
+        double x=age-.060; return .005-.25*x+3.125*x*x;
+    }
     float mix(float structural, double seconds, float strength = 1.f) {
         if (!std::isfinite(seconds) || seconds < 0 || seconds < last_time_ ||
             !std::isfinite(structural) || !std::isfinite(strength) || !std::isfinite(headroom)) {
@@ -51,7 +61,7 @@ private:
     Event events_[8] = {};
     unsigned count_ = 0;
     double last_time_ = -1.;
-    static float bounded(float v, float lo, float hi) { return std::max(lo, std::min(v, hi)); }
+    static float bounded(float v, float lo, float hi) { return (std::max)(lo, (std::min)(v, hi)); }
     void expire(double seconds) {
         unsigned keep = 0;
         for (unsigned i = 0; i < count_; ++i)
