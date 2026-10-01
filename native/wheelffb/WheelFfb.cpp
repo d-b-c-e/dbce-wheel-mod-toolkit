@@ -36,6 +36,7 @@
 
 #include <windows.h>
 #include <dinput.h>
+#include "include/digital_input.h"
 #include <shlobj.h>
 #include <cstdio>
 #include <cstdarg>
@@ -54,7 +55,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 500;            // 0.5.0
+static const int  kVersion      = 501;            // 0.5.1 input candidate
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static HRESULT   g_lastHr        = S_OK;
@@ -841,8 +842,8 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
     if (buttons && buttonCount > 0) {
-        int n = buttonCount < 128 ? buttonCount : 128;
-        for (int i = 0; i < n; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
+        uint32_t hats[4] = {st.rgdwPOV[0], st.rgdwPOV[1], st.rgdwPOV[2], st.rgdwPOV[3]};
+        WheelDigitalButtons(st.rgbButtons, hats, buttons, buttonCount);
     }
     return 1;
 }
@@ -1529,6 +1530,8 @@ __declspec(dllexport) void SetLogPath(const char* path)
 
 __declspec(dllexport) int GetLastHResult(void) { return (int)g_lastHr; }
 __declspec(dllexport) int GetWheelFfbVersion(void) { return kVersion; }
+// Bit 0: ReadDeviceState supports exact POV directions at indices 128..159.
+__declspec(dllexport) int GetInputCapabilities(void) { return 1; }
 
 __declspec(dllexport) BOOL StartEffect(void)
 {

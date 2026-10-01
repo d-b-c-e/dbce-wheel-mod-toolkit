@@ -80,6 +80,7 @@ extern "C" {
     X(void, SetLogPath,             (const char* path)) \
     X(int,  GetLastHResult,         (void)) \
     X(int,  GetWheelFfbVersion,     (void)) \
+    X(int,  GetInputCapabilities,   (void)) \
     X(int,  CreatePeriodicEffect,   (int freqHz)) \
     X(int,  UpdatePeriodicEffect,   (int slot, int magnitude, int freqMilliHz)) \
     X(void, ReleasePeriodicEffects, (void)) \

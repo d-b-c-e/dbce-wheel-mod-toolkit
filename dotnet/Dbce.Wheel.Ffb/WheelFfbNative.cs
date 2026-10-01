@@ -108,6 +108,9 @@ namespace Dbce.Wheel.Ffb
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate int GetWheelFfbVersionCall();
         private static GetWheelFfbVersionCall GetWheelFfbVersion;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int GetInputCapabilitiesCall();
+        private static GetInputCapabilitiesCall GetInputCapabilities;
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate int CreatePeriodicEffectCall(int freqHz);
         private static CreatePeriodicEffectCall CreatePeriodicEffect;
@@ -214,6 +217,9 @@ namespace Dbce.Wheel.Ffb
                     var strict = GetProcAddress(h, "SetStrictDeviceSelection");
                     SetStrictDeviceSelection = strict == IntPtr.Zero ? null :
                         Marshal.GetDelegateForFunctionPointer<StrictSelectionCall>(strict);
+                    var inputCaps = GetProcAddress(h, "GetInputCapabilities");
+                    GetInputCapabilities = inputCaps == IntPtr.Zero ? null :
+                        Marshal.GetDelegateForFunctionPointer<GetInputCapabilitiesCall>(inputCaps);
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
                     return true;
@@ -499,10 +505,13 @@ namespace Dbce.Wheel.Ffb
         }
         public static bool Read(int slot, int[] axes8, byte[] buttons)
         {
+            if (buttons != null) Array.Clear(buttons, 0, buttons.Length);
             if (!_loaded || slot < 0 || axes8 == null || axes8.Length < 8) { LastError = "Read requires a valid slot and eight axes"; return false; }
             try { return Result(ReadDeviceState(slot, axes8, buttons, buttons?.Length ?? 0) != 0, "Read"); }
             catch (Exception ex) { LastError = ex.Message; return false; }
         }
         public static void CloseRead() { try { if (_loaded) CloseReadDevices(); } catch (Exception ex) { LastError = ex.Message; } }
+        /// <summary>Explicit capability; a newer unrelated native version is insufficient.</summary>
+        public static bool SupportsPov { get { try { return _loaded && GetInputCapabilities != null && (GetInputCapabilities() & 1) != 0; } catch { return false; } } }
     }
 }
