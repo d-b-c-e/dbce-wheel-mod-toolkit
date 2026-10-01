@@ -10,7 +10,7 @@ It is documentation, not an executable installer or a release authorization.
 | --- | --- | --- |
 | `dbce-wheel-mod-toolkit` / `1356452339` | Audited `master` `068b8a9`; published `v0.15.0` tag targets `358add53` | Existing package recipe; standalone setup-guide draft awaiting review |
 | `dbce-triple-screen-toolkit` / `1389789951` | Main `756af45` | Setup guide and canonical optimizer URL corrections promoted; no dedicated package profile found |
-| `dbce-triple-screen-optimizer` / `1380781844` | Main `ac300822`; approved setup branch `d1b514b`; toolkit pin `3b776d86` | Read-only verifier/guide published on review branch; no release builder/profile found |
+| `dbce-triple-screen-optimizer` / `1380781844` | Main `d1b514b` after approved fast-forward from `ac300822`; toolkit pin `3b776d86` | Read-only verifier/guide promoted to main; no release builder/profile found |
 | `dbce-vr-game-optimizer` / `1275539619` | Main `6c76c8f` | Standalone README/setup documentation promoted; no dedicated release builder/profile found |
 
 Retain display names DBCE Wheel Mod Toolkit, DBCE Triple-Screen Toolkit,
@@ -43,7 +43,7 @@ not a passed check or permission to apply settings, launch games or use a device
 | Triple optimizer | Windows/.NET 10 SDK. Initialize the recorded private submodule with `git submodule update --init --recursive`; inspect `git submodule status external/dbce-triple-screen-toolkit`. `dotnet build TripleScreenOptimizer.slnx`; `dotnet test TripleScreenOptimizer.slnx`. | Do not use `--remote`, advance pin `3b776d86`, weaken Git ownership guards or deploy in this lane. |
 | VR optimizer | Windows/.NET 10 SDK. `dotnet build src/VrGameOptimizer.sln`; `dotnet test src/VrGameOptimizer.sln`. App/core/tests are `net10.0-windows`. | Existing x64 identity and admin-requesting app manifest are preserved; no driver/settings application or security change is requested. |
 
-The reviewed triple-optimizer setup branch provides these PowerShell 7 commands:
+The reviewed triple-optimizer setup commit on main provides these PowerShell 7 commands:
 
 ```powershell
 pwsh -NoProfile -File tools/Verify-Setup.ps1
@@ -55,7 +55,7 @@ The verifier reads source layout/SDK listings or framework-dependent x64 output
 structure. It refuses incomplete, drive-relative/root-relative/reparse paths and
 self-contained metadata; it never installs, builds, restores, launches or applies.
 Pin provenance, complete dependency inventory, integrity and functional acceptance
-remain separate. Use the reviewed branch explicitly until it is promoted.
+remain separate. The reviewed setup commit is now on main; recheck the exact ref before use.
 
 Existing developer launch commands are `dotnet run --project src/TripleScreenOptimizer.App`
 and `dotnet run --project src/VrGameOptimizer.App`. These are source facts, not actions
