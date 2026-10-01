@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared-owned pure sidecar; no device or telemetry dependency and no copied algorithms. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Ffb.Cadence</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Dbce.Wheel.Ffb/CadenceImpactMixer.cs" Link="CadenceImpactMixer.cs" />
+    <Compile Include="../Dbce.Wheel.Ffb/ImpactMixer.cs" Link="ImpactMixer.cs" />
+  </ItemGroup>
+</Project>
