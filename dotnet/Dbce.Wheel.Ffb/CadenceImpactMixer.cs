@@ -37,16 +37,16 @@ namespace Dbce.Wheel.Ffb
         }
         private float Reject(string reason) { Reset(); LastInputRejected = true; Status = reason; return 0; }
         /// <summary>Queue only an explicitly verified, signed event timestamped in the monotonic output clock.
-        /// Unverified input clears pending events; it never derives an impact from structural force.</summary>
+        /// Every rejection resets event, command and timeline history. On false the caller must immediately submit guarded zero.</summary>
         public bool Trigger(float amplitude, float direction, double seconds, bool inputVerified = false)
         {
             if (!inputVerified || !Finite(amplitude) || amplitude <= 0 || amplitude > 1 ||
                 (direction != -1 && direction != 1) || !Finite(seconds) || seconds < 0 ||
                 seconds < _lastEnd || seconds < _lastEventTime)
             {
-                RejectedEvents++; _count = 0; Status = inputVerified ? "invalid-event" : "unverified-event"; return false;
+                RejectedEvents++; Reject(inputVerified ? "invalid-event" : "unverified-event"); return false;
             }
-            if (_count == _events.Length) { RejectedEvents++; Status = "event-capacity"; return false; }
+            if (_count == _events.Length) { RejectedEvents++; Reject("event-capacity"); return false; }
             _events[_count++] = new Event { Time = seconds, Amplitude = amplitude * direction };
             _lastEventTime = seconds; return true;
         }

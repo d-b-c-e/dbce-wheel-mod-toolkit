@@ -27,9 +27,9 @@ public:
         if (!input_verified || !std::isfinite(amplitude) || amplitude <= 0 || amplitude > 1 ||
             (direction != -1 && direction != 1) || !std::isfinite(seconds) || seconds < 0 ||
             seconds < last_end_ || seconds < last_event_time_) {
-            ++rejected_events; count_ = 0; status = input_verified ? "invalid-event" : "unverified-event"; return false;
+            ++rejected_events; reject(input_verified ? "invalid-event" : "unverified-event"); return false;
         }
-        if (count_ == 8) { ++rejected_events; status = "event-capacity"; return false; }
+        if (count_ == 8) { ++rejected_events; reject("event-capacity"); return false; }
         events_[count_++] = Event{seconds, amplitude * direction}; last_event_time_ = seconds; return true;
     }
     float mix(float structural, double start, double end, bool active, bool impact_inputs_verified = false) {

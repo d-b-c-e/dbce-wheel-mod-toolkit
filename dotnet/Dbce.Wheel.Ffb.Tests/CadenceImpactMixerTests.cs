@@ -71,6 +71,27 @@ namespace Dbce.Wheel.Ffb.Tests
     Assert.InRange(Math.Abs(result-requested),0,1e-6);Assert.False(m.LastHadImpact);
    }
   }
+  [Theory][InlineData(0)][InlineData(1)][InlineData(2)]
+  public void EventRejectionImmediatelyResetsRetainedCommandAndTimeline(int kind)
+  {
+   var m=new CadenceImpactMixer();Assert.True(m.Trigger(1,1,1,true));
+   Assert.True(m.Mix(0,1,1.01,true,true)>0);float deviceCommand=m.LastCommand;
+   bool accepted=kind==0?m.Trigger(1,1,1.01):kind==1?m.Trigger(float.NaN,1,1.01,true):m.Trigger(1,1,0,true);
+   if(!accepted)deviceCommand=0; // caller must immediately use its guarded zero route
+   Assert.False(accepted);Assert.Equal(0,deviceCommand);Assert.Equal(0,m.LastCommand);
+   Assert.Equal(0,m.LastTarget);Assert.Equal(0,m.LastIntervalPulse);Assert.False(m.LastHadImpact);Assert.True(m.LastInputRejected);
+   Assert.Equal(0,m.Mix(0,1.01,1.011,true,true)); // retained 0.0135 tail must not survive
+   Assert.True(m.Trigger(1,-1,1.011,true)); // recovery in fresh verified context
+   Assert.True(m.Mix(0,1.011,1.021,true,true)<0);
+   Assert.False(m.Trigger(1,0,1.021,true));Assert.True(m.Trigger(1,1,0,true)); // rejection clears timeline
+  }
+  [Fact] public void CapacityRejectionAlsoFailsClosed()
+  {
+   var m=new CadenceImpactMixer();m.Mix(.25f,0,.02,true,true);Assert.True(m.LastCommand>0);
+   for(int i=0;i<8;i++)Assert.True(m.Trigger(1,1,.02,true));
+   Assert.False(m.Trigger(1,1,.02,true));Assert.True(m.LastInputRejected);Assert.Equal("event-capacity",m.Status);
+   Assert.Equal(0,m.LastCommand);Assert.Equal(0,m.Mix(0,.02,.021,true,true));
+  }
   [Fact] public void ImmutableInvalidBudgetCannotBeActivated()
   {
    Assert.Throws<ArgumentOutOfRangeException>(()=>new CadenceImpactMixer(float.NaN));

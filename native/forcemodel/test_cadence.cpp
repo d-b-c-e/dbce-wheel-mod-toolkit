@@ -20,6 +20,17 @@ int main(int argc,char**argv){
  assert(b.mix(.25f,.04,.10,true,true)==0&&b.last_input_rejected);
  CadenceImpactMixer p;assert(p.trigger(1,1,0,true));assert(p.mix(0,0,.02,true,true)>0);assert(p.mix(.25f,.02,.04,false,true)==0);
  assert(p.mix(0,.04,.06,true,true)==0);
+ for(int kind=0;kind<3;kind++){
+  CadenceImpactMixer m;assert(m.trigger(1,1,1,true));assert(m.mix(0,1,1.01,true,true)>0);
+  bool accepted=kind==0?m.trigger(1,1,1.01):kind==1?m.trigger(std::numeric_limits<float>::quiet_NaN(),1,1.01,true):m.trigger(1,1,0,true);
+  assert(!accepted&&m.last_input_rejected&&m.last_command==0&&m.last_target==0&&m.last_interval_pulse==0&&!m.last_had_impact);
+  assert(m.mix(0,1.01,1.011,true,true)==0);assert(m.trigger(1,-1,1.011,true));assert(m.mix(0,1.011,1.021,true,true)<0);
+  assert(!m.trigger(1,0,1.021,true));assert(m.trigger(1,1,0,true));
+ }
+ CadenceImpactMixer capacity;assert(capacity.mix(.25f,0,.02,true,true)>0);
+ for(int i=0;i<8;i++)assert(capacity.trigger(1,1,.02,true));
+ assert(!capacity.trigger(1,1,.02,true)&&capacity.last_input_rejected&&capacity.last_command==0);
+ assert(capacity.mix(0,.02,.021,true,true)==0);
  unsigned rows=0;
  if(argc==2){
   std::ifstream file(argv[1]);assert(file);std::string line;std::getline(file,line);
