@@ -42,6 +42,8 @@
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include <atomic>
+#include <mutex>
 #include "burst_effect.h"
 
 #pragma comment(lib, "dinput8.lib")
@@ -58,14 +60,18 @@ static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
 static const int  kVersion      = 600;            // 0.6.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
-static HRESULT   g_lastHr        = S_OK;
+static std::atomic<HRESULT> g_lastHr{S_OK};
+// Independent of API/effect locks. Never held across watchdog join.
+static std::recursive_mutex g_logMutex;
 static char      g_logPath[MAX_PATH] = {};       // resolved lazily, or set by SetLogPath
 static ULONGLONG g_rampStart     = 0;
 static ULONGLONG g_lastUpdateTick = 0;
 static int       g_lastForce     = 0;
-static int       g_holdMs        = 0;
+static std::atomic<int> g_holdMs{0};
 static HANDLE    g_holdThread    = nullptr;
-static volatile bool g_stopThreads = false;
+static std::atomic<bool> g_stopThreads{false};
+// Public calls serialize across shutdown. The watchdog uses internal helpers only.
+static std::recursive_mutex g_apiMutex;
 static bool      g_panicked      = false;
 static HWND      g_guardHwnd     = nullptr;
 static WNDPROC   g_guardOrigProc = nullptr;
@@ -155,6 +161,7 @@ static void LogPath(char* out, size_t cch)
 
 static void Log(const char* fmt, ...)
 {
+    std::lock_guard<std::recursive_mutex> logGuard(g_logMutex);
     if (!LoggingEnabled()) return;
 
     if (g_logPath[0] == '\0') LogPath(g_logPath, sizeof(g_logPath));
@@ -495,6 +502,7 @@ static int OpenCandidate(int idx)
 
 __declspec(dllexport) int InitDirectInput(int hwnd)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("InitDirectInput(hwnd=%d)", hwnd);
     g_hwnd = ResolveGameWindow((HWND)(INT_PTR)hwnd);
     if (g_hwnd != (HWND)(INT_PTR)hwnd) Log("  using this process's own window %p instead of %p", (void*)g_hwnd, (void*)(INT_PTR)hwnd);
@@ -583,6 +591,7 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
 // instead of asking for an index. Safe to call at any time.
 __declspec(dllexport) int EnumerateDevices(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!EnsureDirectInput()) return 0;
 
     g_candidateCount = 0;
@@ -595,6 +604,7 @@ __declspec(dllexport) int EnumerateDevices(void)
 // range, so the caller can stop without knowing the count in advance.
 __declspec(dllexport) int GetDeviceName(int index, char* buffer, int size)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!buffer || size <= 0) return 0;
     buffer[0] = 0;
     if (index < 0 || index >= g_candidateCount) return 0;
@@ -606,6 +616,7 @@ __declspec(dllexport) int GetDeviceName(int index, char* buffer, int size)
 // before InitDirectInput. Harmless to the game, which never calls it.
 __declspec(dllexport) void SetPreferredDevice(const char* name)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!name || !*name) { g_preferred[0] = 0; return; }
     strncpy_s(g_preferred, sizeof(g_preferred), name, _TRUNCATE);
     Log("SetPreferredDevice(\"%s\")", g_preferred);
@@ -622,6 +633,7 @@ __declspec(dllexport) void SetPreferredDevice(const char* name)
 // null to clear. [OutRun2006Tweaks-FFB shares its remap layer's choice]
 __declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!guid16) { g_preferredGuidSet = false; Log("SetPreferredDeviceGuid(null)"); return; }
     memcpy(&g_preferredGuid, guid16, sizeof(GUID));
     g_preferredGuidSet = true;
@@ -632,11 +644,13 @@ __declspec(dllexport) void SetPreferredDeviceGuid(const void* guid16)
 // native consumers retain their historical fallback unless they call this.
 __declspec(dllexport) void SetStrictDeviceSelection(int enabled)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     g_strictSelection = enabled != 0;
 }
 
 __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     g_preferredIndex = index;
     Log("SetPreferredDeviceIndex(%d)", index);
 }
@@ -652,6 +666,7 @@ __declspec(dllexport) void SetPreferredDeviceIndex(int index)
 // [art-of-sim-rally, 2026-09-04]
 __declspec(dllexport) int GetDeviceGuid(int index, void* guid16)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!guid16 || index < 0 || index >= g_candidateCount) return 0;
     memcpy(guid16, &g_candidates[index].guid, sizeof(GUID));
     return 1;
@@ -661,6 +676,7 @@ __declspec(dllexport) int GetDeviceGuid(int index, void* guid16)
 // pedal set can be pinned by identity too.
 __declspec(dllexport) int GetAnyDeviceGuid(int index, void* guid16)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!guid16 || index < 0 || index >= g_auxCount) return 0;
     memcpy(guid16, &g_aux[index].guid, sizeof(GUID));
     return 1;
@@ -668,6 +684,7 @@ __declspec(dllexport) int GetAnyDeviceGuid(int index, void* guid16)
 
 __declspec(dllexport) int GetDeviceInfo(int index, int* axes, int* buttons)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (index < 0 || index >= g_candidateCount || !axes || !buttons) return 0;
     *axes = (int)g_candidates[index].axes; *buttons = (int)g_candidates[index].buttons;
     return 1;
@@ -676,6 +693,7 @@ __declspec(dllexport) int GetDeviceInfo(int index, int* axes, int* buttons)
 // Capabilities of any enumerated controller.
 __declspec(dllexport) int GetAnyDeviceInfo(int index, int* axes, int* buttons, int* ffb)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (index < 0 || index >= g_auxCount || !axes || !buttons || !ffb) return 0;
     *axes = (int)g_aux[index].axes; *buttons = (int)g_aux[index].buttons; *ffb = g_aux[index].ffb;
     return 1;
@@ -683,6 +701,7 @@ __declspec(dllexport) int GetAnyDeviceInfo(int index, int* axes, int* buttons, i
 
 __declspec(dllexport) int EnumerateAllDevices(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!EnsureDirectInput()) return 0;
     Log("EnumerateAllDevices()");
     g_auxCount = 0;
@@ -692,6 +711,7 @@ __declspec(dllexport) int EnumerateAllDevices(void)
 
 __declspec(dllexport) int GetAnyDeviceName(int index, char* buffer, int size)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!buffer || size <= 0) return 0;
     buffer[0] = 0;
     if (index < 0 || index >= g_auxCount) return 0;
@@ -703,6 +723,7 @@ __declspec(dllexport) int GetAnyDeviceName(int index, char* buffer, int size)
 // it exclusively would stop anything else - including the game - from seeing it.
 __declspec(dllexport) int OpenAuxDevice(int index)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     // Enumerate if we have not yet, rather than only when DirectInput itself is
     // missing. Force feedback initialises first and leaves g_di set, so keying off
     // that skipped enumeration entirely and every open failed as "out of range".
@@ -738,6 +759,7 @@ __declspec(dllexport) int OpenAuxDevice(int index)
 // Fills one byte per button, 1 = pressed. Returns how many were written.
 __declspec(dllexport) int ReadAuxButtons(unsigned char* buffer, int length)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_auxDevice || !buffer || length <= 0) return 0;
 
     DIJOYSTATE2 state = {};
@@ -757,6 +779,7 @@ __declspec(dllexport) int ReadAuxButtons(unsigned char* buffer, int length)
 
 __declspec(dllexport) void CloseAuxDevice(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_auxDevice) return;
     g_auxDevice->Unacquire();
     g_auxDevice->Release();
@@ -789,6 +812,7 @@ static void SetFullRange(LPDIRECTINPUTDEVICE8 dev)
 // Returns the slot to read from, or -1.
 __declspec(dllexport) int OpenReadDevice(int index)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (g_auxCount == 0) { if (EnumerateAllDevices() <= 0) return -1; }
     if (index < 0 || index >= g_auxCount) { Log("OpenReadDevice(%d): out of range (%d devices)", index, g_auxCount); return -1; }
     if (g_readCount >= kMaxReadSlots) { Log("OpenReadDevice(%d): no free slot", index); return -1; }
@@ -822,6 +846,7 @@ __declspec(dllexport) int OpenReadDevice(int index)
 // Returns 1 when a state was read.
 __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* buttons, int buttonCount)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (slot < 0 || slot >= g_readCount || !axes) return 0;
     ReadSlot& s = g_read[slot];
     // A read slot belongs to the original controller, never whichever wheel
@@ -850,6 +875,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
 
 __declspec(dllexport) void CloseReadDevices(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     for (int i = 0; i < g_readCount; ++i) {
         if (g_read[i].dev) { g_read[i].dev->Unacquire(); g_read[i].dev->Release(); g_read[i].dev = nullptr; }
     }
@@ -859,6 +885,7 @@ __declspec(dllexport) void CloseReadDevices(void)
 
 __declspec(dllexport) void Aquire(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device) { Log("Aquire() with no device"); return; }
     HRESULT hr = g_device->Acquire();
     // S_FALSE simply means "already acquired" - not worth logging every frame.
@@ -867,7 +894,7 @@ __declspec(dllexport) void Aquire(void)
 
 // Called every frame while driving. Deliberately quiet unless the magnitude
 // actually changes, so the trace log stays readable instead of 60 lines/second.
-__declspec(dllexport) int SetDeviceForcesXY(int x, int y)
+static int SetDeviceForcesXYInternal(int x, int y)
 {
     if (!g_effect) return 0;
 
@@ -1119,8 +1146,13 @@ static void ReleasePeriodics()
 // (0..3) to pass to UpdatePeriodicEffect, or -1 (no device, no free slot, or
 // the driver refused GUID_Sine - fall back to synthesising at <=15 Hz through
 // the constant force). Call after InitDirectInput succeeded.
+__declspec(dllexport) int SetDeviceForcesXY(int x, int y)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return SetDeviceForcesXYInternal(x, y); }
+
 __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device) { Log("CreatePeriodicEffect(%d): no device", freqHz); return -1; }
     EnterCriticalSection(&g_lock);
     if (!g_periodicProbed) {
@@ -1145,6 +1177,7 @@ __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 // slot is empty, the update failed, or the effect is being recreated.
 __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freqMilliHz)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || g_periodic[slot].durationMs != 0 || !g_device || g_panicked) return 0;
     PeriodicSlot& s = g_periodic[slot];
     if (magnitude < 0) magnitude = 0;
@@ -1209,6 +1242,7 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
 // continuous API. Only an explicit Play can start/recreate a burst.
 __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device || g_panicked || !wheel_burst::valid(freqHz, durationMs)) { g_lastHr = E_INVALIDARG; return -1; }
     EnterCriticalSection(&g_lock);
     int slot = -1;
@@ -1224,6 +1258,7 @@ __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
 
 __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000)
     { g_lastHr = E_INVALIDARG; return 0; }
     EnterCriticalSection(&g_lock);
@@ -1246,6 +1281,7 @@ __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMil
 
 __declspec(dllexport) int StopPeriodicBurst(int slot)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_lockInit || slot < 0 || slot >= kMaxPeriodic) { g_lastHr = E_INVALIDARG; return 0; }
     EnterCriticalSection(&g_lock);
     auto& s = g_periodic[slot];
@@ -1260,6 +1296,7 @@ __declspec(dllexport) int StopPeriodicBurst(int slot)
 // this too; call it yourself only to switch effects off while the wheel stays.
 __declspec(dllexport) void ReleasePeriodicEffects(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("ReleasePeriodicEffects()");
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
@@ -1369,6 +1406,7 @@ static void ReleaseConditions()
 // without a hardware damper is normal, so treat -1 as "do it in the model".
 __declspec(dllexport) int CreateConditionEffect(int type)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device) { Log("CreateConditionEffect(%s): no device", ConditionName(type)); return -1; }
     if (!ConditionGuid(type)) { Log("CreateConditionEffect: unknown type %d", type); return -1; }
     EnterCriticalSection(&g_lock);
@@ -1391,6 +1429,7 @@ __declspec(dllexport) int CreateConditionEffect(int type)
 // carries the values.
 __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int saturation, int deadband, int offset)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (slot < 0 || slot >= kMaxCondition || !g_condition[slot].used || !g_device || g_panicked) return 0;
     ConditionSlot& s = g_condition[slot];
     if (coefficient >  kForceMax) coefficient =  kForceMax;
@@ -1451,6 +1490,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
 
 __declspec(dllexport) void ReleaseConditionEffects(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("ReleaseConditionEffects()");
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
     EnterCriticalSection(&g_lock);
@@ -1468,6 +1508,7 @@ __declspec(dllexport) void ReleaseConditionEffects(void)
 // the exclusive device and nothing reaches the wheel. [OutRun2006Tweaks-FFB]
 __declspec(dllexport) void PanicStop(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("PanicStop()");
     if (!g_device) return;
     if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
@@ -1495,11 +1536,11 @@ __declspec(dllexport) void PanicStop(void)
 }
 
 // Zero force without releasing anything; for focus loss and menus.
-__declspec(dllexport) void ZeroForces(void)
+static void ZeroForcesInternal(void)
 {
     if (!g_lockInit) return;
     EnterCriticalSection(&g_lock);
-    if (g_effect) { SetDeviceForcesXY(0, 0); if (g_effect) g_effect->Stop(); }
+    if (g_effect) { SetDeviceForcesXYInternal(0, 0); if (g_effect) g_effect->Stop(); }
     g_lastForce = 0;
     StopPeriodics(); // Includes finite bursts; do not call an update that can restart them.
     for (int i = 0; i < kMaxCondition; ++i) {
@@ -1510,6 +1551,10 @@ __declspec(dllexport) void ZeroForces(void)
     }
     LeaveCriticalSection(&g_lock);
 }
+
+__declspec(dllexport) void ZeroForces(void)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); ZeroForcesInternal(); }
 
 static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -1534,6 +1579,7 @@ static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 // a P/Invoke from the game's main thread is.
 __declspec(dllexport) int InstallExitGuards(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (g_guardOrigProc) return 1;
     HWND h = g_hwnd ? g_hwnd : ResolveGameWindow(GetForegroundWindow());
     if (!h) { Log("InstallExitGuards: no window"); return 0; }
@@ -1560,13 +1606,14 @@ static void RemoveExitGuards()
 // hide an active periodic or condition effect from the watchdog.
 static bool ApplyHoldTimeout(ULONGLONG now)
 {
-    if (!g_lockInit || g_holdMs <= 0) return false;
+    const int holdMs = g_holdMs.load();
+    if (!g_lockInit || holdMs <= 0) return false;
     EnterCriticalSection(&g_lock);
     bool active = g_lastForce != 0;
     for (int i = 0; i < kMaxPeriodic; ++i) active = active || (g_periodic[i].started && g_periodic[i].lastMag != 0);
     for (int i = 0; i < kMaxCondition; ++i) active = active || (g_condition[i].started && g_condition[i].lastCoeff != 0);
-    bool expired = active && now >= g_lastUpdateTick && now - g_lastUpdateTick > (ULONGLONG)g_holdMs;
-    if (expired) ZeroForces();
+    bool expired = active && now >= g_lastUpdateTick && now - g_lastUpdateTick > (ULONGLONG)holdMs;
+    if (expired) ZeroForcesInternal();
     LeaveCriticalSection(&g_lock);
     return expired;
 }
@@ -1581,6 +1628,7 @@ static DWORD WINAPI HoldWatchdog(LPVOID)
 
 __declspec(dllexport) void SetHoldTimeoutMs(int ms)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     g_holdMs = ms;
     Log("SetHoldTimeoutMs(%d)", ms);
     if (ms > 0 && !g_holdThread) {
@@ -1593,6 +1641,8 @@ __declspec(dllexport) void SetHoldTimeoutMs(int ms)
 
 __declspec(dllexport) void SetLogPath(const char* path)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    std::lock_guard<std::recursive_mutex> logGuard(g_logMutex);
     if (!path || !path[0]) { g_logPath[0] = '\0'; return; }
     char prev[MAX_PATH]; strncpy_s(prev, sizeof(prev), g_logPath, _TRUNCATE);
     if (prev[0]) Log("log continues in %s", path);
@@ -1604,11 +1654,14 @@ __declspec(dllexport) void SetLogPath(const char* path)
     Log("=== log redirected here (WheelFfb %d) ===", kVersion);
 }
 
-__declspec(dllexport) int GetLastHResult(void) { return (int)g_lastHr; }
-__declspec(dllexport) int GetWheelFfbVersion(void) { return kVersion; }
+__declspec(dllexport) int GetLastHResult(void) {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return (int)g_lastHr.load(); }
+__declspec(dllexport) int GetWheelFfbVersion(void) {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return kVersion; }
 
 __declspec(dllexport) BOOL StartEffect(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
     HRESULT hr = StartEffectRetrying(g_effect, "constant force");
     Log("StartEffect() -> 0x%08lX", hr);
@@ -1618,6 +1671,7 @@ __declspec(dllexport) BOOL StartEffect(void)
 
 __declspec(dllexport) BOOL StopEffect(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("StopEffect()");
     if (!g_effect) return FALSE;
     return SUCCEEDED(g_effect->Stop()) ? TRUE : FALSE;
@@ -1625,6 +1679,7 @@ __declspec(dllexport) BOOL StopEffect(void)
 
 __declspec(dllexport) BOOL SetAutoCenter(BOOL enable)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("SetAutoCenter(%d)", enable);
     if (!g_device) return FALSE;
 
@@ -1642,10 +1697,42 @@ __declspec(dllexport) BOOL SetAutoCenter(BOOL enable)
 
 __declspec(dllexport) void FreeDirectInput(void)
 {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("FreeDirectInput()");
     RemoveExitGuards();
-    g_stopThreads = true;
-    if (g_holdThread) { WaitForSingleObject(g_holdThread, 500); CloseHandle(g_holdThread); g_holdThread = nullptr; }
+    g_stopThreads.store(true);
+    // Stop torque before waiting, without releasing any worker-visible object.
+    if (g_lockInit) EnterCriticalSection(&g_lock);
+    if (g_effect) g_effect->Stop();
+    StopPeriodics();
+    StopConditions();
+    g_lastForce = 0;
+    if (g_lockInit) LeaveCriticalSection(&g_lock);
+    // Never join under g_lock: the watchdog may still need it to finish.
+    if (g_holdThread)
+    {
+        if (GetThreadId(g_holdThread) == GetCurrentThreadId())
+        {
+            Log("FreeDirectInput: forbidden watchdog-thread shutdown; retaining resources");
+            // Do not self-join or return an unsafe-to-unload success through the void ABI.
+            for (;;) Sleep(INFINITE);
+        }
+        // Callers may unload this DLL as soon as FreeDirectInput returns.
+        // Keep both the code and effects alive until the watchdog has exited.
+        bool loggedWaitFailure = false;
+        while (WaitForSingleObject(g_holdThread, INFINITE) != WAIT_OBJECT_0)
+        {
+            if (!loggedWaitFailure)
+            {
+                Log("FreeDirectInput: watchdog join failed; waiting before cleanup");
+                loggedWaitFailure = true;
+            }
+            // The void ABI cannot report an unsafe-to-unload result. Fail closed.
+            Sleep(50);
+        }
+        CloseHandle(g_holdThread);
+        g_holdThread = nullptr;
+    }
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
@@ -1659,13 +1746,7 @@ __declspec(dllexport) void FreeDirectInput(void)
 
 BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 {
-    // The load event is the single most informative line in the log. P/Invoke
-    // binds lazily, so this fires only when the game actually calls one of our
-    // exports - which means "DLL loaded" is direct proof that the game's
-    // ForceFeedback MonoBehaviour is alive and reaching for the native side.
-    if (reason == DLL_PROCESS_ATTACH) {
-        Log("=== WheelFfb.dll %d (dbce-wheel-mod-toolkit) loaded into pid %lu ===", kVersion, GetCurrentProcessId());
-    }
+    // Logging can wait on another thread; never acquire its mutex under loader lock.
     if (reason == DLL_PROCESS_DETACH && g_lockInit) {
         DeleteCriticalSection(&g_lock);
         g_lockInit = false;
