@@ -89,6 +89,16 @@ int main(){
   }
   assert(mixed.mix(.25f,2,2+dt,false,true)==0);assert(SetDeviceForcesXY(0,0)==1);
  }
+ // Rejection requires immediate caller zero, not waiting for another mix/watchdog.
+ for(int kind=0;kind<3;kind++) {
+  dbce::force::CadenceImpactMixer mixed;assert(mixed.trigger(1,1,1,true));
+  float value=mixed.mix(0,1,1.01,true,true);assert(value>0);
+  assert(SetDeviceForcesXY(int(std::round(value*10000)),0)==1&&g_lastForce>0);
+  bool accepted=kind==0?mixed.trigger(1,1,1.01):kind==1?mixed.trigger(1,0,1.01,true):mixed.trigger(1,1,0,true);
+  if(!accepted) { ZeroForces(); } // existing guarded caller route
+  assert(!accepted&&mixed.last_input_rejected&&mixed.last_command==0&&g_lastForce==0);
+  assert(mixed.mix(0,1.01,1.011,true,true)==0);
+ }
  assert(SetDeviceForcesXY(1000,0)==1);
  g_lastUpdateTick=100;g_holdMs=150;
  assert(!ApplyHoldTimeout(250)&&ApplyHoldTimeout(251)&&g_lastForce==0);
