@@ -52,6 +52,9 @@ exit 2 means invalid input. Schema `dbce.wheel.command-summary-report`, version
 1, contains `inputs`, `crossGameComparisons`, `physicalAcceptance:false` and
 `crossGameFeelEquivalence:false`. A supported metric has `value`, `unit` and an
 exact `definition` identifier. An unsupported metric has `status` and `reason`.
+Identifiers must be nonempty strings of at most 128 ASCII characters, starting
+with a letter or digit and then using letters, digits or `_.:@/-`. Object-valued
+or otherwise invalid identifiers are unsupported even when both inputs match.
 `compare_metrics` computes a scalar delta only for matching units and complete
 definitions. This establishes quantity compatibility, not matched stimuli or
 model equivalence. Future adapters need consumer evidence and deterministic tests
@@ -61,8 +64,11 @@ The sole adapter accepts Woden schema `dbce.woden.ffb-regression-summary@1`, mod
 3, its fixed options, 20 unique shape/strength cases, 300 samples at 20 ms and
 the explicit nonphysical boundary. It retains producer metadata, options,
 strength comparisons and complete original rows. It validates finite/bounded
-metrics and occupancy/duty consistency. Summary-only input/command/dependency
-hashes remain producer claims; only artifact bytes are independently hashed.
+metrics and occupancy/duty consistency. Cap samples cannot exceed active samples.
+Nonzero cap/activity counts must agree
+with the declared peak and their inclusive cap / strict activity thresholds.
+Summary-only input/command/dependency hashes remain producer claims; only
+artifact bytes are independently hashed.
 Absent source revision/native version is unsupported and is not inferred from
 toolkit defaults or historical rig identity.
 

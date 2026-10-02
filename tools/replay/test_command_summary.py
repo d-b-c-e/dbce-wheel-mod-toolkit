@@ -77,6 +77,37 @@ class CommandSummaryTests(unittest.TestCase):
             with self.subTest(field=field, value=value), self.assertRaises(replay.InvalidCase):
                 self.adapt(raw)
 
+    def test_cap_and_activity_counts_require_consistent_peak_thresholds(self):
+        changes = (
+            {"AtOutputCapFrames": 300, "AtOutputCapSeconds": 6},
+            {"Peak": .25, "AtOutputCapFrames": 2, "AtOutputCapSeconds": .04,
+             "NonzeroCommandFrames": 1, "NonzeroCommandDuty": 1 / 300},
+            {"Peak": .25},
+            {"Peak": .002},
+            {"Peak": .0015, "NonzeroCommandFrames": 1, "NonzeroCommandDuty": 1 / 300},
+            {"Peak": .249998, "AtOutputCapFrames": 1, "AtOutputCapSeconds": .02,
+             "NonzeroCommandFrames": 1, "NonzeroCommandDuty": 1 / 300},
+        )
+        for changed in changes:
+            raw = copy.deepcopy(self.raw)
+            raw["Rows"][0].update(changed)
+            with self.subTest(changed=changed), self.assertRaises(replay.InvalidCase):
+                self.adapt(raw)
+
+    def test_matching_invalid_identifiers_never_produce_supported_deltas(self):
+        for key in summary.METRICS:
+            for field in ("unit", "definition"):
+                for value in ({"unit": "normalized"}, ["normalized"], True, 1, None,
+                              "", " ", "bad identifier", "bad\nidentifier", "a" * 129):
+                    a = copy.deepcopy(self.adapt()["cases"][0]["metrics"])
+                    a[key][field] = value
+                    b = copy.deepcopy(a)
+                    with self.subTest(key=key, field=field, value=value):
+                        result = summary.compare_metrics(a, b)[key]
+                        self.assertEqual(result["status"], "unsupported")
+                        self.assertNotIn("delta", result)
+                        self.assertNotIn("baseline", result)
+
     def test_bad_rows_rejected(self):
         for field, value in (("Peak", float("inf")), ("Peak", True), ("Rms", .1),
                              ("DurationSeconds", 5), ("PeakPercent", 100),

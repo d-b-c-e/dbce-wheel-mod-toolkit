@@ -1,6 +1,7 @@
 """Offline command-summary diagnostics; no device, game or native-library APIs."""
 import argparse
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import replay_case as replay
 MAX_SUMMARY = 1024 * 1024
 METRICS = ("peak", "rms", "capOccupancy", "duration", "duty", "slew", "shutdownZeros")
 UNITS = "normalized signed command [-1,1]; no Nm or delivered torque"
+IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,127}\Z")
 
 
 def read_summary(path):
@@ -73,6 +75,12 @@ def woden(summary, artifact_sha256):
         replay.require(abs(row["NonzeroCommandDuty"] - row["NonzeroCommandFrames"] / 300) < 1e-12 and
                        abs(row["AtOutputCapSeconds"] - row["AtOutputCapFrames"] * .02) < 1e-12,
                        "inconsistent sample occupancy/duty")
+        replay.require(row["AtOutputCapFrames"] <= row["NonzeroCommandFrames"],
+                       "cap occupancy exceeds active samples")
+        replay.require((row["AtOutputCapFrames"] > 0) == (row["Peak"] >= .25 - .000001),
+                       "cap occupancy contradicts declared peak/threshold")
+        replay.require((row["NonzeroCommandFrames"] > 0) == (row["Peak"] > .0015),
+                       "activity contradicts declared peak/threshold")
         replay.number(row.get("MaximumObservedSlew"), 0, 25.0001)
         replay.integer(row.get("ShutdownZeroCalls"), 0, 100)
         replay.require(type(row.get("ShutdownZeroBeforeClose")) is bool, "invalid shutdown order")
@@ -113,7 +121,10 @@ def compare_metrics(left, right):
         a, b = left.get(key), right.get(key)
         if not a or not b or a.get("status") != "supported" or b.get("status") != "supported":
             result[key] = {"status": "unsupported", "reason": "metric missing or unsupported"}
-        elif not a.get("unit") or not a.get("definition") or a.get("unit") != b.get("unit") or a.get("definition") != b.get("definition"):
+        elif not all(type(item.get(field)) is str and IDENTIFIER.fullmatch(item[field])
+                     for item in (a, b) for field in ("unit", "definition")):
+            result[key] = {"status": "unsupported", "reason": "invalid unit or definition identifier"}
+        elif a["unit"] != b["unit"] or a["definition"] != b["definition"]:
             result[key] = {"status": "unsupported", "reason": "units or effect/clock/threshold semantics differ"}
         else:
             for value in (a.get("value"), b.get("value")):
