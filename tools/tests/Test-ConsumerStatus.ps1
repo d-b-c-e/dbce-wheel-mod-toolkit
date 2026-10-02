@@ -38,7 +38,7 @@ function Snapshot {
 }
 function Run-Status([string]$Current = 'v0.13.0', [switch]$Human) {
     $before = Snapshot
-    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $fixtureScript, '-Root', $siblings, '-Current', $Current)
+    $arguments = @('-NoProfile', '-File', $fixtureScript, '-Root', $siblings, '-Current', $Current)
     if (-not $Human) { $arguments += '-AsJson' } else { $arguments += '-All' }
     $output = @(& $powershell @arguments 2>&1)
     $code = $LASTEXITCODE
