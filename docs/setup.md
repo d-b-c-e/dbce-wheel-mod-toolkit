@@ -1,9 +1,10 @@
 # DBCE Wheel Mod Toolkit setup and release guide
 
-Source and release-metadata audit: 2026-10-01. Canonical repository:
+Source and release-metadata reconciliation: 2026-10-02. Canonical repository:
 [dbce-wheel-mod-toolkit](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit),
 private, stable ID `1356452339`, default branch `master`. No rename is required.
-The audited documentation/source base is `068b8a9d0a915daaf88aee788e04fa801c507fd6`.
+The reviewed canonical source checkpoint is `80ab49031b1968f930fdea1887ae07eed86beaab`.
+See the [shared checklist](SHARED-REPOSITORY-CHECKLIST.md) for exact consumer/app source and local-package evidence.
 
 ## Repository boundaries
 
@@ -29,7 +30,7 @@ consumer pins and existing weekly coordination.
 | --- | --- | --- |
 | Published package `v0.15.0` | Fresh release metadata and annotated tag resolve to `358add53af220eb95bf606e240b230e23a6ea197` | Published runtime source, separate from this audited default-branch snapshot |
 | Published native `0.8.0`, 46 exports | [Release handoff](RELEASE-0.15.0.md) | Recorded component identity for the frozen release; not inferred from the default branch |
-| Audited master native `0.6.0`, 41 exports | `WheelFfb.cpp` has `kVersion = 600`; `WheelFfb.def` lists 41 exports | Static source/ABI facts at `068b8a9`; no binary/device load performed |
+| Audited master native `0.6.0`, 41 exports | `WheelFfb.cpp` has `kVersion = 600`; `WheelFfb.def` lists 41 exports | Static source/ABI facts at `80ab490`; source promotion did not change the ABI |
 | Managed project defaults `0.1.0` | `Dbce.Wheel.Ffb.csproj` and `Dbce.Wheel.Telemetry.csproj` | Project defaults; package script can supply `-p:Version`, so these are not a published-package label |
 | Package parameter default `0.1.0` | `tools/package/package.ps1` | Default output label, not the latest release or a recommended new version |
 | README's source `0.12.0` and STATE's historical `0.13.0` snapshot | Existing narrative documentation | Historical feature context; do not equate either with current release, native ABI or installed consumer identity |
@@ -66,10 +67,12 @@ locate Visual Studio with `vswhere`. Existing entry points include:
 .\native\wheelffb\test\build_burst_test.bat x86
 ```
 
-These paths and commands were checked against the audited source. They were not
-run by this documentation audit. Device smoke/probes, torque output, games and
-installations are outside this audit; do not treat these listings as permission
-or evidence for hardware acceptance.
+These paths remain present at the checkpoint. Hosted native and managed jobs passed
+at `80ab490` (master run 36985039001); the separately invoked checkpoint-copy
+fixture and existing conformance/events/contracts/recovery suites passed locally.
+The fixture is a trusted single-threaded in-process copy assessment, not a public
+API, external codec or runtime adoption. Device smoke/probes, force output, games
+and installations were not part of this documentation reconciliation.
 
 ## Existing packaging recipe
 
@@ -97,7 +100,7 @@ No packaging, rebuild, install, sync or new release is performed here.
   before live-checkout integration. Unrelated WIP alone is not a source-review gate.
 - Keep public-consumer private-source access explicit; carry applicable license notices.
 
-The missing organization artifact at this base is a standalone repository guide,
-not a new runtime or installer. This guide fills that documentation gap. Changes
+The standalone repository guide is promoted. Remaining source/package and owner
+coordination gates are recorded in the shared checklist. Changes
 to version defaults, Recording integration, native APIs or release recipes require
 separate source review; none are included here.

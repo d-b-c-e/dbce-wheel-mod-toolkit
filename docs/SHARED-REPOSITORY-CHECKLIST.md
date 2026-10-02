@@ -1,138 +1,116 @@
 # Shared repository setup, documentation and release checklist
 
-Review draft, 2026-10-01. This checklist aligns actual repository entry points and
-separates source verification, package provenance and game/device acceptance.
-It is documentation, not an executable installer or a release authorization.
+Reconciled 2026-10-02. This checklist separates source verification, local packages,
+published releases and attended acceptance. It is not an installer or release authorization.
 
 ## Canonical identities and source checkpoints
 
-| Private repository / existing ID | Source checkpoint | Setup/release state |
+| Private repository / existing ID | Exact source checkpoint | Setup/release state |
 | --- | --- | --- |
-| `dbce-wheel-mod-toolkit` / `1356452339` | Audited `master` `068b8a9`; published `v0.15.0` tag targets `358add53` | Existing package recipe; standalone setup-guide draft awaiting review |
-| `dbce-triple-screen-toolkit` / `1389789951` | Main `756af45` | Setup guide and canonical optimizer URL corrections promoted; no dedicated package profile found |
-| `dbce-triple-screen-optimizer` / `1380781844` | Main `ac300822`; approved setup branch `d1b514b`; toolkit pin `3b776d86` | Read-only verifier/guide published on review branch; no release builder/profile found |
-| `dbce-vr-game-optimizer` / `1275539619` | Main `6c76c8f` | Standalone README/setup documentation promoted; no dedicated release builder/profile found |
+| `dbce-wheel-mod-toolkit` / `1356452339` | Master `80ab49031b1968f930fdea1887ae07eed86beaab` | Setup guide promoted; existing package recipe. Native/managed hosted checks passed. Published v0.15.0 remains separate source `358add53af220eb95bf606e240b230e23a6ea197`. |
+| `dbce-triple-screen-toolkit` / `1389789951` | Main `44c45bbb41a772db901b44c99c3cb6bbf84175ef` | Setup and seven-test geometry qualification documented; no dedicated package profile or hosted workflow. |
+| `dbce-triple-screen-optimizer` / `1380781844` | Main `d49e2c986f2c4e6559911805fb90ff676d25f6c9`; gitlink `3b776d86f7da93b5366b3e53b1b764436f6a590c` | Setup verifier and reviewed portable-builder source promoted. Local private preflight archive only. |
+| `dbce-vr-game-optimizer` / `1275539619` | Main `a3243158e0afe3ce446052f5cebf1dd35da71cf1` | Setup, SteamVR discovery isolation and reviewed portable-builder source promoted. Local private preflight archive only. |
 
-Retain display names DBCE Wheel Mod Toolkit, DBCE Triple-Screen Toolkit,
-Triple Screen Optimizer and VR Game Optimizer. Preserve assemblies, data/settings
-paths, pins, versions, licenses, privacy and histories. Toolkit names remain stable;
-these four shared projects are separate from per-game `dbce-mods-<game>` products.
+Retain DBCE Wheel Mod Toolkit, DBCE Triple-Screen Toolkit, Triple Screen Optimizer
+and VR Game Optimizer display names. Preserve assemblies, settings paths, pins,
+licenses, privacy and history; these remain separate from per-game products.
 
 ## Repository and owner checks
 
-- [ ] Recheck exact remote base/ref before editing or publishing; record review branch,
-  changed files and parent approval. Use a complete exact-source tree for build acceptance.
-- [ ] Stage only reviewed scope; preserve all owner WIP. Reconcile overlapping edits
-  before promotion and coordinate before live-checkout integration. Unrelated dirtiness
-  does not stall independently reviewed remote-only source/documentation work.
-- [ ] Preserve each consumer's exact toolkit/component pin. Shared ownership does not
-  establish consumer migration, installed version or gameplay acceptance.
-- [ ] Keep game hooks/loader/UI/runtime acceptance in adapter repositories; keep
-  toolkit and optimizer application roles distinct. No runtime combination is implied.
-- [ ] Maintain existing weekly coordination; create no new automation.
+- Recheck exact remote base/ref, review scope and independent approval.
+- Stage only reviewed scope; reconcile overlapping edits before promotion and
+  coordinate before live-checkout integration. Unrelated WIP does not block
+  independently reviewed remote-only work.
+- Historical inventories recorded 34 wheel and 34 optimizer entries, one changed
+  triple-toolkit test and VR local artifacts. These are historical observations,
+  not fresh complete statuses. Old wheel/optimizer owner handoffs remain unverified;
+  no owner WIP enters these canonical checkpoints.
+- Preserve exact consumer/component pins; publication does not prove installed
+  versions, migration, runtime acceptance or owner handoff.
+- Keep game hooks/loader/UI/runtime acceptance adapter-owned. Maintain existing
+  weekly coordination; create no new automation.
 
-## Actual setup, build and validation entry points
+## Setup, build and qualification
 
-Run root-level commands only in an authorized isolated tree. A command listing is
-not a passed check or permission to apply settings, launch games or use a device.
+Use authorized isolated trees. Command listings do not authorize device/runtime work.
 
-| Repository | Prerequisites and commands | Limits |
+| Repository | Entry points | Verified limits |
 | --- | --- | --- |
-| Wheel toolkit | Managed libraries `netstandard2.0`, tests `net8.0`; SDK/restore access. `dotnet build Dbce.Wheel.sln -c Release`; `dotnet test Dbce.Wheel.sln -c Release`. Native work requires Windows/MSVC C++ tools, discovered by existing scripts with `vswhere`. | Keep classic `.sln`, x64/x86 distinctions, and package/component versions separate. No hardware probe in this lane. |
-| Triple toolkit | .NET 10 SDK/restore access. `dotnet build src/Dbce.TripleScreen.Core/Dbce.TripleScreen.Core.csproj -c Release`; `dotnet test tests/Dbce.TripleScreen.Core.Tests/Dbce.TripleScreen.Core.Tests.csproj -c Release`. | Core `netstandard2.0`, tests `net10.0`. Geometry conformance is separate from adapter/rendered acceptance. |
-| Triple optimizer | Windows/.NET 10 SDK. Initialize the recorded private submodule with `git submodule update --init --recursive`; inspect `git submodule status external/dbce-triple-screen-toolkit`. `dotnet build TripleScreenOptimizer.slnx`; `dotnet test TripleScreenOptimizer.slnx`. | Do not use `--remote`, advance pin `3b776d86`, weaken Git ownership guards or deploy in this lane. |
-| VR optimizer | Windows/.NET 10 SDK. `dotnet build src/VrGameOptimizer.sln`; `dotnet test src/VrGameOptimizer.sln`. App/core/tests are `net10.0-windows`. | Existing x64 identity and admin-requesting app manifest are preserved; no driver/settings application or security change is requested. |
+| Wheel toolkit | `dotnet build Dbce.Wheel.sln -c Release`; `dotnet test Dbce.Wheel.sln -c Release`; Windows/MSVC scripts use vswhere. | Libraries netstandard2.0, tests net8.0. Master run [36985039001](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/actions/runs/36985039001) passed native/managed jobs. Checkpoint-copy fixtures separately passed x86/x64, each 264 continuations and 462 rejections. No device/gameplay acceptance. |
+| Triple toolkit | `dotnet build src/Dbce.TripleScreen.Core/Dbce.TripleScreen.Core.csproj -c Release`; `dotnet test tests/Dbce.TripleScreen.Core.Tests/Dbce.TripleScreen.Core.Tests.csproj -c Release`. | Core netstandard2.0, tests net10.0. Base `756af45d64724322af67734bf2fa0356d22c2ac8` passed seven tests and clean Release build; later main changes are documentation only. SDK 10.0.401; no adapter/render acceptance. |
+| Triple optimizer | `dotnet build TripleScreenOptimizer.slnx`; `dotnet test TripleScreenOptimizer.slnx`; `tools/Verify-Setup.ps1`; `tools/tests/Test-VerifySetup.ps1`. | SDK 10.0.401 pinned; 47 unfiltered tests and 16 verifier fixtures passed. Initialize the exact private gitlink without --remote. No hosted workflow. |
+| VR optimizer | `dotnet build src/VrGameOptimizer.sln`; `dotnet test src/VrGameOptimizer.sln`. | SDK 10.0.401 pinned; 72 safe unfiltered tests passed. Windows x64/admin-requesting manifest retained. No app/settings/process/VR/device acceptance. No hosted workflow. |
 
-The reviewed triple-optimizer setup branch provides these PowerShell 7 commands:
+Ordinary sandbox SDK access initially failed before compilation; bounded qualification
+then passed through approved access without ACL/trust changes. The standalone triple
+suite is no longer SDK-blocked and remains distinct from the optimizer's older pin.
+Empty hosted statuses do not mean passed CI.
 
-```powershell
-pwsh -NoProfile -File tools/Verify-Setup.ps1
-pwsh -NoProfile -File tools/Verify-Setup.ps1 -PackageRoot 'C:\absolute\package-folder'
-pwsh -NoProfile -File tools/tests/Test-VerifySetup.ps1
-```
+Both apps now include `tools/package/Build-Portable.ps1`, source-manifest and
+package verifiers, locks/notices and portable instructions. Use the exact-source
+[TSO guide](https://github.com/d-b-c-e/dbce-triple-screen-optimizer/blob/d49e2c986f2c4e6559911805fb90ff676d25f6c9/docs/portable-package.md)
+or [VR guide](https://github.com/d-b-c-e/dbce-vr-game-optimizer/blob/a3243158e0afe3ce446052f5cebf1dd35da71cf1/docs/portable-package.md),
+absolute paths and documented staging/SDK phases. PowerShell 7.6.5 is qualified;
+Windows PowerShell 5.1 is unqualified.
 
-The verifier reads source layout/SDK listings or framework-dependent x64 output
-structure. It refuses incomplete, drive-relative/root-relative/reparse paths and
-self-contained metadata; it never installs, builds, restores, launches or applies.
-Pin provenance, complete dependency inventory, integrity and functional acceptance
-remain separate. Use the reviewed branch explicitly until it is promoted.
+| Local private preflight | Label / payload | ZIP SHA-256 |
+| --- | --- | --- |
+| Triple optimizer | `0.0.0-preflight.1`; 84 files | `9a6e5eef7d67f74de77aaa80f25e311344802f37dd4dcbd2444bd1c3c7f5a6f6` |
+| VR optimizer | `0.0.0-preflight.1`; 84 files | `5e7d9bf50cc2f14aa9af3be11739e7263d8649cd7c18bc3c92de38150677e4af` |
 
-Existing developer launch commands are `dotnet run --project src/TripleScreenOptimizer.App`
-and `dotnet run --project src/VrGameOptimizer.App`. These are source facts, not actions
-performed in this lane. Game settings, display topology and device use remain unchanged.
+Two clean staging builds per app matched payload and ZIP bytes on the same Windows
+host, SDK and existing NuGet cache. Cross-host/fresh-cache reproducibility is unqualified.
+Archives remain local/private/unreleased/undeployed. Triple toolkit still needs its
+own dedicated package strategy. Reviewed builders are not binary releases.
 
-## Wheel recipe and version audit
+## Wheel source and release distinctions
 
-At exact remote master `068b8a9`, `tools/package/package.ps1` uses:
+Master native remains kVersion=600 (0.6.0), 41 DEF exports; managed defaults 0.1.0.
+Published v0.15.0 uses separate frozen source 358add53 (native 0.8.0/46 exports),
+four assets and a 489861-byte ZIP. [Release evidence](RELEASE-0.15.0.md) records
+its hashes; that archive was not rebuilt here.
 
-```powershell
-.\native\wheelffb\build.ps1
-.\native\wheelffb\build.bat x86
-.\native\dinput-proxy\build_test.bat
-.\native\forza\build_test.bat
-.\native\forcemodel\build_conformance.bat
-.\tools\powershell\Test-DbceWheel.ps1
-.\tools\tests\Test-SyncToolkit.ps1
-.\tools\tests\Test-NativeBinding.ps1
-.\native\wheelffb\test\build_burst_test.bat x64
-.\native\wheelffb\test\build_burst_test.bat x86
-```
+Existing `tools/package/package.ps1 -Version <reviewed-semver>` builds native
+x64/x86, runs listed offline checks, builds/tests managed output with the supplied
+version and writes `dist/dbce-wheel-mod-toolkit-<version>.zip`. Default 0.1.0
+is not a latest-release claim; -SkipNative needs exact reused-binary provenance.
+The master recipe includes Ffb/Telemetry and fake-burst checks, not the live
+owner's Recording package work. The checkpoint-copy fixture is separately invoked:
+it is not a release gate, public API, external codec or consumer runtime adoption.
 
-The existing package invocation is `tools/package/package.ps1 -Version <reviewed-semver>`.
-It builds native x64/x86, runs its listed checks, builds/tests managed output with
-`-p:Version`, and writes `dist/dbce-wheel-mod-toolkit-<version>.zip`. Default label
-`0.1.0` is not a latest-release claim. `-SkipNative` requires reused-binary provenance.
-Packaging and native/device checks were not run in this documentation audit.
+## Reviewed consumer source publications
 
-Important distinctions:
+These are product source identities, not toolkit dependency pins, released package
+versions, deployed payloads or visually validated support. Preserve the
+[component register](CONSUMERS.md) and each adapter's ownership/evidence.
 
-- Fresh release/tag metadata confirms package `v0.15.0`, source `358add53`, ZIP
-  size `489861` bytes and four assets. Native `0.8.0`/46 exports and hashes are
-  recorded in the existing handoff; no binary download/load/rebuild is claimed here.
-- Static audited master has native `kVersion=600` (`0.6.0`) and 41 DEF exports.
-  Managed project defaults are `0.1.0`. README source `0.12.0`/historical STATE
-  `0.13.0` narrative is not a current package/component/consumer identity.
-- Master recipe includes Ffb/Telemetry and fake-burst checks. It does **not**
-  include Recording or `Test-RecordingPackaging.ps1`. Those are separate live
-  owner changes and must not be attributed to this remote base or frozen release.
+| Canonical product repository | Exact reviewed source | Evidence boundary |
+| --- | --- | --- |
+| `dbce-mods-woden-rally-edge` | `95d1ff7ce57eb816a5f6b662b80923a3bec9e2ca` | Source publication; attended input/FFB/triple acceptance remains consumer-owned. |
+| `dbce-mods-iracing-arcade` | `ea4ddf912fa791c701ec01491e333ff0eb1af8fd` | Source publication; offline probes do not prove presented views or physical feel. |
+| `dbce-mods-sonic-crossworlds` | `b72a44bc6cf8e0bd16975160a1cf493a3836faf2` | Source publication supersedes older unpublished-source wording; loader/render/gameplay acceptance is separate. |
+| `dbce-mods-outrun-2006` | `86599699ab3926bef796413d266a9090158383c9` | Hosted run [36989644072](https://github.com/d-b-c-e/dbce-mods-outrun-2006/actions/runs/36989644072) passed at this head. Mod-only build/fixture evidence, not gameplay or a binary release. |
+| `dbce-mods-gravel` | `9c84fb7d8f1db5bce6fe398bbac4e7df84c7ea9d` | Hosted run [36989847650](https://github.com/d-b-c-e/dbce-mods-gravel/actions/runs/36989847650) passed at this head. Source/build evidence only. |
+| `dbce-mods-drive-rally` | `0d45c3737fe274f6aecf2591607e89bbfccab348` | Source publication; no inferred displayed triple views or game deployment. |
 
-## Common release evidence
+Coordinator-reported F-Zero candidate `14ea520` remains publication-blocked;
+GPU validation remains pending. The old replay approval prerequisite is resolved.
+This abbreviated reported pin is not a newly verified remote full-SHA publication.
+Offline renderer/replay fixtures do not establish visually validated support.
 
-- [ ] Select a clean source SHA/tag and record exact private dependency gitlinks,
-  resolved packages/toolchain and separately sourced package/app/component versions.
-  SDK/project default `1.0.0` or `0.1.0` is not an approved product release label.
-- [ ] Use an existing reviewed packaging recipe, or review a concrete new strategy.
-  Triple toolkit and optimizer apps have no established packaging profile in the
-  inspected source. A verifier or successful Debug build does not fill that gap.
-- [ ] Record actual command, output path, complete payload inventory, hashes,
-  dependency notices, install/update/backup/undo instructions and retained settings.
-- [ ] Keep source/config tests, native ABI/fake-effect checks, deployed-payload
-  verification and attended game/display/physical acceptance as separate evidence.
-- [ ] Preserve public-consumer access and licensing boundaries for private toolkit
-  source/artifacts. Carry wheel MIT license and applicable notices without changing visibility.
-- [ ] Preserve VR THIRD-PARTY-NOTICES: unmodified separate NvAPIWrapper dependency,
-  official on-demand UEVR acquisition and separate PresentMon/XRFrameTools paths.
-  No new bundling or redistribution claim is made.
-- [ ] Independently review publication scope; never force-push or delete history.
-  Source-only branches/default promotions remain separate from binary deployment/releases.
+## Release evidence and remaining work
 
-## Verification completed and remaining gaps
-
-Complete optimizer base/pinned-toolkit archives matched all 99 Git source blobs.
-The reviewed three-file optimizer candidate built with zero warnings/errors and
-passed 47 tests plus 16 verifier fixtures. Ordinary SDK-directory access failed;
-normal reviewed escalation succeeded without ACL/trust changes. Its source/output
-verifier also passed against the real Debug layout; no app/game/device was launched.
-
-Wheel documentation audit checks source paths, native static identity, release/tag
-metadata, Markdown links and patch scope. Wheel build/native/package/device checks
-remain unrun. Earlier standalone triple-toolkit geometry testing was SDK-blocked;
-no newer standalone toolkit test result is claimed from the optimizer's older pin.
-VR build/tests/UAT remain unrun. Empty GitHub checks/statuses are not passed CI.
-
-Genuine remaining work: reconcile wheel source/release narrative and owner Recording
-work before integration; choose reviewed app/toolkit packaging/version/provenance
-strategies; coordinate live-checkout synchronization when owner overlap is resolved.
-Historical 34 wheel and 34 optimizer entries, the toolkit test and VR artifacts
-remain preserved. Owner pause/handoff, installed consumer pins and acceptance are
-not inferred from this checklist.
+- Record source/tag, dependency gitlinks, packages/toolchain and separate
+  app/package/component versions; defaults/preflight labels are not release approval.
+- Record commands, payload inventory/hashes, notices, source identity,
+  install/update/backup/undo instructions and settings retention.
+- Separate source/config tests, native ABI/fake-effect checks, deployed-payload
+  verification and attended game/display/device acceptance.
+- Preserve private/public access and licenses. VR's separate NvAPIWrapper,
+  on-demand UEVR and PresentMon/XRFrameTools boundaries remain unchanged.
+- Review publication independently; never force-push/delete history. Coordinate
+  live synchronization after owner overlap is reconciled.
+- Remaining gates include owner WIP/handoffs, triple-toolkit packaging and explicitly
+  authorized app binary releases. These milestones do not mean all projects or
+  feature acceptance are complete.

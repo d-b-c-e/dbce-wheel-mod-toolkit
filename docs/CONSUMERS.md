@@ -40,15 +40,43 @@ effective components before adopting it; Recording remains separately pinned.
 
 ---
 
+## Canonical product source checkpoint, 2026-10-02
+
+Current product destinations are `dbce-mods-art-of-rally`,
+`dbce-mods-iracing-arcade`, `dbce-mods-woden-rally-edge`,
+`dbce-mods-drive-rally` and `dbce-mods-outrun-2006`; older names below in
+history and local checkout paths are retained as provenance. Sonic's canonical
+source is `dbce-mods-sonic-crossworlds`, and Gravel's is `dbce-mods-gravel`.
+The [shared checklist](SHARED-REPOSITORY-CHECKLIST.md#reviewed-consumer-source-publications)
+records exact reviewed product source commits and verified OutRun/Gravel CI.
+Those source commits are not dependency pins or installed-version evidence.
+The status script still uses legacy checkout names and component-relative layouts.
+It does not automatically discover canonical unified `components/wheel` trees;
+a missing legacy path is a layout/provenance review item, not proof of failed
+migration. No script change or live-checkout relocation is included here.
+Per-consumer historical commands below retain their original component context.
+At the exact product commits in the checklist, Woden declares v0.12.0, iRacing
+and Drive declare v0.13.0, and OutRun declares v0.8.0 baseline plus v0.13.0
+native/header baseline with a separate reviewed shutdown DLL source override.
+Sonic/Gravel source publication does not add a guessed component relationship
+or pin to this register; inspect their explicit provenance before doing so.
+
+Wheel master `80ab49031b1968f930fdea1887ae07eed86beaab` includes a fixture-only
+[checkpoint-copy assessment](CHECKPOINT-COPY-ASSESSMENT.md). OutRun's old numeric
+snapshot representation remains incompatible with the current shared model;
+its separately verified replay counts do not transfer to this fixture or establish
+consumer adoption. Released v0.15.0, native overrides and unpublished Recording
+extensions remain separately owned and pinned.
+
 ## The register
 
 | Consumer | Runtime | Parts vendored | Pin lives in | Needs a rebuild? |
 |---|---|---|---|---|
-| `art-of-sim-rally` | Unity 2019.4 Mono, Unity Mod Manager | Native output; managed Ffb and Telemetry | `lib/toolkit/VERSION` | DLL replacement alone may not; new API call sites require a rebuild |
-| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | **`toolkit.version`**, tracked; `recording-toolkit.json` is separate | Same managed/native contract rule |
-| `woden-rally-edge-wheel` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | `lib/toolkit/VERSION`; `lib/recording/provenance.json` is separate | Same managed/native contract rule |
-| `drive-rally-wheel` | Unity Mono, BepInEx 5 | **Managed Telemetry only** from the release; separately pinned Recording extension | `dependencies.json` → `toolkit.version`; `vendor/recording/provenance.json` is separate | Rebuild for consumer/API changes; no native wheel library is implied |
-| `OutRun2006Tweaks-FFB` | Native `dinput8` proxy, **x86** | Baseline model/profile/encoder/proxy headers and profiles; separately overridden ABI header and x86 native DLL | `lib/toolkit/VERSION`; override in `lib/toolkit/NATIVE-VERSION` and `NATIVE-PROVENANCE.json` | **Yes** for compiled headers; keep matching native DLL in the package |
+| `dbce-mods-art-of-rally` | Unity 2019.4 Mono, Unity Mod Manager | Native output; managed Ffb and Telemetry | `lib/toolkit/VERSION` | DLL replacement alone may not; new API call sites require a rebuild |
+| `dbce-mods-iracing-arcade` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | **`components/wheel/toolkit.version`**, tracked; `components/wheel/recording-toolkit.json` is separate | Same managed/native contract rule |
+| `dbce-mods-woden-rally-edge` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | `components/wheel/lib/toolkit/VERSION`; `components/wheel/lib/recording/provenance.json` is separate | Same managed/native contract rule |
+| `dbce-mods-drive-rally` | Unity Mono, BepInEx 5 | **Managed Telemetry only** from the release; separately pinned Recording extension | `dependencies.json` → `toolkit.version`; `vendor/recording/provenance.json` is separate | Rebuild for consumer/API changes; no native wheel library is implied |
+| `dbce-mods-outrun-2006` | Native `dinput8` proxy, **x86** | Baseline model/profile/encoder/proxy headers and profiles; separately overridden ABI header and x86 native DLL | `lib/toolkit/VERSION`; override in `lib/toolkit/NATIVE-VERSION` and `NATIVE-PROVENANCE.json` | **Yes** for compiled headers; keep matching native DLL in the package |
 | `milestone-wheel-tools` | native `dinput8` proxy, UE4, x64 | `include`, `powershell` | `lib/toolkit/VERSION` | **yes** — `forza_packet.h` is compiled in |
 | `cruisn-collection` | MAME fork, SDL2 | `force_model.h`, `force_profile.h`, `impact_mixer.h`, `signal_sample.h` and profiles | `lib/toolkit/VERSION`, with `MANIFEST.json` | **Yes** for compiled headers; profile data is deployed separately |
 
@@ -145,6 +173,14 @@ point of pinning is that a toolkit change never reaches a game without an
 explicit, diffable bump.
 
 ### OutRun's native/header override is not a full toolkit adoption
+
+At product source `86599699ab3926bef796413d266a9090158383c9`,
+`NATIVE-PROVENANCE.json` identifies native 0.6.0/x86/41 exports built from
+`f8f0619b5588f2d11b44f4becd4198775d4a8bcf`, tree
+`d9f59422cff93383f9cf27f3cd641fd2adf00a35`. Its archive fields retain the
+v0.13.0 header baseline; the DLL is a reviewed local build, not that release
+archive DLL. This updates the older official-archive-only checkpoint below;
+no model/profile repin, binary release, install or gameplay acceptance is implied.
 
 The overnight strict-device-selection change takes the official v0.13.0 x86
 `WheelFfb.dll` and matching `wheelffb.h`, while retaining the v0.8.0 model,

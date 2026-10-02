@@ -1,3 +1,41 @@
+# Current source checkpoint
+
+## Source and organization checkpoint, 2026-10-02
+
+This record supersedes the source/build/publication statements in the dated
+handoffs below; it does not upgrade their game, display or physical acceptance.
+Shared wheel master is `80ab49031b1968f930fdea1887ae07eed86beaab`, following
+`af938a9055782cc9f8e592cf17b055e7e4544fa0`. Native and managed hosted checks
+passed on master (run [36985039001](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/actions/runs/36985039001))
+and the reviewed branch (run 36984995628). Its three checkpoint-copy additions
+are tests/documentation only: x86 and x64 each passed 264 continuations and
+462 rejected transactional restores across 11 profiles, plus the existing
+conformance/events/contracts/recovery checks. These are trusted single-threaded
+same-process copies, not a public API, external codec or runtime adoption.
+[Assessment and limits](CHECKPOINT-COPY-ASSESSMENT.md).
+
+The published `v0.15.0` source remains
+`358add53af220eb95bf606e240b230e23a6ea197` (native 0.8.0/46 exports).
+Current master still has native 0.6.0/41 exports and managed defaults 0.1.0.
+Default-branch promotion neither rebuilt that release nor repinned consumers.
+
+The [shared repository checklist](SHARED-REPOSITORY-CHECKLIST.md) now records
+the qualified triple-toolkit source, promoted VR/TSO portable-builder source,
+local unreleased preflight archives and exact consumer source checkpoints.
+The [consumer register](CONSUMERS.md) retains separate component ownership.
+Historical statements that Sonic source is unpublished, replay approval is
+awaited, or app packaging profiles are absent must not be used as current gates.
+The prior replay approval is resolved; F-Zero candidate `14ea520` publication
+remains blocked and GPU validation remains pending, as reported by its coordinator.
+No additional runtime, ROM, device or release permission follows.
+
+Historical wheel/optimizer owner changes, the triple-toolkit test edit and VR
+local artifacts remain outside these isolated promotions. Source publication
+does not prove a live checkout was synchronized or its old owner handed off.
+Existing weekly coordination is retained.
+
+---
+
 # Release handoff, 2026-09-27
 
 Official **v0.15.0** now publishes the original frozen archive from
@@ -35,7 +73,7 @@ Unity Mono in-game delivery remain unverified. No Actions, push or publication.
 
 The previous release handoff below remains historical context.
 
-# Current handoff
+# Historical coordination handoffs
 
 ## Shared recorded playback and Woden readiness, 2026-09-28
 
