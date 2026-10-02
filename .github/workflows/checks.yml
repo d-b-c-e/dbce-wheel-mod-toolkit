@@ -20,6 +20,9 @@ jobs:
       - name: Offline consumer status and provenance
         shell: powershell
         run: ./tools/tests/Test-ConsumerStatus.ps1
+      - name: Consumer fixture process exit contract
+        shell: powershell
+        run: ./tools/tests/Test-ConsumerStatusExit.ps1
       - name: Exact-module binding (CoreCLR x64 and .NET Framework x86, no hardware)
         shell: powershell
         run: ./tools/tests/Test-NativeBinding.ps1
