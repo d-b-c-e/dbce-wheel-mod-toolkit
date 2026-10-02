@@ -65,6 +65,11 @@ static std::atomic<HRESULT> g_lastHr{S_OK};
 static std::recursive_mutex g_logMutex;
 static char      g_logPath[MAX_PATH] = {};       // resolved lazily, or set by SetLogPath
 static ULONGLONG g_rampStart     = 0;
+// API-serialized constant recovery state; an absent effect is retryable only
+// after a failed self-heal, never after deliberate release/panic/shutdown.
+static ULONGLONG g_lastReacquireTick = 0, g_lastHealTick = 0;
+static bool g_reacquireAttempted = false, g_healAttempted = false;
+static bool g_effectRecoveryPending = false;
 static ULONGLONG g_lastUpdateTick = 0;
 static int       g_lastForce     = 0;
 static std::atomic<int> g_holdMs{0};
@@ -352,6 +357,10 @@ static HWND ResolveHwnd(int hwnd)
 
 static void ReleaseEffect()
 {
+    g_effectRecoveryPending = false;
+    g_reacquireAttempted = g_healAttempted = false;
+    g_lastReacquireTick = g_lastHealTick = 0;
+    g_rampStart = 0;
     if (g_effect) {
         g_effect->Stop();
         g_effect->Release();
@@ -911,7 +920,28 @@ __declspec(dllexport) void Aquire(void)
 // actually changes, so the trace log stays readable instead of 60 lines/second.
 static int SetDeviceForcesXYInternal(int x, int y)
 {
-    if (!g_effect) return 0;
+    if (!g_effect) {
+        if (!g_device || !g_effectRecoveryPending) return 0;
+        EnterCriticalSection(&g_lock);
+        ULONGLONG now = GetTickCount64();
+        if (g_healAttempted && now - g_lastHealTick <= 1000) {
+            LeaveCriticalSection(&g_lock);
+            return 0;
+        }
+        g_lastHealTick = now;
+        g_healAttempted = true;
+        g_device->Acquire();
+        HRESULT ch = CreateForceEffect();
+        if (FAILED(ch) || !g_effect) {
+            g_lastHr = FAILED(ch) ? ch : E_FAIL;
+            LeaveCriticalSection(&g_lock);
+            return 0;
+        }
+        g_effectRecoveryPending = false;
+        g_rampStart = now;
+        LeaveCriticalSection(&g_lock);
+        // Continue with this caller's request, starting the existing ramp at zero.
+    }
 
     if (x >  kForceMax) x =  kForceMax;
     if (x < -kForceMax) x = -kForceMax;
@@ -979,11 +1009,11 @@ static int SetDeviceForcesXYInternal(int x, int y)
     // Fix: drop the device and acquire it again, which is exclusive once the
     // game is in front, then retry the update. Rate-limited.
     if (hr == DIERR_NOTEXCLUSIVEACQUIRED || hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
-        static DWORD lastReacquire = 0;
         static long  reacquires = 0;
-        DWORD now = GetTickCount();
-        if (lastReacquire == 0 || now - lastReacquire > 250) {
-            lastReacquire = now;
+        ULONGLONG now = GetTickCount64();
+        if (!g_reacquireAttempted || now - g_lastReacquireTick > 250) {
+            g_lastReacquireTick = now;
+            g_reacquireAttempted = true;
             HRESULT lost = hr;
             g_device->Unacquire();
             HRESULT ah = g_device->Acquire();
@@ -1002,14 +1032,14 @@ static int SetDeviceForcesXYInternal(int x, int y)
     // is unrecoverable at that point; a fresh one accepts parameters again.
     // Rate-limited so a genuinely broken device cannot spin this.
     if (FAILED(hr) && hr != DIERR_INPUTLOST && hr != DIERR_NOTACQUIRED && hr != DIERR_NOTEXCLUSIVEACQUIRED) {
-        static DWORD lastHeal = 0;
         static int   healCount = 0;
         DWORD status = 0;
         if (SUCCEEDED(g_effect->GetEffectStatus(&status)))
             Log("  effect status 0x%08lX before heal", status);
-        DWORD now = GetTickCount();
-        if (lastHeal == 0 || now - lastHeal > 1000) {
-            lastHeal = now;
+        ULONGLONG now = GetTickCount64();
+        if (!g_healAttempted || now - g_lastHealTick > 1000) {
+            g_lastHealTick = now;
+            g_healAttempted = true;
             Log("SetParameters failed 0x%08lX - recreating the effect (heal #%d)", hr, ++healCount);
             g_device->Acquire();
             if (g_effect) { g_effect->Stop(); g_effect->Release(); g_effect = nullptr; }
@@ -1020,6 +1050,8 @@ static int SetDeviceForcesXYInternal(int x, int y)
                     &update, DIEP_DIRECTION | DIEP_TYPESPECIFICPARAMS | DIEP_START);
                 Log("  recreated effect: update now 0x%08lX (ramping in over %llu ms)", hr, kRampMs);
             } else {
+                g_effectRecoveryPending = true;
+                g_lastForce = 0;
                 Log("  recreate failed 0x%08lX", ch);
             }
         }
@@ -1029,7 +1061,6 @@ static int SetDeviceForcesXYInternal(int x, int y)
     LeaveCriticalSection(&g_lock);
 
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
-        g_device->Acquire();
         return 0;
     }
 
