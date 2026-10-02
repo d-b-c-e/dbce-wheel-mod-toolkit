@@ -86,7 +86,7 @@ static DWORD WINAPI OutputOnCallerThread(LPVOID value) {
     return 0;
 }
 static bool CheckDelayedWorkerShutdown() {
-    InitializeCriticalSection(&g_lock); g_lockInit=true;
+    assert(EnsureEffectLock());
     ShutdownContext context;
     context.outputStarted=CreateEventW(nullptr,TRUE,FALSE,nullptr);
     context.outputReturned=CreateEventW(nullptr,TRUE,FALSE,nullptr);
@@ -133,8 +133,8 @@ static bool CheckDelayedWorkerShutdown() {
             returnedEarly,releasedEarly,releasedOnce,stopped,idempotent);
         return false;
     }
-    // Real production worker lifecycle with no devices/effects and an uninitialized lock.
-    DeleteCriticalSection(&g_lock); g_lockInit=false;
+    // Real production worker lifecycle with no devices/effects and the lifetime lock.
+    
     SetHoldTimeoutMs(1);
     ShutdownRequire(g_holdThread!=nullptr,"watchdog restart");
     FreeDirectInput();
@@ -168,8 +168,74 @@ static void CheckSharedWatchdogState() {
       g_logging=false; }
     std::puts("concurrent timeout/HRESULT/log-path exercise passed; fake worker only");
 }
-int main() {
+struct LockPublicationContext {
+    HANDLE go=nullptr, readerReady=nullptr, publishedSeen=nullptr;
+    std::atomic<bool> stop{false};
+    std::atomic<int> initialFalseReads{0}, readyReads{0};
+};
+static DWORD WINAPI PublicationReader(LPVOID value) {
+    auto* c=static_cast<LockPublicationContext*>(value);
+    if (!g_lockInit.load(std::memory_order_acquire) && !ApplyHoldTimeout(GetTickCount64())) ++c->initialFalseReads;
+    SetEvent(c->readerReady);
+    WaitForSingleObject(c->go,INFINITE);
+    while (!c->stop.load()) {
+        ApplyHoldTimeout(GetTickCount64());
+        if (g_lockInit.load(std::memory_order_acquire)) { ++c->readyReads; SetEvent(c->publishedSeen); }
+        SwitchToThread();
+    }
+    return 0;
+}
+static DWORD WINAPI PublicationInitializer(LPVOID value) {
+    auto* c=static_cast<LockPublicationContext*>(value);
+    WaitForSingleObject(c->go,INFINITE);
+    for (int i=0; i<100; ++i) {
+        ShutdownRequire(EnsureEffectLock(),"concurrent lock initialization");
+        ReleasePeriodicEffects(); ReleaseConditionEffects(); FreeDirectInput();
+    }
+    return 0;
+}
+static void CheckConcurrentLockPublication() {
+    ShutdownRequire(!g_lockInit.load(),"fresh process lock not initialized");
+    LockPublicationContext c;
+    c.go=CreateEventW(nullptr,TRUE,FALSE,nullptr);
+    c.readerReady=CreateEventW(nullptr,TRUE,FALSE,nullptr);
+    c.publishedSeen=CreateEventW(nullptr,TRUE,FALSE,nullptr);
+    ShutdownRequire(c.go && c.readerReady && c.publishedSeen,"publication events");
+    g_holdMs.store(1);
+    HANDLE reader=CreateThread(nullptr,0,PublicationReader,&c,0,nullptr);
+    ShutdownRequire(reader && WaitForSingleObject(c.readerReady,5000)==WAIT_OBJECT_0,"pre-init reader ready");
+    HANDLE initializers[4]={};
+    for (auto& thread:initializers) {
+        thread=CreateThread(nullptr,0,PublicationInitializer,&c,0,nullptr);
+        ShutdownRequire(thread!=nullptr,"initializer creation");
+    }
+    SetEvent(c.go);
+    ShutdownRequire(WaitForMultipleObjects(4,initializers,TRUE,10000)==WAIT_OBJECT_0,"concurrent init/release completed");
+    ShutdownRequire(WaitForSingleObject(c.publishedSeen,5000)==WAIT_OBJECT_0,"reader observed published readiness");
+    c.stop.store(true);
+    ShutdownRequire(WaitForSingleObject(reader,5000)==WAIT_OBJECT_0,"publication reader joined");
+    ShutdownRequire(c.initialFalseReads==1 && c.readyReads>0 && g_lockInit.load(),"readiness publication observed");
+    for(auto thread:initializers) CloseHandle(thread);
+    CloseHandle(reader); CloseHandle(c.go); CloseHandle(c.readerReady); CloseHandle(c.publishedSeen);
+    std::puts("concurrent first initialization/publication and 400 empty releases passed; no device initialization");
+}
+static void CheckPreInitWatchdog() {
+    ShutdownRequire(!g_lockInit.load(),"pre-init fresh process");
+    SetHoldTimeoutMs(0);
+    ShutdownRequire(!g_lockInit.load() && !g_holdThread,"disabled timeout stays low demand");
+    SetHoldTimeoutMs(1);
+    ShutdownRequire(g_lockInit.load(std::memory_order_acquire) && g_holdThread,"lock published before pre-init worker");
+    Sleep(60);
+    FreeDirectInput(); FreeDirectInput();
+    ShutdownRequire(!g_holdThread && g_lockInit.load(),"cleanup keeps lifetime lock");
+    SetHoldTimeoutMs(1); FreeDirectInput();
+    ShutdownRequire(!g_holdThread,"pre-init worker restart joined");
+    std::puts("pre-device watchdog initialization, disabled low-demand path and restart passed; no devices");
+}
+int main(int argc, char** argv) {
     SetEnvironmentVariableA("DBCE_FFB_LOG", "0");
+    if(argc==2 && std::strcmp(argv[1],"--pre-init-worker")==0) { CheckPreInitWatchdog(); return 0; }
+    CheckConcurrentLockPublication();
     for (int ms : {1,50,500}) {
         FakeDevice d; LPDIRECTINPUTEFFECT fx=nullptr;
         assert(SUCCEEDED(wheel_burst::create(&d,fx,25,ms)) && d.effect.starts==0 && !d.effect.playing());
@@ -199,7 +265,7 @@ int main() {
     assert(!wheel_burst::needs_update(1000,40000,true,1200,40000));
     assert(wheel_burst::needs_update(1000,40000,false,1000,40000));
     // Exercise production watchdog and window procedure against fake effects.
-    InitializeCriticalSection(&g_lock); g_lockInit=true;
+    assert(EnsureEffectLock());
     FakeEffect periodic,condition;
     g_periodic[0].used=true; g_periodic[0].durationMs=50; g_periodic[0].fx=&periodic;
     g_periodic[0].started=true; g_periodic[0].lastMag=20;
@@ -214,7 +280,7 @@ int main() {
     int starts=periodic.starts; GuardWndProc(nullptr,WM_ACTIVATEAPP,TRUE,0); assert(periodic.starts==starts);
     assert(StopPeriodicBurst(0)==1 && StopPeriodicBurst(0)==1);
     assert(StopPeriodicBurst(1)==0 && StopPeriodicBurst(-1)==0);
-    ReleasePeriodics(); ReleaseConditions(); DeleteCriticalSection(&g_lock); g_lockInit=false;
+    ReleasePeriodics(); ReleaseConditions(); 
     if (!CheckDelayedWorkerShutdown()) return 1;
     CheckSharedWatchdogState();
     std::puts("finite burst and production focus/watchdog fake-effect checks passed; no hardware acquired");

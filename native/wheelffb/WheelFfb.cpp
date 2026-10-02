@@ -113,7 +113,22 @@ static HWND                 g_hwnd    = nullptr;
 static bool                 g_logging = false;
 static bool                 g_logChecked = false;
 static CRITICAL_SECTION     g_lock;
-static bool                 g_lockInit = false;
+// Published once for the module lifetime; FreeDirectInput never destroys this lock.
+static INIT_ONCE g_lockOnce = INIT_ONCE_STATIC_INIT;
+static std::atomic<bool> g_lockInit{false};
+static BOOL CALLBACK InitializeEffectLock(PINIT_ONCE, PVOID, PVOID*)
+{
+    if (!InitializeCriticalSectionEx(&g_lock, 0, 0)) {
+        g_lastHr.store(HRESULT_FROM_WIN32(GetLastError()));
+        return FALSE;
+    }
+    g_lockInit.store(true, std::memory_order_release);
+    return TRUE;
+}
+static bool EnsureEffectLock()
+{
+    return InitOnceExecuteOnce(&g_lockOnce, InitializeEffectLock, nullptr, nullptr) != FALSE;
+}
 
 // --------------------------------------------------------------------------
 // logging
@@ -240,7 +255,7 @@ static HRESULT CreateDirectInputFromSystem(LPDIRECTINPUT8* out)
 
 static bool EnsureDirectInput()
 {
-    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    if (!EnsureEffectLock()) return false;
     if (g_di) return true;
     HRESULT hr = CreateDirectInputFromSystem(&g_di);
     if (FAILED(hr)) { Log("DirectInput8Create failed 0x%08lX", hr); g_di = nullptr; return false; }
@@ -507,7 +522,7 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     g_hwnd = ResolveGameWindow((HWND)(INT_PTR)hwnd);
     if (g_hwnd != (HWND)(INT_PTR)hwnd) Log("  using this process's own window %p instead of %p", (void*)g_hwnd, (void*)(INT_PTR)hwnd);
 
-    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    if (!EnsureEffectLock()) return 0;
 
     if (g_device) {
         Log("  already initialised");
@@ -1298,7 +1313,7 @@ __declspec(dllexport) void ReleasePeriodicEffects(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("ReleasePeriodicEffects()");
-    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    if (!EnsureEffectLock()) return;
     EnterCriticalSection(&g_lock);
     ReleasePeriodics();
     LeaveCriticalSection(&g_lock);
@@ -1492,7 +1507,7 @@ __declspec(dllexport) void ReleaseConditionEffects(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("ReleaseConditionEffects()");
-    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    if (!EnsureEffectLock()) return;
     EnterCriticalSection(&g_lock);
     ReleaseConditions();
     LeaveCriticalSection(&g_lock);
@@ -1511,7 +1526,7 @@ __declspec(dllexport) void PanicStop(void)
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     Log("PanicStop()");
     if (!g_device) return;
-    if (!g_lockInit) { InitializeCriticalSection(&g_lock); g_lockInit = true; }
+    if (!EnsureEffectLock()) return;
     EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
     StopPeriodics();
@@ -1607,7 +1622,7 @@ static void RemoveExitGuards()
 static bool ApplyHoldTimeout(ULONGLONG now)
 {
     const int holdMs = g_holdMs.load();
-    if (!g_lockInit || holdMs <= 0) return false;
+    if (!g_lockInit.load(std::memory_order_acquire) || holdMs <= 0) return false;
     EnterCriticalSection(&g_lock);
     bool active = g_lastForce != 0;
     for (int i = 0; i < kMaxPeriodic; ++i) active = active || (g_periodic[i].started && g_periodic[i].lastMag != 0);
@@ -1632,6 +1647,8 @@ __declspec(dllexport) void SetHoldTimeoutMs(int ms)
     g_holdMs = ms;
     Log("SetHoldTimeoutMs(%d)", ms);
     if (ms > 0 && !g_holdThread) {
+        // Publish the lock before creating a worker, including pre-device startup.
+        if (!EnsureEffectLock()) return;
         g_stopThreads = false;
         g_holdThread = CreateThread(nullptr, 0, HoldWatchdog, nullptr, 0, nullptr);
     }
@@ -1747,9 +1764,10 @@ __declspec(dllexport) void FreeDirectInput(void)
 BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 {
     // Logging can wait on another thread; never acquire its mutex under loader lock.
-    if (reason == DLL_PROCESS_DETACH && g_lockInit) {
+    // Only legal after all callers and the watchdog are quiescent; never wait here.
+    if (reason == DLL_PROCESS_DETACH && g_lockInit.load(std::memory_order_acquire)) {
         DeleteCriticalSection(&g_lock);
-        g_lockInit = false;
+        g_lockInit.store(false, std::memory_order_release);
     }
     return TRUE;
 }
