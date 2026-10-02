@@ -190,6 +190,38 @@ static void CheckZeroAndTimeoutFamilies() {
     FreeDirectInput(); DeleteCriticalSection(&g_lock); g_lockInit=false;
     std::puts("all-family watchdog zero, no-release and restart-state checks passed; fake effects only");
 }
+static void CheckLowDemandRestart() {
+    InitializeCriticalSection(&g_lock); g_lockInit=true;
+    FakeEffect periodic,condition;
+    // Sentinel is never dereferenced: these retained fake slots need no device methods.
+    g_device=reinterpret_cast<LPDIRECTINPUTDEVICE8>(1);
+    g_periodic[0].fx=&periodic;g_periodic[0].used=true;g_periodic[0].started=true;
+    g_periodic[0].lastMag=100;g_periodic[0].lastPeriod=40000;
+    g_condition[0].fx=&condition;g_condition[0].used=true;g_condition[0].started=true;g_condition[0].lastCoeff=100;
+    for(int demand : {1,100,499,500}) {
+        ZeroForces(); int psets=periodic.sets,csets=condition.sets;
+        ShutdownRequire(UpdatePeriodicEffect(0,demand,25000)==1 && g_periodic[0].started && periodic.sets==psets+1 &&
+            (periodic.flags&DIEP_START),"stopped periodic low demand explicitly restarts");
+        ShutdownRequire(UpdateConditionEffect(0,demand,0,0,0)==1 && g_condition[0].started && condition.sets==csets+1 &&
+            (condition.flags&DIEP_START),"stopped condition low demand explicitly restarts");
+        psets=periodic.sets;csets=condition.sets;
+        ShutdownRequire(UpdatePeriodicEffect(0,demand,25000)==1 && periodic.sets==psets,"running periodic unchanged filter retained");
+        ShutdownRequire(UpdateConditionEffect(0,demand,0,0,0)==1 && condition.sets==csets,"running condition unchanged filter retained");
+    }
+    g_device=nullptr;FreeDirectInput();DeleteCriticalSection(&g_lock);g_lockInit=false;
+    std::puts("low-demand restart 1/100/499/500 and running unchanged filters passed; fake effects only");
+}
+static void CheckEarlyWatchdogReadiness() {
+    static_assert(std::is_same<decltype(g_lockInit),std::atomic<bool>>::value,"readiness must be synchronized");
+    ShutdownRequire(!g_lockInit,"readiness initially false");
+    SetHoldTimeoutMs(1);ShutdownRequire(g_holdThread!=nullptr,"early watchdog starts without a device");
+    Sleep(80); // Allow a worker read while readiness is false.
+    InitializeCriticalSection(&g_lock);g_lockInit=true;
+    Sleep(80); // Allow a worker read after synchronized publication.
+    FreeDirectInput();ShutdownRequire(g_holdThread==nullptr,"early watchdog joined before lock destruction");
+    g_lockInit=false;DeleteCriticalSection(&g_lock);
+    std::puts("early watchdog readiness publication and joined teardown passed; no device initialization");
+}
 #endif
 int main() {
     SetEnvironmentVariableA("DBCE_FFB_LOG", "0");
@@ -197,6 +229,8 @@ int main() {
 #ifndef WHEEL_LEGACY_SHUTDOWN_BASELINE
     CheckSharedWatchdogState();
     CheckZeroAndTimeoutFamilies();
+    CheckLowDemandRestart();
+    CheckEarlyWatchdogReadiness();
     ShutdownRequire(GetInputCapabilities()==1 && GetWheelFfbVersion()==502,"HAT capability and distinct native version");
 #endif
     printf("PASS HAT39 shutdown: %u explicit checks plus 39 compile-time Cdecl signatures; no devices acquired\n",shutdownChecks);

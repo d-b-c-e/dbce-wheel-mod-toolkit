@@ -1,5 +1,7 @@
 # Woden HAT39 shutdown backport — source candidate
 
+Review successor to held `dd45f4f`: unchanged-demand filters now require an already started effect, so stopped periodic/condition demand 1..500 explicitly restarts. Effect-lock readiness is atomic, publishing completed initialization to a watchdog requested before initialization. Added low-demand restart/unchanged-running and early-watchdog readiness regressions. The original source/DLLs remain frozen in a separate checkout; no package adoption until this successor is reviewed.
+
 Based exactly on unpublished input override `9ad1f64044b57fa05c119697518a47f2a86ba0de`. Adapts independently reviewed `f8f0619b5588f2d11b44f4becd4198775d4a8bcf` to the pre-burst native implementation. Source candidate native version is 0.5.2/502; toolkit base version remains v0.12.0. No tag, package pin or default branch is updated.
 
 Preserves all 39 export names, their Cdecl signatures, GetInputCapabilities bit 0, 32 POV directions, existing force mathematics, profiles and managed APIs. It does not import the v0.13 41-export binary, burst exports, cadence or consumer source changes.

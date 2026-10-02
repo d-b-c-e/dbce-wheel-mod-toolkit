@@ -113,7 +113,10 @@ static HWND                 g_hwnd    = nullptr;
 static bool                 g_logging = false;
 static bool                 g_logChecked = false;
 static CRITICAL_SECTION     g_lock;
-static bool                 g_lockInit = false;
+// Publish readiness only after InitializeCriticalSection completes. A watchdog
+// may be requested before DirectInput initialization; atomic load/store provides
+// acquire/release synchronization without making that request open a device.
+static std::atomic<bool>     g_lockInit{false};
 
 // --------------------------------------------------------------------------
 // logging
@@ -1190,7 +1193,7 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
     bool silence       = (mag == 0 && s.lastMag != 0);
     bool magChanged    = labs((long)mag - (long)s.lastMag) > 500;                                   // >5%
     bool periodChanged = s.lastPeriod != 0 && labs((long)period - (long)s.lastPeriod) * 10 > (long)s.lastPeriod;  // >10%
-    if (!magChanged && !periodChanged && !silence) { LeaveCriticalSection(&g_lock); return 1; }
+    if (s.started && !magChanged && !periodChanged && !silence) { LeaveCriticalSection(&g_lock); return 1; }
 
     DIPERIODIC pf = {}; pf.dwMagnitude = mag; pf.dwPeriod = period;
     DIEFFECT eff = {};
@@ -1393,7 +1396,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
     bool moved = labs((long)coefficient - (long)s.lastCoeff) > 500 ||
                  labs((long)saturation  - (long)s.lastSat)   > 500 ||
                  s.lastDead != deadband || s.lastOffset != offset;
-    if (!moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
+    if (s.started && !moved && !silence) { LeaveCriticalSection(&g_lock); return 1; }
 
     DICONDITION cond = {};
     FillCondition(&cond, coefficient, saturation, deadband, offset);
