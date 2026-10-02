@@ -197,3 +197,7 @@ try {
     if ((Split-Path -Parent $absolute) -ne $tempParent -or (Split-Path -Leaf $absolute) -notlike 'consumer-status-test-*') { throw 'Unsafe fixture cleanup path' }
     if (Test-Path -LiteralPath $absolute) { Remove-Item -LiteralPath $absolute -Recurse -Force }
 }
+# GitHub's PowerShell wrapper propagates LASTEXITCODE after dot-sourcing.
+# The final missing-target subprocess intentionally returns 1; all assertions
+# and cleanup must finish before declaring fixture success.
+exit 0
