@@ -89,22 +89,25 @@ static void CheckLoss(HRESULT error,ULONGLONG start,HRESULT acquire=S_OK) {
     Require(device.acquires==3,"full DWORD tick period does not alias elapsed 64-bit throttle");
     FreeDirectInput();
 }
-static void CheckRecreation() {
+static void CheckRecreation(bool acceptFirstRetry) {
     Device device;Effect original;original.result=E_HANDLE;Attach(device,original);testTick=1000;
     Require(SetDeviceForcesXY(4000,0)==0,"failed recreation reports failure");
     Require(device.creates==2 && !g_effect && original.releases==1,"both axes rejected; old effect released once");
     int attempts=device.creates;testTick=2000;
     Require(SetDeviceForcesXY(-2000,0)==0 && device.creates==attempts,"1000 ms heal boundary remains throttled");
     testTick=2001;
-    Require(SetDeviceForcesXY(-2000,0)==0 && device.creates==attempts+2,"failed pending recreation retries after throttle");
-    attempts=device.creates;
-    for(int i=0;i<100;i++) Require(SetDeviceForcesXY(-2000,0)==0 && device.creates==attempts,"persistent creation failure remains bounded");
-    testTick=3002;device.acquireResult=S_OK;device.createResult=S_OK;device.singleAxis=true;
+    if(!acceptFirstRetry) {
+        Require(SetDeviceForcesXY(-2000,0)==0 && device.creates==attempts+2,"failed pending recreation retries after throttle");
+        attempts=device.creates;
+        for(int i=0;i<100;i++) Require(SetDeviceForcesXY(-2000,0)==0 && device.creates==attempts,"persistent creation failure remains bounded");
+        testTick=3002;
+    }
+    device.acquireResult=S_OK;device.createResult=S_OK;device.singleAxis=true;
     int recovered=SetDeviceForcesXY(-2000,0);
     std::printf("recreation recovery: result=%d creates=%d\n",recovered,device.creates);
     Require(recovered==1 && g_effect==&device.replacement && g_effectAxes==1,"later caller recovers through single-axis fallback");
     Require(device.replacement.lastMagnitude==0,"recreated effect starts ramp at zero");
-    testTick=3252;Require(SetDeviceForcesXY(-2000,0)==1 && device.replacement.lastMagnitude==-2000,"only fresh request used after ramp");
+    testTick+=250;Require(SetDeviceForcesXY(-2000,0)==1 && device.replacement.lastMagnitude==-2000,"only fresh request used after ramp");
     FreeDirectInput();
 }
 static void CheckCancellation(bool panic,ULONGLONG start) {
@@ -119,7 +122,8 @@ int main(int argc,char** argv) {
     SetEnvironmentVariableA("DBCE_FFB_LOG","0");
     Require(argc==2,"mode required");
     if(!std::strcmp(argv[1],"loss")) CheckLoss(DIERR_INPUTLOST,1000,DIERR_INPUTLOST);
-    else if(!std::strcmp(argv[1],"recreate")) CheckRecreation();
+    else if(!std::strcmp(argv[1],"recreate")) CheckRecreation(true);
+    else if(!std::strcmp(argv[1],"recreate-reject")) CheckRecreation(false);
     else if(!std::strcmp(argv[1],"boundaries")) {
         for(auto error:{(HRESULT)DIERR_INPUTLOST,(HRESULT)DIERR_NOTACQUIRED,(HRESULT)DIERR_NOTEXCLUSIVEACQUIRED})
             for(auto acquire:{error,(HRESULT)S_OK})

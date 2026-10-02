@@ -21,7 +21,7 @@ block on every request (200 Acquire calls total). After both two-axis and
 single-axis recreation attempts failed, later requests returned at the null
 effect check; the now-accepting fake could never recover (two creation calls).
 
-The final identical test source fails `loss`, `recreate` and `boundaries` on
+The final identical test source fails `loss`, `recreate`, `recreate-reject` and `boundaries` on
 canonical x64 and x86, and passes all modes on the candidate. Cancellation checks
 also pass before/after; they protect deliberate release against the new pending
 retry behavior. Before/after evidence is saved outside the repository candidate.
@@ -48,6 +48,7 @@ released by panic, candidate close or shutdown. No export/version/profile change
 native\wheelffb\test\build_constant_recovery_test.bat x64
 native\wheelffb\build\constant_recovery_test.exe loss
 native\wheelffb\build\constant_recovery_test.exe recreate
+native\wheelffb\build\constant_recovery_test.exe recreate-reject
 native\wheelffb\build\constant_recovery_test.exe boundaries
 native\wheelffb\build\constant_recovery_test.exe cancel
 ```
