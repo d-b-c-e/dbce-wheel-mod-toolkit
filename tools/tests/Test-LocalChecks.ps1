@@ -46,6 +46,9 @@ try {
     Assert ($result.Code -ne 0 -and $result.Receipt.status -eq 'failed') 'Empty plan passed'
     $result=Run-Case 'duplicate' @($ok,$ok)
     Assert ($result.Code -ne 0) 'Duplicate step passed'
+    $result=Run-Case 'provenance-refused' @($ok) @('-Git',$hostPath)
+    Assert ($result.Code -ne 0 -and -not $result.Receipt.sourceBefore -and $result.Receipt.steps[0].status -eq 'not-run') 'Provenance refusal ran a check'
+    Assert ($result.Receipt.artifacts.Count -eq 0) 'Read artifacts after provenance refusal'
     if($IsWindows) {
         $result=Run-Case 'batch-spaces' @(@{id='batch-spaces';program='{cmd}';arguments=@('/d','/c','{root}/failure child.cmd')})
         Assert ($result.Code -ne 0 -and $result.Receipt.steps[0].exitCode -eq 7) 'Batch path spaces or exit preservation failed'

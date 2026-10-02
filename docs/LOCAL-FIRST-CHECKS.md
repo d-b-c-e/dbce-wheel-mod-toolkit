@@ -119,3 +119,14 @@ canonical native-0.6.0/41-export source as the native-0.8.0/46-export v0.15.0 re
 Installed adoption, physical acceptance and consumer deployment remain separate.
 This plan supersedes the earlier allowance-dependent publication ordering while
 preserving its frozen source identities. No publication has occurred here.
+
+## Current validation checkpoint
+
+Workflow syntax and the runner's synthetic process/receipt boundary tests passed.
+Both full plans stopped at Git provenance inspection before executing any check:
+the SDK execution identity (`antho`) differs from this isolated checkout's owner
+(`CodexSandboxOffline`). The guard was respected; no trust/ACL/policy change or
+alternate execution was attempted. Those failed receipts are evidence of a
+blocked lane, not build qualification. Independent review and execution in a
+properly owned authorized checkout are required before claiming either lane
+passed. Local Linux coverage and release packaging remain unqualified.

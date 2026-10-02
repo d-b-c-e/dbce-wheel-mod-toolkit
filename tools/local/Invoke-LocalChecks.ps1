@@ -117,7 +117,7 @@ try {
             if(-not $receipt.sourceStableAndClean) { $receipt.status='failed'; $receipt.error=(@($receipt.error,'Source was dirty or changed; results are not qualified for this commit') | Where-Object { $_ }) -join '; ' }
         } catch { $receipt.status='failed'; $receipt.error=$_.Exception.Message }
     }
-    if($receipt.plan) {
+    if($receipt.sourceBefore) {
         foreach($artifact in $plan.artifacts) {
             try {
                 $path=Join-Path $root $artifact
