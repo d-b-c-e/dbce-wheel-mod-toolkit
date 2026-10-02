@@ -1,0 +1,2 @@
+# Preserve the authorized producer artifact's exact CRLF bytes and SHA-256.
+woden-ffb-reference-v1.json -text

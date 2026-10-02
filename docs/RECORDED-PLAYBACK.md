@@ -1,5 +1,9 @@
 # Recorded playback and force observation v1
 
+For offline summaries with explicit cross-game compatibility boundaries, see
+[command-summary comparison](COMMAND-SUMMARY-COMPARISON.md). This does not relax
+the same-case identity requirement below.
+
 The toolkit owns portable case identity, bounded force-observation files and
 comparison. Consumers own game sampling, input codecs, initial-state restoration,
 force signals/models and game execution. MAME INP stays MAME INP; F-Zero's `.fzpt`
