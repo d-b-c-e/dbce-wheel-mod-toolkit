@@ -16,18 +16,18 @@ fake accepting device. Inspected OutRun tooling includes
 `tools/tests/signal_recording_fixture.cpp`; inspected F-Zero tooling includes
 `src/fzero_ffb.cpp`, `tests/test_ffb.cpp` and `tools/timing_replay_summary.py`.
 Replay, lifecycle and timing checks do not establish equivalent command-summary
-definitions. No equivalent OutRun/F-Zero summary artifact was located in the
-inspected snapshots. This is an evidence gap, not a claim about all current
-consumer tooling. Consumer adapters stay consumer-owned.
+definitions. The later reviewed OutRun synthetic summary is now supported in its
+distinct raw-request domain, as detailed below. An equivalent F-Zero artifact
+remains unverified. Consumer adapters stay consumer-owned.
 
 | Quantity | Verified Woden model-3 summary | OutRun2006 | F-Zero |
 |---|---|---|---|
-| Command magnitude | Signed constant request; absolute peak and uniform-sample RMS | Unsupported: unit mapping/summary unverified | Unsupported: unit mapping/summary unverified |
-| Cap occupancy | Fraction of 300 samples: abs(command) >= 0.25 - 0.000001 | Unsupported: cap/threshold semantics unverified | Unsupported: cap/threshold semantics unverified |
-| Duration | 300 injected samples * 0.02 s = 6 s, shutdown excluded | Unsupported: envelope/clock unverified | Unsupported: envelope/clock unverified |
-| Duty | Fraction: strict abs(command) > 0.0015 | Unsupported: sampling/threshold/effect semantics unverified | Unsupported: sampling/threshold/effect semantics unverified |
-| Slew | Max abs(current-previous)/0.02 s; initial zero, gate zeros included, shutdown excluded | Unsupported: clock/effect semantics unverified | Unsupported: clock/effect semantics unverified |
-| Shutdown zeros | Fake-device ZeroAndStop calls after envelope; order retained separately | Unsupported: primitive/order unverified | Unsupported: primitive/order unverified |
+| Command magnitude | Signed constant request; absolute peak and uniform-sample RMS | Raw pre-strength request peak/mean absolute; incompatible units, no RMS/normalization | Unsupported: unit mapping/summary unverified |
+| Cap occupancy | Fraction of 300 samples: abs(command) >= 0.25 - 0.000001 | Request-count fraction at abs(request)==10000; incompatible threshold/weighting | Unsupported: cap/threshold semantics unverified |
+| Duration | 300 injected samples * 0.02 s = 6 s, shutdown excluded | Tick span and nominal calculation count/60; no effect/envelope duration | Unsupported: envelope/clock unverified |
+| Duty | Fraction: strict abs(command) > 0.0015 | Nonzero request fraction; no held-effect duty | Unsupported: sampling/threshold/effect semantics unverified |
+| Slew | Max abs(current-previous)/0.02 s; initial zero, gate zeros included, shutdown excluded | Segmented positive-tick request-pair average rate; no actuator slew | Unsupported: clock/effect semantics unverified |
+| Shutdown zeros | Fake-device ZeroAndStop calls after envelope; order retained separately | Unsupported: recorder completion gives no zero/release proof | Unsupported: primitive/order unverified |
 
 All three game pairs remain unsupported. Unsupported quantities have no numeric
 value or delta; zero is never a substitute. Native periodic, rumble and condition
@@ -88,7 +88,7 @@ retains shaper SHA-256
 `f5217f81b5bd305e0efca3aacc459b9066c4366cd220c3e4299c511e23b5431a`.
 No native DLL, ROM, private recording, binary or fabricated waveform is included.
 
-Remaining adapters require each consumer's exact authorized summary fixture and
+Future consumer cases/adapters require each consumer's exact authorized summary fixture and
 generator, source/output hashes, native/component versions (or fake boundary),
 model/options, clock integration, cap/activity thresholds, effect interpretation,
 slew/shutdown boundaries and zero-call semantics. Unknowns stay unsupported.
@@ -96,3 +96,50 @@ Do not infer normalization factors from command peak or a historical wheel model
 
 This isolated candidate is held for independent source review and the hosted-usage
 gate. No push, hosted workflow or default-branch mutation has been performed.
+
+## Reviewed OutRun extension
+
+The optional `--outrun-summary` argument accepts only the exact independently
+reviewed synthetic `outrun-command-summary-v1.json`. Both its byte SHA-256 and
+canonical decoded contents must match the bundled approved case. Changed schema,
+units, arithmetic, unsupported claims or even alternate artifact serialization
+are rejected. This narrow allowlist does not authorize private or arbitrary
+captures; additional cases need review, definitions and a new fixture identity.
+
+```text
+python tools/replay/command_summary.py tools/replay/fixtures/woden-ffb-reference-v1.json --outrun-summary tools/replay/fixtures/outrun-command-summary-v1.json
+```
+
+`outrun_summary.py` retains the complete summary, reviewed metric definitions and
+hash catalog. OutRun adapter source is
+`9a6b5989de456e71e89d8ac33e1c9be5f23ee645`, tree
+`5317b0e2fb59c9612dbbd0f662a28fdc6dd4670d`; production baseline is
+`86599699ab3926bef796413d266a9090158383c9`.
+The embedded declared calculation revision
+`73747cc3585f48c64465340c8c21ee5c06093cf8` remains unauthenticated.
+Source/catalog identity is not a signature or authentication of that embedded
+revision. Native version remains unsupported: the producer used memory-only
+sinks and loaded no native output. No shutdown claim follows from recorder close.
+
+Approved fixture hashes (all exact bytes preserved):
+
+- Summary: `74c09edd120c113adf25d6c3287c5c734a7aeca7ed8968747488e4d1544dd339`.
+- Definitions: `0d816acab7ba9f2f35933b20fd8d8d57637d4025bd71319415a0428b8a7c21b6`.
+- Catalog: `2340a5930db8d242ca9eeefdc50c8296ffb70bc506d0c9f045866ea2a5cf48f9`.
+
+These three JSON artifacts are copied from the reviewed consumer output directory
+`build/command-summary-f17e1a70bf43482789d2316762bfad7c`. The accompanying synthetic
+input and recording hashes are retained in the catalog; no recording, executable
+or device payload is copied into this toolkit candidate. Its source/compiler and
+other artifact claims are preserved without independently re-executing the native
+producer here.
+
+OutRun has distinct metric names and `outrun.*` definition identifiers. Signed
+native-range request values are not divided by 10000. Request-count mean absolute
+is not RMS. Request cap/activity fractions are not Woden sample occupancy/duty.
+Last-minus-first millisecond sample span and fixed-60 calculation-step sum are not
+effect duration. Positive-tick pair averages exclude checkpoint/configuration
+boundaries and equal ticks; they are not Woden slew or actuator slew. Pre-clamp
+periodic amplitude parameters and requested Hz remain separate from constants.
+All cross-game pairs remain unsupported with no numeric delta, regardless of
+similar values. Omitting the optional argument leaves that input unsupported.

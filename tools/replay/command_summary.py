@@ -135,9 +135,11 @@ def compare_metrics(left, right):
     return result
 
 
-def report(woden_input):
-    other = [unavailable(game, "No verified command-summary artifact/adapter in inspected source snapshots; no conversion inferred")
+def report(woden_input, outrun_input=None):
+    other = [unavailable(game, "No verified command-summary supplied to this report; no conversion inferred")
              for game in ("OutRun2006", "F-Zero")]
+    if outrun_input is not None:
+        other[0] = outrun_input
     comparisons = [{"baselineGame": a, "candidateGame": b,
                     "metrics": compare_metrics({}, {})}
                    for a, b in (("Woden", "OutRun2006"), ("Woden", "F-Zero"), ("OutRun2006", "F-Zero"))]
@@ -150,10 +152,17 @@ def report(woden_input):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("woden_summary", type=Path)
+    parser.add_argument("--outrun-summary", type=Path,
+                        help="exact reviewed synthetic raw-request artifact; no normalization conversion")
     args = parser.parse_args()
     try:
         summary, digest = read_summary(args.woden_summary)
-        sys.stdout.buffer.write(replay.encode(report(woden(summary, digest))))
+        outrun_input = None
+        if args.outrun_summary is not None:
+            from outrun_summary import adapt
+            outrun_value, outrun_digest = read_summary(args.outrun_summary)
+            outrun_input = adapt(outrun_value, outrun_digest)
+        sys.stdout.buffer.write(replay.encode(report(woden(summary, digest), outrun_input)))
         return 0
     except (replay.InvalidCase, OSError, KeyError, TypeError) as error:
         print("invalid summary: " + str(error), file=sys.stderr)

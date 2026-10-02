@@ -1,2 +1,3 @@
 # Preserve the authorized producer artifact's exact CRLF bytes and SHA-256.
 woden-ffb-reference-v1.json -text whitespace=cr-at-eol
+outrun-command-*.json -text whitespace=cr-at-eol
