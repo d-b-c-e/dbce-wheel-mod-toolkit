@@ -1,21 +1,248 @@
 {
-  "schema": "dbce.local-check-plan", "version": 1, "lane": "windows-msvc",
-  "artifacts": ["native/wheelffb/build/WheelFfb.dll", "native/wheelffb/build/x86/WheelFfb.dll"],
+  "schema": "dbce.local-check-plan",
+  "version": 1,
+  "lane": "windows-msvc",
+  "artifacts": [
+    "native/wheelffb/build/WheelFfb.dll",
+    "native/wheelffb/build/x86/WheelFfb.dll",
+    "native/wheelffb/build/constant_recovery_test.exe",
+    "native/wheelffb/build/x86/constant_recovery_test.exe"
+  ],
   "steps": [
-    {"id":"dotnet-sdk-info","program":"{dotnet}","arguments":["--info"]},
-    {"id":"managed-tests","program":"{dotnet}","arguments":["test","Dbce.Wheel.sln","--configuration","Release","--nologo"]},
-    {"id":"msvc-conformance-events-signals-recovery","program":"{cmd}","arguments":["/d","/c","{root}/native/forcemodel/build_conformance.bat"]},
-    {"id":"transactional-vendoring","program":"{pwsh}","arguments":["-NoProfile","-File","{root}/tools/tests/Test-SyncToolkit.ps1"]},
-    {"id":"consumer-status","program":"{pwsh}","arguments":["-NoProfile","-File","{root}/tools/tests/Test-ConsumerStatus.ps1"]},
-    {"id":"consumer-status-exit","program":"{pwsh}","arguments":["-NoProfile","-File","{root}/tools/tests/Test-ConsumerStatusExit.ps1"]},
-    {"id":"native-binding","program":"{pwsh}","arguments":["-NoProfile","-File","{root}/tools/tests/Test-NativeBinding.ps1"]},
-    {"id":"native-x64-exports","program":"{pwsh}","arguments":["-NoProfile","-File","{root}/native/wheelffb/build.ps1"]},
-    {"id":"native-x86-build","program":"{cmd}","arguments":["/d","/c","{root}/native/wheelffb/build.bat","x86"]},
-    {"id":"burst-drain-publication-x64","program":"{cmd}","arguments":["/d","/c","{root}/native/wheelffb/test/build_burst_test.bat","x64"]},
-    {"id":"preinit-watchdog-x64","program":"{root}/native/wheelffb/build/burst_test.exe","arguments":["--pre-init-worker"]},
-    {"id":"burst-drain-publication-x86","program":"{cmd}","arguments":["/d","/c","{root}/native/wheelffb/test/build_burst_test.bat","x86"]},
-    {"id":"preinit-watchdog-x86","program":"{root}/native/wheelffb/build/x86/burst_test.exe","arguments":["--pre-init-worker"]},
-    {"id":"actual-dll-lifecycle-x64","program":"{cmd}","arguments":["/d","/c","{root}/native/wheelffb/test/build_lifecycle_test.bat","x64"]},
-    {"id":"actual-dll-lifecycle-x86","program":"{cmd}","arguments":["/d","/c","{root}/native/wheelffb/test/build_lifecycle_test.bat","x86"]}
+    {
+      "id": "dotnet-sdk-info",
+      "program": "{dotnet}",
+      "arguments": [
+        "--info"
+      ]
+    },
+    {
+      "id": "managed-tests",
+      "program": "{dotnet}",
+      "arguments": [
+        "test",
+        "Dbce.Wheel.sln",
+        "--configuration",
+        "Release",
+        "--nologo"
+      ]
+    },
+    {
+      "id": "msvc-conformance-events-signals-recovery",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/forcemodel/build_conformance.bat"
+      ]
+    },
+    {
+      "id": "transactional-vendoring",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/tools/tests/Test-SyncToolkit.ps1"
+      ]
+    },
+    {
+      "id": "consumer-status",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/tools/tests/Test-ConsumerStatus.ps1"
+      ]
+    },
+    {
+      "id": "consumer-status-exit",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/tools/tests/Test-ConsumerStatusExit.ps1"
+      ]
+    },
+    {
+      "id": "native-binding",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/tools/tests/Test-NativeBinding.ps1"
+      ]
+    },
+    {
+      "id": "native-x64-exports",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/native/wheelffb/build.ps1"
+      ]
+    },
+    {
+      "id": "native-x86-build",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/build.bat",
+        "x86"
+      ]
+    },
+    {
+      "id": "burst-drain-publication-x64",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_burst_test.bat",
+        "x64"
+      ]
+    },
+    {
+      "id": "preinit-watchdog-x64",
+      "program": "{root}/native/wheelffb/build/burst_test.exe",
+      "arguments": [
+        "--pre-init-worker"
+      ]
+    },
+    {
+      "id": "burst-drain-publication-x86",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_burst_test.bat",
+        "x86"
+      ]
+    },
+    {
+      "id": "preinit-watchdog-x86",
+      "program": "{root}/native/wheelffb/build/x86/burst_test.exe",
+      "arguments": [
+        "--pre-init-worker"
+      ]
+    },
+    {
+      "id": "actual-dll-lifecycle-x64",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_lifecycle_test.bat",
+        "x64"
+      ]
+    },
+    {
+      "id": "actual-dll-lifecycle-x86",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_lifecycle_test.bat",
+        "x86"
+      ]
+    },
+    {
+      "id": "local-runner-contracts",
+      "program": "{pwsh}",
+      "arguments": [
+        "-NoProfile",
+        "-File",
+        "{root}/tools/tests/Test-LocalChecks.ps1"
+      ]
+    },
+    {
+      "id": "constant-recovery-build-x64",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_constant_recovery_test.bat",
+        "x64"
+      ]
+    },
+    {
+      "id": "constant-recovery-loss-x64",
+      "program": "{root}/native/wheelffb/build/constant_recovery_test.exe",
+      "arguments": [
+        "loss"
+      ]
+    },
+    {
+      "id": "constant-recovery-recreate-x64",
+      "program": "{root}/native/wheelffb/build/constant_recovery_test.exe",
+      "arguments": [
+        "recreate"
+      ]
+    },
+    {
+      "id": "constant-recovery-recreate-reject-x64",
+      "program": "{root}/native/wheelffb/build/constant_recovery_test.exe",
+      "arguments": [
+        "recreate-reject"
+      ]
+    },
+    {
+      "id": "constant-recovery-boundaries-x64",
+      "program": "{root}/native/wheelffb/build/constant_recovery_test.exe",
+      "arguments": [
+        "boundaries"
+      ]
+    },
+    {
+      "id": "constant-recovery-cancel-x64",
+      "program": "{root}/native/wheelffb/build/constant_recovery_test.exe",
+      "arguments": [
+        "cancel"
+      ]
+    },
+    {
+      "id": "constant-recovery-build-x86",
+      "program": "{cmd}",
+      "arguments": [
+        "/d",
+        "/c",
+        "{root}/native/wheelffb/test/build_constant_recovery_test.bat",
+        "x86"
+      ]
+    },
+    {
+      "id": "constant-recovery-loss-x86",
+      "program": "{root}/native/wheelffb/build/x86/constant_recovery_test.exe",
+      "arguments": [
+        "loss"
+      ]
+    },
+    {
+      "id": "constant-recovery-recreate-x86",
+      "program": "{root}/native/wheelffb/build/x86/constant_recovery_test.exe",
+      "arguments": [
+        "recreate"
+      ]
+    },
+    {
+      "id": "constant-recovery-recreate-reject-x86",
+      "program": "{root}/native/wheelffb/build/x86/constant_recovery_test.exe",
+      "arguments": [
+        "recreate-reject"
+      ]
+    },
+    {
+      "id": "constant-recovery-boundaries-x86",
+      "program": "{root}/native/wheelffb/build/x86/constant_recovery_test.exe",
+      "arguments": [
+        "boundaries"
+      ]
+    },
+    {
+      "id": "constant-recovery-cancel-x86",
+      "program": "{root}/native/wheelffb/build/x86/constant_recovery_test.exe",
+      "arguments": [
+        "cancel"
+      ]
+    }
   ]
 }
