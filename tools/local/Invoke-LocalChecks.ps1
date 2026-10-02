@@ -67,6 +67,7 @@ try {
     $absolutePlan=(Resolve-Path -LiteralPath $PlanPath).Path
     $plan=Get-Content -LiteralPath $absolutePlan -Raw | ConvertFrom-Json
     if($plan.schema -cne 'dbce.local-check-plan' -or $plan.version -isnot [long] -or $plan.version -ne 1 -or
+       $plan.lane -isnot [string] -or [string]::IsNullOrWhiteSpace($plan.lane) -or
        $plan.steps -isnot [array] -or $plan.steps.Count -eq 0 -or $plan.steps.Count -gt 100) { throw 'Unsupported or empty check plan' }
     $ids=@{}
     foreach($step in $plan.steps) {

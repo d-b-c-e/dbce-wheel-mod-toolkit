@@ -6,9 +6,11 @@ $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('local-check-fixture-'+[guid]
 $repo=Join-Path $fixtureRoot 'space repo'
 $script:assertions=0
 function Assert($Passed,[string]$Message) { $script:assertions++;if(-not $Passed){throw $Message} }
-function Run-Case([string]$Name,[array]$Steps,[string[]]$Extra=@()) {
+function Run-Case([string]$Name,[array]$Steps,[string[]]$Extra=@(),$Lane='synthetic-fixture',[switch]$OmitLane) {
     $planPath=Join-Path $fixtureRoot ($Name+'.json');$out=Join-Path $fixtureRoot ($Name+'-output')
-    [ordered]@{schema='dbce.local-check-plan';version=1;lane='synthetic-fixture';artifacts=@('fixture.txt');steps=$Steps} | ConvertTo-Json -Depth 8 | Set-Content $planPath -Encoding utf8
+    $plan=[ordered]@{schema='dbce.local-check-plan';version=1;artifacts=@('fixture.txt');steps=$Steps}
+    if(-not $OmitLane){$plan.lane=$Lane}
+    $plan | ConvertTo-Json -Depth 8 | Set-Content $planPath -Encoding utf8
     $text=@(& $hostPath -NoProfile -File $runner -RepositoryRoot $repo -PlanPath $planPath -OutputDirectory $out @Extra 2>&1)
     $code=$LASTEXITCODE
     $receipt=Get-Content (Join-Path $out 'receipt.json') -Raw | ConvertFrom-Json
@@ -28,6 +30,22 @@ try {
     Assert ($result.Code -eq 0 -and $result.Receipt.status -eq 'passed' -and $result.Receipt.sourceStableAndClean) 'Clean success failed'
     Assert (-not $result.Receipt.releaseQualified) 'Test success invented release qualification'
     Assert ($result.Receipt.artifacts[0].sha256 -ceq (Get-FileHash (Join-Path $repo 'fixture.txt') -Algorithm SHA256).Hash.ToLowerInvariant()) 'Artifact provenance hash differs'
+    $invalidLanes=@(
+        @{name='missing-lane';lane=$null;omit=$true},
+        @{name='null-lane';lane=$null;omit=$false},
+        @{name='empty-lane';lane='';omit=$false},
+        @{name='whitespace-lane';lane=" `t ";omit=$false},
+        @{name='boolean-lane';lane=$true;omit=$false},
+        @{name='numeric-lane';lane=1;omit=$false},
+        @{name='object-lane';lane=@{name='windows'};omit=$false},
+        @{name='array-lane';lane=@('windows');omit=$false}
+    )
+    foreach($invalid in $invalidLanes){
+        $invalidResult=Run-Case -Name $invalid.name -Steps @($ok) -Lane $invalid.lane -OmitLane:$invalid.omit
+        Assert ($invalidResult.Code -ne 0 -and $invalidResult.Receipt.status -eq 'failed') 'Invalid lane plan passed'
+        Assert (-not $invalidResult.Receipt.sourceBefore -and $invalidResult.Receipt.steps.Count -eq 0) 'Invalid lane reached provenance or check execution'
+        Assert (-not $invalidResult.Receipt.plan) 'Invalid lane became a bound receipt plan'
+    }
     foreach($stream in @('stdout','stderr')) {
         $artifact=$result.Receipt.steps[0].$stream;$path=Join-Path $result.Directory $artifact.file
         Assert ((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $artifact.sha256) 'Log hash mismatch'

@@ -57,7 +57,8 @@ consumer settings are applied by these plans. The consumer fixture's old
 ## Reusable pattern for the four repositories
 
 The runner accepts a repository-owned JSON plan with schema
-`dbce.local-check-plan`, version 1, a lane and nonempty unique `steps`.
+`dbce.local-check-plan`, version 1, a nonempty string lane (whitespace-only and
+non-string lanes are rejected before provenance/check execution) and nonempty unique `steps`.
 Each step has an `id`, executable `program` and string-array `arguments`; commands
 are executed directly without a pipeline or shell reinterpretation. Batch steps
 explicitly invoke `cmd.exe`. Tokens are `{root}`, `{output}`, `{pwsh}`, `{dotnet}`,
