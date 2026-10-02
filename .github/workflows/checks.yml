@@ -17,6 +17,9 @@ jobs:
       - name: Transactional vendoring
         shell: powershell
         run: ./tools/tests/Test-SyncToolkit.ps1
+      - name: Offline consumer status and provenance
+        shell: powershell
+        run: ./tools/tests/Test-ConsumerStatus.ps1
       - name: Exact-module binding (CoreCLR x64 and .NET Framework x86, no hardware)
         shell: powershell
         run: ./tools/tests/Test-NativeBinding.ps1
@@ -26,6 +29,28 @@ jobs:
       - name: Native x86 build
         shell: cmd
         run: native\wheelffb\build.bat x86
+      - name: Watchdog and lock publication regressions (x64)
+        shell: cmd
+        run: |
+          pushd .
+          call native\wheelffb\test\build_burst_test.bat x64
+          if errorlevel 1 exit /b 1
+          popd
+          native\wheelffb\build\burst_test.exe --pre-init-worker
+      - name: Watchdog and lock publication regressions (x86)
+        shell: cmd
+        run: |
+          pushd .
+          call native\wheelffb\test\build_burst_test.bat x86
+          if errorlevel 1 exit /b 1
+          popd
+          native\wheelffb\build\x86\burst_test.exe --pre-init-worker
+      - name: Actual DLL lifecycle without device APIs (x64)
+        shell: cmd
+        run: native\wheelffb\test\build_lifecycle_test.bat x64
+      - name: Actual DLL lifecycle without device APIs (x86)
+        shell: cmd
+        run: native\wheelffb\test\build_lifecycle_test.bat x86
   native:
     runs-on: ubuntu-latest
     steps:
@@ -38,3 +63,5 @@ jobs:
       - run: /tmp/signals native/forcemodel/impact-contract.csv
       - run: g++ -std=c++11 -O2 -Wall -Wextra native/forcemodel/test_recovery.cpp -o /tmp/recovery
       - run: /tmp/recovery
+      - name: ROM-free replay fixtures
+        run: python3 -m unittest discover -s tools/replay -v
