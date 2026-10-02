@@ -24,5 +24,13 @@ int main()
     WheelDigitalButtons(physical,pov,out,128);
     assert(out[127]==1&&out[128]==42);
     WheelDigitalButtons(physical,pov,out,0);assert(out[128]==42);
-    puts("PASS digital input: 4 hats x 8 directions, release/neutral, physical 127, boundaries and legacy buffer bounds");
+    for(int hat=0;hat<4;++hat)pov[hat]=(uint32_t)(hat+1)*4500u;
+    WheelDigitalButtons(physical,pov,out,160);
+    for(int hat=0;hat<4;++hat)for(int d=0;d<8;++d)assert(out[128+hat*8+d]==(d==hat+1));
+    for(int capacity=0;capacity<=160;++capacity){
+        for(int i=0;i<161;++i)out[i]=42;
+        WheelDigitalButtons(physical,pov,out,capacity);
+        assert(out[capacity]==42);
+    }
+    puts("PASS digital input: 4 hats x 8 directions, release/neutral, physical 127, boundaries, simultaneous hats and all 161 buffer capacities");
 }
