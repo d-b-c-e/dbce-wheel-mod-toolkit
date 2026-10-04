@@ -1,4 +1,4 @@
-# Playback core 0.1.0
+# Playback core 0.2.0
 
 `Dbce.Wheel.Playback` is a separate development component targeting netstandard2.0.
 It does not change or republish the native FFB/telemetry release. No Unity, loader,
@@ -14,6 +14,17 @@ device, process launch, input injection or network dependency is present.
   relative paths and hashes before playback. It rejects reparse-point payloads.
 - `SignalStatistics` reports per-sample RMS, signed range, absolute nearest-rank
   percentiles and optional normalized saturation. Missing channels stay missing.
+- `TrajectoryTape` records a bounded single-stage pose stream with explicit game
+  build, scene/car identity, timestep and physical-output policy. It rejects
+  nonfinite poses, invalid quaternions, missing physics steps and changed files.
+- `TrajectoryPlayer` owns the adapter through acquire/apply/release and checks
+  position and rotation on the following tick, including the final pose. Any
+  competing transform writer fails playback and restores the original flags.
+- `StageSession` shares arming, capture, playback, completion and timeout behavior.
+  It keeps original signals alongside poses through game-specific callbacks.
+  `FileSessionControl` provides expiring, identified local commands and status.
+  These new stage APIs have device-free fixtures; each consumer still needs live
+  hook/ownership/scene tests. They do not automate menus or load saved game state.
 
 Consumers own scene/menu state, selection snapshots, physics hooks, pose/input
 codecs, force signals, units, output suppression and restoration. Keep three
@@ -21,7 +32,7 @@ capabilities distinct: trajectory playback recreates recorded motion; signal
 reprocessing evaluates models against original samples; input diagnostics expose
 divergence and must not claim deterministic Unity physics.
 
-Art of Rally's format-3 adapter first validated this core in Unity 2019.4 Mono:
+Art of Rally's format-3 adapter first validated core 0.1.0 in Unity 2019.4 Mono:
 a fresh synthetic physics capture/replay, and the owner's complete session-5
 trajectory through finish/results/menu. Other adapters need their own live tests.
 Physical force and SimHub network delivery were muted during those tests. The
