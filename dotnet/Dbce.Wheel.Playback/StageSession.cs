@@ -12,6 +12,8 @@ namespace Dbce.Wheel.Playback
         string Scenario { get; }
         double FixedDeltaTime { get; }
         bool Ready { get; }
+        // Continuous playback eligibility; unlike Ready, allows adapter-owned replay state.
+        bool PlaybackAllowed { get; }
         // Must latch device/network suppression, without disabling signal sampling.
         void MuteOutputs();
         void StartSignals(string directory);
@@ -28,7 +30,7 @@ namespace Dbce.Wheel.Playback
         private TrajectoryPlayer player;
         private string directory, scenario;
         private bool recording, armed, signalsStarted;
-        private double seconds, armedAt, lastStepAt, captureOrigin;
+        private double seconds, armedAt, lastStepAt, captureOrigin, fixedDeltaTime;
         public string Status { get; private set; } = "idle";
         public bool Active => armed || recorder != null || player != null;
         public bool Playing => player != null;
@@ -72,6 +74,7 @@ namespace Dbce.Wheel.Playback
                     if (!adapter.Ready) return;
                     if (!recording && tape.Metadata["scenario"] != adapter.Scenario) return;
                     scenario = adapter.Scenario;
+                    fixedDeltaTime = adapter.FixedDeltaTime;
                     if (recording)
                     {
                         var metadata = new Dictionary<string, string> {
@@ -93,6 +96,7 @@ namespace Dbce.Wheel.Playback
                 }
                 lastStepAt = now;
                 if (adapter.Scenario != scenario) { Abort("stage or vehicle changed"); return; }
+                if (Math.Abs(adapter.FixedDeltaTime - fixedDeltaTime) > 1e-7) { Abort("physics timestep changed"); return; }
                 if (recorder != null)
                 {
                     if (!adapter.Ready || recorder.Count * adapter.FixedDeltaTime >= seconds) { Stop(); return; }
@@ -103,6 +107,7 @@ namespace Dbce.Wheel.Playback
                 }
                 else if (player != null)
                 {
+                    if (!adapter.PlaybackAllowed) { Abort("playback eligibility lost"); return; }
                     if (!player.Step())
                     {
                         Status = "passed: " + player.Applied + " poses; max error " + player.MaximumPositionError.ToString("R", CultureInfo.InvariantCulture) +
@@ -140,7 +145,11 @@ namespace Dbce.Wheel.Playback
             recorder = null;
             try { if (signalsStarted) adapter.FinishSignals(); } catch (Exception ex) { Status += "; signals: " + ex.Message; }
             signalsStarted = false;
-            if (directory != null && Directory.Exists(directory)) File.WriteAllText(Path.Combine(directory, recording ? "incomplete.txt" : "result.txt"), Status);
+            try
+            {
+                if (directory != null && Directory.Exists(directory)) File.WriteAllText(Path.Combine(directory, recording ? "incomplete.txt" : "result.txt"), Status);
+            }
+            catch (Exception ex) { Status += "; could not persist failure: " + ex.Message; }
         }
         public void Dispose() { if (Active) Stop(); }
     }

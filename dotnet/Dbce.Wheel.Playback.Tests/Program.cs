@@ -128,6 +128,30 @@ try
     }
     using (var session = new StageSession(target))
     {
+        session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "eligibility"), 0);
+        session.FixedStep(0); target.Available = false; int before = target.Releases; session.FixedStep(.02);
+        Check(session.Status.Contains("eligibility lost") && !session.Active && target.Releases == before + 1, "Eligibility is checked throughout playback and restores ownership");
+        target.Available = true;
+    }
+    using (var session = new StageSession(target))
+    {
+        session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "dt-change"), 0);
+        session.FixedStep(0); target.Delta = .01; session.FixedStep(.02);
+        Check(session.Status.Contains("timestep changed") && !session.Active, "Changing physics rate cannot silently change playback speed");
+        target.Delta = .02;
+    }
+    using (var session = new StageSession(target))
+    {
+        var controlRoot = Path.Combine(stageRoot, "control");
+        var control = new FileSessionControl(controlRoot, session);
+        session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "io-failure"), 0);
+        session.FixedStep(0);
+        Directory.CreateDirectory(Path.Combine(controlRoot, "status.tmp"));
+        control.Poll(.1);
+        Check(!session.Active && session.Status.Contains("Control storage") && control.LastError != null, "Status IO failure aborts ownership without escaping the game loop");
+    }
+    using (var session = new StageSession(target))
+    {
         target.Available = false;
         session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "timeout"), 0);
         session.Heartbeat(181);
@@ -151,9 +175,11 @@ sealed class FixtureStage : FixtureTarget, IStageAdapter
     public string Game => "fixture";
     public string GameHash => new string('a', 64);
     public string Scenario => "track|car";
-    public double FixedDeltaTime => .02;
+    public double Delta = .02;
+    public double FixedDeltaTime => Delta;
     public bool Available, Muted;
     public bool Ready => Available;
+    public bool PlaybackAllowed => Available;
     public FixtureStage() { Current.Values[6] = 1; }
     public void MuteOutputs() => Muted = true;
     public void StartSignals(string directory) { }

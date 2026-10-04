@@ -12,10 +12,21 @@ namespace Dbce.Wheel.Playback
         private readonly string root;
         private readonly StageSession session;
         private double nextPoll;
-        private string requestId = "none", error;
+        private string requestId = "none", error, lastStatus;
+        public string LastError => error;
         public FileSessionControl(string root, StageSession session)
         { this.root = root; this.session = session; Directory.CreateDirectory(root); }
         public void Poll(double now)
+        {
+            try { PollCore(now); }
+            catch (Exception ex)
+            {
+                error = "Control storage: " + ex.Message;
+                // IO failure must not escape a game's Update loop or leave an uncontrolled replay running.
+                if (session.Active) session.Abort(error);
+            }
+        }
+        private void PollCore(double now)
         {
             session.Heartbeat(now);
             if (now < nextPoll) return; nextPoll = now + .25;
@@ -49,11 +60,14 @@ namespace Dbce.Wheel.Playback
                 }
                 catch (Exception ex) { error = ex.Message; if (File.Exists(path)) File.Delete(path); }
             }
+            string signature = requestId + "\n" + session.Status + "\n" + session.Active + "\n" + session.Samples + "\n" + error;
+            if (signature == lastStatus) return;
             string tmp = Path.Combine(root, "status.tmp"), status = Path.Combine(root, "status.txt");
             File.WriteAllLines(tmp, new[] { "id=" + requestId, "utc=" + DateTime.UtcNow.ToString("O"), "active=" + session.Active,
                 "samples=" + session.Samples, "status=" + session.Status.Replace('\n', ' ').Replace('\r', ' '), "error=" + (error ?? "").Replace('\n', ' ').Replace('\r', ' ') });
-            if (File.Exists(status)) File.Delete(status);
-            File.Move(tmp, status);
+            if (File.Exists(status)) File.Replace(tmp, status, null);
+            else File.Move(tmp, status);
+            lastStatus = signature;
         }
     }
 }

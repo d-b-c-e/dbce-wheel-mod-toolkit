@@ -23,6 +23,9 @@ device, process launch, input injection or network dependency is present.
 - `StageSession` shares arming, capture, playback, completion and timeout behavior.
   It keeps original signals alongside poses through game-specific callbacks.
   `FileSessionControl` provides expiring, identified local commands and status.
+  Eligibility and timestep are checked throughout playback. Control storage
+  failure aborts the session without escaping the game's update loop; an idle
+  controller writes no repeated status files.
   These new stage APIs have device-free fixtures; each consumer still needs live
   hook/ownership/scene tests. They do not automate menus or load saved game state.
 
@@ -42,3 +45,14 @@ muting. Native acceptance is not measured torque.
 Run `dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release`.
 Consumers vendor the DLL with source commit, version and SHA-256; this component
 is not part of the existing whole-toolkit package pin.
+
+`tools/playback/Stage-Session.ps1 -Game woden|drive|iracing -Action Record
+-Path <new-directory> -Seconds 60` arms one stage. Select the desired stage/car
+in the game. `-Action Replay -Path <capture> -Output <new-directory>` requires
+the recorded build, scenario and physics rate. `-Launch` optionally opens Steam;
+it does not dismiss Steam prompts. `-Action Status` reports the acknowledged
+request ID and terminal result; F12 or `-Action Stop` stops the session.
+Physical-output suppression stays latched until the game restarts. Stop before
+quitting and verify `complete.tsv`; an incomplete directory is evidence of a
+failure, never a playable capture. These commands require a compatible game
+adapter and do not imply that its game hooks have been runtime-qualified.
