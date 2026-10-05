@@ -369,6 +369,20 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     checks pass. This prepares live discovery; it does not qualify a car tick or
     convert timed observations into a physics recording.
 
+39. **Test combined input queries before blaming controller delivery.**
+    [dbce-mods-outrun-2006, 2026-10-05, b43445c] A virtual pad connected before launch but
+    failed eight A presses at the title. Source review found that the remapper
+    suppressed the entire native query whenever any navigation bit was present,
+    dropping native A/Start in mixed masks too. A production-linked test first
+    reproduced `A | Up` returning zero, then 34 cases passed a fix that filters
+    only native directions and preserves other input. Keep any-bit, all-bit/chord,
+    raw-bit and Boolean return contracts distinct; do not apply this native
+    any-bit policy to an SDL chord route. Preserve focus, UI and held-release
+    gates. Exact-A-only counters miss Start and aggregate queries, while pad
+    submission logs do not prove game receipt. Record actual masks and focus
+    before claiming that an offline source fix explains a failed live launch.
+    See the consumer's `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.md` addendum.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

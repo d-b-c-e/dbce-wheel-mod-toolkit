@@ -65,7 +65,11 @@ OutRun startup diagnosis found 110 missing game asset files at the launched
 installation. Missing-only restoration passed all asset hashes and retained 31
 root/save hashes. Claude's post-repair launch reached title at 7680 and exited
 normally; all 110 assets and 30 non-log root/save hashes still matched. See the consumer's
-STARTUP-ASSETS-2026-10-05.md. This does not implement OutRun recording.
+STARTUP-ASSETS-2026-10-05.md. OutRun's later mixed native/remapped query defect
+is reproduced and corrected in source with 34 cases plus its existing input/UI/
+FFB gate suite. No installed change or live title confirmation follows from that
+fix; focus and actual title query masks remain unobserved. See lesson 39 and the
+consumer's NATIVE-INPUT-DIAGNOSIS-2026-09-19.md. This does not implement OutRun recording.
 The shared identified-process
 supervisor and rig lease are committed; Woden/iRacing/DRIVE runners use the lease.
 No force tune or native binary changed for this documentation update.
