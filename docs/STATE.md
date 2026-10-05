@@ -46,6 +46,38 @@ does not prove a live checkout was synchronized or its old owner handed off.
 Existing weekly coordination is retained.
 
 ---
+# POV input candidate - 2026-09-28
+
+Local candidate **0.16.0-pov.1**, native **0.9.0 / 47 exports**, from exact
+`v0.15.0` source `358add53af220eb95bf606e240b230e23a6ea197`. This isolated
+branch adds coherent axes/buttons/four-POV snapshots and optional managed
+binding. It is not an official release, consumer deployment or hardware claim.
+Read [POV contract](POV-INPUT.md) before integration: output must be gated on
+read validity, and both enabling and disabling FFB require deliberate reader
+ownership transitions. The old read export and force lifecycle are unchanged.
+
+Offline package gates passed: 121 managed tests; current and legacy native
+binding fixtures on x64 CoreCLR and x86 .NET Framework; production POV fake
+COM device tests on x64/x86; existing burst/logging/constant fake effects,
+24 sync assertions, packet/model/proxy conformance and PowerShell helpers.
+Both DLLs expose all 47 undecorated exports and match the C header. The package
+helper enumerated controller identities only; it did not read/acquire devices.
+Final local package identity and gate logs are recorded in ignored
+`dist/POV-HANDOFF.json` and `dist/pov-evidence/` in this worktree.
+
+**Hardware smoke compiled only on x64/x86; NOT RUN.** The standing desktop
+pause remains in force. No game launch, input injection or torque output was
+performed. Next: parent review and explicit consumer adoption; then coordinate
+an attended zero-output smoke/hat-direction/disconnect/FFB-toggle check before
+claiming physical wheel support. Current default-branch UX guidance is separate
+from this runtime branch; older handoff/candidate/adoption entries below remain
+historical, including the original pre-publication wording for v0.15.0.
+
+---
+
+Offline candidate gates passed: 121 managed tests; 104+9+8+8 binding assertions
+per runtime; sync and native conformance/fake-effect suites on x64/x86.
+46 exports verified. Smoke harnesses compile only; hardware execution not run.
 
 # Release handoff, 2026-09-27
 
@@ -63,6 +95,36 @@ tests, native fake-effect checks and 46-export/version checks passed on both
 architectures. No device was opened; this candidate's hardware smoke remains
 compiled-only. The candidate snapshot immediately below is historical.
 
+# 0.15.0 local candidate - 2026-09-16
+
+Independent finite constant impacts, native 0.8.0 / 46 exports.
+See [contract](CONSTANT-BURSTS.md) and [attended evidence](../knowledge/FFB-IMPACTS.md).
+The diagnostic constant was preferred but weak at 40%; production SetParameters
+path remains physically unverified. No public release or consumer adoption claim.
+Earlier entries below are historical.
+
+Offline shaped candidate gates passed:121 managed tests;80+9+8 binding
+assertions per runtime; native shaping/logging tests x64/x86;42exports.
+Smoke harnesses compiled only. No physical shape validation.
+
+# 0.14.0 local candidate - 2026-09-16
+
+Additive shaped finite sine API (native0.7.0,42exports) based on frozen
+logging candidate82c7891. Strict parameter echo, phase and finite fade, with
+explicit legacy envelope clearing. No public release or hardware launch.
+See [SHAPED-BURSTS.md](SHAPED-BURSTS.md). Earlier entries below are historical.
+
+# 0.13.1 local candidate — 2026-09-16
+
+Native 0.6.1 makes per-update force tracing opt-in with
+`DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41
+exports. No force arithmetic or lifecycle changes. See
+[force logging](FORCE-LOGGING.md). Unpublished; reported game hitch causality
+is not established. Earlier handoffs below are historical.
+
+Offline package gates pass, including 121 managed tests and both native fake
+logging suites. Hardware smoke loads all exports on x64/x86 but cannot proceed:
+no FFB device is attached. This candidate has no new hardware verification.
 # Historical 0.13.0 candidate snapshot, 2026-09-12
 
 This isolated branch adds finite periodic bursts (native 0.6.0, 41 exports),

@@ -1,3 +1,39 @@
+## Unreleased local POV candidate - 2026-09-28
+
+- Added coherent axes/buttons/four-hat input through existing native reader
+  slots, with bounded arguments, neutral POV normalization and failed-snapshot
+  invalidation. Native 0.9.0 / 47 exports; old read behavior stays unchanged.
+- Added optional managed capability/read overload compatible with older native
+  components, fake-device/compatibility gates and silent smoke coverage.
+  No hardware execution, game integration or official release is claimed.
+- Documented reader ownership transitions and mandatory validity gating.
+  Candidate label: `0.16.0-pov.1`; see [contract](docs/POV-INPUT.md).
+
+Earlier candidate notes describe their original preparation status.
+
+# 0.15.0 local candidate - 2026-09-16
+
+Native 0.8.0 / 46 exports adds an independent finite constant-burst pool and
+optional managed binding. Older DLLs remain supported. Added fake-effect and
+compatibility gates plus shared impact evidence and consumer guidance.
+See [constant contract](docs/CONSTANT-BURSTS.md). No public release or new
+production hardware verification.
+
+# 0.14.0 local candidate - 2026-09-16
+
+Additive shaped finite sine API (native0.7.0,42exports) based on frozen
+logging candidate82c7891. Strict parameter echo, phase and finite fade, with
+explicit legacy envelope clearing. No public release or hardware launch.
+See [shaped burst contract](docs/SHAPED-BURSTS.md). Earlier entries below are historical.
+
+# 0.13.1 local candidate — 2026-09-16
+
+Native 0.6.1 makes per-update force tracing opt-in with
+`DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41
+exports. No force arithmetic or lifecycle changes. See
+[force logging](docs/FORCE-LOGGING.md). Unpublished; reported game hitch causality
+is not established. Earlier handoffs below are historical.
+
 # Changelog
 
 Notable changes to dbce-wheel-mod-toolkit. Format follows

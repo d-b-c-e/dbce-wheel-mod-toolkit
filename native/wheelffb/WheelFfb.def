@@ -23,6 +23,7 @@ EXPORTS
     CloseAuxDevice
     OpenReadDevice
     ReadDeviceState
+    ReadDeviceStateWithPov
     CloseReadDevices
     GetDeviceInfo
     GetDeviceGuid
@@ -45,3 +46,10 @@ EXPORTS
     CreatePeriodicBurst
     PlayPeriodicBurst
     StopPeriodicBurst
+
+    PlayShapedPeriodicBurst
+
+    CreateConstantBurst
+    PlayConstantBurst
+    StopConstantBurst
+    ReleaseConstantBursts

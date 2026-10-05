@@ -28,10 +28,28 @@
  * deadbands and offsets are also -10000..10000.
  *
  * Native 0.6.0 finite bursts: CreatePeriodicBurst(hz, durationMs 1..500)
+ * Shaped play adds phase 0..35999 and fadeMs 1..slot duration, strict API
+ * readback before Start, and no physical-output guarantee. Legacy play clears
+ * prior phase/envelope. CreatePeriodicBurst
  * returns an idle slot; PlayPeriodicBurst(slot, magnitude 0..10000, milliHz)
  * explicitly restarts one finite iteration (0 stops). StopPeriodicBurst is
  * idempotent for a valid burst slot. Frequency 1..100 Hz. Shares four periodic
  * slots; continuous Update rejects burst slots. Failed events are never retried.
+ *
+ * Native 0.9.0 ReadDeviceStateWithPov reads one coherent device snapshot.
+ * axes must hold exactly 8 ints (X Y Z Rx Ry Rz Slider1 Slider2); POV exactly
+ * 4 ints; buttonCount is 0..128 (NULL buttons allowed only at 0). Count fields
+ * must equal those extents; pointers must address that much writable storage.
+ * Buffers must not overlap. Buttons are 0/1. POV is clockwise hundredths of
+ * degrees (0 north, 9000 east), -1 centered/absent/invalid. Driver low-word
+ * FFFF and values above 35999 normalize to -1 without failing the snapshot.
+ * Returns 1 only on successful state read. On failure, independently valid
+ * buffers are cleared: axes/buttons to 0, POV to -1; invalid count buffers
+ * are not touched. Zero axes are NOT a neutral pedal value: gate ALL output
+ * on success. Optional for older DLLs; never split axes/POV into two reads.
+ * Like the existing input API, serialize reads with open/close/FFB lifecycle
+ * on the consumer's device owner thread. Open FFB before its shared read slot;
+ * close/reopen readers when promoting an input-only device to FFB ownership.
  *
  * Three families of effect, and they are not interchangeable:
  *   constant   SetDeviceForcesXY - the force your model computes
@@ -90,12 +108,18 @@ extern "C" {
     X(int,  UpdatePeriodicEffect,   (int slot, int magnitude, int freqMilliHz)) \
     X(int,  CreatePeriodicBurst,    (int freqHz, int durationMs)) \
     X(int,  PlayPeriodicBurst,      (int slot, int magnitude, int freqMilliHz)) \
+    X(int,  PlayShapedPeriodicBurst,      (int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)) \
+    X(int,  CreateConstantBurst, (int durationMs)) \
+    X(int,  PlayConstantBurst, (int slot, int signedMagnitude)) \
+    X(int,  StopConstantBurst, (int slot)) \
+    X(void, ReleaseConstantBursts, (void)) \
     X(int,  StopPeriodicBurst,      (int slot)) \
     X(void, ReleasePeriodicEffects, (void)) \
     X(int,  CreateConditionEffect,  (int type)) \
     X(int,  UpdateConditionEffect,  (int slot, int coefficient, int saturation, int deadband, int offset)) \
     X(void, ReleaseConditionEffects,(void)) \
-    X(void, SetStrictDeviceSelection,(int enabled))
+    X(void, SetStrictDeviceSelection,(int enabled)) \
+    X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount))
 
 #define WHEELFFB_TYPEDEF(ret, name, args) typedef ret (__cdecl *WheelFfb_##name##_t) args;
 WHEELFFB_API_LIST(WHEELFFB_TYPEDEF)

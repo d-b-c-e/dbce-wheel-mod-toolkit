@@ -84,6 +84,10 @@ namespace Dbce.Wheel.Ffb
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate int ReadDeviceStateCall(int slot, [Out] int[] axes, [Out] byte[] buttons, int buttonCount);
         private static ReadDeviceStateCall ReadDeviceState;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ReadDeviceStateWithPovCall(int slot, [Out] int[] axes, int axisCount,
+            [Out] byte[] buttons, int buttonCount, [Out] int[] pov, int povCount);
+        private static ReadDeviceStateWithPovCall _readDeviceStateWithPov;
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private delegate void CloseReadDevicesCall();
         private static CloseReadDevicesCall CloseReadDevices;
@@ -147,6 +151,17 @@ namespace Dbce.Wheel.Ffb
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int StopBurstCall(int slot);
         private static CreateBurstCall _createBurst;
         private static PlayBurstCall _playBurst;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayShapedBurstCall(int slot, int magnitude, int milliHz, int phase, int fadeMs);
+        private static PlayShapedBurstCall _playShapedBurst;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int CreateConstantBurstCall(int durationMs);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int PlayConstantBurstCall(int slot, int magnitude);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ReleaseConstantBurstsCall();
+        private static CreateConstantBurstCall _createConstantBurst;
+        private static PlayConstantBurstCall _playConstantBurst;
+        private static StopBurstCall _stopConstantBurst;
+        private static ReleaseConstantBurstsCall _releaseConstantBursts;
+        public static bool SupportsConstantBursts => _loaded && _createConstantBurst != null && _playConstantBurst != null && _stopConstantBurst != null && _releaseConstantBursts != null;
+        public static bool SupportsShapedPeriodicBursts => SupportsPeriodicBursts && _playShapedBurst != null;
         private static StopBurstCall _stopBurst;
         /// <summary>True when the exact loaded native module supports all finite-burst operations.</summary>
         public static bool SupportsPeriodicBursts => _loaded && _createBurst != null && _playBurst != null && _stopBurst != null;
@@ -202,6 +217,7 @@ namespace Dbce.Wheel.Ffb
                 CloseAuxDevice = Bind<CloseAuxDeviceCall>(h, "CloseAuxDevice");
                 OpenReadDevice = Bind<OpenReadDeviceCall>(h, "OpenReadDevice");
                 ReadDeviceState = Bind<ReadDeviceStateCall>(h, "ReadDeviceState");
+                _readDeviceStateWithPov = Optional<ReadDeviceStateWithPovCall>(h, "ReadDeviceStateWithPov");
                 CloseReadDevices = Bind<CloseReadDevicesCall>(h, "CloseReadDevices");
                 PanicStop = Bind<PanicStopCall>(h, "PanicStop");
                 ZeroForces = Bind<ZeroForcesCall>(h, "ZeroForces");
@@ -225,6 +241,11 @@ namespace Dbce.Wheel.Ffb
                         Marshal.GetDelegateForFunctionPointer<StrictSelectionCall>(strict);
                     _createBurst = Optional<CreateBurstCall>(h, "CreatePeriodicBurst");
                     _playBurst = Optional<PlayBurstCall>(h, "PlayPeriodicBurst");
+                    _playShapedBurst = Optional<PlayShapedBurstCall>(h, "PlayShapedPeriodicBurst");
+                    _createConstantBurst = Optional<CreateConstantBurstCall>(h, "CreateConstantBurst");
+                    _playConstantBurst = Optional<PlayConstantBurstCall>(h, "PlayConstantBurst");
+                    _stopConstantBurst = Optional<StopBurstCall>(h, "StopConstantBurst");
+                    _releaseConstantBursts = Optional<ReleaseConstantBurstsCall>(h, "ReleaseConstantBursts");
                     _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
@@ -359,6 +380,37 @@ namespace Dbce.Wheel.Ffb
             } catch (Exception ex) { LastError = ex.Message; return false; }
         }
 
+        /// <summary>Allocate an idle independent constant slot, duration 1..500 ms. Native 0.8.0.</summary>
+        public static int CreateConstantBurst(int durationMs)
+        {
+            if (!Ready || !SupportsConstantBursts) { LastError = "Constant bursts require ready FFB and native 0.8.0 support"; return -1; }
+            if (durationMs < 1 || durationMs > 500) { LastError = "Constant burst duration must be 1..500 ms"; return -1; }
+            try { int slot = _createConstantBurst(durationMs); Result(slot >= 0, "CreateConstantBurst"); return slot; }
+            catch (Exception ex) { LastError = ex.Message; return -1; }
+        }
+        /// <summary>One finite signed constant pulse [-1,1]. Zero stops. Never stops steering.
+        /// Acceptance is not measured torque or combined-output headroom. Do not retry stale events.</summary>
+        public static bool PlayConstantBurst(int slot, float signedMagnitude)
+        {
+            if (!Ready || !SupportsConstantBursts) { LastError = "Constant bursts require ready FFB and native 0.8.0 support"; return false; }
+            if (slot < 0 || slot >= 4 || !Finite(signedMagnitude) || signedMagnitude < -1 || signedMagnitude > 1)
+            { LastError = "Invalid constant burst slot or signed magnitude [-1,1]"; return false; }
+            try {
+                int magnitude = signedMagnitude == 0 ? 0 : Math.Sign(signedMagnitude) * Math.Max(1, (int)Math.Round(Math.Abs(signedMagnitude) * ForceMax));
+                return Result(_playConstantBurst(slot, magnitude) != 0, "PlayConstantBurst");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static bool StopConstantBurst(int slot)
+        {
+            if (!SupportsConstantBursts || slot < 0 || slot >= 4) { LastError = "Stop requires a valid constant burst slot and native support"; return false; }
+            try { return Result(_stopConstantBurst(slot) != 0, "StopConstantBurst"); }
+            catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+        public static void ReleaseConstantBursts()
+        {
+            if (SupportsConstantBursts) try { _releaseConstantBursts(); } catch (Exception ex) { LastError = ex.Message; }
+        }
+
         /// <summary>Create an idle sine burst (1..100 Hz, 1..500 ms), or -1 on failure.
         /// Shares four slots with continuous periodics. Requires native component 0.6.0.</summary>
         public static int CreatePeriodicBurst(int freqHz, int durationMs)
@@ -381,6 +433,20 @@ namespace Dbce.Wheel.Ffb
             try {
                 int magnitude = magnitude01 == 0 ? 0 : Math.Max(1, (int)Math.Round(magnitude01 * ForceMax));
                 return Result(_playBurst(slot, magnitude, (int)Math.Round(freqHz * 1000f)) != 0, "PlayPeriodicBurst");
+            } catch (Exception ex) { LastError = ex.Message; return false; }
+        }
+
+        /// <summary>Finite sine with explicit phase and a fade to zero over the final fadeMs.
+        /// True means exact API parameter readback and start accepted, not physical verification.
+        /// Missing optional export returns false; failed events must not be retried.</summary>
+        public static bool PlayShapedPeriodicBurst(int slot, float magnitude01, float freqHz, int phaseHundredths, int fadeMs)
+        {
+            if (!Ready || !SupportsShapedPeriodicBursts) { LastError = "Shaped bursts require ready FFB and native 0.7.0 support"; return false; }
+            if (slot < 0 || slot >= 4 || !Finite(magnitude01) || magnitude01 < 0 || magnitude01 > 1 || !Finite(freqHz) || freqHz < 1 || freqHz > 100 || phaseHundredths < 0 || phaseHundredths > 35999 || fadeMs < 1 || fadeMs > 500)
+            { LastError = "Invalid shaped burst slot, magnitude, frequency, phase or fade duration"; return false; }
+            try {
+                int magnitude = magnitude01 == 0 ? 0 : Math.Max(1, (int)Math.Round(magnitude01 * ForceMax));
+                return Result(_playShapedBurst(slot, magnitude, (int)Math.Round(freqHz * 1000f), phaseHundredths, fadeMs) != 0, "PlayShapedPeriodicBurst");
             } catch (Exception ex) { LastError = ex.Message; return false; }
         }
 
@@ -555,6 +621,40 @@ namespace Dbce.Wheel.Ffb
             try { return Result(ReadDeviceState(slot, axes8, buttons, buttons?.Length ?? 0) != 0, "Read"); }
             catch (Exception ex) { LastError = ex.Message; return false; }
         }
+        /// <summary>Whether the loaded module supports coherent axes/buttons/four-POV snapshots (native 0.9.0).</summary>
+        public static bool SupportsPovRead => _loaded && _readDeviceStateWithPov != null;
+
+        /// <summary>
+        /// Reads one coherent snapshot: exactly eight axes, zero to 128 buttons (null allowed), and exactly four POVs.
+        /// POVs are clockwise hundredths of degrees, north=0/east=9000; -1 means neutral, absent or invalid angle.
+        /// Returns false if unavailable or failed; all supplied managed arrays are cleared (POV to -1).
+        /// Zero axes on failure are NOT neutral pedal values: gate all mapped output on the return value.
+        /// Serialize with device lifecycle; open FFB before its shared reader, or close/reopen readers when promoting to FFB.
+        /// </summary>
+        public static bool Read(int slot, int[] axes8, byte[] buttons, int[] pov4)
+        {
+            ClearSnapshot(axes8, buttons, pov4);
+            if (!SupportsPovRead) { LastError = "POV reading requires native 0.9.0 support"; return false; }
+            if (slot < 0 || axes8 == null || axes8.Length != 8 || pov4 == null || pov4.Length != 4 ||
+                (buttons != null && buttons.Length > 128) || ReferenceEquals(axes8, pov4))
+            { LastError = "Read with POV requires a valid slot, exactly eight axes, four POVs and at most 128 buttons"; return false; }
+            try
+            {
+                if (Result(_readDeviceStateWithPov(slot, axes8, 8, buttons, buttons?.Length ?? 0, pov4, 4) != 0, "ReadDeviceStateWithPov")) return true;
+            }
+            catch (Exception ex) { LastError = ex.Message; }
+            // Fail closed even if an incompatible native module partially wrote output before failing.
+            ClearSnapshot(axes8, buttons, pov4);
+            return false;
+        }
+
+        private static void ClearSnapshot(int[] axes, byte[] buttons, int[] pov)
+        {
+            if (axes != null) Array.Clear(axes, 0, axes.Length);
+            if (buttons != null) Array.Clear(buttons, 0, buttons.Length);
+            if (pov != null) for (int i = 0; i < pov.Length; ++i) pov[i] = -1;
+        }
+
         public static void CloseRead() { try { if (_loaded) CloseReadDevices(); } catch (Exception ex) { LastError = ex.Message; } }
     }
 }

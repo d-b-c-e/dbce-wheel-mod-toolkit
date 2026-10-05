@@ -30,6 +30,7 @@
 // Logging is ON by default to %LOCALAPPDATA%\DbceWheel\ffb.log; DBCE_FFB_LOG=0
 // turns it off, DBCE_FFB_LOG_PATH=<file> or SetLogPath() redirects it. A
 // consumer that wants its own folder calls SetLogPath before InitDirectInput.
+// Per-update force tracing is OFF unless DBCE_FFB_TRACE_FORCE=1 at process start.
 
 #define DIRECTINPUT_VERSION 0x0800
 #define WIN32_LEAN_AND_MEAN
@@ -45,6 +46,7 @@
 #include <atomic>
 #include <mutex>
 #include "burst_effect.h"
+#include "constant_burst.h"
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -57,7 +59,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 600;            // 0.6.0
+static const int  kVersion      = 900;            // 0.9.0
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static std::atomic<HRESULT> g_lastHr{S_OK};
@@ -139,17 +141,20 @@ static bool EnsureEffectLock()
 // logging
 // --------------------------------------------------------------------------
 
-// Logging is ON by default, and AOSR_FFB_LOG=0 turns it off.
-//
-// This is deliberately inverted from the obvious design. During phase 0 the
-// question being asked is "does the game call this DLL at all", and an absent
-// log file is the answer. If logging were opt-in, an absent log would be
-// ambiguous between "the game never called us" and "the environment variable
-// did not reach the game process" - two findings that point in opposite
-// directions, and the second is easy to cause by accident (a Steam-launched
-// game does not inherit a variable set in your shell). Defaulting to on
-// collapses that ambiguity: no file means no call. The log is a few lines per
-// session, so the cost is nil.
+// Default logs retain setup, lifecycle and bounded failures. Per-update force
+// samples are a separate opt-in because each log write opens/closes a file.
+// DBCE_FFB_LOG=0 remains the master switch for both categories.
+static bool ForceTracingEnabled()
+{
+    // Initialized once, thread-safely; no environment lookup on each physics tick.
+    static const bool enabled = []() {
+        char value[8] = {};
+        DWORD n = GetEnvironmentVariableA("DBCE_FFB_TRACE_FORCE", value, sizeof(value));
+        return n == 1 && value[0] == '1';
+    }();
+    return enabled;
+}
+
 static bool LoggingEnabled()
 {
     if (!g_logChecked) {
@@ -376,6 +381,8 @@ extern "C" {
 
 // Forward-declared: InitDirectInput unwinds through it on every failure path.
 __declspec(dllexport) void FreeDirectInput(void);
+static void ReleaseConstantBurstsInternal();
+static void StopConstantBurstsInternal();
 static void ReleasePeriodics();   // defined with the periodic exports below
 static void ReleaseConditions();  // and the condition exports after them
 
@@ -450,6 +457,7 @@ static HRESULT CreateForceEffect()
 // DirectInput instance for the next attempt (and for the shifter and reader).
 static void CloseCandidate()
 {
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
@@ -507,7 +515,11 @@ static int OpenCandidate(int idx)
         g_device->SetProperty(DIPROP_RANGE, &range.diph);
     }
 
-    g_device->Acquire();
+    hr = g_device->Acquire();
+    if (FAILED(hr)) {
+        Log("  Acquire failed 0x%08lX", hr);
+        g_lastHr = hr; CloseCandidate(); return 0;
+    }
 
     hr = CreateForceEffect();
     if (FAILED(hr)) {
@@ -516,7 +528,11 @@ static int OpenCandidate(int idx)
         CloseCandidate();
         return 0;
     }
-    if (g_panicked && FAILED(hr = g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSON))) {
+    // A previous process may have turned the actuators off in PanicStop.
+    // The driver's state survives DLL unload, but g_panicked does not.
+    hr = g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSON);
+    Log("  actuators on -> 0x%08lX", hr);
+    if (FAILED(hr)) {
         g_lastHr = hr; CloseCandidate(); return 0;
     }
     g_panicked = false;
@@ -897,6 +913,50 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     return 1;
 }
 
+// Additive coherent snapshot. Counts are exact for axes/POV; buttons may be
+// omitted. Clear only independently valid buffer extents, even on bad arguments.
+// Zero axes are invalid on failure, NOT a safe neutral pedal position.
+__declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCount,
+    unsigned char* buttons, int buttonCount, int* pov, int povCount)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    const bool axesOk = axes && axisCount == 8;
+    const bool buttonsOk = buttonCount >= 0 && buttonCount <= 128 && (buttons || buttonCount == 0);
+    const bool povOk = pov && povCount == 4;
+    if (axesOk) memset(axes, 0, 8 * sizeof(*axes));
+    if (buttonsOk && buttonCount) memset(buttons, 0, buttonCount);
+    if (povOk) for (int i = 0; i < 4; ++i) pov[i] = -1;
+    if (!axesOk || !buttonsOk || !povOk || slot < 0 || slot >= g_readCount) return 0;
+
+    ReadSlot& s = g_read[slot];
+    // A slot must never silently follow a newly selected FFB wheel.
+    if (s.isWheel && (!g_device || !IsEqualGUID(s.guid, g_activeGuid))) return 0;
+    LPDIRECTINPUTDEVICE8 dev = s.isWheel ? g_device : s.dev;
+    if (!dev) return 0;
+    DIJOYSTATE2 st = {};
+    // Missing hats stay neutral even if a driver does not write those members.
+    for (int i = 0; i < 4; ++i) st.rgdwPOV[i] = 0xFFFFFFFF;
+    HRESULT hr = dev->Poll();
+    if (FAILED(hr) && !s.isWheel) { dev->Acquire(); dev->Poll(); }
+    hr = dev->GetDeviceState(sizeof(st), &st); // Exactly one coherent snapshot.
+    if (FAILED(hr)) {
+        // Never reacquire the shared FFB handle: its effect lifecycle owns it.
+        if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
+        return 0;
+    }
+    axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
+    axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
+    axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
+    for (int i = 0; i < buttonCount; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
+    for (int i = 0; i < 4; ++i) {
+        const DWORD angle = st.rgdwPOV[i];
+        // Drivers may use only the low word for centered. Invalid angles are
+        // neutral for this hat; they do not invalidate the rest of the snapshot.
+        pov[i] = LOWORD(angle) == 0xFFFF || angle > 35999 ? -1 : (int)angle;
+    }
+    return 1;
+}
+
 __declspec(dllexport) void CloseReadDevices(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
@@ -907,17 +967,36 @@ __declspec(dllexport) void CloseReadDevices(void)
     g_readCount = 0;
 }
 
+static void MarkPersistentEffectsStopped();
+
+// Caller holds g_lock. Unacquire can stop all effects even if the subsequent
+// Acquire fails; a successful first Acquire can do the same on some drivers.
+static HRESULT AcquireFfbDevice(bool reset)
+{
+    if (!g_device) return E_POINTER;
+    if (reset) {
+        g_device->Unacquire();
+        MarkPersistentEffectsStopped();
+    }
+    HRESULT hr = g_device->Acquire();
+    if (!reset && hr == S_OK) MarkPersistentEffectsStopped();
+    return hr;
+}
+
 __declspec(dllexport) void Aquire(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_device) { Log("Aquire() with no device"); return; }
-    HRESULT hr = g_device->Acquire();
+    EnterCriticalSection(&g_lock);
+    HRESULT hr = AcquireFfbDevice(false);
+    LeaveCriticalSection(&g_lock);
     // S_FALSE simply means "already acquired" - not worth logging every frame.
     if (hr != S_FALSE) Log("Aquire() -> 0x%08lX", hr);
 }
 
-// Called every frame while driving. Deliberately quiet unless the magnitude
-// actually changes, so the trace log stays readable instead of 60 lines/second.
+// Called every frame while driving. Force samples are explicitly opt-in;
+// lifecycle/error logging remains available without per-update file I/O.
+// Internal: callers hold g_apiMutex (export) or g_lock (watchdog zeroing).
 static int SetDeviceForcesXYInternal(int x, int y)
 {
     if (!g_effect) {
@@ -930,7 +1009,7 @@ static int SetDeviceForcesXYInternal(int x, int y)
         }
         g_lastHealTick = now;
         g_healAttempted = true;
-        g_device->Acquire();
+        AcquireFfbDevice(false);
         HRESULT ch = CreateForceEffect();
         if (FAILED(ch) || !g_effect) {
             g_lastHr = FAILED(ch) ? ch : E_FAIL;
@@ -949,7 +1028,7 @@ static int SetDeviceForcesXYInternal(int x, int y)
     if (y < -kForceMax) y = -kForceMax;
 
     static int lastX = INT_MIN, lastY = INT_MIN;
-    if (x != lastX || y != lastY) {
+    if (ForceTracingEnabled() && (x != lastX || y != lastY)) {
         Log("SetDeviceForcesXY(%d, %d)", x, y);
         lastX = x; lastY = y;
     }
@@ -1015,11 +1094,11 @@ static int SetDeviceForcesXYInternal(int x, int y)
             g_lastReacquireTick = now;
             g_reacquireAttempted = true;
             HRESULT lost = hr;
-            g_device->Unacquire();
-            HRESULT ah = g_device->Acquire();
-            if (SUCCEEDED(ah))
+            HRESULT ah = AcquireFfbDevice(true);
+            if (SUCCEEDED(ah)) {
                 hr = g_effect->SetParameters(
                     &update, DIEP_DIRECTION | DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            }
             if (++reacquires <= 20 || reacquires % 100 == 0)
                 Log("access lost (0x%08lX); re-acquire -> 0x%08lX, update -> 0x%08lX (#%ld)",
                     lost, ah, hr, reacquires);
@@ -1041,7 +1120,7 @@ static int SetDeviceForcesXYInternal(int x, int y)
             g_lastHealTick = now;
             g_healAttempted = true;
             Log("SetParameters failed 0x%08lX - recreating the effect (heal #%d)", hr, ++healCount);
-            g_device->Acquire();
+            AcquireFfbDevice(false);
             if (g_effect) { g_effect->Stop(); g_effect->Release(); g_effect = nullptr; }
             HRESULT ch = CreateForceEffect();
             if (SUCCEEDED(ch) && g_effect) {
@@ -1057,12 +1136,15 @@ static int SetDeviceForcesXYInternal(int x, int y)
         }
     }
 
-    if (FAILED(hr)) g_lastHr = hr;
-    LeaveCriticalSection(&g_lock);
-
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
+        // No extra Acquire here: reacquisition is only the 250 ms-bounded
+        // reset above (master's bounded-recovery design, f698ce6).
+        g_lastHr = hr;
+        LeaveCriticalSection(&g_lock);
         return 0;
     }
+    if (FAILED(hr)) g_lastHr = hr;
+    LeaveCriticalSection(&g_lock);
 
     // Log failures, rate-limited. Without this a wheel that accepts the effect
     // and then rejects every update looks identical in the log to one that is
@@ -1098,7 +1180,7 @@ static int SetDeviceForcesXYInternal(int x, int y)
 // without the caller noticing. Whether a driver accepts SetParameters without
 // DIEP_START (no phase reset) is probed once and remembered.
 static const int kMaxPeriodic = 4;
-struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; int durationMs; bool used; bool started; ULONGLONG holdoff; };
+struct PeriodicSlot { LPDIRECTINPUTEFFECT fx; DWORD lastMag; DWORD lastPeriod; int hz; int durationMs; bool envelopeApplied; bool used; bool started; ULONGLONG holdoff; };
 static PeriodicSlot g_periodic[kMaxPeriodic] = {};
 static int  g_periodicStrategy = -1;   // -1 untested, 0 without DIEP_START, 1 with
 static bool g_periodicProbed = false;
@@ -1116,10 +1198,9 @@ static HRESULT StartEffectRetrying(LPDIRECTINPUTEFFECT fx, const char* what)
     HRESULT hr = fx->Start(1, 0);
     if (hr == DIERR_NOTEXCLUSIVEACQUIRED || hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED) {
         if (g_device) {
-            g_device->Unacquire();
-            HRESULT ah = g_device->Acquire();
+            HRESULT ah = AcquireFfbDevice(true);
             HRESULT first = hr;
-            hr = fx->Start(1, 0);
+            if (SUCCEEDED(ah)) hr = fx->Start(1, 0);
             Log("  %s Start 0x%08lX -> re-acquire 0x%08lX -> 0x%08lX", what, first, ah, hr);
             return hr;
         }
@@ -1137,6 +1218,7 @@ static BOOL CALLBACK EnumPeriodicCb(LPCDIEFFECTINFO info, LPVOID)
 static HRESULT CreatePeriodicInSlot(int i)
 {
     PeriodicSlot& s = g_periodic[i];
+    s.envelopeApplied = false; // New COM handle cannot inherit a previous envelope.
     if (s.durationMs > 0) {
         HRESULT hr = wheel_burst::create(g_device, s.fx, s.hz, s.durationMs);
         s.started = false; s.lastMag = 0; s.holdoff = 0;
@@ -1184,7 +1266,7 @@ static void ReleasePeriodics()
     for (int i = 0; i < kMaxPeriodic; ++i) {
         PeriodicSlot& s = g_periodic[i];
         if (s.fx) { s.fx->Stop(); s.fx->Release(); s.fx = nullptr; }
-        s.durationMs = 0; s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
+        s.envelopeApplied = false; s.durationMs = 0; s.lastMag = 0; s.lastPeriod = 0; s.used = false; s.started = false; s.holdoff = 0;
     }
 }
 
@@ -1270,8 +1352,11 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
         return 0;
     }
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
-        g_device->Unacquire(); g_device->Acquire();
-        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+        HRESULT ah = AcquireFfbDevice(true);
+        if (SUCCEEDED(ah)) {
+            hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            flags |= DIEP_START;
+        }
     }
     if (SUCCEEDED(hr)) { s.lastMag = mag; s.lastPeriod = period; if (flags & DIEP_START) s.started = true; }
     else {
@@ -1302,10 +1387,10 @@ __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
     return slot;
 }
 
-__declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
+static int PlayBurst(int slot, int magnitude, int freqMilliHz, int phase, int fadeMs, bool shaped)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
-    if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000)
+    if (!g_device || g_panicked || slot < 0 || slot >= kMaxPeriodic || magnitude < 0 || magnitude > kForceMax || freqMilliHz < 1000 || freqMilliHz > 100000 || phase < 0 || phase > 35999 || (shaped && (fadeMs < 1 || fadeMs > 500)))
     { g_lastHr = E_INVALIDARG; return 0; }
     EnterCriticalSection(&g_lock);
     // Check after taking the effect lock: a queued event must not pass a
@@ -1314,15 +1399,34 @@ __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMil
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
     if (magnitude > 0 && foregroundPid != GetCurrentProcessId()) { g_lastHr = DIERR_NOTACQUIRED; LeaveCriticalSection(&g_lock); return 0; }
     auto& s = g_periodic[slot];
-    if (!s.used || s.durationMs == 0) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
+    if (!s.used || s.durationMs == 0 || fadeMs > s.durationMs) { g_lastHr = E_INVALIDARG; LeaveCriticalSection(&g_lock); return 0; }
     HRESULT hr = S_OK;
     if (!s.fx && magnitude > 0) hr = CreatePeriodicInSlot(slot);
-    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz);
-    s.started = SUCCEEDED(hr) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
+    if (SUCCEEDED(hr)) hr = magnitude == 0 ? wheel_burst::stop(s.fx) : wheel_burst::play(s.fx, s.durationMs, magnitude, freqMilliHz, phase, fadeMs, s.envelopeApplied);
+    if (!s.fx) s.envelopeApplied = false;
+    else if (magnitude > 0 && (shaped ? hr == S_OK : SUCCEEDED(hr))) s.envelopeApplied = shaped;
+    s.started = (shaped ? hr == S_OK : SUCCEEDED(hr)) && magnitude > 0; s.lastMag = s.started ? magnitude : 0;
     if (SUCCEEDED(hr)) { s.hz = freqMilliHz / 1000; g_lastUpdateTick = GetTickCount64(); }
     g_lastHr = hr;
     LeaveCriticalSection(&g_lock);
-    return SUCCEEDED(hr) ? 1 : 0;
+    return (shaped ? hr == S_OK : SUCCEEDED(hr)) ? 1 : 0;
+}
+
+__declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
+{ return PlayBurst(slot, magnitude, freqMilliHz, 0, 0, false); }
+
+__declspec(dllexport) int PlayShapedPeriodicBurst(int slot, int magnitude, int freqMilliHz, int phaseHundredths, int fadeMs)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    int accepted = PlayBurst(slot, magnitude, freqMilliHz, phaseHundredths, fadeMs, true);
+    if (!accepted) {
+        static ULONGLONG lastReport = 0; ULONGLONG now = GetTickCount64();
+        if (!lastReport || now - lastReport > 5000) {
+            lastReport = now;
+            Log("shaped burst rejected: HRESULT=0x%08lX slot=%d phase=%d fadeMs=%d (no retry)", g_lastHr.load(), slot, phaseHundredths, fadeMs);
+        }
+    }
+    return accepted;
 }
 
 __declspec(dllexport) int StopPeriodicBurst(int slot)
@@ -1350,6 +1454,57 @@ __declspec(dllexport) void ReleasePeriodicEffects(void)
     LeaveCriticalSection(&g_lock);
 }
 
+// Separate finite constant pool: never repurpose the ordinary steering effect.
+static const int kMaxConstantBurst=4;
+struct ConstantBurstSlot { LPDIRECTINPUTEFFECT fx; int durationMs,lastMag; DWORD axes; bool used,started; };
+static ConstantBurstSlot g_constantBurst[kMaxConstantBurst]={};
+static void StopConstantBurstsInternal() {
+    for(auto& s:g_constantBurst) {
+        HRESULT hr=wheel_burst::stop(s.fx);if(FAILED(hr))g_lastHr=hr;
+        s.started=false;s.lastMag=0;
+    }
+}
+static void ReleaseConstantBurstsInternal() {
+    for(auto& s:g_constantBurst) {if(s.fx){s.fx->Stop();s.fx->Release();}s=ConstantBurstSlot{};}
+}
+__declspec(dllexport) int CreateConstantBurst(int durationMs) {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    if(!g_device || g_panicked || durationMs<1 || durationMs>500){g_lastHr=E_INVALIDARG;return -1;}
+    EnterCriticalSection(&g_lock);
+    int slot=-1;for(int i=0;i<kMaxConstantBurst;i++)if(!g_constantBurst[i].used){slot=i;break;}
+    if(slot<0){g_lastHr=DIERR_DEVICEFULL;LeaveCriticalSection(&g_lock);return -1;}
+    auto& s=g_constantBurst[slot];s.durationMs=durationMs;s.axes=g_effectAxes;
+    HRESULT hr=wheel_constant_burst::create(g_device,s.fx,s.axes,s.durationMs);
+    if(hr==S_OK)s.used=true;else{s=ConstantBurstSlot{};slot=-1;}
+    g_lastHr=hr;LeaveCriticalSection(&g_lock);return slot;
+}
+__declspec(dllexport) int PlayConstantBurst(int slot,int signedMagnitude) {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    if(!g_device || g_panicked || slot<0 || slot>=kMaxConstantBurst || signedMagnitude < -10000 || signedMagnitude>10000){g_lastHr=E_INVALIDARG;return 0;}
+    EnterCriticalSection(&g_lock);
+    auto& s=g_constantBurst[slot];DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
+    if(!s.used){g_lastHr=E_INVALIDARG;LeaveCriticalSection(&g_lock);return 0;}
+    if(signedMagnitude!=0 && pid!=GetCurrentProcessId()){g_lastHr=DIERR_NOTACQUIRED;LeaveCriticalSection(&g_lock);return 0;}
+    HRESULT hr=S_OK;
+    if(!s.fx && signedMagnitude!=0)hr=wheel_constant_burst::create(g_device,s.fx,s.axes,s.durationMs);
+    if(hr==S_OK)hr=signedMagnitude==0 ? wheel_burst::stop(s.fx) : wheel_constant_burst::play(s.fx,s.axes,s.durationMs,signedMagnitude);
+    s.started=hr==S_OK && signedMagnitude!=0;s.lastMag=s.started?signedMagnitude:0;
+    if(hr==S_OK)g_lastUpdateTick=GetTickCount64();
+    g_lastHr=hr;LeaveCriticalSection(&g_lock);return hr==S_OK?1:0;
+}
+__declspec(dllexport) int StopConstantBurst(int slot) {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    if(!g_lockInit || slot<0 || slot>=kMaxConstantBurst){g_lastHr=E_INVALIDARG;return 0;}
+    EnterCriticalSection(&g_lock);auto& s=g_constantBurst[slot];
+    if(!s.used){g_lastHr=E_INVALIDARG;LeaveCriticalSection(&g_lock);return 0;}
+    HRESULT hr=wheel_burst::stop(s.fx);s.started=false;s.lastMag=0;g_lastHr=hr;
+    LeaveCriticalSection(&g_lock);return SUCCEEDED(hr)?1:0;
+}
+__declspec(dllexport) void ReleaseConstantBursts() {
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    if(!g_lockInit)return;EnterCriticalSection(&g_lock);ReleaseConstantBurstsInternal();LeaveCriticalSection(&g_lock);
+}
+
 // --- condition effects (spring, damper, inertia, friction) -------------------
 // A damper is not a periodic effect. DirectInput renders it as a CONDITION,
 // where the force is a function of the axis position or velocity rather than a
@@ -1370,6 +1525,12 @@ struct ConditionSlot {
     ULONGLONG holdoff;
 };
 static ConditionSlot g_condition[kMaxCondition] = {};
+
+static void MarkPersistentEffectsStopped()
+{
+    for (auto& s : g_condition) if (s.used) s.started = false;
+    for (auto& s : g_periodic) if (s.used && s.durationMs == 0) s.started = false;
+}
 
 static const GUID* ConditionGuid(int type)
 {
@@ -1517,8 +1678,11 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
         return 0;
     }
     if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED || hr == DIERR_NOTEXCLUSIVEACQUIRED) {
-        g_device->Unacquire(); g_device->Acquire();
-        hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+        HRESULT ah = AcquireFfbDevice(true);
+        if (SUCCEEDED(ah)) {
+            hr = s.fx->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+            flags |= DIEP_START;
+        }
     }
     if (SUCCEEDED(hr)) {
         s.lastCoeff = coefficient; s.lastSat = saturation;
@@ -1560,11 +1724,13 @@ __declspec(dllexport) void PanicStop(void)
     if (!EnsureEffectLock()) return;
     EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
+    StopConstantBurstsInternal();
     StopPeriodics();
     StopConditions();
     g_device->SendForceFeedbackCommand(DISFFC_STOPALL);
     g_device->SendForceFeedbackCommand(DISFFC_SETACTUATORSOFF);
     g_device->SendForceFeedbackCommand(DISFFC_RESET);
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();
@@ -1588,6 +1754,7 @@ static void ZeroForcesInternal(void)
     EnterCriticalSection(&g_lock);
     if (g_effect) { SetDeviceForcesXYInternal(0, 0); if (g_effect) g_effect->Stop(); }
     g_lastForce = 0;
+    StopConstantBurstsInternal();
     StopPeriodics(); // Includes finite bursts; do not call an update that can restart them.
     for (int i = 0; i < kMaxCondition; ++i) {
         auto& s = g_condition[i];
@@ -1656,6 +1823,7 @@ static bool ApplyHoldTimeout(ULONGLONG now)
     if (!g_lockInit.load(std::memory_order_acquire) || holdMs <= 0) return false;
     EnterCriticalSection(&g_lock);
     bool active = g_lastForce != 0;
+    for(const auto& s:g_constantBurst)active=active || (s.started && s.lastMag!=0);
     for (int i = 0; i < kMaxPeriodic; ++i) active = active || (g_periodic[i].started && g_periodic[i].lastMag != 0);
     for (int i = 0; i < kMaxCondition; ++i) active = active || (g_condition[i].started && g_condition[i].lastCoeff != 0);
     bool expired = active && now >= g_lastUpdateTick && now - g_lastUpdateTick > (ULONGLONG)holdMs;
@@ -1711,7 +1879,9 @@ __declspec(dllexport) BOOL StartEffect(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
+    EnterCriticalSection(&g_lock);
     HRESULT hr = StartEffectRetrying(g_effect, "constant force");
+    LeaveCriticalSection(&g_lock);
     Log("StartEffect() -> 0x%08lX", hr);
     if (FAILED(hr)) g_lastHr = hr;
     return SUCCEEDED(hr) ? TRUE : FALSE;
@@ -1752,6 +1922,7 @@ __declspec(dllexport) void FreeDirectInput(void)
     // Stop torque before waiting, without releasing any worker-visible object.
     if (g_lockInit) EnterCriticalSection(&g_lock);
     if (g_effect) g_effect->Stop();
+    StopConstantBurstsInternal();
     StopPeriodics();
     StopConditions();
     g_lastForce = 0;
@@ -1781,6 +1952,7 @@ __declspec(dllexport) void FreeDirectInput(void)
         CloseHandle(g_holdThread);
         g_holdThread = nullptr;
     }
+    ReleaseConstantBurstsInternal();
     ReleasePeriodics();
     ReleaseConditions();
     ReleaseEffect();

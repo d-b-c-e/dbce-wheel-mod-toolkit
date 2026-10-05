@@ -5,24 +5,62 @@ using Dbce.Wheel.Ffb;
 class Program {
  static int assertions;
  static void Check(bool ok,string message) { assertions++; if(!ok) throw new Exception(message); }
+ static void CheckCleared(int[] axes,byte[] buttons,int[] pov) {
+  foreach(int a in axes)Check(a==0,"stale axis");
+  foreach(byte b in buttons)Check(b==0,"stale button");
+  foreach(int p in pov)Check(p==-1,"stale POV");
+ }
  [DllImport("kernel32",CharSet=CharSet.Unicode)] static extern IntPtr GetModuleHandleW(string path);
  [DllImport("kernel32",CharSet=CharSet.Ansi,ExactSpelling=true)] static extern IntPtr GetProcAddress(IntPtr h,string name);
  [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int Metric(int key);
  [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate void Fault(int value);
  static int Main(string[] args) { try {
   string path=Path.GetFullPath(args[0]); string dir=Path.GetDirectoryName(path);
+  var unloadedAxes=new int[]{1,1,1,1,1,1,1,1};var unloadedButtons=new byte[]{1};var unloadedPov=new int[]{0,9000,18000,27000};
+  Check(!WheelFfbNative.SupportsPovRead && !WheelFfbNative.Read(0,unloadedAxes,unloadedButtons,unloadedPov),"unloaded POV accepted");
+  CheckCleared(unloadedAxes,unloadedButtons,unloadedPov);
   Check(!WheelFfbNative.Load(dir,"missing.dll"),"missing DLL accepted");
   Check(!WheelFfbNative.Load(Environment.SystemDirectory,"kernel32.dll"),"incomplete exports accepted");
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),WheelFfbNative.LastError);
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),"repeat load");
+  if(args.Length>1) {
+    var a=new int[]{1,1,1,1,1,1,1,1};var b=new byte[]{1};var p=new int[]{0,9000,18000,27000};
+    Check(!WheelFfbNative.SupportsPovRead && !WheelFfbNative.Read(0,a,b,p),"old DLL advertised POV or fallback read");
+    CheckCleared(a,b,p);
+    Check(WheelFfbNative.LastError.Contains("0.9.0"),"missing POV capability message");
+    Check(WheelFfbNative.Read(0,a,b) && a[0]==100 && b[0]==1,"POV absence broke old input");
+  }
+  if(args.Length>1 && args[1]=="nopov") {
+    Check(WheelFfbNative.Version==800 && WheelFfbNative.SupportsConstantBursts,"native0.8.0 capabilities changed");
+    Check(WheelFfbNative.Initialise() && WheelFfbNative.CreateConstantBurst(120)==0 && WheelFfbNative.PlayConstantBurst(0,.05f),"0.8.0 force API broken");
+    WheelFfbNative.ShutdownAll();Console.WriteLine("native0.8.0 optional POV binding passed: "+assertions);return 0;
+  }
+  if(args.Length>1 && args[1]=="shapeonly") {
+    Check(WheelFfbNative.Version==700 && WheelFfbNative.SupportsShapedPeriodicBursts && !WheelFfbNative.SupportsConstantBursts,"shape-only capability");
+    Check(WheelFfbNative.Initialise(),"shape-only init");
+    Check(WheelFfbNative.CreateConstantBurst(120)==-1 && !WheelFfbNative.PlayConstantBurst(0,.5f) && !WheelFfbNative.StopConstantBurst(0),"missing constant export called");
+    WheelFfbNative.ReleaseConstantBursts();
+    Check(WheelFfbNative.CreatePeriodicBurst(25,120)==0 && WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"constant absence broke landing");
+    WheelFfbNative.ShutdownAll();Console.WriteLine("shape-only optional binding passed: "+assertions);return 0;
+  }
+  if(args.Length>1 && args[1]=="burstonly") {
+    Check(WheelFfbNative.Version==601 && WheelFfbNative.SupportsPeriodicBursts && !WheelFfbNative.SupportsShapedPeriodicBursts,"burst-only capability");
+    Check(WheelFfbNative.Initialise(),"burst-only init");
+    Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120),"missing shaped export accepted");
+    Check(WheelFfbNative.CreatePeriodicBurst(25,120)==0 && WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"legacy burst unusable");
+    WheelFfbNative.ShutdownAll(); Console.WriteLine("burst-only optional binding passed: "+assertions); return 0;
+  }
   if(args.Length>1 && args[1]=="legacy") {
     Check(WheelFfbNative.Version==500 && !WheelFfbNative.SupportsPeriodicBursts,"legacy capability incorrect");
     Check(WheelFfbNative.Initialise(),"legacy core API failed");
     Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"missing burst create was accepted");
     Check(!WheelFfbNative.PlayPeriodicBurst(0,.05f,25) && !WheelFfbNative.StopPeriodicBurst(0),"missing burst exports were called");
+    Check(!WheelFfbNative.SupportsShapedPeriodicBursts && !WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120),"missing shape called");
     WheelFfbNative.ShutdownAll(); Console.WriteLine("legacy optional burst binding passed: "+assertions); return 0;
   }
   Check(!WheelFfbNative.Load(dir,"WheelFfb.dll"),"different module silently accepted");
+  Check(!WheelFfbNative.Load(Path.Combine(dir,"nopov"),"UnityForceFeedback.dll"),"older module replaced process-lifetime binding");
+  Check(WheelFfbNative.SupportsPovRead && WheelFfbNative.Version==900 && WheelFfbNative.LoadedFrom==path,"rejected replacement changed capability/module identity");
   var h=GetModuleHandleW(path);
   var metric=Marshal.GetDelegateForFunctionPointer<Metric>(GetProcAddress(h,"TestMetric"));
   var fault=Marshal.GetDelegateForFunctionPointer<Fault>(GetProcAddress(h,"TestFault"));
@@ -32,6 +70,21 @@ class Program {
   Check(WheelFfbNative.OpenRead(0)==0,"input without FFB");
   var axes=new int[8];var buttons=new byte[128];
   Check(WheelFfbNative.Read(0,axes,buttons) && axes[7]==107 && buttons[0]==1,"read marshalling");
+  var pov=new int[4];int legacyReads=metric(7);
+  Check(WheelFfbNative.SupportsPovRead && WheelFfbNative.Read(0,axes,buttons,pov),"POV snapshot unavailable");
+  Check(axes[0]==200 && axes[7]==207 && buttons[0]==1 && buttons[1]==0 && buttons[127]==1 &&
+    pov[0]==4500 && pov[1]==13500 && pov[2]==22500 && pov[3]==-1,"POV array/count marshalling");
+  Check(metric(7)==legacyReads && metric(21)==1,"split or repeated native read");
+  fault(12);Check(!WheelFfbNative.Read(0,axes,buttons,pov),"failed POV read accepted");CheckCleared(axes,buttons,pov);
+  Check(metric(21)==2 && WheelFfbNative.LastError.Contains("ReadDeviceStateWithPov"),"failure retried or hidden");fault(0);
+  Check(WheelFfbNative.Read(0,axes,null,pov) && WheelFfbNative.Read(0,axes,new byte[0],pov),"optional buttons");
+  Check(WheelFfbNative.Read(0,axes,buttons,pov),"POV failure recovery");
+  int povCalls=metric(21);
+  foreach(int n in new[]{0,7,9})Check(!WheelFfbNative.Read(0,new int[n],buttons,pov),"bad axes crossed ABI");
+  foreach(int n in new[]{0,3,5})Check(!WheelFfbNative.Read(0,axes,buttons,new int[n]),"bad hats crossed ABI");
+  Check(!WheelFfbNative.Read(-1,axes,buttons,pov) && !WheelFfbNative.Read(0,null,buttons,pov) &&
+    !WheelFfbNative.Read(0,axes,buttons,null) && !WheelFfbNative.Read(0,axes,new byte[129],pov),"bad snapshot arguments accepted");
+  Check(metric(21)==povCalls && metric(7)==legacyReads,"invalid snapshot called native");
   int reads=metric(7);
   Check(!WheelFfbNative.Read(0,new int[7],buttons) && metric(7)==reads,"short axes crossed native boundary");
   Check(WheelFfbNative.OpenAux(0) && WheelFfbNative.ReadAux(buttons)==128,"aux without FFB");
@@ -60,7 +113,7 @@ class Program {
   Check(!WheelFfbNative.Initialise() && !WheelFfbNative.Ready && metric(1)>freed,"start failure reported ready");
   fault(0);Check(WheelFfbNative.Initialise(),"recovery");
   WheelFfbNative.LogTo("fixture.log"); WheelFfbNative.HoldTimeout(100); WheelFfbNative.AutoCentre(false);
-  Check(WheelFfbNative.Version==600 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
+  Check(WheelFfbNative.Version==900 && WheelFfbNative.LastHResult==1234,"version/HRESULT binding");
   Check(WheelFfbNative.ExitGuards(),"exit guard binding");
   Check(WheelFfbNative.CreatePeriodic(25)==1 && WheelFfbNative.UpdatePeriodic(1,.2f,25),"periodic binding");
   Check(!WheelFfbNative.UpdatePeriodic(1,float.NaN,25),"invalid periodic magnitude crossed native boundary");
@@ -87,6 +140,33 @@ class Program {
   fault(5); Check(WheelFfbNative.CreatePeriodicBurst(25,120)==-1,"unsupported create accepted");
   fault(7); Check(!WheelFfbNative.StopPeriodicBurst(0),"failed stop accepted");
   fault(0);
+  Check(WheelFfbNative.SupportsShapedPeriodicBursts,"shape capability");
+  fault(0);
+  Check(WheelFfbNative.PlayShapedPeriodicBurst(0,.1952f,6.25f,9000,120) && metric(9)==1952 && metric(10)==6250 && metric(14)==9000 && metric(15)==120,"shape marshalling");
+  int shaped=metric(13);
+  foreach(int phase in new[]{-1,36000}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,phase,120),"invalid phase");
+  foreach(int fade in new[]{0,501}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,fade),"invalid fade");
+  foreach(float magnitude in new[]{float.NaN,float.PositiveInfinity,-1,2}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,magnitude,6.25f,9000,120),"invalid shape magnitude");
+  foreach(float hz in new[]{float.NaN,float.PositiveInfinity,0,101}) Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,hz,9000,120),"invalid shape frequency");
+  Check(metric(13)==shaped,"invalid shape crossed native boundary");
+  fault(8); Check(!WheelFfbNative.PlayShapedPeriodicBurst(0,.2f,6.25f,9000,120) && metric(13)==shaped+1 && WheelFfbNative.LastError.Contains("PlayShapedPeriodicBurst"),"shape failure retried/hidden");
+  fault(0); Check(WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"shape failure blocked landing");
+  Check(WheelFfbNative.SupportsConstantBursts,"constant capability missing");
+  Check(WheelFfbNative.CreateConstantBurst(120)==0 && metric(18)==120 && metric(16)==0,"constant idle create marshalling");
+  foreach(int duration in new[]{0,-1,501})Check(WheelFfbNative.CreateConstantBurst(duration)==-1,"invalid constant duration");
+  foreach(float magnitude in new[]{-1f,-.5f,-float.Epsilon,0f,float.Epsilon,.5f,1f}) {
+    int expected=magnitude==0?0:Math.Sign(magnitude)*Math.Max(1,(int)Math.Round(Math.Abs(magnitude)*10000));
+    Check(WheelFfbNative.PlayConstantBurst(0,magnitude) && metric(17)==expected,"constant signed marshalling");
+  }
+  int calls=metric(16);
+  foreach(float magnitude in new[]{float.NaN,float.PositiveInfinity,float.NegativeInfinity,-1.001f,1.001f})Check(!WheelFfbNative.PlayConstantBurst(0,magnitude),"invalid constant magnitude");
+  Check(!WheelFfbNative.PlayConstantBurst(4,.5f) && metric(16)==calls,"invalid constant crossed native boundary");
+  fault(10);Check(!WheelFfbNative.PlayConstantBurst(0,.5f) && metric(16)==calls+1 && WheelFfbNative.LastError.Contains("PlayConstantBurst"),"constant failure retried/hidden");
+  fault(0);Check(WheelFfbNative.PlayPeriodicBurst(0,.05f,25),"constant failure blocked periodic");
+  Check(WheelFfbNative.StopConstantBurst(0) && WheelFfbNative.StopConstantBurst(0) && metric(19)==2,"constant stop not idempotent");
+  WheelFfbNative.ReleaseConstantBursts();Check(metric(20)==1,"constant release binding");
+  fault(9);Check(WheelFfbNative.CreateConstantBurst(120)==-1,"constant create error hidden");
+  fault(11);Check(!WheelFfbNative.StopConstantBurst(0),"constant stop error hidden");fault(0);
   WheelFfbNative.ShutdownAll();freed=metric(1);WheelFfbNative.Shutdown();Check(metric(1)==freed,"duplicate device shutdown");
   Console.WriteLine("{\"status\":\"passed\",\"assertions\":"+assertions+"}");return 0;
  } catch(Exception e) {Console.Error.WriteLine(e);return 1;} }

@@ -130,6 +130,7 @@ Either way the consumer vendors a **built, pinned** version under `lib/toolkit`
 dotnet test Dbce.Wheel.sln
 .\native\wheelffb\build.ps1                     # x64, verifies every export
 .\native\wheelffb\build.bat x86                 # 32-bit games
+.\native\wheelffb\test\build_pov_read_test.bat  # production read path, fake devices only
 .\native\wheelffb\test\build_smoke.bat x86     # then build\x86\smoke.exe
 .\native\forza\build_test.bat                   # packet conformance
 .\tools\powershell\Test-DbceWheel.ps1

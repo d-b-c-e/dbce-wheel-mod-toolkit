@@ -13,10 +13,25 @@ set "OUT=%HERE%build"
 if /i "%ARCH%"=="x86" set "OUT=%HERE%build\x86"
 set "FIXTUREDEF=%HERE%fixture.def"
 set "EXTRA="
+if /i "%~2"=="nopov" (
+ set "OUT=%OUT%\nopov"
+ set "FIXTUREDEF=%HERE%fixture.nopov.def"
+ set "EXTRA=/DNO_POV"
+)
 if /i "%~2"=="legacy" (
  set "OUT=%OUT%\legacy"
  set "FIXTUREDEF=%HERE%fixture.legacy.def"
  set "EXTRA=/DNO_BURST"
+)
+if /i "%~2"=="burstonly" (
+ set "OUT=%OUT%\burstonly"
+ set "FIXTUREDEF=%HERE%fixture.burstonly.def"
+ set "EXTRA=/DNO_SHAPED"
+)
+if /i "%~2"=="shapeonly" (
+ set "OUT=%OUT%\shapeonly"
+ set "FIXTUREDEF=%HERE%fixture.shapeonly.def"
+ set "EXTRA=/DNO_CONSTANT"
 )
 if not exist "%OUT%" mkdir "%OUT%"
 
