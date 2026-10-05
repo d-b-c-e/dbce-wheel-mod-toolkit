@@ -25,13 +25,16 @@ Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route qualification is
 still open. Claude separately observed the DRIVE reference in motion at 7680
-triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–33. Sonic reaches the
+triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–34. Sonic reaches the
 E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Native NEXT opens a known
 disabled-gadgets warning. Verified Yes focus plus Accept returns to Ready;
 native Right and Down leave No focused and withhold Accept. Race entry is
-unresolved, not a successful recording. All 36 restored probe runs and the
-earlier crash are archived privately. An async Lua
+unresolved, including four subsequent parent/button dispatch probes. Latest
+bd519c9 returned to Ready after direct Yes press/release, then quit/restored
+normally. Claude's virtual-pad route separately reached a race; observe that
+route with the passive addon next. All 40 restored probe runs and the
+earlier recovered crash are archived privately. An async Lua
 finalization crash is retained separately; the replacement single-thread timer
 passed 30-second and 180-second normal-quit/restoration runs. Its probe has no
 qualified racing-car tick, original force producer or gameplay replay yet.

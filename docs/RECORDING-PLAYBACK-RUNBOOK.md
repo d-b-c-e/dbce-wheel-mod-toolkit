@@ -336,7 +336,11 @@ game-thread observer with stage/install/arm/stop/removal scripts. Native startup
 reached E-Stadium's offline Time Trial Ready/loadout with Tails and SonicSpeed.
 Native footer Next opens a disabled-gadgets warning. Verified Yes focus plus
 Accept returns to Ready; native Right and Down leave No focused and withhold
-Accept. Race entry remains unresolved. Steam launch, native quit and exact UE Config/SEGA save restoration
+Accept. Four later parent/button dispatch variants also failed to enter a race;
+latest `bd519c9` returned to Ready after direct native Yes press/release. Claude's
+separate virtual-pad route reached E-Stadium (`64fbeb9`); next use the passive
+addon during that known route, as documented in the consumer. Native startup
+remains unresolved. Steam launch, native quit and exact UE Config/SEGA save restoration
 pass. Nineteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
 checks pass. There is no qualified driving recording or in-game replay yet.
 Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct
@@ -379,9 +383,12 @@ Saves are in `%APPDATA%/SEGA/SonicRacingCrossWorlds/steam/<id>`, separate from
 `%LOCALAPPDATA%/UNION/Saved/Config`. Both roots are backed up and hash-validated
 before either is restored. New/post-run files are retained privately in evidence.
 Local restoration is not a Steam Cloud transaction guarantee. Completed probe
-evidence, including owner-file backups, was archived separately from source with
-all 1,028 entry hashes verified; originals remain. See the consumer review for
-the exact archive identity and later runs.
+evidence, including owner-file backups, was archived separately from source:
+36 restored runs in the 2,483-entry `sonic-startup-20261005-1552.zip`, plus four
+follow-ups in the 352-entry `sonic-popup-dispatch-20261005-164246.zip`. All entry
+hashes were verified; originals remain. The earlier crash is retained as a
+recovered failure, not a normal-exit pass. See the consumer review for exact
+archive identities. These private owner saves/configuration are not release data.
 
 ### OutRun 2006 native intake
 

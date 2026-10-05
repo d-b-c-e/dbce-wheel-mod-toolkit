@@ -310,6 +310,17 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     Application background execution is process-local; it must not silently
     change display preferences or enable ordinary background device input.
 
+34. **Observe a working control route before substituting more native events.**
+    Sonic's popup registered and focused Yes, but controller Accept and direct
+    button press/release returned to Ready. Generic and player-indexed parent
+    Right events left No selected. Claude's real virtual-pad sequence reached
+    the race. These are different runtime outcomes, even when reflection exposes
+    plausible method names. Capture the working route with a passive observer;
+    do not loosen the dialog guard or call a dispatched event a transition.
+    Keep test doubles faithful to class boundaries: the button inherited focus
+    getters from UnionUIInputWidget, while its parent popup did not have them.
+    A fixture that invents those getters can pass while live input is withheld.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
