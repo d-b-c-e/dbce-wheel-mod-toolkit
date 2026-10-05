@@ -270,11 +270,14 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
 
 30. **Keep capture buffers and finalization on one game thread.** A Sonic probe
     completed its data writes, then crashed in UE4SS `lua_rawgeti` before its
-    separately queued quit ran. The precise corruption cause is unproven, but
+    separately queued quit marked entry. The precise invalid-read cause is unproven, but
     the old design shared mutable Lua buffers between async polling and game
     callbacks. The pinned loader documents a cancellable game-thread timer;
     using it for sampling, completion and native quit removes that race boundary
-    and the extra quit dependency. Its first 30-second live smoke passed.
+    and the extra quit dependency. Its first 30-second and subsequent 150/180-second
+    runs passed normal exit/restoration. A Fatal Error dialog and dump after an
+    `observed` log are a crash, not a hang or successful session. Capture completion,
+    normal process exit and owner-file restoration are separate required evidence.
     Test cancellation/late callbacks and missing timer APIs; retain supervisor
     deadlines because an unresponsive game thread cannot execute its own exit.
 
