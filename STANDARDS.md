@@ -30,6 +30,8 @@ Reference: art of rally (wheel and triple mods unified 2026-10-04).
 ## STD-002 — Recording and playback from launch
 2026-10-04 · owner · applies to: every game
 
+*Superseded by STD-012 following the accepted Art, iRacing and Woden playbacks.*
+
 Each game needs a recorded session that replays through the game itself, from
 launch through the menus to the drive, as the base for automated testing.
 Replay is timing-accurate input playback, not pose correction or teleports.
@@ -112,3 +114,26 @@ pass, in the same session. Before ending a session: nothing uncommitted, merged 
 deleted, finished worktrees removed. What is *installed* is recorded in the repo's docs,
 not kept on a separate branch. Never leave a standard, fix or experiment only on disk or
 only on a side branch. Portfolio check: `E:\Source\dbce-project-mgmt\tools\Get-BranchDrift.ps1`.
+
+## STD-012 — Reproduce the route and preserve original signals
+2026-10-05 · owner acceptance and replay implementation findings · applies to: every game
+
+Supersedes STD-002. Keep externally armed recording and unattended cold startup
+through native menus. Record and replay are separate, clearly labelled launches.
+Use physics-tick trajectory playback for repeatable route/camera reproduction;
+retain original controls, physics, force requests and telemetry for analysis.
+Verify each applied pose on the next physics tick, including the final pose, and
+observe camera/HUD behavior separately. Input replay remains a diagnostic until
+determinism is demonstrated; pose corrections cannot turn its divergence into a
+passing physics test. Kinematic playback cannot regenerate the original tyre forces.
+
+Mute physical/network delivery while retaining the original requested data and
+units. Preserve saved display and owner settings. Keep complete sealed references
+outside disposable worktrees and verify them before cleanup. Automated diagnostic
+controls must be labelled separately from owner driving; both record real physics.
+
+References: accepted Art 0.4.0 session 5, iRacing's two accepted cold launches and
+Woden's accepted Kenya reference. Their acceptance scopes and current reference
+availability are in `docs/RECORDING-PLAYBACK-RUNBOOK.md`; implementation failures
+and fixes are in `knowledge/RECORDING-PLAYBACK-LESSONS.md`. Shared contract:
+`docs/PLAYBACK-CORE.md`. A game adapter still requires its own live qualification.
