@@ -1,5 +1,12 @@
 # dbce-wheel-mod-toolkit — Claude working notes
 
+**Recording/playback:** start with `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
+commands, known-good Art reference, stop/recovery and adapter status. Read
+`knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing the approach. It explains
+the drift, competing-physics/flying-camera regression and misleading acceptance
+checks, including later Codex mistakes. Do not repeat the abandoned assumptions.
+Shared APIs: `docs/PLAYBACK-CORE.md`.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not

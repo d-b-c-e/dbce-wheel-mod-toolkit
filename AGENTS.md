@@ -1,5 +1,11 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+**Recording/playback:** start with `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
+commands, known-good Art reference, stop/recovery and adapter status. Read
+`knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing the approach. These
+supersede earlier input-replay assumptions; never infer deterministic physics
+or physical force from trajectory/signal replay. Shared APIs: `docs/PLAYBACK-CORE.md`.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not

@@ -1,5 +1,10 @@
 # Knowledge base — index and migration tracker
 
+**Recording/playback, October 4:** [failure analysis and acceptance rules](RECORDING-PLAYBACK-LESSONS.md)
+and [copy-and-paste operational runbook](../docs/RECORDING-PLAYBACK-RUNBOOK.md).
+Start here for Art's known-good recording or a new game adapter; the older
+unattended-input notes below are historical, not proof that input replay works.
+
 *2026-09-03: every page below is written (first pass) from the sources
 listed, plus `UNITY-MODDING.md` (engine-level, both runtimes) and per-game case
 files under `games/`. The source column stays as provenance; when a consumer
