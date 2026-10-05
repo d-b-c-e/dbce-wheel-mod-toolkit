@@ -1,6 +1,6 @@
 # Start and verify recording/playback
 
-Updated 2026-10-04. Read [the failure lessons](../knowledge/RECORDING-PLAYBACK-LESSONS.md)
+Updated 2026-10-05. Read [the failure lessons](../knowledge/RECORDING-PLAYBACK-LESSONS.md)
 before changing an adapter. This runbook is intended to work without recovering
 conversation context. Source/layout migrations on other branches do not change
 the identity of a tested installed artifact.
@@ -10,10 +10,20 @@ the identity of a tested installed artifact.
 At the October 4 acceptance checkpoint the game is installed at
 `D:\Program Files (x86)\Steam\steamapps\common\artofrally` and the tested source
 checkout is `E:\Source\games\dbce-mods-art-of-rally`, branch
-`codex/session-playback`. Normal stable publication is being prepared as 0.4.0;
-verify the release/install receipt rather than assuming this sentence proves it.
+`codex/session-playback`. **0.4.0 is published and installed**, including the
+matching optional probe. Tag `v0.4.0` is source
+`30d421b26eccebc564cd50bf0733c1ed6a82d849`. Both archives and checksum files were
+downloaded from GitHub and matched to the tested files. Verify the current
+install receipt before assuming a later session has kept this installation.
 The local reference is **2026-10-04-owner-session-5** (Japan6/Kei/Afternoon).
 Never overwrite, regenerate or substitute it with `synthetic-roundtrip-*`.
+
+Release: https://github.com/d-b-c-e/dbce-mods-art-of-rally/releases/tag/v0.4.0
+
+- Normal archive SHA-256: `C498F8139FD64D13DD395CC036DE71C50614087C216280A17AA3A4724A96B3CA`.
+- Optional SessionTools SHA-256: `08DA5536F641E7ADAF7B8414DD3C45205A40A90F6F3A43629B14F2B5C8476C94`.
+- Local final run: `replay-20261004-210753`, same 13,455 poses and zero error,
+  launcher exit 0. Saved files and all 58 game preferences restored.
 
 1. Arrange exclusive rig use; all other racing games and other agents' display
    tests must be stopped. Keep physical outputs muted. Do not change resolution,
@@ -37,6 +47,24 @@ Use the release's separately extracted SessionTools archive or an isolated
 checkout of its recorded source. Copy the whole reference directory unchanged
 under that tooling root's `results/sessions/`; verify source file hashes. The
 normal player ZIP alone does not include Session.ps1 or the developer probe.
+
+On this machine the verified optional archive is already extracted at
+`E:\Source\games\dbce-mods-art-of-rally\results\session-tools-040-final`.
+If rebuilding tooling is unnecessary, use that frozen copy. From its root:
+
+```powershell
+# Only if the matching optional probe needs installing, with the game CLOSED:
+pwsh -NoProfile -File tools/testing/Install-Recorder.ps1 -SkipBuild
+# Reference destination must be new; copy source files and environment backups intact.
+New-Item -ItemType Directory -Force results/sessions | Out-Null
+if (Test-Path results/sessions/2026-10-04-owner-session-5) { throw 'Reference already exists; use it without copying over it.' }
+Copy-Item -LiteralPath 'E:\Source\games\dbce-mods-art-of-rally\results\sessions\2026-10-04-owner-session-5' -Destination results/sessions -Recurse
+pwsh -NoProfile -File tools/testing/Session.ps1 -Replay -Name 2026-10-04-owner-session-5 -TimeoutMinutes 8
+```
+
+Use the first checkout command when it is available; copying the private reference
+is only needed for another tooling root. Never copy over an existing case. Format-2
+session 5 predates completion seals; preserve its source bytes and metadata.
 
 Steam launches normally; dismiss any real Steam prompt before interpreting
 startup as failed. Menus and the route run automatically. A successful run is
@@ -77,6 +105,11 @@ Do not import a random registry backup or delete failed captures. Preserve
 expire, but an unexpected request must be understood, not repeatedly retried.
 If the desktop becomes garbled or input fails, stop live testing and retain
 Windows/Unity evidence; do not keep launching different games.
+
+New environment backups use `playerprefs-raw.json` with original registry value
+types/bytes and a verified hash/count. `reg export` silently omitted 21 of 58
+values on this rig, so its successful exit status is insufficient. Restore with
+Session.ps1; do not replace the raw snapshot by a partial `.reg` export.
 
 ## A new real recording and force analysis
 
