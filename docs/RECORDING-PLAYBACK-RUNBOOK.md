@@ -318,19 +318,23 @@ termination by assuming its physical outputs are off.
 ### Sonic CrossWorlds preparation
 
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
-work. `games/dbce-mods-sonic-crossworlds` main `338fe7f` includes a bounded
+work. `games/dbce-mods-sonic-crossworlds` includes a bounded
 game-thread observer with stage/install/arm/stop/removal scripts. Native startup
 reached E-Stadium's offline Time Trial Ready/loadout with Tails and SonicSpeed.
-Source `3eb0efc` adds its guarded native footer Next action; race advancement is
+Native footer Next opens a disabled-gadgets warning; its guarded Yes response is
 under test. Steam launch, native quit and exact UE Config/SEGA save restoration
-pass. Fifteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
+pass. Eighteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
 checks pass. There is no qualified driving recording or in-game replay yet.
 Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct
 from a physics-tick trajectory. Its older
 companion input scheduler only proves report scheduling, not a reproduced race.
 
-The probe queues at most one callback, accesses UObjects only on the game thread,
-and prevents a late callback from reading state after Stop or a stall timeout.
+The probe uses a cancellable native game-thread timer for sampling, completion
+and quit. It cancels before finalization and rejects late callbacks. An earlier
+LoopAsync/queued-quit design crashed in Lua during finalization; the exact cause
+remains unproven. The replacement passed both a 30-second smoke and 180-second
+startup observation. Missing timer APIs refuse before claiming a request; a
+stalled game thread is handled by the external runner's retained-lease deadline.
 Missing fields and original force data remain unavailable. Discover the actual
 car tick, mode/startup authority and competing body writers before implementing
 an active player; do not infer them from a camera hook or the first found pawn.
@@ -345,7 +349,7 @@ After staging/installing the current probe in a closed-game slot, run this from
 the Sonic checkout to inspect the guarded offline startup path:
 
 ```powershell
-./scripts/Run-StageProbe.ps1 -Result obj/probe-NEW -Seconds 90 -InspectStartup
+./scripts/Run-StageProbe.ps1 -Result obj/probe-NEW -Seconds 180 -InspectStartup
 ```
 
 The runner owns the shared lease, creates an expiring request, launches through
@@ -374,7 +378,23 @@ again. External runtime capture and gameplay playback do not exist yet. FFB Off
 skips calculation, the car hook is pre-native, and Plugin_Init runs under loader
 lock: preserve the calculation stream when adding output mute, observe actual
 physics/presentation ownership and start/join writers at normal outer boundaries.
-No install or game launch occurred. Unity hooks are not a native x86 adapter.
+Unity hooks are not a native x86 adapter.
+
+Later startup-crash investigation found the launched copy lacked all 80
+Scripts/bin files and 30 BK/Bin assets. The crash caller was an OutrunMiles
+script-table lookup. Only missing files were restored from the owner's matching
+local installation, checked against another copy; 31 existing root/save hashes
+were preserved. Read-only preflight now validates the exact EXE and 110 assets:
+
+```powershell
+./tools/Test-GameData.ps1 -GameDir '<actual Stream Deck game directory>'
+```
+
+See consumer docs/STARTUP-ASSETS-2026-10-05.md for the receipt. All asset hashes
+pass, but post-repair startup still needs testing. No game bytes are committed.
+Do not diagnose this as a renderer/FFB-hook regression or add a native null-pointer
+workaround before retesting the intact installation. Lesson 31 covers preserving
+runtime game data even when its directory is named bin.
 
 - Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
   `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the
