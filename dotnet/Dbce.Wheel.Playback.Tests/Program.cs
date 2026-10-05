@@ -3,6 +3,13 @@ using Dbce.Wheel.Playback;
 int assertions = 0;
 void Check(bool ok, string message) { assertions++; if (!ok) throw new Exception(message); }
 void Reject(Action action, string message) { try { action(); } catch (Exception ex) when (ex is IOException || ex is InvalidDataException) { assertions++; return; } throw new Exception(message); }
+int restored = 0;
+try
+{
+    CleanupActions.Run(() => throw new IOException("disk full"), () => restored++, () => throw new IOException("second failure"));
+    throw new Exception("Cleanup failures were hidden");
+}
+catch (AggregateException ex) { Check(restored == 1 && ex.InnerExceptions.Count == 2, "Independent cleanup continues after a failed writer and reports every failure"); }
 var stats = SignalStatistics.Summarize(new double[] { -1, 0, 1, 0 }, "normalized-request", true);
 Check(stats.Count == 4 && stats.Rms == Math.Sqrt(.5) && stats.FractionAtUnitLimit == .5, "Symmetric force RMS and clipping");
 Check(stats.Minimum == -1 && stats.Maximum == 1 && stats.AbsoluteP50 == 0 && stats.AbsoluteP95 == 1, "Signed range and absolute nearest-rank percentiles");
