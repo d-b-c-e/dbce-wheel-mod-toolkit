@@ -69,6 +69,7 @@ namespace Dbce.Wheel.Playback
         public void ValidateTarget(string game, string gameHash, string scenario, double fixedDeltaTime)
         {
             if (Metadata["game"] != game || Metadata["gameSha256"] != gameHash || Metadata["scenario"] != scenario ||
+                double.IsNaN(fixedDeltaTime) || fixedDeltaTime < .001 || fixedDeltaTime > .1 ||
                 Math.Abs(double.Parse(Metadata["fixedDeltaTime"], CultureInfo.InvariantCulture) - fixedDeltaTime) > .000001)
                 throw new InvalidDataException("Recorded game build, scenario or physics timestep differs");
         }

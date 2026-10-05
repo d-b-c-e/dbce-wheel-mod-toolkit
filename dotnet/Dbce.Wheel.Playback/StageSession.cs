@@ -61,8 +61,24 @@ namespace Dbce.Wheel.Playback
         // A render-thread heartbeat detects missing hook/focus/scene progress too.
         public void Heartbeat(double now)
         {
-            if (armed && now - armedAt > 180) Abort("stage was not ready within 180 seconds");
-            else if ((recorder != null || player != null) && now - lastStepAt > 30) Abort("no physics callback for 30 seconds");
+            try
+            {
+                if (armed) { if (now - armedAt > 180) Abort("stage was not ready within 180 seconds"); return; }
+                if (!Active) return;
+                // Pause can stop FixedUpdate entirely. Release ownership from Update
+                // immediately instead of waiting for another physics callback.
+                if (adapter.Scenario != scenario) { Abort("stage or vehicle changed"); return; }
+                if (!SameTimestep()) { Abort("physics timestep changed"); return; }
+                if (player != null && !adapter.PlaybackAllowed) { Abort("playback eligibility lost"); return; }
+                if (recorder != null && !adapter.Ready) { Stop(); return; }
+                if (now - lastStepAt > 30) Abort("no physics callback for 30 seconds");
+            }
+            catch (Exception ex) { Abort("heartbeat: " + ex.Message); }
+        }
+        private bool SameTimestep()
+        {
+            double current = adapter.FixedDeltaTime;
+            return !double.IsNaN(current) && current >= .001 && current <= .1 && Math.Abs(current - fixedDeltaTime) <= 1e-7;
         }
         public void FixedStep(double now)
         {
@@ -96,7 +112,7 @@ namespace Dbce.Wheel.Playback
                 }
                 lastStepAt = now;
                 if (adapter.Scenario != scenario) { Abort("stage or vehicle changed"); return; }
-                if (Math.Abs(adapter.FixedDeltaTime - fixedDeltaTime) > 1e-7) { Abort("physics timestep changed"); return; }
+                if (!SameTimestep()) { Abort("physics timestep changed"); return; }
                 if (recorder != null)
                 {
                     if (!adapter.Ready || recorder.Count * adapter.FixedDeltaTime >= seconds) { Stop(); return; }

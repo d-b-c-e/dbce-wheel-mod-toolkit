@@ -71,6 +71,7 @@ try
     tape.ValidateTarget("fixture", new string('a', 64), "track|car", .02); assertions++;
     Reject(() => tape.ValidateTarget("fixture", new string('a', 64), "wrong-car", .02), "Scenario mismatch refused before ownership");
     Reject(() => tape.ValidateTarget("fixture", new string('a', 64), "track|car", .01), "Different physics timestep refused");
+    Reject(() => tape.ValidateTarget("fixture", new string('a', 64), "track|car", double.NaN), "Nonfinite target timestep refused before ownership");
     Reject(() => new TrajectoryRecorder(trajectoryRoot, metadata), "Existing trajectory immutable");
     var target = new FixtureTarget();
     using (var player = new TrajectoryPlayer(tape, target))
@@ -145,6 +146,29 @@ try
         session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "dt-change"), 0);
         session.FixedStep(0); target.Delta = .01; session.FixedStep(.02);
         Check(session.Status.Contains("timestep changed") && !session.Active, "Changing physics rate cannot silently change playback speed");
+        target.Delta = .02;
+    }
+    using (var session = new StageSession(target))
+    {
+        session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "paused-without-physics"), 0);
+        session.FixedStep(0); target.Available = false; int before = target.Releases; session.Heartbeat(.01);
+        Check(!session.Active && target.Releases == before + 1 && session.Status.Contains("eligibility lost"), "Render heartbeat releases a paused replay even without another physics callback");
+        target.Available = true;
+    }
+    using (var session = new StageSession(target))
+    {
+        session.Record(Path.Combine(stageRoot, "record-paused"), 10, 0);
+        target.Current.Time = 10; session.FixedStep(0); target.Current.Time = 10.02; session.FixedStep(.02);
+        target.Available = false; session.Heartbeat(.03);
+        Check(!session.Active && session.Status.StartsWith("recorded:") && TrajectoryTape.Read(Path.Combine(stageRoot, "record-paused")).Frames.Length == 2,
+            "Pause finalizes an aligned capture without waiting for physics to resume");
+        target.Available = true;
+    }
+    using (var session = new StageSession(target))
+    {
+        session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "nan-timestep"), 0);
+        session.FixedStep(0); target.Delta = double.NaN; session.Heartbeat(.01);
+        Check(!session.Active && session.Status.Contains("timestep changed"), "Nonfinite physics clock cannot retain trajectory ownership");
         target.Delta = .02;
     }
     using (var session = new StageSession(target))
