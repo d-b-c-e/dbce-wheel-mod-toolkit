@@ -267,6 +267,10 @@ of the current run. Supervised wrappers are the normal operator entry points.
 
 ## Maintainer entry points
 
+For new supervised adapters, use the [owned-process watchdog contract](STAGE-SUPERVISION.md).
+Pin the watcher/policy scripts together. Never kill games by name or rewrite the
+monitor profile as a generic response to a stalled recording.
+
 ### Sonic CrossWorlds preparation
 
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
