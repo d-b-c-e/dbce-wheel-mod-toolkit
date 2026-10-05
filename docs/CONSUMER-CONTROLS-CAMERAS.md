@@ -68,7 +68,7 @@ The family defaults are:
 | Reset this view | Numpad 5 |
 
 Step sizes are player settings, not constants: move (default 0.02 m), tilt (1°) and
-FOV (2°) per press, so a view can be placed finely.
+FOV (2°) per press, so a view can be placed finely. Expose them in Advanced → Cameras next to the pose sliders, with a one-click return to the defaults (Woden: `[Camera] MoveStepMetres`, `TiltStepDegrees`, `FovStepDegrees`).
 
 Directions describe the visible result, independent of a game's numeric pitch
 sign. Use small predictable tap increments; holding an adjustment repeats at a
