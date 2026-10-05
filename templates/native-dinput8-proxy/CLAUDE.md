@@ -40,6 +40,18 @@ What stays in this repo is **what the car is doing**: where the car state
 lives, which field means what, the game's own surface or collision data, and
 how a crash is detected. That part really is per game.
 
+## Player settings
+
+Follow [UX-1](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX.md)
+and [Simple/Advanced placement (UX-01-S)](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-SETTINGS-VIEWS.md).
+F6 opens Wheel settings in Simple by default; remember an explicit view choice.
+Keep complete ordinary binding/calibration, camera shortcut rebinding, main FFB
+controls and recovery accessible in Simple. Advanced adds detailed tuning and
+diagnostics over the same saved values; switching views never resets them or
+changes runtime behavior. Record each option's placement and the guidance hash
+with [acceptance evidence](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX-CHECKLIST.md).
+The toolkit does not supply a shared UI renderer or calibration workflow yet.
+
 ## Non-negotiables
 
 1. **Do nothing heavy in `DllMain`.** `LoadLibrary`, threads and DirectInput

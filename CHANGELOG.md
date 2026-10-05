@@ -5,6 +5,95 @@ Notable changes to dbce-wheel-mod-toolkit. Format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The native C ABI
 only ever gains exports.
 
+## [Unreleased]
+
+- Add source-only recorded-playback case validation, a bounded no-device force
+  observation sink and ordered request comparison. Consumer game input formats
+  and deterministic replay remain adapter-owned; no native release/pin changes.
+
+- Clarify device-picker presentation from Art RC16: bounded current/expanded
+  choices, flat rows with visible selection, retained but disabled disconnected
+  choices, and a separate compact Refresh command beside the picker.
+
+- Clarify RC14 owner-test findings: compact command widths across all pages,
+  segmented short settings and flat Advanced/Show navigation. Programmatic native
+  menus wait for the initiating control's release and a short neutral-frame
+  barrier, then explicitly regain input ownership; unrelated resting pedal axes
+  or held shifter buttons must not trap the destination. Preserve focus/cancel guards.
+
+- Refine UX-1 from rendered Art RC13 feedback: perceptible group boundaries,
+  compact flat tabs with a clear selection indicator, left-aligned instructions
+  and compact commands grouped right. Raised styling is for commands. Setup is
+  optional for distinct guided first use; remove duplicate overviews and preserve
+  saved page identities during migration. Actual-host acceptance remains required.
+
+- Clarify binding ownership and visual hierarchy (UX-03-G) following Art's
+  cluttered Simple panel: bounded groups, compact routine status, local edit
+  instructions, clear disclosures and complete actionable viewport evidence.
+
+- Distinguish installed feature support from configured, connected device
+  readiness in Simple. An available calibration implementation must not label
+  an empty device list Ready to drive; preserve a clear next setup action.
+
+- Clarify stock-menu input isolation and held navigation release, including the
+  actual control aggregation. Require shared-primary pedal roles to become
+  neutral on failed reads; retain device identity through role changes.
+
+- Track the resumed seven-product UX completion and local deployment with exact
+  package, backup and settings-retention evidence. Keep installed state separate
+  from in-game interaction and physical-force acceptance.
+
+- Reconcile the consumer register/status tool with all seven products, explicit
+  pin sources and OutRun's native/header override. Compare only used components,
+  verify override hashes, and preserve local candidate provenance without
+  suggesting a downgrade. Isolated fixtures exercise output, exit status and
+  read-only behavior.
+
+- Add an offline interactive Simple/Advanced UI reference and begin the
+  coordinated consumer rollout, with independent layout/interaction evidence.
+  Clarify the explicit-association fallback when input and FFB backends cannot
+  prove device identity; no automatic runtime or consumer adoption is implied.
+
+- Require Simple settings by default across consuming mods (UX-01-S, 2026-09-16),
+  with complete basic setup and an Advanced view for detailed customization.
+  Specify per-page placement, retained owner settings/view choice, visible
+  recovery and migration/interaction checks. Update setup, audits and starter
+  guidance; this is a standard for adoption, not a change to installed mod UIs.
+
+- Define exact handbrake binding/cancel and mounted-camera numpad/rebinding
+  workflows, with a Woden source reconciliation audit and interaction checks.
+  Preserve saved bindings across differing legacy camera defaults. Reconcile
+  pending owner guidance for saved FFB On/Off and agent-managed recording; audits
+  now identify a guidance commit/hash as well as a revision date.
+
+- Clarify the UX-1 consumer requirements (2026-09-14): analog handbrake axis
+  setup with documented digital-game fallback, and an FFB device dropdown that
+  defaults to the saved Steering wheel while preserving explicit overrides.
+  Add setup and acceptance checks. This is guidance, not consumer implementation.
+
+## [0.15.0] - 2026-09-27
+
+- Publish the unchanged frozen `358add53` archive (native 0.8.0, 46 exports),
+  including finite constant impacts, shaped sine bursts and opt-in force tracing.
+  This is a tagged runtime branch, separate from the newer UX documentation here.
+- Verify Art's official repin preserves all five DLL/XML payloads, and publish
+  archive checksums, a 63-file payload inventory and portable provenance. See
+  [the release handoff](docs/RELEASE-0.15.0.md) for exact identity and test limits.
+  No native/managed rebuild or hardware validation accompanied publication.
+
+## [0.13.0] - 2026-09-13 (prepared 2026-09-12)
+
+- Add idle-created finite sine bursts, explicit play/restart and idempotent stop
+  (1..500 ms, 1..100 Hz). Native 0.6.0 adds three exports; optional managed binding
+  preserves older DLL loading and exposes SupportsPeriodicBursts.
+- Drop failed burst events without reacquire/retry or delayed replay. Positive
+  magnitudes down to one device unit reach the driver without a 5% change gate.
+- Stop all effect families on focus loss and hold timeout, including when constant
+  force is zero. Continuous periodics now deliver their first small positive update.
+- Add x86/x64 production-adapter fake-effect checks and new/legacy binding tests
+  to local packaging. No workflows dispatched; no nonzero hardware testing.
+- AxleForceCurve@1, ImpactMixer and profile data are unchanged. See PERIODIC-BURSTS.md.
+
 ## [0.12.0] - 2026-09-07
 
 - Bind managed native calls to the exact loaded module, including renamed Unity

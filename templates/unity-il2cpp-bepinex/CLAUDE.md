@@ -35,6 +35,18 @@ on this runtime, so the same assembly works here and under Mono.
 TODO: if this repo gitignores `lib/`, say so here and record the pinned version
 in `CHANGELOG.md` instead, or the version becomes unknowable from the repo.
 
+## Player settings
+
+Follow [UX-1](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX.md)
+and [Simple/Advanced placement (UX-01-S)](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-SETTINGS-VIEWS.md).
+F6 opens Wheel settings in Simple by default; remember an explicit view choice.
+Keep complete ordinary binding/calibration, camera shortcut rebinding, main FFB
+controls and recovery accessible in Simple. Advanced adds detailed tuning and
+diagnostics over the same saved values; switching views never resets them or
+changes runtime behavior. Record each option's placement and the guidance hash
+with [acceptance evidence](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX-CHECKLIST.md).
+The toolkit does not supply a shared UI renderer or calibration workflow yet.
+
 ## Non-negotiables
 
 1. **An injected MonoBehaviour only receives Unity messages.** `Awake`,
@@ -45,8 +57,9 @@ in `CHANGELOG.md` instead, or the version becomes unknowable from the repo.
    silently never fires looks exactly like a hook that fires and does nothing.
 3. **Constants are not emitted.** A `const` you can see in a decompile may have
    no field to read at runtime; read the value from an instance instead.
-4. **IMGUI is stripped.** `OnGUI` is not available, so any panel needs the
-   toolkit's `Widgets` approach rather than `GUILayout`.
+4. **Check which UI APIs this game exposes.** When IMGUI is stripped, implement
+   the standard with the consumer's verified UI route instead of `OnGUI`/`GUILayout`.
+   The toolkit does not provide a `Widgets` renderer.
 5. **The Unity Input System drops anything not in `supportedDevices`.** A wheel
    can be plugged in, working elsewhere, and invisible to the game until that
    list is extended.

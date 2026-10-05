@@ -36,6 +36,18 @@ no rebuild is needed for a toolkit bump alone.
 What stays here is **what the car is doing**: which component holds the car
 state, which field is slip angle, where the camera lives, what the UI shows.
 
+## Player settings
+
+Follow [UX-1](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX.md)
+and [Simple/Advanced placement (UX-01-S)](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-SETTINGS-VIEWS.md).
+F6 opens Wheel settings in Simple by default; remember an explicit view choice.
+Keep complete ordinary binding/calibration, camera shortcut rebinding, main FFB
+controls and recovery accessible in Simple. Advanced adds detailed tuning and
+diagnostics over the same saved values; switching views never resets them or
+changes runtime behavior. Record each option's placement and the guidance hash
+with [acceptance evidence](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX-CHECKLIST.md).
+The toolkit does not supply a shared UI renderer or calibration workflow yet.
+
 ## Non-negotiables
 
 1. **Target `netstandard2.0` with no Unity references in shared code.** It is
@@ -56,8 +68,9 @@ state, which field is slip angle, where the camera lives, what the UI shows.
 6. **Measure the sign on real hardware** before tuning. A centring force pushes
    *against* the steering, and getting it backwards feels like a broken wheel
    rather than a wrong number.
-7. **One user-facing strength dial.** Everything else is a profile. A settings
-   panel with fifteen sliders is a support burden, not a feature.
+7. **One everyday Strength control in Simple.** Start from a tested game tune;
+   detailed profiles and component adjustments belong in Advanced under UX-01-S.
+   Preserve existing tunes in both views.
 8. **No physics or difficulty changes**, and nothing that touches an online
    mode.
 

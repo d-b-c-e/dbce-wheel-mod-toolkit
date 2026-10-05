@@ -11,11 +11,56 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
+[Recorded playback tooling](docs/RECORDED-PLAYBACK.md) validates portable case
+identities and compares bounded device-free force observations. Game adapters
+retain their input formats and replay execution; signal reprocessing does not
+imply deterministic gameplay or physical force acceptance.
+
+Published **[v0.15.0](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/releases/tag/v0.15.0)**
+promotes the frozen finite-constant branch (native **0.8.0**, 46 exports).
+It includes shaped sine bursts, independent finite constant impacts and opt-in
+force tracing. See the [release handoff](docs/RELEASE-0.15.0.md) for exact hashes,
+verification limits and Art's binary-identical repin. The default branch holds
+newer UX guidance but not that runtime branch; use the tag to reproduce the release.
+
 Source version **0.12.0** adds transactional updates, exact-module managed
 loading, strict saved-wheel selection, force-state recovery and actionable
 setup diagnostics. See [consumer experience](docs/CONSUMER-EXPERIENCE.md) for
 integration examples and [art of rally adoption](docs/ART-OF-RALLY-ADOPTION.md)
 for the compatibility curve and validation limits.
+
+For a consistent experience across games, use the [shared UX standard](docs/CONSUMER-UX.md),
+[install and first-drive guide](docs/CONSUMER-SETUP.md), and
+[consumer audit checklist](docs/CONSUMER-UX-CHECKLIST.md). They define the intended
+player experience; adoption and runtime verification remain per consumer.
+The [binding-group guidance](docs/CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
+defines visual ownership, local instructions and useful initial viewport checks.
+The September 22 clarification requires perceptible boundaries and distinct flat
+navigation, and makes Setup optional when it merely duplicates Controls/FFB.
+Consumers preserve old saved page meanings when migrating their navigation.
+The [RC14 follow-up](docs/ux-audits/2026-09-22-art-rc14-commands-handoff.md) extends
+compact commands across all pages and specifies a scoped native-menu handoff
+that cannot be trapped by unrelated resting wheel inputs.
+The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
+Simple the default for basic setup and driving. Advanced adds detailed tuning
+and diagnostics over the same saved settings. It includes exact page placement,
+upgrade rules and acceptance checks. The [consumer deployment ledger](docs/ux-audits/2026-09-19-deployment.md)
+tracks implementation, installed packages and remaining live checks separately.
+All seven consumers have local deployed builds as of September 19; the ledger
+retains the specific game/physical acceptance still outstanding.
+The [interactive reference](docs/reference/wheel-settings.html) illustrates the
+flows; its [preview guide](docs/reference/README.md) identifies newer guidance
+that supersedes the demo's layout and styling.
+It is an offline browser demo, with no game connection or force output.
+The 2026-09-14 revision requires analog handbrake hardware support and an
+FFB device dropdown that defaults to the wheel bound to Steering, while retaining
+explicit overrides and saved device identities.
+The [binding/camera workflows](docs/CONSUMER-CONTROLS-CAMERAS.md) define the
+handbrake capture flow, live numpad defaults and in-panel adjustment rebinding.
+The [Woden reconciliation audit](docs/ux-audits/2026-09-14-woden-controls-camera.md)
+records the source gaps at that audit date and the required interaction checks.
+See the [first cross-consumer UX audit](docs/ux-audits/2026-09-13-consumers.md)
+for specific gaps in iRacing Arcade Wheel and Art of Sim Rally.
 
 ## Why
 
@@ -35,7 +80,8 @@ Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
 (`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
 (`dotnet/Dbce.Wheel.Ffb`), planned shared input kit
 (`dotnet/Dbce.Wheel.Input`, currently empty), the dinput8 proxy scaffold (`native/dinput-proxy`),
-tooling (`tools/`), knowledge (`knowledge/`), planned scaffolds (`templates/`, currently empty).
+tooling (`tools/`), knowledge (`knowledge/`), and documentation starting points
+in `templates/` (not compilable scaffolds or a shared UI).
 
 **Not here:** anything that knows a particular game — hooks, samplers, force
 signals and their tuning, physics changes and their online gates, cameras, UI
@@ -45,6 +91,8 @@ content. Those stay in each game's repo and consume this one.
 
 - [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally) — art of rally, Unity 2019 Mono, Unity Mod Manager
 - iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6
+- woden-rally-edge-wheel — Super Woden Rally Edge, Unity 6 IL2CPP, BepInEx 6
+- drive-rally-wheel — #DRIVE Rally, Unity Mono, BepInEx 5; telemetry/research foundation
 - cruisn-collection — Cruis'n USA / World / Off Road / Exotica, MAME fork
 - OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy
 - milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy

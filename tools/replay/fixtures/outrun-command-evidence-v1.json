@@ -1,0 +1,95 @@
+{
+  "schema": "dbce.outrun2006.synthetic-command-evidence",
+  "version": 1,
+  "syntheticOnly": true,
+  "physicalOutput": false,
+  "baseProductionCommit": "86599699ab3926bef796413d266a9090158383c9",
+  "adapterCheckoutCommit": "9a6b5989de456e71e89d8ac33e1c9be5f23ee645",
+  "sourceDirty": false,
+  "declaredCalculationRevision": "73747cc3585f48c64465340c8c21ee5c06093cf8",
+  "declaredRevisionAuthenticated": false,
+  "generator": "Unmodified existing SelfTest calculation/record/read/replay scenario; fixture-only main opt-out for adapter reuse",
+  "compiler": {
+    "executableSha256": "161b4924a1b586f6af9809d74dc19fc3dc3ff7b497b833d5c069bf9422008b4a",
+    "toolset": "14.44.35207",
+    "visualStudio": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+    "nativeOutput": "none; memory-only sinks"
+  },
+  "files": [
+    {
+      "name": "synthetic-input.csv",
+      "bytes": 1937,
+      "sha256": "53b12d04aef3bd0c6eb761a469e70e3bda7864398773be0e414b4596dc2c0f1b"
+    },
+    {
+      "name": "synthetic-recording.osig",
+      "bytes": 50748,
+      "sha256": "82bf8fe00622c8c95b344badc20bf8d037bd95279b34afda9919472d2b557d7b"
+    },
+    {
+      "name": "metric-definitions.json",
+      "bytes": 4999,
+      "sha256": "0d816acab7ba9f2f35933b20fd8d8d57637d4025bd71319415a0428b8a7c21b6"
+    },
+    {
+      "name": "command-summary.json",
+      "bytes": 2310,
+      "sha256": "74c09edd120c113adf25d6c3287c5c734a7aeca7ed8968747488e4d1544dd339"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "src/hooks_dinputffb.cpp",
+      "gitBlob": "798f8ac6bebf44077485ed3018d9cef9a89791af",
+      "workingFileSha256": "c9429ca362edcc61cfb74f4e8b915b8c2e205aa7f77045d66cfd14e7f7d5b80c"
+    },
+    {
+      "path": "src/ffb_calculation.inl",
+      "gitBlob": "03b98bb9115fe396668136513644ad7d60d83709",
+      "workingFileSha256": "466c90937ed4d8bd21210b143d12643d1b7eedf59de92b3ae7c2b1d6c4a0fe5f"
+    },
+    {
+      "path": "src/signal_recording.inl",
+      "gitBlob": "6ea3c0ebe8f25993db8df550f4aace41d219dc54",
+      "workingFileSha256": "b068aa1d8b6dc51e27887e371674a193798854f59854e9414cf5091976698340"
+    },
+    {
+      "path": "src/signal_recording_codec.hpp",
+      "gitBlob": "deffd569ddd2860c6f91f07afc388959f01e8a97",
+      "workingFileSha256": "475ed5e1ba9963bbaffe39ff08577bc6e48d7ab284111eef330ff9e73f43fb39"
+    },
+    {
+      "path": "tools/tests/signal_calculation_fixture.cpp",
+      "gitBlob": "68851e4ca9b41278d96887a32262c8f66d40befa",
+      "workingFileSha256": "9c9eef3ed3750bee688b9a5eb09feae8179453d052a24379fbcf336d15d8638e"
+    },
+    {
+      "path": "tools/tests/signal_recording_fixture.cpp",
+      "gitBlob": "5990642e2596b54a9a0dd1e4810da45f6736c644",
+      "workingFileSha256": "05ca30c4986d7c8fdfc1ccd68d4ccb4d12ffb05056a1669bf6c483afe8ba2078"
+    },
+    {
+      "path": "tools/tests/signal_command_summary.cpp",
+      "gitBlob": "c57218b4771212705f7c086ddb16f0f3302322d2",
+      "workingFileSha256": "13b73c7ffdddc24a478aaeda3d376c22d658d1ac5f4bd1f1beb4523dfa807502"
+    },
+    {
+      "path": "tools/tests/Test-CommandSummary.ps1",
+      "gitBlob": "27a879aa302fa2c213cb2f8ac7ca0982bc2215dd",
+      "workingFileSha256": "1e7410eea48849af69b238b818d4ac065fa3a99a4717681f29deef2aa2c020a6"
+    },
+    {
+      "path": "tools/tests/data/command-metric-definitions-v1.json",
+      "gitBlob": "b8ae932193a63518c4295a5566e5133c1519658f",
+      "workingFileSha256": "0d816acab7ba9f2f35933b20fd8d8d57637d4025bd71319415a0428b8a7c21b6"
+    }
+  ],
+  "validated": [
+    "Existing legacy golden and recorder regressions",
+    "Exact production recalculation before summary",
+    "Repeated summary and SHA256/golden equality",
+    "Eight metric arithmetic/boundary cases",
+    "Provenance, changed expected requests, checksum and truncation refusal"
+  ],
+  "limits": "Request-domain summary only; not full-session or private capture, post-strength envelope, effect duty/duration, physical torque, shutdown proof, shared v1 case schema or cross-game feel equivalence"
+}

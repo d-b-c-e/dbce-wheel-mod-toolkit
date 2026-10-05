@@ -1,0 +1,15 @@
+{
+  "schema": "dbce.local-check-plan", "version": 1, "lane": "portable-gcc",
+  "steps": [
+    {"id":"gcc-version","program":"{gxx}","arguments":["--version"]},
+    {"id":"build-conformance","program":"{gxx}","arguments":["-std=c++11","-O2","-Wall","-Wextra","native/forcemodel/conformance.cpp","-o","{output}/conformance.exe"]},
+    {"id":"conformance","program":"{output}/conformance.exe","arguments":[]},
+    {"id":"build-events","program":"{gxx}","arguments":["-std=c++11","-O2","-Wall","-Wextra","native/forcemodel/test_events.cpp","-o","{output}/events.exe"]},
+    {"id":"events","program":"{output}/events.exe","arguments":["profiles"]},
+    {"id":"build-signals","program":"{gxx}","arguments":["-std=c++11","-O2","-Wall","-Wextra","native/forcemodel/test_signal_contracts.cpp","-o","{output}/signals.exe"]},
+    {"id":"signals","program":"{output}/signals.exe","arguments":["native/forcemodel/impact-contract.csv"]},
+    {"id":"build-recovery","program":"{gxx}","arguments":["-std=c++11","-O2","-Wall","-Wextra","native/forcemodel/test_recovery.cpp","-o","{output}/recovery.exe"]},
+    {"id":"recovery","program":"{output}/recovery.exe","arguments":[]},
+    {"id":"rom-free-replay","program":"{python}","arguments":["-m","unittest","discover","-s","tools/replay","-v"]}
+  ]
+}

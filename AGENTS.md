@@ -1,5 +1,13 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+**Recording/playback:** read `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
+start/status/stop/recovery commands and Art's owner-accepted reference case.
+Read `knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing an adapter; it
+documents drift, competing physics, misleading success checks and display-test
+mistakes. `docs/PLAYBACK-CORE.md` describes the separate playback component;
+its implementation is on `codex/session-playback-core`, not implicitly adopted
+by the default-branch native/FFB package. Game qualification stays per adapter.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not
@@ -20,17 +28,21 @@ repo owns everything on the *other* side of the car-state struct: device →
 forces, frame → telemetry, device identification, diagnostics, installers,
 knowledge and templates.
 
-Consumers, and what each is on. **`docs/CONSUMERS.md` is the register**;
-`tools/Get-ConsumerStatus.ps1` reads the real pins off disk and says who is
-behind, so prefer it over the table below, which is a summary:
+**`docs/CONSUMERS.md` is the consumer register.**
+`tools/Get-ConsumerStatus.ps1 -Root E:\Source -Current vX.Y.Z` reads actual pins
+and compares the components each project uses. The table below describes scope,
+not current versions or installed adoption. Keep local candidate provenance and
+component overrides separate; never infer a whole-package update from one DLL.
 
-| Repo | Runtime | On |
+| Repo | Runtime | Shared components |
 |---|---|---|
-| `art-of-sim-rally` | Unity 2019 Mono, Unity Mod Manager | 0.2.0 — telemetry + native DLL |
-| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | 0.2.0 — telemetry + native DLL. **`lib/` is gitignored there**; its pin lives in its CHANGELOG |
-| `OutRun2006Tweaks-FFB` | native dinput8 proxy, x86 | 0.2.0 — the whole FFB device layer via the C ABI |
-| `milestone-wheel-tools` | native dinput8 proxy, UE4 | 0.2.0 — `forza_packet.h` + `DbceWheel.psm1` |
-| `cruisn-collection` | MAME fork, SDL2 | not yet; it is the seed for the SDL2 backend, not a consumer of the DirectInput one |
+| `art-of-sim-rally` | Unity 2019 Mono, Unity Mod Manager | Ffb, Telemetry and native output; inspect exact local/release provenance |
+| `iracing-arcade-wheel` | Unity 6 IL2CPP, BepInEx 6 | Ffb, Telemetry and native output; tracked `toolkit.version` precedes historical changelog inference |
+| `woden-rally-edge-wheel` | Unity 6 IL2CPP, BepInEx 6 | Ffb, Telemetry and native output; Recording is separately pinned |
+| `drive-rally-wheel` | Unity Mono, BepInEx 5 | Telemetry only from the release; Recording is separately pinned |
+| `OutRun2006Tweaks-FFB` | native dinput8 proxy, x86 | Model/encoder/proxy headers and profiles; matching native DLL/ABI header may have a separate override pin |
+| `milestone-wheel-tools` | native dinput8 proxy, UE4 | `forza_packet.h` and `DbceWheel.psm1` |
+| `cruisn-collection` | MAME fork, SDL2 | Force/shaping headers and profiles; SDL device output remains consumer-owned |
 
 Adjacent: `cannonball-se`, `mame-racing`, `xoutput-redux`, `wheel-db`,
 `controller-input-db`.
@@ -51,12 +63,14 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. Cdecl delegates bound to the exact native module (Mono-compatible APIs and CoreCLR), force-shaping chain, `ForceModel`, device selection, diagnostics. |
 | `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
 | `tools/` | `Sync-Toolkit.ps1` (consumers vendor with this), `ffbprobe/` (scripted constant force against a real base), `forza/` (probe and synth), `dev/` (unattended-test helpers), `package/package.ps1`. |
+| `tools/replay/` | ROM/device-free case identity validation, ordered force-observation sink and comparison. `docs/RECORDED-PLAYBACK.md` defines v1; game codecs, execution and force signals remain consumer-owned. |
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 
-**Empty on purpose, not yet written** — `dotnet/Dbce.Wheel.Input/` and all three `templates/` scaffolds are `.gitkeep`
-directories. They mark where those modules belong. Do not go looking for code
-in them; see the deferred list in `docs/PLAN.md`.
+**No shared input/calibration implementation yet** — `dotnet/Dbce.Wheel.Input/`
+is a `.gitkeep` directory. The three `templates/` directories contain README
+and working-notes starting points, not compilable projects or a shared settings UI.
+See [templates/README.md](templates/README.md) and the deferred list in `docs/PLAN.md`.
 
 ## Runtime matrix — the reason the core is native
 
@@ -73,6 +87,48 @@ not add a Unity reference to a shared managed project; Unity-specific code
 goes in a clearly named sub-package.
 
 ## Conventions
+
+- Track consumer completion in [the deployment ledger](docs/ux-audits/2026-09-19-deployment.md).
+  Record source/package identity, verified install target, backup, payload hashes
+  and retained owner settings. Deployment is separate from live UX/force acceptance.
+- Consumer UI and installer work follows [UX-1](docs/CONSUMER-UX.md),
+  [install/setup guidance](docs/CONSUMER-SETUP.md), and the
+  [audit checklist](docs/CONSUMER-UX-CHECKLIST.md). Preserve the standard labels,
+  navigation and workflows across games; record concrete game constraints as
+  exceptions. The toolkit does not yet ship a common UI/calibration library,
+  and a written standard is not evidence of consumer adoption.
+  UX-03-G requires bounded binding groups, local edit instructions and a complete
+  actionable group in the initial Controls viewport. Verify the actual game host;
+  a page-heading screenshot or browser reference does not establish acceptance.
+  The 2026-09-22 clarification requires perceptible group boundaries/spacing,
+  flat compact navigation/disclosures and compact commands. Keep Setup only
+  for a distinct guided workflow; remove duplicate overviews while preserving
+  saved page meanings through explicit migration. The HTML reference predates
+  this clarification; its six-page layout/button styling is not normative.
+  RC14 adds compact intrinsic/bounded command widths across every page (UX-03-C)
+  and scoped programmatic native-menu handoff (UX-03-H): wait for the actual
+  initiating control's release plus a short neutral-frame barrier, then release
+  overlay ownership. Never gate that handoff on all mapped axes/buttons becoming
+  neutral; resting pedals and held H-pattern gears can trap it. Keep focus/cancel
+  guards and require actual destination interaction evidence.
+  The 2026-09-14 revision requires analog handbrake axis binding/calibration
+  (with an explicit digital-game fallback when necessary) and an FFB device
+  dropdown defaulting to the saved Steering device. Retain explicit FFB overrides;
+  no Next-device-only picker or silent fallback after disconnect/reorder.
+  Apply the [binding/camera workflows](docs/CONSUMER-CONTROLS-CAMERAS.md):
+  direct Bind/cancel without an exclusive handbrake mode, live numpad adjustment,
+  and F6 rebinding of camera adjustments. Record guidance commit/hash and actual
+  interaction evidence; a remaining-work list is not completed reconciliation.
+  The 2026-09-16 [Simple/Advanced contract](docs/CONSUMER-SETTINGS-VIEWS.md)
+  requires Simple by default, complete basic binding/calibration and recovery
+  there, and Advanced for detailed tuning/diagnostics. Remember explicit view
+  choice. Both views share settings; switching never resets tunes or changes
+  runtime policy. Keep camera shortcut rebinding in Simple on demand. Classify
+  every option in the consumer's placement inventory and verify UX-01-S migration
+  and interaction checks before claiming adoption.
+  Compare new layouts with the [interactive reference](docs/reference/wheel-settings.html)
+  and [verification notes](docs/reference/README.md). Its browser fixtures are
+  design evidence, not a consumer renderer or proof of in-game behavior.
 
 - **Solution stays classic `.sln`** (`dotnet new sln --format sln`); the .NET 10
   SDK's `.slnx` cannot be opened by older SDKs.
@@ -140,11 +196,19 @@ goes in a clearly named sub-package.
 
 ## Where the work stands
 
+Published v0.15.0 promotes frozen source `358add53af220eb95bf606e240b230e23a6ea197`
+from `codex/finite-constant-bursts`: native 0.8.0, 46 exports. Read
+[the release handoff](docs/RELEASE-0.15.0.md) for artifact identity and verification.
+The default documentation branch does not contain that runtime branch. Use its
+tag for reproduction; do not rebuild a published archive or infer consumer adoption.
+Art's isolated official repin preserved all five payloads. Hardware smoke for
+this candidate was compiled only; publication's load/export checks did not use devices.
+
 Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve
 compatibility v1, finite force-state recovery and structured consumer diagnostics.
 Read docs/STATE.md and docs/CONSUMER-EXPERIENCE.md before making adoption claims.
-The native component is 0.5.0 with 38 exports; package and component versions differ.
+The prior 0.12.0 native component was 0.5.0 with 38 exports; package and component versions differ.
 The dinput proxy header scaffold is implemented and tested on x86/x64.
 Game UI, calibration, shared input kit, and SDL consolidation remain separate work.
 
