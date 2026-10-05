@@ -235,29 +235,43 @@ The public player preview passed 111 stock PowerShell installer checks; it is
 not published or a replacement for the accepted installed artifact. See consumer
 `docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-playback-integration.md`.
 
-## DRIVE Rally: supervised diagnostic candidate
+## DRIVE Rally: qualified diagnostic recording and cold playback
 
-Canonical checkout: `E:/Source/games/dbce-mods-drive-rally`. The October 5 candidate
-adds native Free Roam startup, expiring supervised commands, exact profile and
-raw PlayerPrefs restoration, original source/effect streams and camera modes.
-It builds and passes offline checks, but has **not yet run a live diagnostic or
-playback**. User requested clearly labelled automated controls for its first
-reference. This remains a real-physics capture, not generated pose evidence.
+Canonical checkout: `E:/Source/games/dbce-mods-drive-rally`, main. Installed clean
+runtime `24d7bdf6fe18b4ec5b4821b30be385c2ee5fd55a`, session-8 player ZIP SHA-256
+`A3026627D5D97044355FB9593C3C6254E8438592674F255C214B476119576253`.
+Native Free Roam startup, a 60-second diagnostic capture, a separate cold replay
+of **6,001/6,001 poses**, and intentional Stop passed with normal exit and exact
+file/raw-preference restoration. Maximum replay error .0001220703125 m /
+.000019469034601067067 degrees. Camera/HUD/wheel/dust screenshots were compared
+to the original capture. No output was delivered and no display settings changed.
+
+This is explicitly `automated-diagnostic-v1`, using actual game physics. It
+travels 77.26 m then meets a tree; it is not an owner drive, route AI or full-stage
+qualification. All 6,001 original rows retain solver data and 22,118 stock effect
+requests. UDP was disabled in the retained setting, so no original packets were
+available. No signed mod rack-force model or measured wheel torque is supplied.
 
 ```powershell
 Set-Location 'E:/Source/games/dbce-mods-drive-rally'
+# Existing sealed reference, game closed, NEW result directory:
+./tools/game/Run-StageSession.ps1 -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/drive-holzberg-presentation-20261005" -Result artifacts/playback-new-01
+# New automated diagnostic; omit -Diagnostic for an owner drive:
 ./tools/game/Run-StageSession.ps1 -Record -Diagnostic -Seconds 60 -Result artifacts/diagnostic-01
 ./tools/game/Run-StageSession.ps1 -Recording artifacts/diagnostic-01/recording -Result artifacts/playback-01
 # No game/device output:
 dotnet tools/DriveRally.Diagnostics/bin/Release/net10.0/DriveRally.Diagnostics.dll stage-review artifacts/diagnostic-01/recording
 ```
 
-Install the exact candidate first, with a free shared rig slot. Commands never
-resize windows or switch monitor profiles. Free Roam rejects locked content;
-collectibles and achievement/stat writes are suppressed. Original Logitech,
-gamepad and haptic requests remain captured before physical suppression. There
-is no signed mod rack-force model in DRIVE yet. Live force/telemetry counts,
-camera quality and unattended exit require actual per-game evidence.
+The reference has nine sealed streams plus `complete.tsv`; seal SHA-256
+`CAE4CD2289B2A118DFD7A0CB07F43587D5DD2B44D286B71EA279A12682DFFBC5`.
+Current `drive.freeroam@2` requires separately recorded visual state. Legacy @1
+captures lack it and are refused before launching. Never replace the missing
+data with fabricated zeros. Session-6 found transient preset IDs; session-7
+found HUD/dust updates shared the suppressed physics callback. Both failures
+and fixes are retained in consumer `docs/reviews/2026-10-05-stage-session8.md`.
+Owner driving, this adapter in normal triples and broader interruptions remain
+open. The tests preserved the current 2560x1440 ExclusiveFullScreen baseline.
 
 For Woden/DRIVE/iRacing the raw command still lives under `vendor/playback` or
 beside the installed plugin. `-Game <woden|drive|iracing> -Action Stop` and F12
@@ -270,6 +284,13 @@ of the current run. Supervised wrappers are the normal operator entry points.
 For new supervised adapters, use the [owned-process watchdog contract](STAGE-SUPERVISION.md).
 Pin the watcher/policy scripts together. Never kill games by name or rewrite the
 monitor profile as a generic response to a stalled recording.
+
+Woden, iRacing and DRIVE runners now use hash-pinned `Stage-RigLease.ps1`: acquire
+before backup/arming/launch and release only the matching token after game close.
+A fresh slot refuses the run before owner mutation. The installed generic command
+does not replace the supervisor or owner-state backup/restore wrapper. Woden and
+iRacing have not adopted DRIVE's current-request mute heartbeat; do not retrofit
+forced termination by assuming their physical outputs are off.
 
 ### Sonic CrossWorlds preparation
 

@@ -188,6 +188,35 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     separate producers from wheel FFB; observe requests before suppressing each
     actual delivery path. Keep absent signed force models explicitly unavailable.
 
+21. **Persistent scenario identity cannot use a transient runtime ID.** DRIVE's
+    first recording sealed a preset ID generated in the preset constructor. The
+    game did not save that ID, so a cold launch produced a new one and replay
+    refused before driving. Resolve the complete stable car/class/parts/colour/
+    pattern/addon configuration and reject missing, ambiguous, locked or
+    unpurchased matches. Keep transient IDs as diagnostics. A same-process test
+    would not have found this; the separate cold launch did.
+
+22. **Suppressing physics may also suppress presentation.** DRIVE session-7
+    passed 6,001 pose checks but rendered zero speed and stale intro dust because
+    the native car FixedUpdate owned HUD, wheel transforms and emitters too.
+    Session-8 records that actual presentation in a separate sealed, versioned,
+    fixed-tick sidecar and applies it while the solver remains suppressed. Guard
+    other visual/gear writers, clear old particles/trails on acquisition, and
+    compare actual game screenshots to the source. Do not rerun physics to fix
+    visuals or substitute replay contacts for original force data. Legacy files
+    without required presentation remain reviewable but cannot claim qualified
+    playback. Random copilot lines/particle seeds still prevent pixel identity.
+
+23. **Supervision needs process and request ownership, not a process name.** A
+    reusable watchdog must retain exact PID/image/start-time identity, require a
+    fresh current-request heartbeat and process-latched output-mute confirmation,
+    and refuse termination if muting is absent or revoked. A watchdog trip fails
+    qualification; monitor-profile switching is not recovery. Use a token-owned
+    shared rig lease before any backup/arming/launch, and only release your own
+    token. Test busy-slot refusal before owner mutation and retain closed-game
+    RestoreOnly recovery. DRIVE's normal and Stop runs exercised this supervision
+    without trips/forced termination. It cannot promise recovery from an OS/GPU hang.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
@@ -200,7 +229,9 @@ and checksum files were independently downloaded and matched to tested assets.
 The runbook records commands and hashes. This does not resolve the GPU incident
 or certify all hardware. iRacing subsequently passed the scoped cold-launch
 reference described in the runbook. Woden subsequently passed its Kenya
-reference; DRIVE still needs live qualification.
+reference. DRIVE session-8 subsequently passed the scoped diagnostic recording,
+cold playback and Stop described in the runbook; it is not an owner/full-route
+or physical-force acceptance.
 
 ## Earlier evidence that passed
 

@@ -133,7 +133,9 @@ outside disposable worktrees and verify them before cleanup. Automated diagnosti
 controls must be labelled separately from owner driving; both record real physics.
 
 References: accepted Art 0.4.0 session 5, iRacing's two accepted cold launches and
-Woden's accepted Kenya reference. Their acceptance scopes and current reference
+Woden's accepted Kenya reference; DRIVE session-8 adds a separately labelled
+diagnostic capture/cold playback/Stop, including sealed presentation values.
+Their acceptance scopes and current reference
 availability are in `docs/RECORDING-PLAYBACK-RUNBOOK.md`; implementation failures
 and fixes are in `knowledge/RECORDING-PLAYBACK-LESSONS.md`. Shared contract:
 `docs/PLAYBACK-CORE.md`. A game adapter still requires its own live qualification.

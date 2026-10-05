@@ -7,9 +7,14 @@ original force data; expected normal triples remain open. Its sealed reference
 was copied outside disposable worktrees. iRacing's accepted runtime and committed
 report remain, but its ignored private reference was lost during separate
 worktree consolidation and has not been recovered. Operator commands flag this.
-DRIVE adds native Free Roam diagnostic startup and supervision, still awaiting
-live qualification. See the updated runbook and lessons 19–20. No consumer pin,
-force tune or native binary changed for this documentation update.
+DRIVE session-8 now passed native Free Roam diagnostic recording, a separate cold
+playback of all 6,001 poses, and intentional Stop with normal close/restoration.
+Original solver/effect requests were retained while physical delivery was muted;
+presentation is captured independently after live testing found frozen HUD/dust.
+The diagnostic hits a tree after 77 m; owner/full-route/triple qualification is
+still open. See the updated runbook and lessons 19–23. The shared identified-process
+supervisor and rig lease are committed; Woden/iRacing/DRIVE runners use the lease.
+No force tune or native binary changed for this documentation update.
 
 
 ## Native FFB series merged into master — 2026-10-04
