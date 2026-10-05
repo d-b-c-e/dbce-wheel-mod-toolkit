@@ -267,6 +267,22 @@ of the current run. Supervised wrappers are the normal operator entry points.
 
 ## Maintainer entry points
 
+### Sonic CrossWorlds preparation
+
+Sonic's newer UE4SS loader now initializes, as observed during the separate triple
+work. `games/dbce-mods-sonic-crossworlds` main `3948cad` adds a bounded read-only
+game-thread observation probe with stage/install/arm/stop/removal scripts. Five
+Lua 5.4 tests and isolated setup checks pass. No live probe run or in-game replay
+is qualified yet. Follow that consumer's `docs/STAGE-PLAYBACK.md` for the first
+test; keep its discovery data distinct from a physics-tick trajectory. Its older
+companion input scheduler only proves report scheduling, not a reproduced race.
+
+The probe queues at most one callback, accesses UObjects only on the game thread,
+and prevents a late callback from reading state after Stop or a stall timeout.
+Missing fields and original force data remain unavailable. Discover the actual
+car tick, mode/startup authority and competing body writers before implementing
+an active player; do not infer them from a camera hook or the first found pawn.
+
 - Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
   `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the
   earlier 0.1 pin intentionally; a documentation update does not require repinning.

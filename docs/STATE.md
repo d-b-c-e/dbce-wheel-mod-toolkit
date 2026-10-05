@@ -1,6 +1,6 @@
 # Current source checkpoint
 
-## Recording/playback continuation — 2026-10-05
+## Recording/playback continuation â€” 2026-10-05
 
 Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
 original force data; expected normal triples remain open. Its sealed reference
@@ -8,7 +8,7 @@ was copied outside disposable worktrees. iRacing's accepted runtime and committe
 report remain, but its ignored private reference was lost during separate
 worktree consolidation and has not been recovered. Operator commands flag this.
 DRIVE adds native Free Roam diagnostic startup and supervision, still awaiting
-live qualification. See the updated runbook and lessons 19–20. No consumer pin,
+live qualification. See the updated runbook and lessons 19â€“20. No consumer pin,
 force tune or native binary changed for this documentation update.
 
 
