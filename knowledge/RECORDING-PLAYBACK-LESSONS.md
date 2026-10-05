@@ -152,6 +152,23 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     paperwork. Steam's persistent borderless options were prepared separately;
     application remains pending until the client can close without interruption.
 
+17. **A healthy old signal capture can still lack a replayable scenario.**
+    Woden's original 116-second drive retains 6,981 continuous poses and the
+    original force data, but lacks scene/track/setup identity. Hash-check and
+    inspect it without rewriting the source or inventing a scene. New captures
+    must seal observed stage context at capture time. Native in-memory replay
+    objects may help presentation, but are not proof of durable file playback,
+    cold startup or preservation of original tire/contact telemetry. Woden's
+    new context sidecar and mode banner remain uninstalled/unqualified.
+
+18. **Share normal eligibility instead of copying a weaker predicate.**
+    Woden's first stage adapter duplicated driving checks but omitted photo mode,
+    the native car lock and native replay during continuous playback. Reuse the
+    game's established driving policy, excluding only the adapter's own replay
+    ownership where necessary. Keep that ownership a force/input exclusion in
+    every normal path; native replay takeover must still abort. Build and policy
+    tests support the change, but do not certify actual native hook behavior.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

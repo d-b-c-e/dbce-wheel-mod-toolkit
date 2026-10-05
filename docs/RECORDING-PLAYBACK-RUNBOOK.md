@@ -190,6 +190,14 @@ exact package uses the sibling `dbce-mods-iracing-arcade-package` worktree.
 Read each `docs/STAGE-PLAYBACK.md` for its exact package identity and limits.
 Preserve newer installed triple-screen work before deploying an older-base plugin.
 
+Woden's October 5 offline continuation recovered the original 116-second drive
+and verified all 6,981 continuous pose samples against its source hash. It lacks
+scene/setup identity and is not yet a sealed runnable trajectory. Source now
+adds observed stage context, normal driving exclusions and a clear mode banner;
+these newer changes are built/tested but **not in the frozen candidate package**.
+See the consumer `docs/2026-10-05-playback-offline-review.md`. The owner has the
+rig for concurrent Woden triple work; keep investigation offline until handoff.
+
 With a matching adapter installed, the commands are shared:
 
 ```powershell
