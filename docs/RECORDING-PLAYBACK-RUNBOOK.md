@@ -5,6 +5,25 @@ before changing an adapter. This runbook is intended to work without recovering
 conversation context. Source/layout migrations on other branches do not change
 the identity of a tested installed artifact.
 
+## Preserve a qualified reference before worktree cleanup
+
+For the shared core's sealed trajectories (Woden, iRacing and DRIVE), use the
+toolkit's PowerShell 7 helper to copy **all sealed streams** to a new private
+directory. It verifies source and destination hashes, rejects linked/escaping
+paths and overwrites, and publishes the copy only after verification:
+
+```powershell
+./tools/playback/Copy-StageReference.ps1 -Source 'E:/path/to/recording' -Destination "$env:LOCALAPPDATA/Dbce/StagePlayback/references/game-reference-date"
+```
+
+Save its JSON receipt beside the new reference, then run the game's original-data
+review command against that copy. This preserves bytes; it does not qualify a
+recording or copy unsealed logs, screenshots or owner-state backups. Archive those
+separately and verify the archive before retiring a worktree. Art session 5 uses
+an older format without this seal; follow its dedicated instructions below.
+`tools/playback/Test-StageReference.ps1` exercises complete/nested copy, overwrite,
+changed-stream, nested-destination, escaping-path and duplicate-name refusals.
+
 ## Art of Rally: known-good reference playback
 
 At the October 4 acceptance checkpoint the game is installed at
