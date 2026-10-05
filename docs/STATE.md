@@ -1,5 +1,47 @@
 # Current source checkpoint
 
+## Native FFB series merged into master — 2026-10-04
+
+Branch `claude/ffb-series` merged, in order, `codex/fix-actuator-rearm`,
+`codex/external-session-ffb` and `codex/attended-effect-comparison` onto master's
+reviewed shutdown/lock design (a7fe985, f698ce6, 7a21378). Native is now
+**0.10.0 / 55 exports**; header, `.def` and both DLLs agree. Local only: not
+pushed, no release, no consumer repin. The "native 0.6.0/41 exports" statement
+in the 2026-10-02 checkpoint below is superseded.
+
+Safety design kept from master, with the branch features layered on top:
+- Every export takes `g_apiMutex`; `SetDeviceForcesXY`/`ZeroForces` are thin
+  exports over internal helpers that the hold watchdog uses under `g_lock`.
+- `FreeDirectInput` stops all families (now including constant bursts) under
+  `g_lock`, releases it, then waits for the watchdog **without a timeout**
+  (fail-closed); the branch's 500 ms wait was not taken. Effects are released
+  only after the join. `g_lock` is INIT_ONCE, module-lifetime, never deleted by
+  shutdown; the branch tests now use `EnsureEffectLock`.
+- Constant-force loss recovery keeps master's single 250 ms-bounded reacquire;
+  the branch's extra unbounded `Acquire()` after `INPUTLOST`/`NOTACQUIRED` was
+  dropped. Reacquire now goes through `AcquireFfbDevice`, which marks persistent
+  periodic/condition effects stopped so the next update restarts them.
+- External sessions: legacy exports check the external latch before taking
+  `g_apiMutex` (a legacy cancel revokes without waiting) and again under it (no
+  legacy open can overtake `ExternalFfbEnter`). `External*` exports keep their
+  try-lock driver gate and do not take `g_apiMutex`, except Enter. Order:
+  `g_apiMutex` -> `g_lock` -> external policy lock. New regression: legacy
+  cancels complete while another thread holds `g_apiMutex`.
+- The attended comparison tool compiles the merged adapter; its log records the
+  build revision instead of the frozen c319b02 hash.
+
+Offline gates passed (x64 and x86 where applicable): build.ps1 55-export/header
+check; burst (+`--pre-init-worker`), POV, logging, constant-burst, external
+session (871/872 checks), constant recovery (5 modes), actual-DLL lifecycle (55
+exports, v1000, 32 unload cycles); attended policy test; 170 managed tests
+(41+80+49); playback 54; Test-DbceWheel (discovery skipped), Test-SyncToolkit
+(24), Test-NativeBinding, Test-ExternalNativeAbi.
+
+**Needs an attended wheel test (never run):** actuator rearm on every open after
+a previous PanicStop; persistent effect restart after an alt-tab reacquire;
+shaped and constant bursts at the wheel; POV hats; the external-session path end
+to end; the attended comparison UI itself. Hardware smoke is compiled only.
+
 ## Recording/playback operator handoff — 2026-10-04
 
 [Runbook](RECORDING-PLAYBACK-RUNBOOK.md) gives exact commands and recovery;

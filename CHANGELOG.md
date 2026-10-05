@@ -1,3 +1,14 @@
+## Unreleased master - 2026-10-04 (native 0.10.0, 55 exports)
+
+- Merged the actuator-rearm, external-session and attended-comparison branches
+  onto the reviewed shutdown/lock-publication design. Kept: api mutex on every
+  export, internal/export split, no join under the effect lock, unbounded
+  fail-closed watchdog wait, single bounded constant-force reacquire.
+- External-session latch is checked before and under the api mutex in every
+  legacy export; ExternalFfbEnter serializes with legacy calls and uses the
+  module-lifetime effect lock.
+- Offline only; see docs/STATE.md for the attended checks still outstanding.
+
 ## 0.16.0-external.1 (local experiment; not released)
 
 - Native 0.10.0: eight additive external-session exports (55 total), finite
@@ -38,7 +49,7 @@ logging candidate82c7891. Strict parameter echo, phase and finite fade, with
 explicit legacy envelope clearing. No public release or hardware launch.
 See [shaped burst contract](docs/SHAPED-BURSTS.md). Earlier entries below are historical.
 
-# 0.13.1 local candidate — 2026-09-16
+# 0.13.1 local candidate â€” 2026-09-16
 
 Native 0.6.1 makes per-update force tracing opt-in with
 `DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41

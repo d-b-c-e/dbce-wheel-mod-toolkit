@@ -11,6 +11,12 @@ have consumers. SDL backend consolidation and the common input library remain
 in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
 implemented behavior from plans and identifies the remaining contract gaps.
 
+**Master native 0.10.0 / 55 exports (2026-10-04, local, unreleased).** The
+three native FFB feature branches (actuator rearm, external sessions, attended
+comparison) are merged onto the reviewed shutdown/lock-publication design. All
+offline gates pass on x64/x86; nothing in the merge has been driven on a real
+wheel. See [STATE](docs/STATE.md) for what still needs an attended test.
+
 [Recorded playback tooling](docs/RECORDED-PLAYBACK.md) validates portable case
 identities and compares bounded device-free force observations. Game adapters
 retain their input formats and replay execution; signal reprocessing does not

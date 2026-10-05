@@ -163,7 +163,14 @@ Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve
 compatibility v1, finite force-state recovery and structured consumer diagnostics.
 Read docs/STATE.md and docs/CONSUMER-EXPERIENCE.md before making adoption claims.
-The native component is 0.5.0 with 38 exports; package and component versions differ.
+The native component is now **0.10.0 with 55 exports** on master (merged
+2026-10-04: opt-in force tracing, shaped sine bursts, finite constant impacts,
+POV snapshots, actuator rearm on every open, persistent-effect invalidation on
+reacquire, opt-in external sessions, attended comparison tool). Package and
+component versions differ. **Native lock order:** `g_apiMutex` (every export)
+-> `g_lock` (effects) -> external policy lock; never join the hold watchdog
+under `g_lock`; `FreeDirectInput` waits for it without a timeout. Legacy exports
+check the external-session latch before and after taking `g_apiMutex`.
 The dinput proxy header scaffold is implemented and tested on x86/x64.
 Game UI, calibration, shared input kit, and SDL consolidation remain separate work.
 
@@ -177,6 +184,11 @@ dotnet test Dbce.Wheel.sln                     # managed regression suite
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
 .\native\wheelffb\test\build_pov_read_test.bat # fake COM devices, no hardware acquisition
+.\native\wheelffb\test\build_burst_test.bat     # then burst_test.exe --pre-init-worker; watchdog/lock regressions
+.\native\wheelffb\test\build_constant_burst_test.bat; build_logging_test.bat; build_external_session_test.bat
+.\native\wheelffb\test\build_constant_recovery_test.bat # then constant_recovery_test.exe loss|recreate|recreate-reject|boundaries|cancel
+.\native\wheelffb\test\build_lifecycle_test.bat # actual DLL: export count/version, no device calls (all take x64|x86)
+.\tools\attended-effects\test.bat            # policy only; NEVER launch attended_effects.exe unattended
 .\native\forza\build_test.bat                 # packet conformance
 .\native\forcemodel\build_conformance.bat     # C++ model vs the golden file
 .\tools\powershell\Test-DbceWheel.ps1         # INI edge cases + discovery
