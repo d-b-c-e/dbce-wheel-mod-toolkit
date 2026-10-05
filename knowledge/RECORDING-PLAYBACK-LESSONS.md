@@ -341,7 +341,21 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     Borrowed operations must not rewrite, renew or release ownership, and must
     refuse stale/replaced tokens. Test the actual addon/armer/remover together.
     Keep idle admission separate, flush passive observations before normal close,
-    and preserve loader logs/dumps before a renderer uninstaller removes its tree.
+    and preserve loader logs/dumps independently of renderer payload removal.
+
+37. **A marker does not grant ownership of an entire loader directory.**
+    [dbce-mods-sonic-crossworlds, 2026-10-05] Copying a loader stage into an
+    existing ue4ss folder nested it; failure cleanup then recursively removed
+    another session's residue. Exact contents were unknown, so retained backups
+    could prove preservation only for their recorded entries. Refuse an existing
+    destination, copy files to explicit paths, and receipt only source-owned
+    payloads with their final hashes. Prevalidate the whole removal plan before
+    deleting anything. Preserve later logs, dumps and addons; reject changed
+    payloads, traversal, linked paths and legacy marker-only cleanup. Delete only
+    empty parents, never a shared tree. Forty-five real-script filesystem checks
+    passed in PS7 and PS5.1, including overlapping source mod directories. A
+    failed install without a complete receipt requires inspection, not guessed
+    ownership or recursive rollback. Keep private evidence outside game folders.
 
 ## Exact final release
 

@@ -2,6 +2,12 @@
 
 ## Recording/playback continuation — 2026-10-05
 
+Sonic's renderer installer now receipts final hashes and removes only unchanged
+owned files, preserving later logs/dumps/addons. It refuses legacy marker-only
+cleanup and pre-existing loader folders; 45 real-script filesystem checks pass
+in PS7 and PS5.1. Lesson 37 records the deletion incident and exact recovery
+limits. This is installer verification, not a new game/replay qualification.
+
 Sonic's combined passive addon can now borrow the renderer caller's exact rig
 lease for setup/removal. Shared validation `a484cb6` does not rewrite, renew or
 release it, and refuses absent/wrong/replaced/expired ownership. Twenty-six
