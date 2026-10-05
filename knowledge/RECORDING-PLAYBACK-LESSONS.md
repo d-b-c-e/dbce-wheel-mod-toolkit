@@ -383,6 +383,20 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     before claiming that an offline source fix explains a failed live launch.
     See the consumer's `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.md` addendum.
 
+40. **Observe input after its commit, and distinguish physical controls from aliases.**
+    [dbce-mods-horizon-chase-turbo, 2026-10-05, review 6e8d49d] A 250 ms command
+    poll cannot reliably observe a 200 ms synthetic press: a same-batch snapshot
+    can precede the input update, and the next poll can follow release. Trace a
+    bounded number of post-commit ticks with request/device/action identity.
+    Command submission, handler dispatch and a successful menu transition are
+    separate observations. In the installed InControl, writing derived Command
+    leaves physical Start false and the device inactive, while writing Start
+    activates it; Action1 produces a button edge. A private clock-stubbed probe
+    disproved the initial claim that Command is simply erased at commit.
+    Treat such offline probes as contract evidence, not a live gameplay pass.
+    Inspect the game's actual active-device refresh and native menu handler
+    before inventing permanent device binding or adding repeated input guesses.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
