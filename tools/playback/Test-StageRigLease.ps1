@@ -6,17 +6,32 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Stage-RigLease.ps1')
 if (Test-Path -LiteralPath $Results) { throw 'Choose a new fixture directory' }
 $path = Join-Path $Results 'test-slot.txt'
+$refused=$false
+try { Assert-StageRigLease -Path $path -Token 'missing' } catch { $refused=$true }
+if (!$refused -or (Test-Path $path)) { throw 'Borrowing missing ownership created a lease' }
 $first = Enter-StageRigLease -Path $path -Owner 'fixture first' -Purpose 'acquire'
 $hash = (Get-FileHash -LiteralPath $path).Hash
+$modified = [IO.File]::GetLastWriteTimeUtc($path)
+Assert-StageRigLease -Path $path -Token $first.token
+if ((Get-FileHash $path).Hash -ne $hash -or [IO.File]::GetLastWriteTimeUtc($path) -ne $modified) { throw 'Borrowing changed or renewed owner lease' }
+$refused=$false
+try { Assert-StageRigLease -Path $path -Token 'wrong token' } catch { $refused=$true }
+if (!$refused -or (Get-FileHash $path).Hash -ne $hash) { throw 'Wrong borrowed token accepted or changed owner' }
 $refused = $false
 try { Enter-StageRigLease -Path $path -Owner 'fixture second' -Purpose 'conflict' | Out-Null } catch { $refused = $_.Exception.Message -like 'Shared rig test slot is held:*' }
 if (!$refused -or (Get-FileHash -LiteralPath $path).Hash -ne $hash) { throw 'Fresh owner was not preserved' }
 if (!(Exit-StageRigLease $first) -or (Test-Path -LiteralPath $path)) { throw 'Owned release failed' }
 $lease = Enter-StageRigLease -Path $path -Owner 'fixture first' -Purpose 'replacement'
 [IO.File]::WriteAllText($path, 'claude other-game fresh owner')
+$refused=$false
+try { Assert-StageRigLease -Path $path -Token $lease.token } catch { $refused=$true }
+if (!$refused) { throw 'Replaced borrowed ownership accepted' }
 if (Exit-StageRigLease $lease) { throw 'Another owner was released' }
 if ([IO.File]::ReadAllText($path) -cne 'claude other-game fresh owner') { throw 'Replacement owner was changed' }
 [IO.File]::SetLastWriteTimeUtc($path, [DateTime]::UtcNow.AddHours(-3))
+$refused=$false
+try { Assert-StageRigLease -Path $path -Token 'claude other-game fresh owner' } catch { $refused=$true }
+if (!$refused) { throw 'Expired borrowed ownership accepted' }
 $stale = Enter-StageRigLease -Path $path -Owner 'fixture first' -Purpose 'expired'
 if ($stale.previous -cne 'claude other-game fresh owner') { throw 'Expired lease evidence missing' }
 if (!(Exit-StageRigLease $stale)) { throw 'Expired-slot successor release failed' }
@@ -34,3 +49,4 @@ try {
 $last = Enter-StageRigLease -Path $path -Owner 'fixture final' -Purpose 'cleanup'
 if (!(Exit-StageRigLease $last) -or (Exit-StageRigLease $last)) { throw 'Final release was not idempotent' }
 Write-Host "PASS acquisition, fresh refusal, exact release, replacement preservation, expiry evidence, fresh-empty refusal, file lock and repeated release. Evidence: $Results"
+Write-Host 'PASS borrowed ownership: missing/wrong/replaced/expired refusal and exact token/timestamp preservation.'
