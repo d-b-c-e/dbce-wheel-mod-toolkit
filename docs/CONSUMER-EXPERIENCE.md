@@ -1,5 +1,17 @@
 # Building a clearer wheel setup and recovery experience
 
+For the product-level standard, start with [Shared player experience (UX-1)](CONSUMER-UX.md),
+[install/setup guidance](CONSUMER-SETUP.md) and the [acceptance checklist](CONSUMER-UX-CHECKLIST.md).
+This page is their technical integration companion; the shared APIs do not
+automatically change a consuming game's interface.
+
+The 2026-09-16 [Simple/Advanced contract](CONSUMER-SETTINGS-VIEWS.md) defines
+default visibility and migration. Keep its saved presentation preference out of
+device resolution, FFB/telemetry policy and calibration state. Render both views
+over the same consumer settings; a view change must not reconstruct defaults or
+reinitialize hardware. Detailed diagnostics belong in Advanced, while actionable
+failures and safe recovery remain available in Simple.
+
 Reviewed 2026-09-07 against toolkit b726d56 and local art-of-sim-rally,
 iracing-arcade-wheel and OutRun2006Tweaks-FFB setup surfaces. This document
 separates shared capabilities delivered by this change from consumer UI work
@@ -9,13 +21,54 @@ still to do. No game or physical force validation is implied.
 
 ### Explain device selection before opening a wheel
 
+UX-1's 2026-09-14 revision requires the product's **FFB device** dropdown to
+default to **Use steering wheel**. Resolve the saved Steering binding's exact
+physical identity; retain an explicit FFB override separately. Construct the
+strict GUID preference from that selected identity. The low-level Automatic
+result below is an enumeration suggestion, not a replacement for this product
+policy and not permission to fall back to the first wheel. The shared library
+does not know the consumer's Steering binding or draw its dropdown.
+
+### Input and FFB may report different device identities
+
+During the 2026-09-16 UX rollout, iRacing's Unity Input System Steering binding
+exposed HID identity/serial while the toolkit's DirectInput enumeration exposed
+instance GUID/name. The current exported enumeration does not provide a verified
+HID path/serial association. `DeviceInfo.VendorId`/`ProductId` are nullable and
+the current enumeration wrappers do not populate them. A display-name match,
+even unique, or VID:PID alone cannot prove the two interfaces are one device.
+[iracing-arcade-wheel and toolkit source review, 2026-09-16]
+
+Keep **Use steering wheel** as the default mode, but show an unresolved reason
+and an explicit device choice in Simple when identity cannot be established.
+The consumer can offer a saved, owner-confirmed association between the exact
+Steering identity and the selected physical FFB GUID, separate from an FFB
+override. Label that action clearly; do not silently call an old name-derived
+GUID an owner-confirmed association. Record the source of the association.
+Rebinding Steering must not reuse an association for a different input device;
+disconnect/reorder must retain the missing selection and never choose a substitute.
+The Steering binding itself must retain that exact identity. A generic legacy
+path such as `<Joystick>/stick/x` must not look up the association of whichever
+device currently satisfies it. Require an explicit identity-bound Steering rebind,
+or atomically upgrade the binding when the owner confirms the association.
+Check a previously saved pair of devices A/B: disconnecting A and leaving B as
+the only matching input must not silently switch force output to B.
+This extra association step is a current capability gap in automatic setup,
+not evidence that cross-backend matching has been verified.
+
+An additive shared metadata API would need real cross-backend validation,
+including identical devices and reconnect/reorder cases. It is not part of the
+UI rollout; do not update a consumer's native pin on the assumption it exists.
+
+### Resolve the saved output identity
+
 `DevicePreference.Resolve(snapshot)` is pure and returns a
 `DeviceSelectionResult`: stable `Status`, suggested `Message`, `Success`,
 `ArrayPosition`, nullable `Device`, and nullable `PersistentId`.
 
 | Status | Consumer experience |
 |---|---|
-| Automatic | Offer the available wheel; save its identity only after the player chooses it. |
+| Automatic | Inventory suggestion only; default FFB follows the saved Steering identity. Do not open this suggestion as a fallback for absent/unbound Steering. |
 | Matched | Show the saved wheel as available, not yet connected for force output. |
 | NoDevices | Offer Refresh and explain that the wheel needs connection and power. |
 | Missing | Keep the saved identity visible. Offer reconnect/refresh or explicit replacement. |
@@ -28,6 +81,10 @@ Use the enum for localization; the English message is a usable default.
 backend index. Never confuse the two after sorting a picker. `PersistentId`
 is the instance GUID when known, not a name guessed to be unique. Do not
 silently promote old name/index preferences just because they resolved once.
+
+The following is the **explicit override** save path. Use steering wheel mode
+already has the identity from the saved Steering binding; it does not require
+a duplicate wheel-choice confirmation.
 
 ```csharp
 var result = savedPreference.Resolve(WheelFfbNative.ListFfbDevices());

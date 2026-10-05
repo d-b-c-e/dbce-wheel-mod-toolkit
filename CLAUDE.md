@@ -1,5 +1,13 @@
 # dbce-wheel-mod-toolkit — Claude working notes
 
+> **Recording/playback handoff, October 5:** start with
+> [the exact playback runbook](docs/RECORDING-PLAYBACK-RUNBOOK.md) and
+> [the failure lessons](knowledge/RECORDING-PLAYBACK-LESSONS.md).
+> Art 0.4.0 is released and its original owner session is validated. Commands,
+> stop/recovery, artifact identity and current limits are recorded there.
+> These docs are published on remote master (305de83); this older dirty checkout
+> has local copies so agents can find them without merging unrelated work.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not

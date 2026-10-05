@@ -1,0 +1,90 @@
+{
+  "reviewedUtc": "2026-09-15T04:08:01.294056+00:00",
+  "repository": "d-b-c-e/woden-rally-edge-wheel",
+  "head": "7fcbbbde049353096e025278cb42ac54399d98cc",
+  "scope": "0.2.3 working tree; source/documentation review, no new game or visual test",
+  "files": [
+    {
+      "path": "src/WodenRallyEdge.Plugin/Panel.cs",
+      "sha256": "8e748477c2d0f9b3dcddff3d7153f96487d993ecadecfa7144b9a52bd2a77a8e"
+    },
+    {
+      "path": "src/WodenRallyEdge.Plugin/WheelInput.cs",
+      "sha256": "67eb53017678ec5bf67441e3f59db9bb361a20223eff9e1f3288c66883a988ea"
+    },
+    {
+      "path": "src/WodenRallyEdge.Plugin/MountedCamera.cs",
+      "sha256": "0adc1b58cb0d0147d4bf3d133e38a90abe834cd33008de6547ee71dcfd844126"
+    },
+    {
+      "path": "src/WodenRallyEdge.Plugin/Settings.cs",
+      "sha256": "2a1e1c3266cbaeda2afffe1641ba7517bcdf8eff9ca04067eeaa061f2db266c8"
+    },
+    {
+      "path": "src/WodenRallyEdge.Core/Bindings.cs",
+      "sha256": "2af011c7632cdd09113fc2bf2a162c6acfedf058e162bc6e732bb38ff8ba79bd"
+    },
+    {
+      "path": "src/WodenRallyEdge.Core/HandbrakeInput.cs",
+      "sha256": "16b0234658d4dd13a3430304b3ee9821d3cb773ee579c3ae0fb60175b3bc2447"
+    },
+    {
+      "path": "docs/UX-ADOPTION.md",
+      "sha256": "10c949f6f0fe559dd83269bf395e44ce66f7648b6d187558ad1fa52c29e835b5"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "sha256": "f0bf84571c7c8aab20e260ca9854bb9f610fee45853edbd167a5c1948174e60b"
+    },
+    {
+      "path": "docs/STATE.md",
+      "sha256": "d81e64ab467457db70190faf1c8dfe15ea2d149d55bee023dc0354f32afc3721"
+    }
+  ],
+  "followUp": {
+    "observedUtc": "2026-09-15T04:19:34.987718+00:00",
+    "note": "Concurrent consumer edits observed after the first snapshot. Source inspection only, no build/deploy/runtime acceptance. Initial finding references above remain tied to the original files list.",
+    "files": [
+      {
+        "path": "src/WodenRallyEdge.Plugin/Panel.cs",
+        "sha256": "208caf6641f03e8dd38dc843343a164ffc2977b62c0fb30f735dd574b481edc2"
+      },
+      {
+        "path": "src/WodenRallyEdge.Plugin/WheelInput.cs",
+        "sha256": "59e198bad28c91f7b2a699b53e4e05546ab6b5dd8b2be27ab9adb497b0605912"
+      },
+      {
+        "path": "src/WodenRallyEdge.Plugin/MountedCamera.cs",
+        "sha256": "7a7aa9556a00c8c10c8368c4f95a1e1df021cf464004fea483fc0fbe295f47a4"
+      },
+      {
+        "path": "src/WodenRallyEdge.Plugin/Settings.cs",
+        "sha256": "668c0eaab1cfc374131dda2425730f93066603eaff85994f8b74a86934b8ba78"
+      },
+      {
+        "path": "src/WodenRallyEdge.Core/Bindings.cs",
+        "sha256": "2af011c7632cdd09113fc2bf2a162c6acfedf058e162bc6e732bb38ff8ba79bd"
+      },
+      {
+        "path": "src/WodenRallyEdge.Core/HandbrakeInput.cs",
+        "sha256": "16b0234658d4dd13a3430304b3ee9821d3cb773ee579c3ae0fb60175b3bc2447"
+      },
+      {
+        "path": "docs/UX-ADOPTION.md",
+        "sha256": "10c949f6f0fe559dd83269bf395e44ce66f7648b6d187558ad1fa52c29e835b5"
+      },
+      {
+        "path": "docs/VERIFICATION.md",
+        "sha256": "f0bf84571c7c8aab20e260ca9854bb9f610fee45853edbd167a5c1948174e60b"
+      },
+      {
+        "path": "docs/STATE.md",
+        "sha256": "d81e64ab467457db70190faf1c8dfe15ea2d149d55bee023dc0354f32afc3721"
+      },
+      {
+        "path": "src/WodenRallyEdge.Plugin/CameraShortcuts.cs",
+        "sha256": "47a730daf6783a63081ca37289b7c5c64a226b511eb3d2b17af48b709929a046"
+      }
+    ]
+  }
+}
