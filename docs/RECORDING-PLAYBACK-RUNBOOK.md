@@ -297,7 +297,10 @@ forced termination by assuming their physical outputs are off.
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
 work. `games/dbce-mods-sonic-crossworlds` main `3948cad` adds a bounded read-only
 game-thread observation probe with stage/install/arm/stop/removal scripts. Five
-Lua 5.4 tests and isolated setup checks pass. No live probe run or in-game replay
+Lua 5.4 tests and isolated setup checks pass. Main `8727788` also adopts the shared
+rig lease for probe install/removal, with 20 real-script setup/arm/Stop/removal
+checks. Clean prepared stage is `obj/stage-probe-ready-20261005`; it includes the
+exact loader and diagnostic DLL, so no separate loader setup is required. No live probe run or in-game replay
 is qualified yet. Follow that consumer's `docs/STAGE-PLAYBACK.md` for the first
 test; keep its discovery data distinct from a physics-tick trajectory. Its older
 companion input scheduler only proves report scheduling, not a reproduced race.
@@ -307,6 +310,17 @@ and prevents a late callback from reading state after Stop or a stall timeout.
 Missing fields and original force data remain unavailable. Discover the actual
 car tick, mode/startup authority and competing body writers before implementing
 an active player; do not infer them from a camera hook or the first found pawn.
+
+### OutRun 2006 native intake
+
+Consumer master `c0e5a03` documents source-verified native simulation/scenario/
+output boundaries in `docs/STAGE-PLAYBACK.md`. The existing 128-frame (~2s) legacy
+force recorder and production-linked x86 record/read/recalculate tests passed
+again. External runtime capture and gameplay playback do not exist yet. FFB Off
+skips calculation, the car hook is pre-native, and Plugin_Init runs under loader
+lock: preserve the calculation stream when adding output mute, observe actual
+physics/presentation ownership and start/join writers at normal outer boundaries.
+No install or game launch occurred. Unity hooks are not a native x86 adapter.
 
 - Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
   `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the
