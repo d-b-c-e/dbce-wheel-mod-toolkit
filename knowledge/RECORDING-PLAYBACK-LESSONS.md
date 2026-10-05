@@ -105,7 +105,29 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     zero-filled; rebuilding recovered its prior hash. Check managed metadata as
     well as provenance/hash before vendoring. [Oct 4 incident record]
 
-## Evidence that actually passed
+11. **A successful backup command did not prove a complete backup.** Windows
+    `reg export` returned success while omitting 21 of Art's 58 preference values,
+    including fullscreen and Rewired maps. The root cause of the omission is
+    unknown. Saving/restoring the partial export could therefore lose owner state
+    or repeat an unwanted display switch. New backups enumerate all value names,
+    preserve raw registry types/bytes, hash the snapshot, validate count/names and
+    read back every restored value. Invalid raw backups fail before file writes.
+    Keep legacy limitations explicit and current presentation separate from the
+    recorded scenario. [Art final source 30d421b; 58-value live roundtrip]
+
+## Exact final release
+
+Art 0.4.0 was published and installed from clean source
+`30d421b26eccebc564cd50bf0733c1ed6a82d849` after all 20 local gates.
+Final replay `replay-20261004-210753` completed all 13,455 driving/finish poses,
+zero detected position error, finish/results/menu and normal close. All 58 game
+preferences and saved files were restored. Startup reported native 2560x1440
+FullScreenWindow without the failed exclusive-mode switch. Both published ZIPs
+and checksum files were independently downloaded and matched to tested assets.
+The runbook records commands and hashes. This does not resolve the GPU incident
+or certify all hardware; the other three adapters still need live qualification.
+
+## Earlier evidence that passed
 
 - Art owner session 5, `replay-20261004-173553`: 13,455 driving/finish poses,
   zero detected position application error, automatic finish/results/menu.
