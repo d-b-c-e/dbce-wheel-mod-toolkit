@@ -298,6 +298,18 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     can discard a valid false. Reaching the expected focused widget and sending
     Accept still did not prove race entry; inspect the subsequent menu/world.
 
+33. **Separate unattended replay focus from wheel focus.** Woden reached the
+    correct stage but a separate Windows prompt held foreground focus. Reusing
+    ordinary wheel eligibility made its muted replay wait until timeout.
+    Background execution belongs only to an accepted, supervised replay with
+    validated context and output suppression. Preserve normal recording/input/
+    force focus gates and all pause/photo/respawn/stage exclusions. Core 0.2.1
+    exposes ReplayActive because !Recording also includes an armed recording.
+    Test armed and terminal transitions, keep the replay camera alive with the
+    same scoped permission, and verify actual unfocused steps in the live log.
+    Application background execution is process-local; it must not silently
+    change display preferences or enable ordinary background device input.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

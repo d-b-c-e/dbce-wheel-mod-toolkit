@@ -321,8 +321,9 @@ Sonic's newer UE4SS loader now initializes, as observed during the separate trip
 work. `games/dbce-mods-sonic-crossworlds` includes a bounded
 game-thread observer with stage/install/arm/stop/removal scripts. Native startup
 reached E-Stadium's offline Time Trial Ready/loadout with Tails and SonicSpeed.
-Native footer Next opens a disabled-gadgets warning; its guarded Yes response is
-under test. Steam launch, native quit and exact UE Config/SEGA save restoration
+Native footer Next opens a disabled-gadgets warning. Verified Yes focus plus
+Accept returns to Ready; native Right and Down leave No focused and withhold
+Accept. Race entry remains unresolved. Steam launch, native quit and exact UE Config/SEGA save restoration
 pass. Nineteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
 checks pass. There is no qualified driving recording or in-game replay yet.
 Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct

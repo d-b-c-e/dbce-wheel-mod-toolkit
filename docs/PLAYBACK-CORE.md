@@ -1,4 +1,4 @@
-# Playback core 0.2.0
+# Playback core 0.2.1
 
 `Dbce.Wheel.Playback` is a separate development component targeting netstandard2.0.
 It does not change or republish the native FFB/telemetry release. No Unity, loader,
@@ -26,6 +26,11 @@ device, process launch, input injection or network dependency is present.
   Eligibility and timestep are checked throughout playback. Control storage
   failure aborts the session without escaping the game's update loop; an idle
   controller writes no repeated status files.
+  ReplayActive means an accepted replay is armed or playing; it is false for
+  idle, armed/active recording and every terminal state. Consumers must not use
+  !Recording or status-text parsing to authorize replay-only behavior. This
+  state does not itself grant background execution, output mute or menu access;
+  those remain explicit consumer policies. Core lifecycle fixtures: 62 checks.
   These new stage APIs have device-free fixtures; each consumer still needs live
   hook/ownership/scene tests. They do not automate menus or load saved game state.
 

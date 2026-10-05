@@ -3,7 +3,11 @@
 ## Recording/playback continuation — 2026-10-05
 
 Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
-original force data; expected normal triples remain open. Its sealed reference
+original force data. Claude observed combined triples in the Kenya stage but a
+foreground prompt blocked replay; candidate 05837ee scopes background execution
+to validated supervised muted replay. It pins core 0.2.1 / af4d20d with explicit
+ReplayActive (62 core checks), plus 50 consumer policy checks. Live recheck pending.
+Its sealed reference
 was copied outside disposable worktrees. iRacing's accepted runtime and committed
 report remain, but its ignored private reference was lost during separate
 worktree consolidation and has not been recovered. A genuinely new labelled
@@ -15,12 +19,15 @@ DRIVE session-8 now passed native Free Roam diagnostic recording, a separate col
 playback of all 6,001 poses, and intentional Stop with normal close/restoration.
 Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
-The diagnostic hits a tree after 77 m; owner/full-route/triple qualification is
+The diagnostic hits a tree after 77 m; owner/full-route qualification is
 still open. Claude separately observed the DRIVE reference in motion at 7680
-triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–32. Sonic reaches the
+triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–33. Sonic reaches the
 E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Native NEXT opens a known
-disabled-gadgets warning; its guarded confirmation is under test. An async Lua
+disabled-gadgets warning. Verified Yes focus plus Accept returns to Ready;
+native Right and Down leave No focused and withhold Accept. Race entry is
+unresolved, not a successful recording. All 36 restored probe runs and the
+earlier crash are archived privately. An async Lua
 finalization crash is retained separately; the replacement single-thread timer
 passed 30-second and 180-second normal-quit/restoration runs. Its probe has no
 qualified racing-car tick, original force producer or gameplay replay yet.
