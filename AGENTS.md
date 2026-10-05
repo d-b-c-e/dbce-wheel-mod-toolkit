@@ -1,5 +1,13 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+**Recording/playback:** read `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
+start/status/stop/recovery commands and Art's owner-accepted reference case.
+Read `knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing an adapter; it
+documents drift, competing physics, misleading success checks and display-test
+mistakes. `docs/PLAYBACK-CORE.md` describes the separate playback component;
+its implementation is on `codex/session-playback-core`, not implicitly adopted
+by the default-branch native/FFB package. Game qualification stays per adapter.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not

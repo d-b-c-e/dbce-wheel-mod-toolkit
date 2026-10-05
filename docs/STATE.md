@@ -1,5 +1,16 @@
 # Current source checkpoint
 
+## Recording/playback operator handoff — 2026-10-04
+
+[Runbook](RECORDING-PLAYBACK-RUNBOOK.md) gives exact commands and recovery;
+[postmortem](../knowledge/RECORDING-PLAYBACK-LESSONS.md) records failed approaches
+and their evidence. Art's full original recording completed 13,455 poses and
+received owner visual acceptance. Woden/DRIVE/iRacing trajectory candidates still
+require live qualification at this checkpoint. These documentation additions
+do not change native output, consumer pins or default-branch release status.
+Shared playback code is separately retained on `codex/session-playback-core`
+(runtime 0.2 source `50b6b67`, 54 offline assertions); Art intentionally uses 0.1.
+
 ## Source and organization checkpoint, 2026-10-02
 
 This record supersedes the source/build/publication statements in the dated

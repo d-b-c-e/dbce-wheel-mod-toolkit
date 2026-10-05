@@ -1,5 +1,13 @@
 # dbce-wheel-mod-toolkit — Claude working notes
 
+**Recording/playback:** read `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
+start/status/stop/recovery commands and Art's owner-accepted reference case.
+Read `knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing an adapter; it
+explains why the earlier input replay drifted and the trajectory attempt caused
+a flying camera/reset loop, plus later Codex testing mistakes. Do not rebuild
+the design from conversation memory. Shared implementation is on
+`codex/session-playback-core`; `docs/PLAYBACK-CORE.md` states its ownership boundary.
+
 > **Resuming a session? Read `docs/STATE.md` first.** It records what is
 > verified and how, what is built but has never been driven in a game, the next
 > actions in priority order, and the assumptions still worth re-checking. Do not
