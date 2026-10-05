@@ -323,7 +323,7 @@ game-thread observer with stage/install/arm/stop/removal scripts. Native startup
 reached E-Stadium's offline Time Trial Ready/loadout with Tails and SonicSpeed.
 Native footer Next opens a disabled-gadgets warning; its guarded Yes response is
 under test. Steam launch, native quit and exact UE Config/SEGA save restoration
-pass. Eighteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
+pass. Nineteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
 checks pass. There is no qualified driving recording or in-game replay yet.
 Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct
 from a physics-tick trajectory. Its older
@@ -391,7 +391,10 @@ were preserved. Read-only preflight now validates the exact EXE and 110 assets:
 ```
 
 See consumer docs/STARTUP-ASSETS-2026-10-05.md for the receipt. All asset hashes
-pass, but post-repair startup still needs testing. No game bytes are committed.
+pass. Claude's post-repair test reached title at 7680 and exited normally; 30
+non-log root/save hashes remained exact and the new runtime log is preserved.
+Native title confirmation/offline driving and recording remain unqualified.
+No game bytes are committed.
 Do not diagnose this as a renderer/FFB-hook regression or add a native null-pointer
 workaround before retesting the intact installation. Lesson 31 covers preserving
 runtime game data even when its directory is named bin.

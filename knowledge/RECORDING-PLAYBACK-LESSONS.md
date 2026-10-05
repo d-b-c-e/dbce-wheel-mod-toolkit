@@ -283,10 +283,20 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     script/BK assets. The crash's native caller was the OutrunMiles script-table
     lookup, whose asset was absent. Restoring only missing files from two
     agreeing existing installs preserved 31 root/save files. A read-only asset
-    preflight now catches that defect before launch; runtime recovery still needs
-    verification. Do not patch a native null read or blame resolution before
+    preflight now catches that defect before launch. Claude's post-repair test
+    reached title at 7680x1440 and exited normally; all 110 assets and 30 non-log
+    root/save hashes still matched afterward. Do not patch a native null read or blame resolution before
     checking the actual data files. Never apply generic bin/obj cleanup rules to
     game assets, recordings or private evidence.
+
+32. **Keep raw UI evidence beside normalized labels.** Sonic's observed disabled-
+    gadget warning looked identical to the guard string, but its native text
+    contained a newline. A guard report (warning=0, Yes=1) exposed the mismatch;
+    comparing the same normalized wording fixed admission, while the escaped raw
+    text preserves the evidence. Unknown text remains refused. Also preserve
+    false separately from unavailable: Lua's value-or-default and and/or idioms
+    can discard a valid false. Reaching the expected focused widget and sending
+    Accept still did not prove race entry; inspect the subsequent menu/world.
 
 ## Exact final release
 

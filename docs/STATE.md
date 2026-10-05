@@ -16,7 +16,8 @@ playback of all 6,001 poses, and intentional Stop with normal close/restoration.
 Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route/triple qualification is
-still open. See the updated runbook and lessons 19–31. Sonic now reaches the
+still open. Claude separately observed the DRIVE reference in motion at 7680
+triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–32. Sonic reaches the
 E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Native NEXT opens a known
 disabled-gadgets warning; its guarded confirmation is under test. An async Lua
@@ -25,7 +26,8 @@ passed 30-second and 180-second normal-quit/restoration runs. Its probe has no
 qualified racing-car tick, original force producer or gameplay replay yet.
 OutRun startup diagnosis found 110 missing game asset files at the launched
 installation. Missing-only restoration passed all asset hashes and retained 31
-root/save hashes. A post-repair launch is still needed; see the consumer's
+root/save hashes. Claude's post-repair launch reached title at 7680 and exited
+normally; all 110 assets and 30 non-log root/save hashes still matched. See the consumer's
 STARTUP-ASSETS-2026-10-05.md. This does not implement OutRun recording.
 The shared identified-process
 supervisor and rig lease are committed; Woden/iRacing/DRIVE runners use the lease.
