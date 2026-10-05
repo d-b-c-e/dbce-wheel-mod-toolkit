@@ -10,10 +10,13 @@ limits. This is installer verification, not a new game/replay qualification.
 
 Sonic's combined passive addon can now borrow the renderer caller's exact rig
 lease for setup/removal. Shared validation `a484cb6` does not rewrite, renew or
-release it, and refuses absent/wrong/replaced/expired ownership. Twenty-six
-actual addon checks pass, including no-AutoExit arming; the combined live race
+release it, and refuses absent/wrong/replaced/expired ownership. Thirty-two
+actual addon checks pass, including five-minute passive no-AutoExit arming; the combined live race
 observation is pending. Copy-ready coordinator instructions retain the caller's
 idle checks, normal close, owner-file restoration and final lease release.
+Sonic ce113ca extends only passive discovery so the known roughly three-minute
+menu route does not consume its entire observation window. Twenty-one actual-Lua
+tests pass; active requests remain capped at three minutes. See lesson 38.
 
 Shared owner-idle launch helper `31644da` now provides conservative raw Windows
 last-input admission (300 seconds), with 15 isolated checks and a read-only

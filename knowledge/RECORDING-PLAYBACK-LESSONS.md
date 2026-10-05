@@ -357,6 +357,18 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     failed install without a complete receipt requires inspection, not guessed
     ownership or recursive rollback. Keep private evidence outside game folders.
 
+38. **Include observed startup time in a passive discovery window.**
+    [dbce-mods-sonic-crossworlds, 2026-10-05, ce113ca] The working controller route
+    took roughly three minutes, as long as the observer armed before launch.
+    A completed menu capture could therefore miss the useful race world. The
+    combined addon now permits five minutes of passive observation; both armer
+    and Lua refuse active startup/screenshot/quit flags above the original
+    three-minute bound. Keep request expiry separate from capture duration,
+    preserve sample/reflection bounds and external Stop, and test observations
+    that first appear after the old deadline. Twenty-one Lua tests and 32 addon
+    checks pass. This prepares live discovery; it does not qualify a car tick or
+    convert timed observations into a physics recording.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
