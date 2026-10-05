@@ -115,6 +115,43 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     Keep legacy limitations explicit and current presentation separate from the
     recorded scenario. [Art final source 30d421b; 58-value live roundtrip]
 
+12. **Stage arming was mistaken for unattended playback.** iRacing's first
+    adapter required the owner to choose Free Play and timed out at menus. A
+    replacement still stalled at login because no local player was joined.
+    The accepted flow uses native PlayerInputManager.JoinPlayer once when joining
+    is permitted, waits for existing Steam authentication, queues offline Free
+    Play, validates a sealed track/car setup, starts, replays, quits and restores.
+    An accepted replay must work from a closed game. Never make the user provide
+    the missing startup half of an advertised unattended workflow.
+
+13. **Recording/playback phases were not clear enough.** The owner thought a
+    replay was still a recording and paused/switched away. Add a visible mode
+    banner and a distinct replay launch. Do not silently switch mid-drive. The
+    pause/focus abort was expected behavior, not evidence that trajectory replay
+    drifted. Keep physical outputs muted and original producer data available.
+
+14. **A writer/reader fixture did not validate the real analyzer contract.**
+    iRacing's actual 3,001-row stage source lacked input/context diagnostics the
+    older analyzer required. Add an explicit stage profile that still validates
+    required force inputs, alignment, clocks and delivery suppression. Report
+    uncaptured diagnostics as unavailable. The actual source then passed with
+    zero model error; do not invent zero-valued observations to satisfy a schema.
+
+15. **The supervisor is part of the feature.** A status-file sharing race killed
+    the first runner even though the game passed/quit. Treat atomic replacement
+    gaps as transient and use ReadWrite/Delete sharing; retain exact request-ID
+    correlation. A repeat passed with automatic restoration. Stop must fail an
+    incomplete replay, release ownership, close normally and preserve evidence.
+
+16. **Restoring the pre-test display state can preserve the wrong baseline.**
+    The iRacing tests reused an already small window and restored it exactly;
+    the owner expected their normal triple-screen setup. Validate the intended
+    presentation baseline, not just backup equality. Ordinary driving and replay
+    should share the same launch settings. Do not change resolutions for tests,
+    restart Steam under another session, or rerun accepted routes just to finish
+    paperwork. Steam's persistent borderless options were prepared separately;
+    application remains pending until the client can close without interruption.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
@@ -125,7 +162,8 @@ preferences and saved files were restored. Startup reported native 2560x1440
 FullScreenWindow without the failed exclusive-mode switch. Both published ZIPs
 and checksum files were independently downloaded and matched to tested assets.
 The runbook records commands and hashes. This does not resolve the GPU incident
-or certify all hardware; the other three adapters still need live qualification.
+or certify all hardware. iRacing subsequently passed the scoped cold-launch
+reference described in the runbook; Woden and DRIVE still need live qualification.
 
 ## Earlier evidence that passed
 

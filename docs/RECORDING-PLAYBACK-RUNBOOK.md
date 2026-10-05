@@ -134,9 +134,55 @@ empty stream as a valid zero-force result. Reprocess **original** physics,
 not the kinematic playback's live tyre readings. Identity and zero-gain trial
 examples and units are in Art's `docs/SESSION-REPLAY.md`.
 
-## Woden, DRIVE Rally and iRacing Arcade
+## iRacing Arcade: accepted unattended reference
 
-At this checkpoint these adapters are **implemented, packaged, offline-tested,
+Installed private candidate `0.4.7-delivery-v1-repack.109`, clean runtime
+`d6bab7663f93047c4fb48e1f5facfb1096f3354e`, ZIP SHA-256
+`C4CE5AC0F52A4E7DEBCC3CF280AA59E8614897ACC13F0D0D84FC7B2CC843D288`.
+Two cold-launch runs passed all 3,001 poses of the owner's one-minute Aragón /
+Euro Truck drive (maximum position error .000030517578125 m). The owner accepted
+the route/camera. The repeat completed automatic exit and exact owner restoration;
+intentional Stop also exited/restored with a correctly failed partial route.
+The owner requested no further repeat launches; move on to Woden offline while
+their separate session uses the screen for triple-screen work.
+
+```powershell
+Set-Location 'C:\Users\antho\.codex\worktrees\session-playback\dbce-mods-iracing-arcade'
+# Closed game, new result directory; no manual menus or driving.
+./tools/game/Replay-Recording.ps1 `
+  -Recording results/reference-truck-aragon-20261004 `
+  -Result ('results/replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
+# Interrupted runner recovery, only after game closes:
+./tools/game/Replay-Recording.ps1 -Result <same-result-folder> -RestoreOnly
+```
+
+The original `owner-drive-20261004-2122` remains unchanged. The reference adds a
+sealed post-capture launch preset validated in the first run; its four original
+trajectory/force/telemetry files remain byte-identical. Native APIs join the local
+player, await authentication, select offline Free Play, load setup and start.
+Only one track and an unambiguous vehicle class are supported. A new recording
+must be armed before Free Play Start to retain its launch setup automatically.
+Focus loss, pause and eligibility failures remain aborts; physical outputs stay
+muted, while original source force/telemetry remain available for analysis.
+
+**Presentation correction pending:** generic Steam startup reused an already
+small windowed state, and the runner faithfully restored that wrong baseline.
+The owner expects ordinary triple-screen presentation for playback and driving.
+Steam has no saved iRacing launch options. `tools/game/Set-SteamTripleLaunch.ps1`
+previews the normal 7680x1440 borderless span; `-Apply` requires Steam closed.
+Do not restart Steam while the owner's Woden session owns the screen. This
+correction was prepared, not applied or visually retested. Do not say the rig is
+ready in triples until this pending correction is completed. Preserve 70-degree
+geometry and existing tuning; a display fix is not grounds to repeat the route.
+
+See the consumer `docs/STAGE-PLAYBACK.md` and
+`docs/reviews/2026-10-05-unattended-playback.md` for exact evidence and limits.
+The launcher is currently source-checkout tooling; the installed generic
+`Stage-Session.ps1` alone does not provide supervision/restoration.
+
+## Woden and DRIVE Rally: offline candidates
+
+At this checkpoint Woden and DRIVE adapters are **implemented, packaged, offline-tested,
 but not runtime-qualified**. Do not cite Art's success as their acceptance.
 Their isolated source branches are `codex/session-playback` under
 `C:\Users\antho\.codex\worktrees\session-playback\dbce-mods-<game>`; iRacing's
@@ -153,7 +199,7 @@ With a matching adapter installed, the commands are shared:
 ./vendor/playback/Stage-Session.ps1 -Game iracing -Action Replay -Path C:/captures/iracing-owner-01 -Output C:/captures/iracing-replay-01
 ```
 
-Substitute `woden` or `drive`. These adapters handle **one continuous stage**;
+Use `woden` or `drive` for these candidates. They handle **one continuous stage**;
 they do not navigate menus. Select the matching offline single-player stage/car
 manually; iRacing requires explicit offline Free Play. Arming expires after
 180 seconds. A new command must receive its matching request-ID acknowledgement
