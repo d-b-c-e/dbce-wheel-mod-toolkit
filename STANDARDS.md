@@ -155,3 +155,20 @@ vars. Features turn themselves on from what the mod can see (for example triples
 itself). When a plain launch is not possible, or an install conflicts with a safety
 rule (UE4SS left loaded for online play), say so to the owner rather than leave a
 manual step undocumented.
+
+## STD-014 — Request reciprocal review when progress stalls
+2026-10-05 · owner · applies to: every repo, Codex and Claude
+
+When an agent stops making meaningful forward progress, request a focused review
+from the other agent before repeating the same approach. Share the current source,
+exact failure, evidence and hypotheses already tried. Ask the reviewer to challenge
+the approach and propose a different direction or a test that distinguishes the
+remaining explanations. This works both ways: Codex reviews Claude's stalled work
+and Claude reviews Codex's. Use the established portfolio inbox directly; do not
+require the owner to relay messages. Record whether review was requested or
+actually received, and keep useful independent work moving while awaiting it.
+The normal rig lease, owner-input and restoration rules still apply.
+
+First request: `dbce-project-mgmt/inbox/2026-10-05-peer-review.md` asks Claude to
+review Sonic's stalled native-menu dispatch and the alternative working virtual-pad
+startup route. The request is not evidence that the review or gameplay replay passed.
