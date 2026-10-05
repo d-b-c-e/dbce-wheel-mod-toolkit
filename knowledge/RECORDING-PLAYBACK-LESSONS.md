@@ -159,7 +159,8 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     must seal observed stage context at capture time. Native in-memory replay
     objects may help presentation, but are not proof of durable file playback,
     cold startup or preservation of original tire/contact telemetry. Woden's
-    new context sidecar and mode banner remain uninstalled/unqualified.
+    new context sidecar and mode banner were subsequently installed and the
+    Kenya reference passed; see the runbook for the exact candidate.
 
 18. **Share normal eligibility instead of copying a weaker predicate.**
     Woden's first stage adapter duplicated driving checks but omitted photo mode,
@@ -168,6 +169,24 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     ownership where necessary. Keep that ownership a force/input exclusion in
     every normal path; native replay takeover must still abort. Build and policy
     tests support the change, but do not certify actual native hook behavior.
+
+19. **A Git merge does not preserve ignored private evidence.** Consolidation
+    removed iRacing's old worktree and its accepted reference files. The source
+    and committed report survived, the recording did not. Before removing any
+    worktree, inventory recordings/results/dependency caches, copy the complete
+    sealed reference to a stable private location, verify every sealed hash,
+    then archive the remaining evidence with a file inventory. Never use
+    `git worktree remove --force` as a substitute for that preservation step.
+    Woden's accepted reference now lives under LocalAppData/Dbce/StagePlayback/
+    references. Missing evidence must remain visibly missing in operator docs.
+
+20. **Record the origin of control separately from the origin of motion.** An
+    automated diagnostic can exercise real game physics and capture useful
+    original signals. Label it `automated-diagnostic-v1`, preserve that label in
+    metadata/review output, and never substitute it for an accepted owner drive.
+    Run playback in a separate process. Stock haptics/gamepad vibration can be
+    separate producers from wheel FFB; observe requests before suppressing each
+    actual delivery path. Keep absent signed force models explicitly unavailable.
 
 ## Exact final release
 
@@ -180,7 +199,8 @@ FullScreenWindow without the failed exclusive-mode switch. Both published ZIPs
 and checksum files were independently downloaded and matched to tested assets.
 The runbook records commands and hashes. This does not resolve the GPU incident
 or certify all hardware. iRacing subsequently passed the scoped cold-launch
-reference described in the runbook; Woden and DRIVE still need live qualification.
+reference described in the runbook. Woden subsequently passed its Kenya
+reference; DRIVE still needs live qualification.
 
 ## Earlier evidence that passed
 

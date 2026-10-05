@@ -147,7 +147,8 @@ The owner requested no further repeat launches; move on to Woden offline while
 their separate session uses the screen for triple-screen work.
 
 ```powershell
-Set-Location 'C:\Users\antho\.codex\worktrees\session-playback\dbce-mods-iracing-arcade'
+Set-Location 'E:\Source\games\dbce-mods-iracing-arcade'
+# Historical example: recover the private reference before using this command.
 # Closed game, new result directory; no manual menus or driving.
 ./tools/game/Replay-Recording.ps1 `
   -Recording results/reference-truck-aragon-20261004 `
@@ -156,9 +157,13 @@ Set-Location 'C:\Users\antho\.codex\worktrees\session-playback\dbce-mods-iracing
 ./tools/game/Replay-Recording.ps1 -Result <same-result-folder> -RestoreOnly
 ```
 
-The original `owner-drive-20261004-2122` remains unchanged. The reference adds a
-sealed post-capture launch preset validated in the first run; its four original
-trajectory/force/telemetry files remain byte-identical. Native APIs join the local
+**Private reference missing after worktree consolidation:** the accepted owner
+and reference recordings were not found in the canonical checkout or former
+worktree on October 5. The committed acceptance report remains; the command
+above cannot run until an original backup is recovered or a new reference is
+recorded and qualified. Do not recreate the filename and call it the accepted case.
+Historically, the reference added a sealed launch preset without changing its
+four original trajectory/force/telemetry files. Native APIs join the local
 player, await authentication, select offline Free Play, load setup and start.
 Only one track and an unambiguous vehicle class are supported. A new recording
 must be armed before Free Play Start to retain its launch setup automatically.
@@ -180,50 +185,71 @@ See the consumer `docs/STAGE-PLAYBACK.md` and
 The launcher is currently source-checkout tooling; the installed generic
 `Stage-Session.ps1` alone does not provide supervision/restoration.
 
-## Woden and DRIVE Rally: offline candidates
+## Woden: accepted unattended reference, triples still open
 
-At this checkpoint Woden and DRIVE adapters are **implemented, packaged, offline-tested,
-but not runtime-qualified**. Do not cite Art's success as their acceptance.
-Their isolated source branches are `codex/session-playback` under
-`C:\Users\antho\.codex\worktrees\session-playback\dbce-mods-<game>`; iRacing's
-exact package uses the sibling `dbce-mods-iracing-arcade-package` worktree.
-Read each `docs/STAGE-PLAYBACK.md` for its exact package identity and limits.
-Preserve newer installed triple-screen work before deploying an older-base plugin.
+Canonical checkout: `E:/Source/games/dbce-mods-woden-rally-edge`, main. The combined
+installed runtime is `0.2.14+a628e04c2101866a2a22335004f4f536aa565d93`.
+The owner accepted Kenya SS1 / car 8 route and cameras after 3,601 poses passed
+(maximum error .00006103515625 m / .0000172453823 degrees). Native cold startup,
+normal exit and exact restoration passed. Original force analysis retained
+3,553 valid / 3,477 nonzero samples, with zero numerical error and no physical
+output attempts. The observed run was single-screen; normal triple presentation
+is an open final check, not covered by this acceptance.
 
-Woden's October 5 offline continuation recovered the original 116-second drive
-and verified all 6,981 continuous pose samples against its source hash. It lacks
-scene/setup identity and is not yet a sealed runnable trajectory. Source now
-adds observed stage context, normal driving exclusions and a clear mode banner;
-these newer changes are built/tested but **not in the frozen candidate package**.
-See the consumer `docs/2026-10-05-playback-offline-review.md`. The owner has the
-rig for concurrent Woden triple work; keep investigation offline until handoff.
-
-With a matching adapter installed, the commands are shared:
+The seven sealed reference files are now protected outside disposable worktrees.
+Use this exact private reference, a closed game, and a new result directory:
 
 ```powershell
-./vendor/playback/Stage-Session.ps1 -Game iracing -Action Record -Path C:/captures/iracing-owner-01 -Seconds 60 -Launch
-./vendor/playback/Stage-Session.ps1 -Game iracing -Action Status
-./vendor/playback/Stage-Session.ps1 -Game iracing -Action Stop
-./vendor/playback/Stage-Session.ps1 -Game iracing -Action Replay -Path C:/captures/iracing-owner-01 -Output C:/captures/iracing-replay-01
+Set-Location 'E:/Source/games/dbce-mods-woden-rally-edge'
+./tools/game/Run-StageSession.ps1 `
+  -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/woden-kenya-20261005" `
+  -Result ('results/replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
+# Recovery only after this run's game closes:
+./tools/game/Run-StageSession.ps1 -RestoreOnly -Result <same-result-folder>
+# A new owner drive is a separate launch; select single-player Arcade practice:
+./tools/game/Run-StageSession.ps1 -Record -Seconds 60 -Result results/owner-new-01
 ```
 
-Use `woden` or `drive` for these candidates. They handle **one continuous stage**;
-they do not navigate menus. Select the matching offline single-player stage/car
-manually; iRacing requires explicit offline Free Play. Arming expires after
-180 seconds. A new command must receive its matching request-ID acknowledgement
-in `%LOCALAPPDATA%\Dbce\StagePlayback\<game>\status.txt`. Do not treat an old
-status file or prepared request as a running recording.
+Build the consumer TelemetryInspector before using source-checkout supervision.
+The installed Stage-Session.ps1 alone does not back up/restore the environment.
+The public player preview passed 111 stock PowerShell installer checks; it is
+not published or a replacement for the accepted installed artifact. See consumer
+`docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-playback-integration.md`.
 
-Verify `trajectory.tsv`, `trajectory.meta`, `source.jsonl`, game-specific
-sidecars and `complete.tsv`, with one source row per trajectory row. Stop/F12,
-pause/focus loss and changed eligibility release ownership. Physical outputs stay
-muted until restart. Observe camera/HUD and the final frame. Shared core 0.2 checks
-next-tick position/rotation; actual hooks still require per-game qualification.
+## DRIVE Rally: supervised diagnostic candidate
+
+Canonical checkout: `E:/Source/games/dbce-mods-drive-rally`. The October 5 candidate
+adds native Free Roam startup, expiring supervised commands, exact profile and
+raw PlayerPrefs restoration, original source/effect streams and camera modes.
+It builds and passes offline checks, but has **not yet run a live diagnostic or
+playback**. User requested clearly labelled automated controls for its first
+reference. This remains a real-physics capture, not generated pose evidence.
+
+```powershell
+Set-Location 'E:/Source/games/dbce-mods-drive-rally'
+./tools/game/Run-StageSession.ps1 -Record -Diagnostic -Seconds 60 -Result artifacts/diagnostic-01
+./tools/game/Run-StageSession.ps1 -Recording artifacts/diagnostic-01/recording -Result artifacts/playback-01
+# No game/device output:
+dotnet tools/DriveRally.Diagnostics/bin/Release/net10.0/DriveRally.Diagnostics.dll stage-review artifacts/diagnostic-01/recording
+```
+
+Install the exact candidate first, with a free shared rig slot. Commands never
+resize windows or switch monitor profiles. Free Roam rejects locked content;
+collectibles and achievement/stat writes are suppressed. Original Logitech,
+gamepad and haptic requests remain captured before physical suppression. There
+is no signed mod rack-force model in DRIVE yet. Live force/telemetry counts,
+camera quality and unattended exit require actual per-game evidence.
+
+For Woden/DRIVE/iRacing the raw command still lives under `vendor/playback` or
+beside the installed plugin. `-Game <woden|drive|iracing> -Action Stop` and F12
+stop ownership; output suppression stays latched until process exit. Verify
+request-ID correlation and completion seals; an old status file is not evidence
+of the current run. Supervised wrappers are the normal operator entry points.
 
 ## Maintainer entry points
 
-- Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; branch
-  `codex/session-playback-core`, separate unpublished 0.2 pin. Art uses the
+- Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
+  `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the
   earlier 0.1 pin intentionally; a documentation update does not require repinning.
 - Run `dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release` for
   device-free core coverage. These checks never establish live game support.

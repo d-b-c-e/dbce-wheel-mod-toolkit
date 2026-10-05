@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## Recording/playback continuation — 2026-10-05
+
+Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
+original force data; expected normal triples remain open. Its sealed reference
+was copied outside disposable worktrees. iRacing's accepted runtime and committed
+report remain, but its ignored private reference was lost during separate
+worktree consolidation and has not been recovered. Operator commands flag this.
+DRIVE adds native Free Roam diagnostic startup and supervision, still awaiting
+live qualification. See the updated runbook and lessons 19–20. No consumer pin,
+force tune or native binary changed for this documentation update.
+
+
 ## Native FFB series merged into master â€” 2026-10-04
 
 Branch `claude/ffb-series` merged, in order, `codex/fix-actuator-rearm`,
