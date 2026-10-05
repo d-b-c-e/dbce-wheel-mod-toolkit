@@ -310,21 +310,23 @@ monitor profile as a generic response to a stalled recording.
 Woden, iRacing and DRIVE runners now use hash-pinned `Stage-RigLease.ps1`: acquire
 before backup/arming/launch and release only the matching token after game close.
 A fresh slot refuses the run before owner mutation. The installed generic command
-does not replace the supervisor or owner-state backup/restore wrapper. Woden and
-iRacing have not adopted DRIVE's current-request mute heartbeat; do not retrofit
-forced termination by assuming their physical outputs are off.
+does not replace the supervisor or owner-state backup/restore wrapper. iRacing's
+qualified repack.114 now has current-request output-mute heartbeats and identified
+process supervision. Woden has not adopted that heartbeat; do not retrofit forced
+termination by assuming its physical outputs are off.
 
 ### Sonic CrossWorlds preparation
 
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
-work. `games/dbce-mods-sonic-crossworlds` main `3948cad` adds a bounded read-only
-game-thread observation probe with stage/install/arm/stop/removal scripts. Five
-Lua 5.4 tests and isolated setup checks pass. Main `8727788` also adopts the shared
-rig lease for probe install/removal, with 20 real-script setup/arm/Stop/removal
-checks. Clean prepared stage is `obj/stage-probe-ready-20261005`; it includes the
-exact loader and diagnostic DLL, so no separate loader setup is required. No live probe run or in-game replay
-is qualified yet. Follow that consumer's `docs/STAGE-PLAYBACK.md` for the first
-test; keep its discovery data distinct from a physics-tick trajectory. Its older
+work. `games/dbce-mods-sonic-crossworlds` main `6e75aef` includes a bounded
+game-thread observer with stage/install/arm/stop/removal scripts. Native startup
+reached offline Time Trial character selection; source `9329b92` also confirmed
+the character through its actual player-indexed event and reached the machine
+selector. Steam launch, native quit and exact UE Config/SEGA save restoration
+pass. Fourteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
+checks pass. There is no qualified driving recording or in-game replay yet.
+Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct
+from a physics-tick trajectory. Its older
 companion input scheduler only proves report scheduling, not a reproduced race.
 
 The probe queues at most one callback, accesses UObjects only on the game thread,
@@ -338,6 +340,30 @@ only the Lua script and supported `enabled.txt` marker are payloads. Loader,
 settings and other mods remain exact dependencies. Fourteen addon fixture checks
 pass; removal preserves later owner mod-list edits. This avoids replacing the
 triple session's newer paired loader with the older diagnostic stage.
+
+After staging/installing the current probe in a closed-game slot, run this from
+the Sonic checkout to inspect the guarded offline startup path:
+
+```powershell
+./scripts/Run-StageProbe.ps1 -Result obj/probe-NEW -Seconds 90 -InspectStartup
+```
+
+The runner owns the shared lease, creates an expiring request, launches through
+Steam, and restores owner files only after normal close. It recognizes the
+known bootstrap and exact new shipping child. Omit `-InspectStartup` for passive
+observation. A deadline leaves the game and lease for normal-close recovery with
+`-RestoreOnly -Result <same-folder>`; no force-kill or display change is performed.
+Remove the exact receipt-owned stage afterward. For a coordinated observation
+alongside another session's race test, arm the addon without `-AutoExit` and let
+that session own launch/close. The operator instructions do not qualify car hooks.
+
+Saves are in `%APPDATA%/SEGA/SonicRacingCrossWorlds/steam/<id>`, separate from
+`%LOCALAPPDATA%/UNION/Saved/Config`. Both roots are backed up and hash-validated
+before either is restored. New/post-run files are retained privately in evidence.
+Local restoration is not a Steam Cloud transaction guarantee. Completed probe
+evidence, including owner-file backups, was archived separately from source with
+all 1,028 entry hashes verified; originals remain. See the consumer review for
+the exact archive identity and later runs.
 
 ### OutRun 2006 native intake
 

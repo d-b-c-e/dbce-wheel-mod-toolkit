@@ -243,6 +243,22 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     owns only unchanged files it created and must preserve later edits by others.
     C++ mods still require their matching loader ABI. Discovery is not replay.
 
+27. **Confirm native menu transitions, not just successful method calls.**
+    Sonic's direct title callback returned without advancing; the controller's
+    native dispatcher worked only after the real menu was registered. Its
+    character selector then required a player-indexed accept event instead of
+    the generic accept. Observe exact native enum values, registered control,
+    focus, local player and subsequent state. Select modes by semantic identity,
+    not a guessed position. Bound actions once per verified stable state; never
+    confirm unknown dialogs or online modes. A menu observer is not a driving tape.
+
+28. **Find actual save roots before automated menu/race tests.** Sonic stores
+    saves under SEGA's roaming Steam-profile directory, not UE Saved/SaveGames.
+    Configuration-only backup missed that root. Snapshot both, prevalidate every
+    backup hash before restoring either, retain post-test bytes and new files in
+    private evidence, and restore only after normal game exit. Refuse ambiguous
+    profiles. Local byte restoration does not prove Steam Cloud transactionality.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
