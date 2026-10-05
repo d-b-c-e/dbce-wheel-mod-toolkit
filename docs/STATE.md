@@ -219,6 +219,17 @@ no live-game slot follows from it. Preserve this checkout's independent runtime
 and Recording work. Consumer deployment does not imply a toolkit package bump
 or completed attended input/force acceptance.
 
+## Recording/playback update — 2026-10-04
+
+Read [the operational runbook](RECORDING-PLAYBACK-RUNBOOK.md) and
+[failure lessons](../knowledge/RECORDING-PLAYBACK-LESSONS.md). Art's original
+session-5 trajectory was accepted by the owner after the full 13,455-pose run.
+Original force/telemetry data is retained separately from muted output. Shared
+playback 0.2 at `50b6b67` has 54 offline assertions; Woden/DRIVE/iRacing adapters
+still need their own live qualification at this checkpoint. Core details:
+[PLAYBACK-CORE](PLAYBACK-CORE.md). The native/toolkit handoff below is historical;
+it does not describe the separate playback component's version or acceptance.
+
 Updated 2026-09-07. Source/package version **0.12.0**, native device component
 **0.5.0** (38 additive C exports). Consumer pins remain separate: inspect
 `tools/Get-ConsumerStatus.ps1` and `docs/CONSUMERS.md`; never infer adoption from
