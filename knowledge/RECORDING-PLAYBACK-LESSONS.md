@@ -331,6 +331,15 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     through the real runner. Keep recovery available while the owner is active,
     and distinguish launch admission from detecting takeover during gameplay.
 
+36. **Keep one caller-owned lease across a combined mod test.** Sonic's passive
+    addon initially tried to acquire a second slot while the renderer wrapper
+    already held it. Add explicit borrowed-token validation for setup/removal;
+    never temporarily delete the outer lease to make a child command succeed.
+    Borrowed operations must not rewrite, renew or release ownership, and must
+    refuse stale/replaced tokens. Test the actual addon/armer/remover together.
+    Keep idle admission separate, flush passive observations before normal close,
+    and preserve loader logs/dumps before a renderer uninstaller removes its tree.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

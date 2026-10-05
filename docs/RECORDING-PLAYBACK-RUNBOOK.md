@@ -16,6 +16,16 @@ conservative check makes no owner-versus-tool attribution. It is launch admissio
 not an active-game takeover detector. Recovery/restoration must remain available
 when the owner returns.
 
+For a coordinated child operation under an existing rig slot, use
+`Assert-StageRigLease -Path <slot> -Token <original-caller-token>` before work.
+It validates exact, unexpired ownership without rewriting, renewing or releasing
+the parent's lease. Sonic addon setup/removal accepts `-LeaseToken`; default
+standalone setup still acquires/releases its own slot. Keep the original token
+returned by the caller's acquisition, not an arbitrary token read from the slot.
+The lease itself does not check idle input. The caller still owns settings
+backup/restoration, launch/close and final release. This does not add borrowed
+lease support to the Unity replay runners.
+
 ## Preserve a qualified reference before worktree cleanup
 
 For the shared core's sealed trajectories (Woden, iRacing and DRIVE), use the

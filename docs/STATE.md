@@ -2,6 +2,13 @@
 
 ## Recording/playback continuation — 2026-10-05
 
+Sonic's combined passive addon can now borrow the renderer caller's exact rig
+lease for setup/removal. Shared validation `a484cb6` does not rewrite, renew or
+release it, and refuses absent/wrong/replaced/expired ownership. Twenty-six
+actual addon checks pass, including no-AutoExit arming; the combined live race
+observation is pending. Copy-ready coordinator instructions retain the caller's
+idle checks, normal close, owner-file restoration and final lease release.
+
 Shared owner-idle launch helper `31644da` now provides conservative raw Windows
 last-input admission (300 seconds), with 15 isolated checks and a read-only
 native query. Sonic pins it and checks before lease/launch; 19 actual-runner
@@ -32,7 +39,7 @@ Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route qualification is
 still open. Claude separately observed the DRIVE reference in motion at 7680
-triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–35. Sonic reaches the
+triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–36. Sonic reaches the
 E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Native NEXT opens a known
 disabled-gadgets warning. Verified Yes focus plus Accept returns to Ready;
