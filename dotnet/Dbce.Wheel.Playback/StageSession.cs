@@ -33,6 +33,9 @@ namespace Dbce.Wheel.Playback
         private double seconds, armedAt, lastStepAt, captureOrigin, fixedDeltaTime;
         public string Status { get; private set; } = "idle";
         public bool Active => armed || recorder != null || player != null;
+        // Accepted replay, including its armed wait. False for recording and
+        // every terminal state; consumers must not infer mode from status text.
+        public bool ReplayActive => Active && !recording;
         public bool Playing => player != null;
         public bool Recording => recorder != null;
         public int Samples => recorder?.Count ?? player?.Applied ?? 0;

@@ -113,10 +113,13 @@ try
     var target = new FixtureStage();
     using (var session = new StageSession(target))
     {
+        Check(!session.ReplayActive, "Idle never grants replay mode");
         session.Record(Path.Combine(stageRoot, "capture"), 10, 0);
+        Check(!session.ReplayActive, "Armed owner recording is not replay mode");
         Check(target.Muted && session.Active && !session.Recording, "Output suppression precedes stage acquisition");
         target.Available = true;
         for (int i = 0; i < 3; i++) { target.Current.Time = 100 + i * .02; target.Current.Values[0] = i; session.FixedStep(i * .02); }
+        Check(!session.ReplayActive, "Live recording never grants replay mode");
         session.Stop();
         Check(session.Status.StartsWith("recorded:") && !session.Active, "Stage completes capture and signal seal");
     }
@@ -125,8 +128,15 @@ try
     using (var session = new StageSession(target))
     {
         session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "replay"), 0);
-        for (int i = 0; i < 4; i++) session.FixedStep(i * .02);
+        Check(session.ReplayActive && !session.Playing, "Validated armed replay exposes its mode before acquisition");
+        session.FixedStep(0);
+        Check(session.ReplayActive && session.Playing, "Active player retains replay mode");
+        for (int i = 1; i < 4; i++) session.FixedStep(i * .02);
         Check(session.Status.StartsWith("passed:") && !session.Active, "Shared stage runner passes full replay");
+        Check(!session.ReplayActive, "Completed replay revokes replay mode");
+        session.Record(Path.Combine(stageRoot, "record-after-replay"), 10, 1);
+        Check(!session.ReplayActive, "A subsequent owner recording cannot inherit replay mode");
+        session.Stop();
     }
     using (var session = new StageSession(target))
     {
@@ -139,6 +149,7 @@ try
         session.Replay(Path.Combine(stageRoot, "capture"), Path.Combine(stageRoot, "eligibility"), 0);
         session.FixedStep(0); target.Available = false; int before = target.Releases; session.FixedStep(.02);
         Check(session.Status.Contains("eligibility lost") && !session.Active && target.Releases == before + 1, "Eligibility is checked throughout playback and restores ownership");
+        Check(!session.ReplayActive, "Aborted replay revokes mode immediately");
         target.Available = true;
     }
     using (var session = new StageSession(target))
