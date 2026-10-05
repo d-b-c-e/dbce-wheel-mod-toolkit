@@ -5,6 +5,17 @@ before changing an adapter. This runbook is intended to work without recovering
 conversation context. Source/layout migrations on other branches do not change
 the identity of a tested installed artifact.
 
+For unattended launch admission, `tools/playback/Stage-OwnerIdle.ps1` provides
+`Assert-StageOwnerIdle` (300 seconds by default). It reads raw Windows last-input
+age and refuses recent, missing or invalid observations; it never injects input,
+changes focus, waits or launches. Call before taking the lease and again just
+before launching. Sonic's probe runner pins and enforces this check; adoption by
+other runners remains separate. A queue may wait outside the lease and retry.
+Do not discount input merely because a game or launcher is foreground: this
+conservative check makes no owner-versus-tool attribution. It is launch admission,
+not an active-game takeover detector. Recovery/restoration must remain available
+when the owner returns.
+
 ## Preserve a qualified reference before worktree cleanup
 
 For the shared core's sealed trajectories (Woden, iRacing and DRIVE), use the

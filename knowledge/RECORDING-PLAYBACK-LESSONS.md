@@ -321,6 +321,16 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     getters from UnionUIInputWidget, while its parent popup did not have them.
     A fixture that invents those getters can pass while live input is withheld.
 
+35. **Put idle admission in the runner and preserve edits on a cancelled launch.**
+    Sonic's one-off wrappers waited for five idle minutes, but direct runner
+    invocation bypassed that rule. The shared raw last-input check now runs
+    before acquiring the lease and again before launch. If the owner returns
+    during backup/arming, disarm the matching request and release the token.
+    Backup alone did not change owner files: restoring that snapshot without
+    attempting launch could overwrite the owner's new edits. Test that race
+    through the real runner. Keep recovery available while the owner is active,
+    and distinguish launch admission from detecting takeover during gameplay.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

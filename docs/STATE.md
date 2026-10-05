@@ -2,6 +2,13 @@
 
 ## Recording/playback continuation — 2026-10-05
 
+Shared owner-idle launch helper `31644da` now provides conservative raw Windows
+last-input admission (300 seconds), with 15 isolated checks and a read-only
+native query. Sonic pins it and checks before lease/launch; 19 actual-runner
+fixture cases and 13 owner-file cases pass. Recent-input cancellation does not
+restore over new owner edits when no launch was attempted. Other runners retain
+their existing policy; this is not a portfolio-wide live takeover detector.
+
 Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
 original force data. Claude observed combined triples in the Kenya stage but a
 foreground prompt blocked replay; installed 05837ee/session-focus.1 scopes background execution
@@ -25,7 +32,7 @@ Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route qualification is
 still open. Claude separately observed the DRIVE reference in motion at 7680
-triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–34. Sonic reaches the
+triples; see the consumer's TRIPLE.md. See the runbook and lessons 19–35. Sonic reaches the
 E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Native NEXT opens a known
 disabled-gadgets warning. Verified Yes focus plus Accept returns to Ready;
