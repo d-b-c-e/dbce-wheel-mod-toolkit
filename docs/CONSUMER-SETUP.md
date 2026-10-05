@@ -122,8 +122,8 @@ The following text is a template, not a statement about every current release:
 > The game's normal camera button cycles its views, then Bonnet and
 > Bumper when enabled.
 >
-> **Adjust the view:** In Bonnet or Bumper, use numpad 8/2 up/down, 9/7 forward/back,
-> 4/6 left/right, 1/3 tilt down/up, +/− widen/narrow field of view, and 0 to reset
+> **Adjust the view:** In Bonnet or Bumper, use numpad 8/2 forward/back, 9/3 up/down,
+> 4/6 left/right, 7/1 tilt forward/back, +/− widen/narrow field of view, and 5 to reset
 > that view. Change these in **F6 → Cameras → Adjustment bindings**. [Show actual
 > saved mappings after a rebind and explain any unavailable adjustment.]
 >

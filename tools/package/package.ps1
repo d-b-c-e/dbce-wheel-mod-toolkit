@@ -11,6 +11,7 @@
       tools\powershell\DbceWheel.psm1           Steam discovery, DirectInput enumeration, CRLF-safe INI
       dotnet\Dbce.Wheel.Telemetry.dll (+xml)    Forza encoder, idle keeper, RPM synth
       dotnet\Dbce.Wheel.Ffb.dll (+xml)          binding, shaper, model, diagnostics
+      dotnet\Dbce.Wheel.Recording.dll (+xml)    bounded diagnostic JSONL capture and streaming replay reader
       tools\forza\*.py, tools\dev\*.ps1, tools\Sync-Toolkit.ps1, tools\ffbprobe\ffbprobe.exe (if built)
       knowledge\**\*.md, docs\adr\*.md, README.md, CHANGELOG.md, LICENSE
     Consumers vendor from this zip with Sync-Toolkit.ps1.
@@ -71,6 +72,7 @@ dotnet build (Join-Path $root 'Dbce.Wheel.sln') -c Release "-p:Version=$Version"
 if ($LASTEXITCODE -ne 0) { throw "dotnet build failed" }
 dotnet test (Join-Path $root 'Dbce.Wheel.sln') -c Release --no-build | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "tests failed" }
+& (Join-Path $root 'dotnet/Dbce.Wheel.Recording.Tests/Test-RecordingPackaging.ps1') | Out-Host
 
 $probeSrc = Join-Path $root 'tools\ffbprobe'
 if (-not (Test-Path (Join-Path $probeSrc 'ffbprobe.exe'))) {
@@ -97,6 +99,9 @@ Copy-Item (Join-Path $root 'tools\powershell\Test-DbceWheel.ps1') (Join-Path $st
 $ffbBin = Join-Path $root 'dotnet\Dbce.Wheel.Ffb\bin\Release\netstandard2.0'
 Copy-Item (Join-Path $ffbBin 'Dbce.Wheel.*.dll') (Join-Path $stage 'dotnet')
 Copy-Item (Join-Path $ffbBin 'Dbce.Wheel.*.xml') (Join-Path $stage 'dotnet') -ErrorAction SilentlyContinue
+$recordingBin = Join-Path $root 'dotnet\Dbce.Wheel.Recording\bin\Release\netstandard2.0'
+Copy-Item (Join-Path $recordingBin 'Dbce.Wheel.Recording.dll') (Join-Path $stage 'dotnet')
+Copy-Item (Join-Path $recordingBin 'Dbce.Wheel.Recording.xml') (Join-Path $stage 'dotnet')
 Copy-Item (Join-Path $root 'tools\forza\*.py') (Join-Path $stage 'tools\forza')
 Copy-Item (Join-Path $root 'tools\dev\*.ps1') (Join-Path $stage 'tools\dev')
 Copy-Item (Join-Path $root 'tools\Sync-Toolkit.ps1') (Join-Path $stage 'tools')
