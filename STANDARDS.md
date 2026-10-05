@@ -102,3 +102,13 @@ in the detailed stream. Reference: Woden `ForzaProjection` (0b0f844).
 
 When a build is ready for the owner to test, back up the current install and
 install it to where the owner's Stream Deck button launches, without asking.
+
+## STD-011 — Work lands on main
+2026-10-04 · owner ("if we don't start merging things into main we're going to lose track") · applies to: every repo, every agent
+
+`main` (or `master`) is the single source of truth. Start each task from it, on one
+short-lived branch or worktree, and merge back into it as soon as the build and tests
+pass, in the same session. Before ending a session: nothing uncommitted, merged branches
+deleted, finished worktrees removed. What is *installed* is recorded in the repo's docs,
+not kept on a separate branch. Never leave a standard, fix or experiment only on disk or
+only on a side branch. Portfolio check: `E:\Source\dbce-project-mgmt\tools\Get-BranchDrift.ps1`.
