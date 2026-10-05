@@ -42,3 +42,19 @@ No deliberate GPU reset/hang test is appropriate for validating this tool.
 Consumers vendor both the watcher and `Stage-WatchdogPolicy.ps1` from one commit,
 pin their hashes and retain the toolkit license. The consumer owns game startup,
 request/output authority, saved-state restoration and the final evidence review.
+
+## Shared rig slot
+
+`Stage-RigLease.ps1` provides `Enter-StageRigLease` and `Exit-StageRigLease` for
+the existing `%LOCALAPPDATA%/dbce/test-slot.txt` coordination file. Acquisition
+refuses any slot modified in the past two hours, including an empty fresh file.
+Exclusive file access prevents two cooperating runners from acquiring together.
+Expired contents are retained in the returned receipt. Release removes only the
+exact token this caller wrote. A replaced owner's lease is preserved.
+
+Acquire before saving settings, arming commands or launching. Retain the lease
+while the owned game is alive; release after closed-game restoration. The runner
+must also reject other running games: an expired text lease alone is not proof
+that the screen is free. Installers and older agents must honor the same file.
+This is coordination, not an OS-wide lock against unrelated programs.
+`Test-StageRigLease.ps1` uses isolated files and never touches the real rig slot.
