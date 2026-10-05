@@ -1,0 +1,84 @@
+// dbce-virtual-pad: a virtual Xbox 360 controller (ViGEmBus) driven by a command file, so
+// unattended game tests can navigate menus without focus, mouse or keyboard injection.
+//
+// Commands, one per line, in %LOCALAPPDATA%\dbce\vpad\cmd.txt (consumed and deleted):
+//   press A|B|X|Y|Start|Back|LB|RB|LS|RS|Guide|Up|Down|Left|Right [ms=150]
+//   hold <button> / release <button>
+//   stick L|R <x -1..1> <y -1..1> [ms=0 = until changed]
+//   trigger L|R <0..1> [ms=0]
+//   wait <ms>
+//   quit
+// Exits (removing the controller) on quit or after --idle-minutes without commands (30).
+using System.Diagnostics;
+using Nefarius.ViGEm.Client;
+using Nefarius.ViGEm.Client.Targets;
+using Nefarius.ViGEm.Client.Targets.Xbox360;
+
+var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "dbce", "vpad");
+Directory.CreateDirectory(dir);
+var cmdPath = Path.Combine(dir, "cmd.txt");
+var logPath = Path.Combine(dir, "log.txt");
+double idleMinutes = args.Length > 1 && args[0] == "--idle-minutes" && double.TryParse(args[1], out var m) ? m : 30;
+
+void Log(string s) { var line = $"{DateTime.Now:HH:mm:ss.fff} {s}"; Console.WriteLine(line); try { File.AppendAllText(logPath, line + Environment.NewLine); } catch { } }
+
+using var client = new ViGEmClient();
+var pad = client.CreateXbox360Controller();
+pad.Connect();
+Log($"connected virtual Xbox 360 controller; watching {cmdPath}; idle exit after {idleMinutes} min");
+
+var buttons = new Dictionary<string, Xbox360Button>(StringComparer.OrdinalIgnoreCase)
+{
+    ["A"] = Xbox360Button.A, ["B"] = Xbox360Button.B, ["X"] = Xbox360Button.X, ["Y"] = Xbox360Button.Y,
+    ["Start"] = Xbox360Button.Start, ["Back"] = Xbox360Button.Back, ["Guide"] = Xbox360Button.Guide,
+    ["LB"] = Xbox360Button.LeftShoulder, ["RB"] = Xbox360Button.RightShoulder,
+    ["LS"] = Xbox360Button.LeftThumb, ["RS"] = Xbox360Button.RightThumb,
+    ["Up"] = Xbox360Button.Up, ["Down"] = Xbox360Button.Down, ["Left"] = Xbox360Button.Left, ["Right"] = Xbox360Button.Right,
+};
+short Axis(double v) => (short)Math.Clamp(Math.Round(v * 32767), -32767, 32767);
+var idle = Stopwatch.StartNew();
+bool quit = false;
+
+while (!quit && idle.Elapsed.TotalMinutes < idleMinutes)
+{
+    Thread.Sleep(100);
+    if (!File.Exists(cmdPath)) continue;
+    string[] lines;
+    try { lines = File.ReadAllLines(cmdPath); File.Delete(cmdPath); } catch { continue; }
+    idle.Restart();
+    foreach (var raw in lines)
+    {
+        var p = raw.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length == 0) continue;
+        int Ms(int i, int fallback) => p.Length > i && int.TryParse(p[i], out var v) ? v : fallback;
+        try
+        {
+            switch (p[0].ToLowerInvariant())
+            {
+                case "press" when p.Length > 1 && buttons.TryGetValue(p[1], out var b):
+                    pad.SetButtonState(b, true); Thread.Sleep(Ms(2, 150)); pad.SetButtonState(b, false); Thread.Sleep(80); break;
+                case "hold" when p.Length > 1 && buttons.TryGetValue(p[1], out var hb): pad.SetButtonState(hb, true); break;
+                case "release" when p.Length > 1 && buttons.TryGetValue(p[1], out var rb): pad.SetButtonState(rb, false); break;
+                case "stick" when p.Length > 3:
+                    bool left = p[1].Equals("L", StringComparison.OrdinalIgnoreCase);
+                    double x = double.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture), y = double.Parse(p[3], System.Globalization.CultureInfo.InvariantCulture);
+                    pad.SetAxisValue(left ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX, Axis(x));
+                    pad.SetAxisValue(left ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY, Axis(y));
+                    if (Ms(4, 0) > 0) { Thread.Sleep(Ms(4, 0)); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX, 0); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY, 0); }
+                    break;
+                case "trigger" when p.Length > 2:
+                    var slider = p[1].Equals("L", StringComparison.OrdinalIgnoreCase) ? Xbox360Slider.LeftTrigger : Xbox360Slider.RightTrigger;
+                    pad.SetSliderValue(slider, (byte)Math.Clamp(Math.Round(double.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture) * 255), 0, 255));
+                    if (Ms(3, 0) > 0) { Thread.Sleep(Ms(3, 0)); pad.SetSliderValue(slider, 0); }
+                    break;
+                case "wait": Thread.Sleep(Ms(1, 500)); break;
+                case "quit": quit = true; break;
+                default: Log($"unknown: {raw}"); continue;
+            }
+            Log($"did: {raw.Trim()}");
+        }
+        catch (Exception ex) { Log($"failed: {raw.Trim()}: {ex.Message}"); }
+    }
+}
+pad.Disconnect();
+Log(quit ? "quit; controller removed" : "idle timeout; controller removed");
