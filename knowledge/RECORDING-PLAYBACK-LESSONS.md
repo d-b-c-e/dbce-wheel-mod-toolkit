@@ -217,6 +217,32 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     RestoreOnly recovery. DRIVE's normal and Stop runs exercised this supervision
     without trips/forced termination. It cannot promise recovery from an OS/GPU hang.
 
+24. **Capture completion is not proof that automated controls drove the car.**
+    iRacing's first diagnostic sealed 3,001 rows but moved only 0.061 m and had
+    no throttle. Getter patches did not affect its observed native inputs; their
+    exact bypass was not established. The corrected adapter uses the local
+    assembled-input boundary, preserves stock downstream physics and records
+    requested controls plus applied-input counters. Its new diagnostic travelled
+    214.632 m and passed a separate cold replay. Require meaningful movement,
+    speed and control evidence for a diagnostic; stationary owner captures can
+    still be legitimate recordings. Keep failed captures for regression tests.
+
+25. **Control origin and physics origin are separate facts.** Native physics
+    recorded under automated controls is live data, but not owner driving.
+    Preserve `automated-diagnostic-v1` in metadata and analysis output. An
+    analyzer's `synthetic=false` may only distinguish the capture from a generated
+    model fixture. Do not let that field imply attended control, camera acceptance
+    or physical force. Keep the original and hypothetical enabled-model requests
+    labelled independently; neither is a measured wheel torque.
+
+26. **A discovery probe should coexist with the current loader.** Sonic's full
+    test stage had an older paired UE4SS binary than the active triple candidate.
+    Lua-only observation can use UE4SS's supported `enabled.txt` discovery and
+    install only its own script/marker. Pin existing dependencies for preflight;
+    never replace a renderer's loader/settings/mod list to add a probe. Removal
+    owns only unchanged files it created and must preserve later edits by others.
+    C++ mods still require their matching loader ABI. Discovery is not replay.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

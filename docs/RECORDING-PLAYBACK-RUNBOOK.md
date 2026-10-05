@@ -153,9 +153,28 @@ empty stream as a valid zero-force result. Reprocess **original** physics,
 not the kinematic playback's live tyre readings. Identity and zero-gain trial
 examples and units are in Art's `docs/SESSION-REPLAY.md`.
 
-## iRacing Arcade: accepted unattended reference
+## iRacing Arcade: new diagnostic reference and historical owner acceptance
 
-Installed private candidate `0.4.7-delivery-v1-repack.109`, clean runtime
+Current installed private runtime is clean `802a6feb2ee0028a2c024323a71abe4ef9c4ff47`,
+`0.4.7-delivery-v1-repack.114`, ZIP SHA-256
+`FBD8A4596AE41CA6D8F422F0DA8550B7A5CB9F43C8E26C9673D2A6AFFCFD21A8`.
+A new explicitly automated native-physics diagnostic captured 3,001 poses over
+60 seconds, travelled 214.632 m and peaked at 40.618 km/h. Its separate cold
+replay passed every pose, including the final one, with maximum error
+0.000030578 m / 0.000019015 degrees. Original force analysis passed 3,001 rows
+with zero mismatches/errors and zero native attempts. Normal quit, exact saved
+settings restoration and current-request watchdog mute confirmation passed.
+This new case has numeric evidence; its camera/HUD still needs observation.
+
+The complete reference is protected outside the checkout. Copy receipt verifies
+five sealed streams plus the seal, 36,459,708 bytes. Seal SHA-256:
+`B2FBB3F324A16FFE42299340A8B5E76BB65F9E2B4E4A6368F0A5C89EE0EA2F56`.
+Consumer main `b56d4c2` documents it; see
+`docs/reviews/2026-10-05-diagnostic-reference.md` for failed-first-run evidence.
+
+The earlier owner acceptance below remains separate:
+
+Previously installed private candidate `0.4.7-delivery-v1-repack.109`, clean runtime
 `d6bab7663f93047c4fb48e1f5facfb1096f3354e`, ZIP SHA-256
 `C4CE5AC0F52A4E7DEBCC3CF280AA59E8614897ACC13F0D0D84FC7B2CC843D288`.
 Two cold-launch runs passed all 3,001 poses of the owner's one-minute Aragón /
@@ -167,20 +186,23 @@ their separate session uses the screen for triple-screen work.
 
 ```powershell
 Set-Location 'E:\Source\games\dbce-mods-iracing-arcade'
-# Historical example: recover the private reference before using this command.
+# Current new diagnostic reference; it is not the lost owner recording.
 # Closed game, new result directory; no manual menus or driving.
 ./tools/game/Replay-Recording.ps1 `
-  -Recording results/reference-truck-aragon-20261004 `
+  -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/iracing-aragon-diagnostic-20261005" `
   -Result ('results/replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
+# New OWNER recording: native startup, then drive; save and quit before replay.
+./tools/game/Replay-Recording.ps1 -Record -Seconds 60 -Result results/owner-NEW
+# For another explicitly automated diagnostic, also pass -Diagnostic.
 # Interrupted runner recovery, only after game closes:
 ./tools/game/Replay-Recording.ps1 -Result <same-result-folder> -RestoreOnly
 ```
 
 **Private reference missing after worktree consolidation:** the accepted owner
 and reference recordings were not found in the canonical checkout or former
-worktree on October 5. The committed acceptance report remains; the command
-above cannot run until an original backup is recovered or a new reference is
-recorded and qualified. Do not recreate the filename and call it the accepted case.
+worktree on October 5. The committed acceptance report remains. The current
+command above uses a genuinely new labelled diagnostic, not a replacement
+masquerading as the accepted owner case. Do not recreate the old filename.
 Historically, the reference added a sealed launch preset without changing its
 four original trajectory/force/telemetry files. Native APIs join the local
 player, await authentication, select offline Free Play, load setup and start.
@@ -192,7 +214,7 @@ muted, while original source force/telemetry remain available for analysis.
 **Presentation correction pending:** generic Steam startup reused an already
 small windowed state, and the runner faithfully restored that wrong baseline.
 The owner expects ordinary triple-screen presentation for playback and driving.
-Steam has no saved iRacing launch options. `tools/game/Set-SteamTripleLaunch.ps1`
+The last recording checkpoint had no saved wide Steam options. `tools/game/Set-SteamTripleLaunch.ps1`
 previews the normal 7680x1440 borderless span; `-Apply` requires Steam closed.
 Do not restart Steam while the owner's Woden session owns the screen. This
 correction was prepared, not applied or visually retested. Do not say the rig is
@@ -310,6 +332,12 @@ and prevents a late callback from reading state after Stop or a stall timeout.
 Missing fields and original force data remain unavailable. Discover the actual
 car tick, mode/startup authority and competing body writers before implementing
 an active player; do not infer them from a camera hook or the first found pawn.
+
+Main `bce2223` adds `Stage-SessionProbe.ps1 -Addon` for an existing UE4SS install:
+only the Lua script and supported `enabled.txt` marker are payloads. Loader,
+settings and other mods remain exact dependencies. Fourteen addon fixture checks
+pass; removal preserves later owner mod-list edits. This avoids replacing the
+triple session's newer paired loader with the older diagnostic stage.
 
 ### OutRun 2006 native intake
 

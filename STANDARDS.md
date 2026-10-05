@@ -139,3 +139,7 @@ Their acceptance scopes and current reference
 availability are in `docs/RECORDING-PLAYBACK-RUNBOOK.md`; implementation failures
 and fixes are in `knowledge/RECORDING-PLAYBACK-LESSONS.md`. Shared contract:
 `docs/PLAYBACK-CORE.md`. A game adapter still requires its own live qualification.
+
+October 5 continuation: iRacing's new diagnostic reference (`802a6fe` runtime)
+passed 3,001 poses and original-force analysis with native output muted; it is
+separate from its lost owner reference and has no new rendered acceptance.

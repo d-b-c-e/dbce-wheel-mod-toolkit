@@ -6,13 +6,17 @@ Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
 original force data; expected normal triples remain open. Its sealed reference
 was copied outside disposable worktrees. iRacing's accepted runtime and committed
 report remain, but its ignored private reference was lost during separate
-worktree consolidation and has not been recovered. Operator commands flag this.
+worktree consolidation and has not been recovered. A genuinely new labelled
+iRacing diagnostic now captured 3,001 poses over 214.632 m and passed a separate
+cold replay, zero original-force errors/native attempts, normal quit and exact
+restoration. Its complete reference is protected outside checkout. New camera
+acceptance remains open. Operator commands distinguish the cases.
 DRIVE session-8 now passed native Free Roam diagnostic recording, a separate cold
 playback of all 6,001 poses, and intentional Stop with normal close/restoration.
 Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route/triple qualification is
-still open. See the updated runbook and lessons 19–23. The shared identified-process
+still open. See the updated runbook and lessons 19–26. The shared identified-process
 supervisor and rig lease are committed; Woden/iRacing/DRIVE runners use the lease.
 No force tune or native binary changed for this documentation update.
 
