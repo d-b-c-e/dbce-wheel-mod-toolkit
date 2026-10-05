@@ -318,12 +318,12 @@ termination by assuming its physical outputs are off.
 ### Sonic CrossWorlds preparation
 
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
-work. `games/dbce-mods-sonic-crossworlds` main `6e75aef` includes a bounded
+work. `games/dbce-mods-sonic-crossworlds` main `338fe7f` includes a bounded
 game-thread observer with stage/install/arm/stop/removal scripts. Native startup
-reached offline Time Trial character selection; source `9329b92` also confirmed
-the character through its actual player-indexed event and reached the machine
-selector. Steam launch, native quit and exact UE Config/SEGA save restoration
-pass. Fourteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
+reached E-Stadium's offline Time Trial Ready/loadout with Tails and SonicSpeed.
+Source `3eb0efc` adds its guarded native footer Next action; race advancement is
+under test. Steam launch, native quit and exact UE Config/SEGA save restoration
+pass. Fifteen Lua, 24 setup, 14 addon, 13 owner-file and five process-identity
 checks pass. There is no qualified driving recording or in-game replay yet.
 Follow that consumer's `docs/STAGE-PLAYBACK.md`; keep its discovery data distinct
 from a physics-tick trajectory. Its older

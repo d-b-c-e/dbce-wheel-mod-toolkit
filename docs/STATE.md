@@ -16,8 +16,8 @@ playback of all 6,001 poses, and intentional Stop with normal close/restoration.
 Original solver/effect requests were retained while physical delivery was muted;
 presentation is captured independently after live testing found frozen HUD/dust.
 The diagnostic hits a tree after 77 m; owner/full-route/triple qualification is
-still open. See the updated runbook and lessons 19–28. Sonic now reaches the
-offline Time Trial machine selector through guarded native menu events, with
+still open. See the updated runbook and lessons 19–29. Sonic now reaches the
+E-Stadium offline Time Trial Ready/loadout through guarded native menu events, with
 normal quit and exact Config/SEGA save restoration. Its observation probe has no
 qualified racing-car tick, original force producer or gameplay replay yet.
 The shared identified-process

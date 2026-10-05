@@ -259,6 +259,15 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     private evidence, and restore only after normal game exit. Refuse ambiguous
     profiles. Local byte restoration does not prove Steam Cloud transactionality.
 
+29. **A generic footer button is not its active action.** Sonic's native
+    `GetMainButtons(Next)` returns the shared Accept button even when its label
+    is OK. Inspect the active action enum, actual button input type, visibility,
+    enabled state and current ready-screen context before dispatch. A Play
+    button may lead to another loadout screen; require an observed race world
+    and local vehicle before declaring startup complete. Never accept a selected
+    gadget merely because the footer says Next. Fixed-language discovery guards
+    must fail closed on different localization until that path is qualified.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
