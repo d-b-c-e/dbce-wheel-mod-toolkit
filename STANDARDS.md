@@ -143,3 +143,15 @@ and fixes are in `knowledge/RECORDING-PLAYBACK-LESSONS.md`. Shared contract:
 October 5 continuation: iRacing's new diagnostic reference (`802a6fe` runtime)
 passed 3,001 poses and original-force analysis with native output muted; it is
 separate from its lost owner reference and has no new rendered acceptance.
+
+## STD-013 — The installed build launches plainly
+2026-10-05 · owner ("always install the latest to my machine so that I can easily launch from steam or Stream Deck without needing extra parameters if possible") · applies to: every game
+
+Keep the latest testable build installed where the owner launches it (Steam folder
+or the Stream Deck button's target, after a backup, per STD-010), and make it work
+from a plain Steam or Stream Deck launch: no launch options, dev scripts or env
+vars. Features turn themselves on from what the mod can see (for example triples
+`Mode = Auto` on a three-wide desktop; Sonic's SonicTriple adds `-emulatestereo`
+itself). When a plain launch is not possible, or an install conflicts with a safety
+rule (UE4SS left loaded for online play), say so to the owner rather than leave a
+manual step undocumented.
