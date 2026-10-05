@@ -268,6 +268,26 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     gadget merely because the footer says Next. Fixed-language discovery guards
     must fail closed on different localization until that path is qualified.
 
+30. **Keep capture buffers and finalization on one game thread.** A Sonic probe
+    completed its data writes, then crashed in UE4SS `lua_rawgeti` before its
+    separately queued quit ran. The precise corruption cause is unproven, but
+    the old design shared mutable Lua buffers between async polling and game
+    callbacks. The pinned loader documents a cancellable game-thread timer;
+    using it for sampling, completion and native quit removes that race boundary
+    and the extra quit dependency. Its first 30-second live smoke passed.
+    Test cancellation/late callbacks and missing timer APIs; retain supervisor
+    deadlines because an unresponsive game thread cannot execute its own exit.
+
+31. **An intact executable does not establish intact game data.** OutRun's
+    installed EXE and mod hashes matched, yet the launched copy lacked 110
+    script/BK assets. The crash's native caller was the OutrunMiles script-table
+    lookup, whose asset was absent. Restoring only missing files from two
+    agreeing existing installs preserved 31 root/save files. A read-only asset
+    preflight now catches that defect before launch; runtime recovery still needs
+    verification. Do not patch a native null read or blame resolution before
+    checking the actual data files. Never apply generic bin/obj cleanup rules to
+    game assets, recordings or private evidence.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source
