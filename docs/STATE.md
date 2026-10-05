@@ -4,17 +4,21 @@
 
 Woden now has an owner-accepted 3,601-pose cold-start reference and preserved
 original force data. Claude observed combined triples in the Kenya stage but a
-foreground prompt blocked replay; candidate 05837ee scopes background execution
+foreground prompt blocked replay; installed 05837ee/session-focus.1 scopes background execution
 to validated supervised muted replay. It pins core 0.2.1 / af4d20d with explicit
-ReplayActive (62 core checks), plus 50 consumer policy checks. Live recheck pending.
+ReplayActive (62 core checks), plus 50 consumer policy checks. Exact package
+passed 111 PS5.1 installer checks and the full 3,601-pose cold replay at 7680,
+normal quit/exact restoration and zero physical writes. The run stayed focused;
+actual background coverage is handed to Claude's working UI helper.
 Its sealed reference
 was copied outside disposable worktrees. iRacing's accepted runtime and committed
 report remain, but its ignored private reference was lost during separate
 worktree consolidation and has not been recovered. A genuinely new labelled
 iRacing diagnostic now captured 3,001 poses over 214.632 m and passed a separate
 cold replay, zero original-force errors/native attempts, normal quit and exact
-restoration. Its complete reference is protected outside checkout. New camera
-acceptance remains open. Operator commands distinguish the cases.
+restoration. Its complete reference is protected outside checkout. Claude also
+passed all 3,001 poses with triples at 7680; faint left sky seam and owner camera
+acceptance remain. Operator commands distinguish the cases.
 DRIVE session-8 now passed native Free Roam diagnostic recording, a separate cold
 playback of all 6,001 poses, and intentional Stop with normal close/restoration.
 Original solver/effect requests were retained while physical delivery was muted;

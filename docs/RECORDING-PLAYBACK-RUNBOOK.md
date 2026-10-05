@@ -164,7 +164,9 @@ replay passed every pose, including the final one, with maximum error
 0.000030578 m / 0.000019015 degrees. Original force analysis passed 3,001 rows
 with zero mismatches/errors and zero native attempts. Normal quit, exact saved
 settings restoration and current-request watchdog mute confirmation passed.
-This new case has numeric evidence; its camera/HUD still needs observation.
+Claude subsequently replayed all 3,001 poses at 7680 with triples in motion and
+centred menus. A faint left sky seam and owner camera acceptance remain; see the
+portfolio's October 5 combined check. This is not the historical owner's tape.
 
 The complete reference is protected outside the checkout. Copy receipt verifies
 five sealed streams plus the seal, 36,459,708 bytes. Seal SHA-256:
@@ -226,16 +228,26 @@ See the consumer `docs/STAGE-PLAYBACK.md` and
 The launcher is currently source-checkout tooling; the installed generic
 `Stage-Session.ps1` alone does not provide supervision/restoration.
 
-## Woden: accepted unattended reference, triples still open
+## Woden: accepted reference and supervised background candidate
 
 Canonical checkout: `E:/Source/games/dbce-mods-woden-rally-edge`, main. The combined
-installed runtime is `0.2.14+a628e04c2101866a2a22335004f4f536aa565d93`.
-The owner accepted Kenya SS1 / car 8 route and cameras after 3,601 poses passed
+installed runtime is `0.2.14+05837eec1df75eefb6fc154be005512b842adb2a`, player
+archive session-focus.1, SHA-256
+`A5906E5934E8A06BE593680F6F38BBF01116EC3DA75A424556BF28F29936C389`.
+The previous accepted a628e04 runtime is backed up. The owner accepted Kenya
+SS1 / car 8 route and cameras after 3,601 poses passed
 (maximum error .00006103515625 m / .0000172453823 degrees). Native cold startup,
 normal exit and exact restoration passed. Original force analysis retained
 3,553 valid / 3,477 nonzero samples, with zero numerical error and no physical
 output attempts. The observed run was single-screen; normal triple presentation
-is an open final check, not covered by this acceptance.
+was not covered by that acceptance. Claude later observed the combined Kenya
+stage's triples at 7680, but a foreground prompt blocked playback eligibility.
+The new candidate scopes background execution to validated supervised muted
+replay, using core 0.2.1's explicit ReplayActive mode. It passed all 3,601 poses
+again with the renderer reporting 7680 triples, normal quit and exact restore.
+That run stayed focused (unfocusedReplaySteps=0); actual background execution
+is the targeted remaining check, handed to Claude's working UI helper. Normal
+wheel input, force and owner recording retain their focus gates.
 
 The seven sealed reference files are now protected outside disposable worktrees.
 Use this exact private reference, a closed game, and a new result directory:
@@ -253,9 +265,10 @@ Set-Location 'E:/Source/games/dbce-mods-woden-rally-edge'
 
 Build the consumer TelemetryInspector before using source-checkout supervision.
 The installed Stage-Session.ps1 alone does not back up/restore the environment.
-The public player preview passed 111 stock PowerShell installer checks; it is
-not published or a replacement for the accepted installed artifact. See consumer
-`docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-playback-integration.md`.
+The exact session-focus.1 player package passed 111 stock Windows PowerShell
+5.1 installer checks, is installed, and is not published. See consumer
+`docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-background-replay.md` for the
+private receipt path, full payload hashes and acceptance limits.
 
 ## DRIVE Rally: qualified diagnostic recording and cold playback
 
