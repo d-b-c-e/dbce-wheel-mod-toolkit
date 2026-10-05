@@ -47,3 +47,14 @@ foreach ($arch in @('x64','x86')) {
 if ($LASTEXITCODE -ne 0) { throw 'CoreCLR optional POV binding failed' }
 & (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root 'tests/NativeBinding/build/x86/nopov/UnityForceFeedback.dll') nopov
 if ($LASTEXITCODE -ne 0) { throw 'Framework optional POV binding failed' }
+
+foreach ($mode in @('external','externalpartial')) {
+ foreach ($arch in @('x64','x86')) {
+  & cmd.exe /c (Join-Path $root 'tests/NativeBinding/build_fixture.bat') $arch $mode | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw "External fixture build failed: $mode $arch" }
+ }
+ & dotnet run --no-build --project $project -c Release -f net8.0 -- (Join-Path $root "tests/NativeBinding/build/$mode/UnityForceFeedback.dll") $mode
+ if ($LASTEXITCODE -ne 0) { throw "CoreCLR external binding failed: $mode" }
+ & (Join-Path $root 'tests/NativeBinding/bin/Release/net48/NativeBinding.exe') (Join-Path $root "tests/NativeBinding/build/x86/$mode/UnityForceFeedback.dll") $mode
+ if ($LASTEXITCODE -ne 0) { throw "Framework external binding failed: $mode" }
+}

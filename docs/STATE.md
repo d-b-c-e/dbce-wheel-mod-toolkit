@@ -46,6 +46,34 @@ does not prove a live checkout was synchronized or its old owner handed off.
 Existing weekly coordination is retained.
 
 ---
+
+# External-session experimental candidate - 2026-09-28
+
+Local candidate **0.16.0-external.1**, native **0.10.0 / 55 exports**, branches
+from preserved POV source `397a5f22af38b2459f18ffa2e1d685ee838cce8f` on
+`codex/external-session-ffb`. It adds an optional dedicated-owner finite constant
+API with pinned game/client/producer identity, source/client/input leases,
+explicit rearm, independently revoked policy, serialized driver cleanup, and
+sticky legacy force blocking. Ordinary consumers retain their existing guards.
+Read [the complete contract](EXTERNAL-FFB.md) before binding it.
+
+The coordinator reviewed the ABI and lifecycle, including same-thread driver
+reentry, baseline autocentre restoration, copied caller frames, finite scheduling
+readback, and retained cleanup errors. Source and candidate verification are
+recorded separately: `dist/EXTERNAL-HANDOFF.json` identifies the exact clean
+source commit, all payload hashes and final gate results; `dist/external-evidence`
+retains the gate logs. Preserved `0.16.0-pov.1` artifacts/receipt are unchanged.
+
+**OFFLINE ONLY. Hardware smoke compiled, not run.** No controller enumeration,
+acquisition, shown window, game, virtual pad, input injection or real torque is
+authorized for this assignment. Package gates use `-Offline` to skip discovery.
+Native cancellation results do not prove physical stopping; a driver may block
+or ignore finite duration. OEM autocentre is restored to its captured baseline
+on orderly Close and may itself exert torque. A real game-state producer and
+attended hardware/consumer acceptance remain outstanding. No official release,
+consumer deployment or completed CrossWorlds FFB claim is made.
+
+---
 # POV input candidate - 2026-09-28
 
 Local candidate **0.16.0-pov.1**, native **0.9.0 / 47 exports**, from exact
@@ -114,7 +142,7 @@ logging candidate82c7891. Strict parameter echo, phase and finite fade, with
 explicit legacy envelope clearing. No public release or hardware launch.
 See [SHAPED-BURSTS.md](SHAPED-BURSTS.md). Earlier entries below are historical.
 
-# 0.13.1 local candidate — 2026-09-16
+# 0.13.1 local candidate â€” 2026-09-16
 
 Native 0.6.1 makes per-update force tracing opt-in with
 `DBCE_FFB_TRACE_FORCE=1`, retaining default lifecycle/error logs and all 41

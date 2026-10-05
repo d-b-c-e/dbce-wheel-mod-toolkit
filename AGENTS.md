@@ -13,6 +13,18 @@ or physical force from trajectory/signal replay. Shared APIs: `docs/PLAYBACK-COR
 
 ## Repository Purpose
 
+This isolated runtime branch adds experimental `0.16.0-external.1` (native
+0.10.0, 55 exports) from preserved POV source `397a5f22`. Read
+[EXTERNAL-FFB.md](docs/EXTERNAL-FFB.md) and `dist/EXTERNAL-HANDOFF.json` for its
+contract and exact clean-source provenance. It is not an official release or
+hardware acceptance. The standing desktop pause forbids device discovery,
+acquisition, shown windows, game/virtual-pad/input use and real torque. Use
+`tools/package/package.ps1 -Offline`; compile smoke only. Keep the prior
+`0.16.0-pov.1` artifacts immutable and do not alter the frozen v0.15 checkout.
+External policy and device locks must remain separate; the device gate must
+also reject same-thread driver reentry, not only concurrent threads. New tests
+must stay on fake COM/platform calls until an explicitly coordinated hardware slot.
+
 The shared core for a family of mods that add **force feedback, telemetry and
 wheel support** to racing games that lack them (or do them badly). It exists
 because five projects had grown six DirectInput FFB implementations, five Forza

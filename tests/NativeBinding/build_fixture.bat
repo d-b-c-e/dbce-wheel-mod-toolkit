@@ -13,6 +13,16 @@ set "OUT=%HERE%build"
 if /i "%ARCH%"=="x86" set "OUT=%HERE%build\x86"
 set "FIXTUREDEF=%HERE%fixture.def"
 set "EXTRA="
+if /i "%~2"=="external" (
+ set "OUT=%OUT%\external"
+ set "FIXTUREDEF=%HERE%fixture.external.def"
+ set "EXTRA=/DWITH_EXTERNAL"
+)
+if /i "%~2"=="externalpartial" (
+ set "OUT=%OUT%\externalpartial"
+ set "FIXTUREDEF=%HERE%fixture.externalpartial.def"
+ set "EXTRA=/DWITH_EXTERNAL /DPARTIAL_EXTERNAL"
+)
 if /i "%~2"=="nopov" (
  set "OUT=%OUT%\nopov"
  set "FIXTUREDEF=%HERE%fixture.nopov.def"

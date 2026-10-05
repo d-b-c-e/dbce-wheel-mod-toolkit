@@ -12,7 +12,7 @@ namespace Dbce.Wheel.Ffb
     /// <remarks>Exports are bound once from the exact loaded module. Renamed plugins work
     /// on Mono and CoreCLR without an import-name resolver. Successful modules stay pinned
     /// for the process lifetime; Shutdown releases devices, not the binding.</remarks>
-    public static class WheelFfbNative
+    public static partial class WheelFfbNative
     {
 
         /// <summary>Full scale of <see cref="SetForce"/>: DirectInput's nominal maximum.</summary>
@@ -247,6 +247,7 @@ namespace Dbce.Wheel.Ffb
                     _stopConstantBurst = Optional<StopBurstCall>(h, "StopConstantBurst");
                     _releaseConstantBursts = Optional<ReleaseConstantBurstsCall>(h, "ReleaseConstantBursts");
                     _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
+                    BindExternalSessions(h);
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
                     return true;

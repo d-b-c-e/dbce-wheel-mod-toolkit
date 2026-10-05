@@ -23,6 +23,19 @@ force tracing. See the [release handoff](docs/RELEASE-0.15.0.md) for exact hashe
 verification limits and Art's binary-identical repin. The default branch holds
 newer UX guidance but not that runtime branch; use the tag to reproduce the release.
 
+Local experiment **0.16.0-external.1** adds a dedicated-owner finite constant
+API (native **0.10.0**, 55 exports), optional managed binding, bounded original-
+capture leases and explicit lifecycle status. It is **offline verified only**;
+hardware and game integration remain untested. See the
+[external-session contract](docs/EXTERNAL-FFB.md) and exact clean-source receipt
+in `dist/EXTERNAL-HANDOFF.json`. Existing consumers retain the old behavior
+unless they explicitly opt in. No official release or adoption is implied.
+
+Preserved local candidate **0.16.0-pov.1**, based on the `v0.15.0` runtime tag, adds a
+coherent axes/buttons/four-POV snapshot (native **0.9.0**, 47 exports) and an
+optional managed reader. It is not published or hardware-validated. See the
+[POV contract and integration order](docs/POV-INPUT.md).
+
 Source version **0.12.0** adds transactional updates, exact-module managed
 loading, strict saved-wheel selection, force-state recovery and actionable
 setup diagnostics. See [consumer experience](docs/CONSUMER-EXPERIENCE.md) for

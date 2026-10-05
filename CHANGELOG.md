@@ -1,3 +1,15 @@
+## 0.16.0-external.1 (local experiment; not released)
+
+- Native 0.10.0: eight additive external-session exports (55 total), finite
+  constant output, fixed process/window/device identity, bounded original-QPC
+  leases, explicit generation rearm, independent policy revocation and serialized
+  cancellation including same-thread message-pump reentry.
+- Preserve existing force behavior outside explicit sticky opt-in. Block legacy
+  force bypass after opt-in; preserve coherent shared-wheel reads, input with
+  FFB Off, and exact prior autocentre restoration with retained API failures.
+- Optional netstandard binding and x64/x86 fake COM/platform/ABI compatibility
+  gates. Package -Offline skips machine/device discovery. Real hardware and
+  consumer acceptance remain untested; see docs/EXTERNAL-FFB.md and STATE.md.
 ## Unreleased local POV candidate - 2026-09-28
 
 - Added coherent axes/buttons/four-hat input through existing native reader
