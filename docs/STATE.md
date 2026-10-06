@@ -1,5 +1,16 @@
 # Current source checkpoint
 
+## Runner cleanup and path recovery — 2026-10-06
+
+`tools/playback/Stage-RunnerLifecycle.ps1` supplies filesystem-provider path
+resolution, exit-aware process snapshots and bounded cleanup callbacks. Its 23
+offline cases include a real Start-Job with mismatched PowerShell/process working
+directories, exit during identity reads, PID/image replacement, delayed exit,
+unavailable identity and independent restoration after evidence/watchdog failure.
+This follows iRacing's route pass whose old runner aborted during shutdown and
+needed explicit RestoreOnly. Consumer integration/live qualification are separate;
+no game, device, force, display or installed runtime change is made by these tests.
+
 ## FFB normalization — 2026-10-06
 
 Shared offline comparison and three consumer production-model exporters now

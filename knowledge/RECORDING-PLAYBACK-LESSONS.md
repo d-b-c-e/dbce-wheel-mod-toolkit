@@ -449,6 +449,28 @@ Public source explanations: Art `docs/reviews/2026-10-04-session-replay-review.m
 
 ## Acceptance before claiming another game works
 
+### Runner paths and terminal cleanup (iRacing, October 6)
+
+The repack.115 separate-monitor run passed 3,001 poses and its rendered check,
+then the runner threw a process-identity error while the game was closing. Its
+finally block checked for closure only once, skipped logs/restoration, and left
+temporary span keys until the coordinator ran RestoreOnly. The watchdog later
+observed the original process close. The original cause of the identity report
+is unknown; do not infer that a replacement process actually ran from that text.
+The old code recorded neither the differing identity nor a process exit code.
+
+Shared runner helpers now handle disappearance while reading process properties,
+record unverifiable identity as unsafe, and wait a bounded interval for closure
+before restoring. Evidence/watchdog errors must not bypass restoration; actual
+replacement or continued game execution must block it. Preserve the original
+failure independently from recovery, including route outcome and exit evidence.
+
+The same run's relative Result went to the process CWD under Start-Job, despite
+Set-Location to the consumer. Resolve Result, GameDir and input Recording through
+PowerShell's filesystem provider, never bare Path.GetFullPath on caller input.
+Cover mismatched process CWD and session location in a real child-job fixture.
+Pin reusable helpers in consumers; do not introduce runtime cross-repo imports.
+
 1. Fingerprint the installed game and exact adapter/core payloads. Back up owner
    settings. Preserve concurrent development work; only one game owns the rig.
 2. Select offline/unranked eligibility. Verify actual hook counters, one original

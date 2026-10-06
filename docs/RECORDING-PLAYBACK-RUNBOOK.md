@@ -473,6 +473,18 @@ runtime game data even when its directory is named bin.
   earlier 0.1 pin intentionally; a documentation update does not require repinning.
 - Run `dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release` for
   device-free core coverage. These checks never establish live game support.
+- Runner adapters can vendor `tools/playback/Stage-RunnerLifecycle.ps1` with a
+  source/hash pin. Resolve every caller path through `Resolve-StageFileSystemPath`
+  before use: .NET process CWD can differ from PowerShell Set-Location/Start-Job.
+  `Get-StageProcessSnapshot` separates closed-during-read from unavailable identity;
+  `Get-StageProcessDisposition` refuses changed PID/start/image or multiple processes.
+  Run `Test-StageRunnerLifecycle.ps1` for offline coverage.
+  In a finally path, use `Complete-StageSession` with game-specific evidence,
+  watchdog, disarm, restore and lease callbacks. It waits boundedly for two closed
+  observations, always attempts evidence, restores despite ancillary errors, and
+  retains the lease if the game remains/identity is unknown or recovery fails.
+  It never stops a game or sends input. Do not turn a route pass into a whole-run
+  pass if shutdown, watchdog or restoration failed.
 - Shared lessons and this runbook are indexed from toolkit AGENTS.md, CLAUDE.md,
   STATE.md and knowledge/README.md. Update the evidence/status after each new
   adapter's live qualification; keep failures, source identity and limits visible.
