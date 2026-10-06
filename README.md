@@ -1,5 +1,10 @@
 # dbce-wheel-mod-toolkit
 
+[Cross-game FFB comparison](docs/FFB-NORMALIZATION.md) provides device-free,
+duration-weighted analysis and production-model trial commands. See the
+[first five-game findings](knowledge/FFB-NORMALIZATION-2026-10-06.md) before
+changing gains or interpreting muted force data.
+
 The shared core for a family of mods that add **force feedback, telemetry and
 wheel support** to racing games that lack them. One native FFB and device
 layer with a C ABI, thin .NET bindings that load in Unity Mono and CoreCLR

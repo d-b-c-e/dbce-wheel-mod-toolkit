@@ -1,5 +1,14 @@
 # Current source checkpoint
 
+## FFB normalization — 2026-10-06
+
+Shared offline comparison and three consumer production-model exporters now
+support immutable, duration-weighted trials. Seventeen series cover recorded
+Art/Woden/iRacing/DRIVE data and synthetic F-Zero components. Woden's 25% cap is
+occupied 46.46% of its valid interval time; iRacing's diagnostic lacks normal-speed
+coverage. No runtime tune changed. Read `FFB-NORMALIZATION.md` and the dated
+knowledge findings for commands, exact scope and tomorrow's attended checks.
+
 ## Recording/playback continuation — 2026-10-05
 
 Sonic's renderer installer now receipts final hashes and removes only unchanged

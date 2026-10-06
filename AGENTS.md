@@ -1,5 +1,11 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+**FFB normalization (2026-10-06):** read `docs/FFB-NORMALIZATION.md` and
+`knowledge/FFB-NORMALIZATION-2026-10-06.md`. Offline baselines/trials cover Art,
+Woden, iRacing and DRIVE; F-Zero has a labelled synthetic component response.
+Use original analysis signals and actual production models, preserve effect
+families and immutable evidence. Runtime tunes/physical acceptance remain open.
+
 **Recording/playback:** start with `docs/RECORDING-PLAYBACK-RUNBOOK.md` for exact
 commands, known-good Art reference, stop/recovery and adapter status. Read
 `knowledge/RECORDING-PLAYBACK-LESSONS.md` before changing the approach. These

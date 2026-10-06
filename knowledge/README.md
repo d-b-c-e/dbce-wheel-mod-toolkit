@@ -4,6 +4,10 @@ verification limits; not a cross-device tune recommendation.
 
 # Knowledge base — index and migration tracker
 
+[Five-game FFB normalization baseline](FFB-NORMALIZATION-2026-10-06.md) and
+[repeatable offline comparison commands](../docs/FFB-NORMALIZATION.md)
+[dbce-wheel-mod-toolkit and five consumers, 2026-10-06].
+
 **Recording/playback, October 4:** [failure analysis and acceptance rules](RECORDING-PLAYBACK-LESSONS.md)
 and [copy-and-paste operational runbook](../docs/RECORDING-PLAYBACK-RUNBOOK.md).
 Start here for Art's known-good recording or a new game adapter; the older
