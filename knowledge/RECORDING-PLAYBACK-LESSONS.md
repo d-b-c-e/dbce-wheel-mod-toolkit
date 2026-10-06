@@ -533,8 +533,20 @@ capabilities, actual raw changes and effective mappings. Diagnostic pads need
 explicit temporary mappings and neutral axes, backed up and restored byte-for-byte;
 never turn those mappings into an owner wheel default.
 
-These offline checks and the packaged candidate do not establish menu entry,
-race input or gameplay replay. One prior focused run also froze; no frozen-process
+The later 12:45 check established Single Player menu entry on exact `f021736`
+with a pinned pad, explicit 0/7 mappings and neutral axes; it does not establish
+race input or gameplay replay. Connected/disconnected enumeration, reported by
+Claude, identified the misleading TS-UFB01B-X name as the virtual test pad. Prefer
+device-class/capability evidence over a growing name blacklist for automatic
+wheel selection; preserve explicit controller selections.
+
+Do not recover a missing input clock by resampling after an arbitrary wall-time
+threshold: that breaks the snapshot contract. OutRun's fixed-RVA replacement
+owns the full update loop, and its failed installation is already logged. Require
+the hook's success on the exact supported game, then diagnose failures at that
+boundary; a polling fallback cannot recover a missing simulation update loop.
+
+One prior focused run also froze; no frozen-process
 dump exists. A raw address scan of a different, responsive run is not evidence of
 a deadlock. Inspect the actual alleged message/lock paths and collect a dump or
 wait chain from the blocked process before changing lifecycle synchronization.

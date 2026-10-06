@@ -471,11 +471,24 @@ were preserved. Read-only preflight now validates the exact EXE and 110 assets:
 See consumer docs/STARTUP-ASSETS-2026-10-05.md for the receipt. All asset hashes
 pass. Claude's post-repair test reached title at 7680 and exited normally; 30
 non-log root/save hashes remained exact and the new runtime log is preserved.
-Native title confirmation/offline driving and recording remain unqualified.
+At that checkpoint native title confirmation/offline driving were unqualified.
 No game bytes are committed.
 Do not diagnose this as a renderer/FFB-hook regression or add a native null-pointer
 workaround before retesting the intact installation. Lesson 31 covers preserving
 runtime game data even when its directory is named bin.
+
+October 6 installed runtime `f021736` subsequently passed native title/Single
+Player menu entry using the exact private review package, temporary pinned pad
+and A=0/Start=7 mappings; driving axes were disabled. Claude reported normal exit
+0. Three installed payloads and eight original owner files independently match.
+The TS-UFB01B-X device was confirmed by connected/disconnected enumeration to be
+the tooling's virtual pad: name filtering had missed it and automatic selection
+applied saved wheel mappings 31/34. Preserve the owner's mappings and use explicit
+temporary selection for diagnostics. The bounded check and exact hashes live in
+consumer `docs/2026-10-06-focused-input-followup.md`. Offline race entry and
+read-only phase/pose discovery are next; gameplay recording/playback still does
+not exist, and one prior intermittent freeze remains unexplained. Do not repeat
+the title-only check or infer a force stream from this output-disabled menu run.
 
 - Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
   `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the
