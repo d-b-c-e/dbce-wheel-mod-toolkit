@@ -89,6 +89,10 @@ view contract determines which details appear initially:
 | **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, receiver preset/destination, sending facts; status/Stop if recording |
 | **Help** | Version, troubleshooting, support evidence and reset | Version, short symptom-based help, UI scale, Create support file; device details in Advanced |
 
+Hide any core page the mod has nothing to offer on in this game (STD-017): for example, no
+Cameras tab when the game has its own bonnet/bumper views and the mod adds no camera setting.
+Help always stays. Visibility follows what the build supports, not momentary state.
+
 Remove Setup/Overview pages that merely repeat Controls/FFB values and links.
 Keep Setup only when it guides the player through distinct, state-aware setup
 steps; it uses the same bindings and values as the regular pages. First use opens

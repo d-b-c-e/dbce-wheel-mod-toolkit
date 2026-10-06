@@ -194,3 +194,15 @@ Forza Horizon 4/5 "Dash" packet; SimHub game: Forza Horizon 5), to 127.0.0.1:800
 default with an owner switch to turn it off (STD-013). Other layouts (FM7 311-byte) only where
 a game's own established receiver needs them, documented in that game's repo. Speed follows
 STD-009.
+
+## STD-017 — Hide settings pages that have nothing to offer
+2026-10-05 · owner ("if we simply don't offer options in a game - e.g. the game already has in game bonnet and bumper, etc, lets just hide the tab rather than show it and not have any options") · applies to: every mod's F6 panel (refines STD-004)
+
+A page appears only when the mod offers at least one setting or action on it in this game. If
+the game already provides something itself (bonnet/bumper cameras, its own bindings) and the
+mod adds nothing, hide that tab rather than show an empty or "not available in this game" page.
+The remaining core pages keep their names and relative order (Controls, FFB, Cameras,
+Telemetry, Help); Help always stays (version, support file). Decide visibility from what the
+build supports, not from runtime state such as a disconnected wheel: an FFB page whose wheel
+is missing stays visible with its status. A saved page that is hidden opens the first visible
+page instead (no index shifting, per the page-migration rule in `docs/CONSUMER-SETTINGS-VIEWS.md`).
