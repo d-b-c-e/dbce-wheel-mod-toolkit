@@ -172,3 +172,25 @@ The normal rig lease, owner-input and restoration rules still apply.
 First request: `dbce-project-mgmt/inbox/2026-10-05-peer-review.md` asks Claude to
 review Sonic's stalled native-menu dispatch and the alternative working virtual-pad
 startup route. The request is not evidence that the review or gameplay replay passed.
+
+## STD-015 — Triples on Surround and on separate monitors
+2026-10-05 · owner ("our goal is to support both surround and separate triple monitors") · applies to: every game with triple screens (extends STD-007)
+
+Support both topologies: one wide Surround (or borderless-span) window per STD-007, and three
+separate Windows displays without Surround (the owner's everyday "Sim Racing" layout: three
+2560x1440 screens at x = -2560, 0, 2560). A mod picks the separate-display path from what it
+can see (three equal side-by-side displays, no wide window), per STD-013, and keeps the same
+projection, panel-angle and HUD-on-centre rules. Engine routes differ: Unity
+`Display.displays[i].Activate()` with one camera per display (art of rally
+`SeparateDisplayRenderDriver`; side views need the centre's colour grading and their windows
+must come back after Alt+Tab), SDL borderless windows per display (F-Zero). Verify both
+topologies at the rig before calling triples done for a game.
+
+## STD-016 — Telemetry: Forza Horizon layout, on by default
+2026-10-05 · owner ("If it's our telemetry we should be using the Forza 5 protocol") · applies to: every game with Forza-format telemetry
+
+Mods send the toolkit default `ForzaPacket.Write` layout, `ForzaLayout.Horizon324` (the 324-byte
+Forza Horizon 4/5 "Dash" packet; SimHub game: Forza Horizon 5), to 127.0.0.1:8000, on by
+default with an owner switch to turn it off (STD-013). Other layouts (FM7 311-byte) only where
+a game's own established receiver needs them, documented in that game's repo. Speed follows
+STD-009.
