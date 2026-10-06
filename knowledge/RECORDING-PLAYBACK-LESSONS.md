@@ -506,6 +506,40 @@ although the developer working copy passed. The consumer's `df58cbc` adds a
 specific `-text` rule and an actual CRLF-configured checkout verifies the pin.
 Hash-pinned vendored scripts need byte-preserving attributes just like binaries.
 
+### Input snapshots follow game updates, not milliseconds (OutRun, October 6)
+
+[dbce-mods-outrun-2006, 2026-10-06; source f021736]
+
+OutRun's remapper used `GetTickCount` as a frame ID. A second query one millisecond
+later advanced previous/current state and erased the rising edge before the game
+consumed it. Two catch-up input updates within one millisecond instead reused a
+snapshot. Settings-panel reads could independently advance the same device state.
+A production-linked fake-device test reproduced the lost edge before the fix.
+
+The consumer now advances a token at the beginning of each actual game input
+update, before both native and replacement readers. Each device and the keyboard
+have one shared snapshot for that token; axis, held, pressed, POV and UI queries
+cannot consume each other's edges. Each catch-up update advances; a render-only
+iteration does not. One bootstrap snapshot remains available before that loop.
+Keep the engine clock hook in the consumer; share this contract and the tests,
+not a wall-clock approximation in the toolkit. Cover repeated queries with elapsed
+time, multiple updates with identical time, UI reads, release and pause/resume.
+
+The same live logs also revealed a separate binding mismatch: selected primary
+reported ten buttons and observed Start/A-correlated presses at 7/0, while the
+preserved wheel profile mapped them to 34/31. Do not infer native fallback failure
+or device identity from the displayed controller name. Record the instance GUID,
+capabilities, actual raw changes and effective mappings. Diagnostic pads need
+explicit temporary mappings and neutral axes, backed up and restored byte-for-byte;
+never turn those mappings into an owner wheel default.
+
+These offline checks and the packaged candidate do not establish menu entry,
+race input or gameplay replay. One prior focused run also froze; no frozen-process
+dump exists. A raw address scan of a different, responsive run is not evidence of
+a deadlock. Inspect the actual alleged message/lock paths and collect a dump or
+wait chain from the blocked process before changing lifecycle synchronization.
+Exact findings and receipt: consumer `docs/2026-10-06-focused-input-followup.md`.
+
 1. Fingerprint the installed game and exact adapter/core payloads. Back up owner
    settings. Preserve concurrent development work; only one game owns the rig.
 2. Select offline/unranked eligibility. Verify actual hook counters, one original

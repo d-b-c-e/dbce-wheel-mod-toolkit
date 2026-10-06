@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## OutRun input snapshot correction — 2026-10-06
+
+Consumer `f021736` replaces millisecond-based remap sampling with one shared
+snapshot per actual input update, including catch-up updates and settings reads.
+A production-linked regression failed before the fix and passes afterward;
+the x86 build, input/lifecycle suites and exact private-package installer checks
+pass. This candidate has not run in-game. Focused logs separately show observed
+button 0/7 versus saved wheel mappings 31/34; the next menu diagnostic needs
+temporary explicit mappings with exact restoration. An intermittent freeze is
+still unexplained. See the input-snapshot section in
+`knowledge/RECORDING-PLAYBACK-LESSONS.md`; no toolkit runtime or force tune changed.
+
 ## Runner cleanup and path recovery — 2026-10-06
 
 `tools/playback/Stage-RunnerLifecycle.ps1` supplies filesystem-provider path
