@@ -80,3 +80,32 @@ artifact; `art-corpus/` also preserves both complete original Art cases so later
 checkout cleanup cannot lose them. The 46 shared replay/analyzer tests pass.
 No game was launched or display setting changed. These results do not close
 STD-003 physical normalization or a game's release qualification.
+
+## DRIVE road-input follow-up (separate baseline)
+
+Claude's `efe617d` replaced the static-load road term with the game's dirt-road
+request. Consumer exporter `bbb9771` now accepts `--recorded-dirt`, with common
+absolute-clock alignment, no future/equal-time event lookup, a 100 ms age limit,
+explicit missing coverage and per-export provenance. An isolated checkout passed
+61 suites / 717 assertions. No runtime tune was changed.
+
+The owner Holzberg reference has 10,395 rumble events. Of 6,001 physics samples,
+6,000 have usable preceding dirt, 4,124 nonzero; maximum age is 50.428 ms. Only the
+first sample lacks a preceding event. The new model's Strength 50 output with
+dirt has RMS 29.33%, absolute P95 58.60%, peak 72.47%, no cap occupancy. Its paired
+difference from omitted-road output has RMS 0.270 percentage points and maximum
+2.276 points. The road term is present but has little effect on whole-drive RMS;
+that statistic alone is insufficient to judge texture or physical feel.
+
+Strength 75 with dirt has RMS 43.85% and cap occupancy 1.05%; it remains an
+uninstalled trial. Collision impulses are omitted in both comparisons. Model
+filters/oscillator restart at export, so this is not exact live-force replay.
+
+The earlier 17-series sealed comparison above remains untouched. Independent
+new evidence lives under
+`LocalAppData/Dbce/StagePlayback/SessionEvidence/drive-dirt-comparison-20261006-01`:
+`comparison-sealed.json`, `sealed-report/report.md`, the complete sealed original,
+four CSVs/sidecars, clean-source archive and exact binaries, test log, analyzer
+and dependency. Rerun the copied analyzer into a new directory. Keep effect
+clock, physics clock and session-relative clock semantics in each adapter's
+documentation; never guess offsets from the first observed rows.

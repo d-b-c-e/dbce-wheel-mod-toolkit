@@ -27,6 +27,8 @@ dotnet run --project components/wheel/tools/IRacingArcadeWheel.Diagnostics -c Re
 
 # DRIVE: source.jsonl inside a sealed stage reference, new CSV, strength.
 dotnet run --project tools/DriveRally.Diagnostics -c Release -- ffb-export $sourceJsonl $newCsv 50
+# To include original dirt requests in the current road-texture model:
+dotnet run --project tools/DriveRally.Diagnostics -c Release -- ffb-export $sourceJsonl $anotherNewCsv 50 --recorded-dirt
 
 # F-Zero: build with the repository's CMake/MSVC environment first.
 cmake --build build-merge --target fzero_force_trace fzero_ffb_tests
@@ -40,9 +42,31 @@ python -m unittest discover -s tools/replay -p 'test_*.py'
 Woden and iRacing validate the original model before exporting a trial. DRIVE
 validates the original stage but its older recording predates the current mod
 FFB: the export is a counterfactual, not a recorded mod-force request. DRIVE's
-collision impulse is not available in this exporter; it is explicitly zero.
+collision input is omitted, not measured zero. Road input is also omitted unless
+`--recorded-dirt` is selected. The exporter pins inputs, executable/model bytes,
+settings and coverage in a new `.meta.json` sidecar. See the consumer's
+`docs/FFB-COMPARISON.md` for the separately preserved dirt comparison.
 F-Zero exports 601 synthetic rows with no native device backend compiled in.
 Its stock/Deluxe recorded-drive identity is not established by this fixture.
+
+### Joining an effect tape to physics samples
+
+Use a recorded common clock with known producer semantics. DRIVE's stock rumble
+is updated in the car's render `Update`, while solver samples are captured in
+`FixedUpdate`'s postfix. Both `effects.tsv.time_s` and `sample.wallSeconds` use
+absolute `Plugin.Clock`. The session's `elapsedSeconds` uses a separate origin
+and must not be joined directly to effect time. The DRIVE adapter uses the last
+strictly preceding request, excludes unknown/stale inputs and never looks ahead
+or interpolates random rumble. Preserve measured zero separately from missing.
+
+This temporal reconstruction does not recover the initial hidden filter or
+texture-oscillator state of a model that predates the capture. Label the export
+counterfactual and disclose resets and omitted components. For new captures,
+prefer raw effect inputs and their availability on the same sample as computed
+force, effective settings, model version and reset state. Compute before the
+recording hook and mute at the physical/network sinks. Native-library failure
+must not disable game-signal observation or silently turn unavailable inputs
+into claimed measurements. API acceptance is not measured wheel torque.
 
 ## Comparison manifest, version 1
 
