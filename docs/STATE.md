@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## Woden startup and Surround return — 2026-10-06
+
+Installed `8678f06/session-span.2` passed plain Steam launch and the Surround
+round trip: borderless 7680x1440 at (0,0) on Surround, then (-2560,0) on three
+separate monitors. Thirteen payloads, 55 original LocalLow files and byte-exact
+pre/post/current registry exports independently match. The earlier session-span.1
+Kenya replay completed all 3,601 steps naturally unfocused with inspected triples,
+normal exit/restoration and zero physical/network delivery. Focus transitions and
+interruptions remain open. Startup side backgrounds keep centre-only menu coverage
+partial; wider release and physical-normalization checks remain. Current commands,
+runtime and package identity are reconciled in RECORDING-PLAYBACK-RUNBOOK.md.
+
 ## OutRun input snapshot correction — 2026-10-06
 
 Consumer `f021736` replaces millisecond-based remap sampling with one shared

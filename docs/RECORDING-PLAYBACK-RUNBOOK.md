@@ -249,26 +249,35 @@ See the consumer `docs/STAGE-PLAYBACK.md` and
 The launcher is currently source-checkout tooling; the installed generic
 `Stage-Session.ps1` alone does not provide supervision/restoration.
 
-## Woden: accepted reference and supervised background candidate
+## Woden: accepted reference, background replay and span startup
 
 Canonical checkout: `E:/Source/games/dbce-mods-woden-rally-edge`, main. The combined
-installed runtime is `0.2.14+05837eec1df75eefb6fc154be005512b842adb2a`, player
-archive session-focus.1, SHA-256
-`A5906E5934E8A06BE593680F6F38BBF01116EC3DA75A424556BF28F29936C389`.
-The previous accepted a628e04 runtime is backed up. The owner accepted Kenya
+installed runtime is `0.2.14+8678f06fa967e0985d963315b72ef879c79e3235`, player
+archive session-span.2, SHA-256
+`53D3115372CEFF76F0969B12250A31B91AB864DF36EEE6D637ECF617ED8D007A`.
+Earlier accepted and session-focus.1 runtimes are backed up. The owner accepted Kenya
 SS1 / car 8 route and cameras after 3,601 poses passed
 (maximum error .00006103515625 m / .0000172453823 degrees). Native cold startup,
 normal exit and exact restoration passed. Original force analysis retained
 3,553 valid / 3,477 nonzero samples, with zero numerical error and no physical
-output attempts. The observed run was single-screen; normal triple presentation
-was not covered by that acceptance. Claude later observed the combined Kenya
-stage's triples at 7680, but a foreground prompt blocked playback eligibility.
-The new candidate scopes background execution to validated supervised muted
-replay, using core 0.2.1's explicit ReplayActive mode. It passed all 3,601 poses
-again with the renderer reporting 7680 triples, normal quit and exact restore.
-That run stayed focused (unfocusedReplaySteps=0); actual background execution
-is the targeted remaining check, handed to Claude's working UI helper. Normal
-wheel input, force and owner recording retain their focus gates.
+output attempts. That owner run was single-screen. After a foreground prompt
+exposed the old eligibility failure, core 0.2.1's explicit ReplayActive mode
+scoped background execution to validated supervised muted replay. The October 6
+02:05 session-span.1 run acquired naturally unfocused and completed all 3,601
+steps unfocused, with inspected 7680x1440 triple-view frames, normal exit, exact
+restoration and zero force writes/Forza sends. Session-span.2 then promoted the
+separate-monitor span default; explicit saved opt-outs remain intact. Its 13
+installed payloads were independently verified. Normal wheel input, force and
+owner recording retain their focus gates.
+
+Plain Steam startup passed on separate monitors at 03:24. The 11:34 round trip
+passed borderless 7680x1440 at (0,0) on Surround, then (-2560,0) after returning
+to separate monitors; Claude reported both normal exits. Pre/post/current registry
+exports match byte-for-byte and all 55 original LocalLow files match. Startup
+backgrounds still extend onto the sides, so centre-only front-end/loading/panel
+coverage remains incomplete. Focus transitions/interruption checks and the wider
+public-release/owner-drive checklist remain open; no repeat launch is needed to
+re-establish these passed startup cases.
 
 The seven sealed reference files are now protected outside disposable worktrees.
 Use this exact private reference, a closed game, and a new result directory:
@@ -286,9 +295,9 @@ Set-Location 'E:/Source/games/dbce-mods-woden-rally-edge'
 
 Build the consumer TelemetryInspector before using source-checkout supervision.
 The installed Stage-Session.ps1 alone does not back up/restore the environment.
-The exact session-focus.1 player package passed 111 stock Windows PowerShell
+The exact session-span.2 player package passed 111 stock Windows PowerShell
 5.1 installer checks, is installed, and is not published. See consumer
-`docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-background-replay.md` for the
+`docs/PUBLIC-RELEASE.md` and `docs/2026-10-06-span-qualification.md` for the
 private receipt path, full payload hashes and acceptance limits.
 
 ## DRIVE Rally: accepted owner recording and cold playback
