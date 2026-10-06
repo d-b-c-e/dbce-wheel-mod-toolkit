@@ -217,3 +217,13 @@ whole stage once it has been on, even if undone before the finish. The block is 
 path (the call returns "not uploaded"), shown in the panel ("Online times: not uploaded (...)") and
 logged. If the block cannot be installed, the handling change stays off. Offline play is unaffected.
 Reference: DRIVE `Handling` (2bafbd2).
+
+## STD-019 — Menus on the centre screen; side screens only in gameplay
+2026-10-05 · owner ("putting menu on center screen and only really rendering the other screens during gameplay makes sense") · applies to: every game with triple screens (refines STD-007, both STD-015 topologies)
+
+On a three-screen layout, front-end menus, loading screens and the mod's own F6 panel sit on the
+centre screen at a single-screen size and aspect, with nothing stretched across the width. The side
+screens stay black outside gameplay. Triple views (side cameras, off-axis centre) switch on only once
+the player's car is in gameplay, and the in-game HUD and pause menu stay on the centre screen (STD-007).
+Leaving gameplay returns to the centre-only menu. A game whose menus already behave like this needs
+no change; record per game whether menus, loading and the mod panel are centred.
