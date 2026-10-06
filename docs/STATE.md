@@ -8,8 +8,12 @@ offline cases include a real Start-Job with mismatched PowerShell/process workin
 directories, exit during identity reads, PID/image replacement, delayed exit,
 unavailable identity and independent restoration after evidence/watchdog failure.
 This follows iRacing's route pass whose old runner aborted during shutdown and
-needed explicit RestoreOnly. Consumer integration/live qualification are separate;
-no game, device, force, display or installed runtime change is made by these tests.
+needed explicit RestoreOnly. Its corrected live retest passed 3,001 poses and
+restored automatically, while preserving proof of the game's native DX12 shutdown
+crash (exit 0xC0000005). Normal exit is still blocked; the ownership guard remains
+strict. See the lessons' terminal-cleanup section. Consumer `df58cbc` also fixes
+byte-preserving checkout attributes for the pinned helper. These changes do not
+retune forces or change a game's runtime payloads.
 
 ## FFB normalization — 2026-10-06
 

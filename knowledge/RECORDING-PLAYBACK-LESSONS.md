@@ -455,9 +455,8 @@ The repack.115 separate-monitor run passed 3,001 poses and its rendered check,
 then the runner threw a process-identity error while the game was closing. Its
 finally block checked for closure only once, skipped logs/restoration, and left
 temporary span keys until the coordinator ran RestoreOnly. The watchdog later
-observed the original process close. The original cause of the identity report
-is unknown; do not infer that a replacement process actually ran from that text.
-The old code recorded neither the differing identity nor a process exit code.
+observed the original process close. The old code recorded neither the differing
+identity nor a process exit code, so that message alone could not diagnose it.
 
 Shared runner helpers now handle disappearance while reading process properties,
 record unverifiable identity as unsafe, and wait a bounded interval for closure
@@ -470,6 +469,30 @@ Set-Location to the consumer. Resolve Result, GameDir and input Recording throug
 PowerShell's filesystem provider, never bare Path.GetFullPath on caller input.
 Cover mismatched process CWD and session location in a real child-job fixture.
 Pin reusable helpers in consumers; do not introduce runtime cross-repo imports.
+
+The corrected runner's live retest is an important distinction: all 3,001 poses
+passed again, then the game actually crashed with `0xC0000005`. A second same-image
+process appeared alongside the original during shutdown. The ownership check
+correctly refused ambiguity; it must not be weakened to hide a crash. Retaining
+the original process handle supplied the missing nonzero-exit proof. Bounded
+finally cleanup confirmed closure and restored 33 owner files/22 raw preferences,
+disarmed the request and released the lease automatically, with no RestoreOnly.
+Windows events and matching-symbol stack unwinding identified native DX12
+pipeline-library serialization during Unity graphics-device shutdown, including
+an October 4 occurrence predating the new span helper. Route success, visual
+acceptance, automatic recovery and normal process exit are separate claims.
+
+Use matching crash symbols and exception context before blaming the last mod
+change. A raw stack-word scan is not an unwound call stack. Preserve dumps locally
+with owner evidence; do not publish them. A targeted renderer/cache diagnostic
+must preserve its cache as well as player settings and must remain separate from
+normal defaults until qualified. Do not substitute process killing for exit zero.
+
+Also test the **consumer after a fresh Windows checkout**: its broad
+`*.ps1 text eol=crlf` rule changed the new helper's bytes and invalidated its pin,
+although the developer working copy passed. The consumer's `df58cbc` adds a
+specific `-text` rule and an actual CRLF-configured checkout verifies the pin.
+Hash-pinned vendored scripts need byte-preserving attributes just like binaries.
 
 1. Fingerprint the installed game and exact adapter/core payloads. Back up owner
    settings. Preserve concurrent development work; only one game owns the rig.
