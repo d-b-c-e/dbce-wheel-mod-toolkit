@@ -397,6 +397,19 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     Inspect the game's actual active-device refresh and native menu handler
     before inventing permanent device binding or adding repeated input guesses.
 
+41. **A saved region is not proof that the recording mode can use it.**
+    [dbce-mods-drive-rally, 2026-10-05, runner f1e6602] The first owner attempt
+    correctly refused saved Tofuyama's Free Roam lock before collecting samples.
+    A mode's availability can depend on collectible/progression checks beyond
+    its saved selection. Keep those checks. Provide an explicit capture-region
+    choice under the runner's existing lease, after backup, with exact restore
+    on success/failure. Do not write test preferences outside the lease or alter
+    unlocks. Playback must use the sealed captured context, never a fallback
+    region that makes a mismatched run appear successful. A Holzberg retry then
+    recorded 1.33 km of owner driving and cold-replayed all 6,001 poses; the owner
+    accepted route/camera/HUD. Original saved region and new wheel mappings were
+    retained, and the reference was sealed/copied outside disposable worktrees.
+
 ## Exact final release
 
 Art 0.4.0 was published and installed from clean source

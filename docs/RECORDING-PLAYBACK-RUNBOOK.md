@@ -291,7 +291,33 @@ The exact session-focus.1 player package passed 111 stock Windows PowerShell
 `docs/PUBLIC-RELEASE.md` and `docs/2026-10-05-background-replay.md` for the
 private receipt path, full payload hashes and acceptance limits.
 
-## DRIVE Rally: qualified diagnostic recording and cold playback
+## DRIVE Rally: accepted owner recording and cold playback
+
+**October 5, 20:43 CT:** first owner route captured and replayed on unchanged
+session-8 runtime: Holzberg/Sideways D, 60 seconds/1,331.724 m, all 6,001 poses,
+max error 0.0001220703125 m / 0.000019014441926092303 degrees. Original solver
+and presentation rows all aligned; 20,792 stock effect requests retained, no
+drops/errors. UDP was disabled, so no encoded packet evidence. Both runs closed
+normally and restored owner files/raw preferences at 2560x1440 fullscreen.
+The owner confirmed that the route, camera and HUD matched. Physical forces
+stayed muted; torque/normalization and broader interruption tests remain open.
+
+```powershell
+Set-Location 'E:/Source/games/dbce-mods-drive-rally'
+# Accepted owner reference, game closed, NEW result folder:
+./tools/game/Run-StageSession.ps1 -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/drive-holzberg-owner-20261005-203959" -Result artifacts/owner-playback-new-01
+# New owner capture; drive for 60 seconds after automatic Free Roam startup:
+./tools/game/Run-StageSession.ps1 -Record -RecordBiome Holzberg -Seconds 60 -Result artifacts/owner-record-new-01
+```
+
+Owner reference seal SHA-256:
+`217E5458493FDE994917BA71D492DE1C1D72DD94A21CF5F41438829B9E1BC7B2`.
+The first attempt correctly refused the saved Tofuyama region's Free Roam lock.
+Runner `f1e6602` adds recording-only `-RecordBiome`, selected after lease/backup
+and restored after exit; native unlock checks remain intact. Replay uses sealed
+context without this override. See consumer `docs/reviews/2026-10-05-owner-recording.md`
+for exact requests, durable evidence and limitations. No runtime reinstall is
+needed for this runner option. Earlier diagnostic evidence follows.
 
 Canonical checkout: `E:/Source/games/dbce-mods-drive-rally`, main. Installed clean
 runtime `24d7bdf6fe18b4ec5b4821b30be385c2ee5fd55a`, session-8 player ZIP SHA-256
@@ -326,8 +352,9 @@ captures lack it and are refused before launching. Never replace the missing
 data with fabricated zeros. Session-6 found transient preset IDs; session-7
 found HUD/dust updates shared the suppressed physics callback. Both failures
 and fixes are retained in consumer `docs/reviews/2026-10-05-stage-session8.md`.
-Owner driving, this adapter in normal triples and broader interruptions remain
-open. The tests preserved the current 2560x1440 ExclusiveFullScreen baseline.
+Owner driving is now accepted above; Claude separately verified this adapter's
+diagnostic playback in moving triples. Broader interruptions remain open. The
+single-screen tests preserved the current 2560x1440 ExclusiveFullScreen baseline.
 
 For Woden/DRIVE/iRacing the raw command still lives under `vendor/playback` or
 beside the installed plugin. `-Game <woden|drive|iracing> -Action Stop` and F12
