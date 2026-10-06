@@ -206,3 +206,14 @@ Telemetry, Help); Help always stays (version, support file). Decide visibility f
 build supports, not from runtime state such as a disconnected wheel: an FFB page whose wheel
 is missing stays visible with its status. A saved page that is hidden opens the first visible
 page instead (no index shifting, per the page-migration rule in `docs/CONSUMER-SETTINGS-VIEWS.md`).
+
+## STD-018 — Handling changes never reach online scores
+2026-10-05 · owner ("we just don't submit scores online when that part of the mod is on") · applies to: every game with online leaderboards or scored online play
+
+Input mapping (curves, deadzones, raw axes, shifters) is the player's controller and leaves scores
+alone. Anything that changes the car's physics or grip (grip dials, brake-grip fixes, assists the
+game does not offer) blocks the game's own online score uploads while it is in effect, and for the
+whole stage once it has been on, even if undone before the finish. The block is in the game's upload
+path (the call returns "not uploaded"), shown in the panel ("Online times: not uploaded (...)") and
+logged. If the block cannot be installed, the handling change stays off. Offline play is unaffected.
+Reference: DRIVE `Handling` (2bafbd2).
