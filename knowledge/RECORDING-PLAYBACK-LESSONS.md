@@ -488,6 +488,18 @@ with owner evidence; do not publish them. A targeted renderer/cache diagnostic
 must preserve its cache as well as player settings and must remain separate from
 normal defaults until qualified. Do not substitute process killing for exit zero.
 
+The targeted iRacing test then replayed the same 3,001 poses using the engine's
+alternate single-PSO cache mode while retaining DX12, runtime and span. It exited
+zero and restored all 34 files (including the original cache), 22 raw preferences
+and 12 installed payloads. The new cache was archived before removal. Main offers
+this as explicit playback-only `-SinglePsoCache`, not a saved launch/player default.
+Its backup carries a fixed cache-scope marker: RestoreOnly must infer ownership
+from that backup, never from a new caller switch. Otherwise recovery of an old
+backup could delete a cache it never saved. Scope/old-backup/binary restoration
+cases expand the consumer suite to 69 checks. The successful workaround does not
+establish ordinary-launch shutdown, performance equivalence or the original bug's
+cause. See iRacing's October 6 runner-recovery review for exact source and archives.
+
 Also test the **consumer after a fresh Windows checkout**: its broad
 `*.ps1 text eol=crlf` rule changed the new helper's bytes and invalidated its pin,
 although the developer working copy passed. The consumer's `df58cbc` adds a

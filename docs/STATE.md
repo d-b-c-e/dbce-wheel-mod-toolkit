@@ -10,8 +10,11 @@ unavailable identity and independent restoration after evidence/watchdog failure
 This follows iRacing's route pass whose old runner aborted during shutdown and
 needed explicit RestoreOnly. Its corrected live retest passed 3,001 poses and
 restored automatically, while preserving proof of the game's native DX12 shutdown
-crash (exit 0xC0000005). Normal exit is still blocked; the ownership guard remains
-strict. See the lessons' terminal-cleanup section. Consumer `df58cbc` also fixes
+crash (exit 0xC0000005). A subsequent alternate-cache replay on the unchanged
+runtime passed exit zero and exact cache/config recovery; the explicit
+`-SinglePsoCache` workaround is playback-only, with 69 consumer recovery checks.
+Ordinary launch remains affected; the ownership guard remains strict. See the
+lessons' terminal-cleanup section. Consumer `df58cbc` also fixes
 byte-preserving checkout attributes for the pinned helper. These changes do not
 retune forces or change a game's runtime payloads.
 
