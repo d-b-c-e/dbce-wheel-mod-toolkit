@@ -573,3 +573,14 @@ it. Different engines are a reason to adapt implementation, not a blanket reason
 for different names and workflows. Review new UI strings and navigation changes
 against this guide. Fix repeated cross-consumer gaps in shared capabilities where
 possible, while leaving game content in its owning repo.
+
+## Wheel button prompts (nice to have, 2026-10-05 owner)
+
+When the player drives with a wheel, in-game button prompts should show the wheel's buttons,
+not gamepad or keyboard glyphs. Games resolve prompts from the active controller's binding; a
+wheel usually has no glyph art, so they fall back to raw element names ("Button 12") or a
+"missing map" string. Where the game routes prompts through one lookup (DRIVE:
+`InputGlyphs.GetJoystickGlyph`), a mod can return its own glyph for wheel-rig devices: a badge
+drawn at runtime with the button's label. Labels default to the button number and can be named
+by the player on the Controls page (rims differ, so no per-model art is assumed). Keep the
+game's glyphs for gamepads and keyboards. Record per game whether prompts are covered.
