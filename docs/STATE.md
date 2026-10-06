@@ -1,11 +1,25 @@
 # Current source checkpoint
 
+## Sonic release-set cross-review — 2026-10-06, 16:49 CT
+
+The retained 21:28Z renderer installation has eight matching files and twelve
+original settings/save files match. Hub/E-Stadium intro frames support separate-
+monitor presentation, without qualifying gameplay recording. Consumer 5502793
+makes release payloads an exact allowlist, requires the renderer/helper, disables
+both reload mechanisms and records the profile; 68 actual-script checks pass in
+PS7/PS5.1. A frozen old installer fails the new regression. Runtime unchanged.
+Renderer source review reproduces camera-local seam errors under pitch/roll,
+null display resets forwarded to Windows and a wrong x64 descriptor write in
+the disabled DXGI guard. Claude retains renderer corrections; guard stays off.
+See consumer docs/reviews/2026-10-06-release-span-review.md and lesson 37.
+
 ## Owner scope and powered rig — 2026-10-06 afternoon
 
 The owner reports the MOZA R12 is on while away. Only detection/input-at-rest is
 authorized unattended; physical force remains muted while software force and
 telemetry observations are preserved. Sonic's owner-approved UE4SS + SonicTriple
-renderer is retained and may ship for online play; all ten receipt files match.
+renderer is retained and may ship for online play; the later eight-file release
+set supersedes the ten-file development install reported at this checkpoint.
 The earlier renderer-only offline restriction is retired. Recording/probe/replay
 automation remains offline and handling changes remain under STD-018. Use Sonic's
 separate addon ownership path instead of removing its renderer. The portfolio

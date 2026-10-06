@@ -357,6 +357,17 @@ Native API acceptance is not measured torque. [Art/toolkit, 2026-10-04]
     failed install without a complete receipt requires inspection, not guessed
     ownership or recursive rollback. Keep private evidence outside game folders.
 
+    The October 6 release variant exposed a separate boundary: receipting every
+    copied file does not make that file appropriate to ship. A denylist of two
+    diagnostic names still copied unknown mods, command files and stage dumps,
+    and a missing renderer could silently produce a partial install. Consumer
+    5502793 requires the complete renderer/helper and an explicit eight-path
+    allowlist, generates only the intended mod entries and disables both reload
+    mechanisms. New receipts identify release/development; old receipts remain
+    usable. The original code fails the actual-script regression; 68 corrected
+    checks pass in PS7/PS5.1. Test future unknown files, missing required payloads,
+    settings variants and retained post-install evidence, not just today's stage.
+
 38. **Include observed startup time in a passive discovery window.**
     [dbce-mods-sonic-crossworlds, 2026-10-05, ce113ca] The working controller route
     took roughly three minutes, as long as the observer armed before launch.

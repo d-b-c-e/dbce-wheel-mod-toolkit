@@ -388,15 +388,22 @@ termination by assuming its physical outputs are off.
 ### Sonic CrossWorlds preparation
 
 **October 6 owner decision:** UE4SS + SonicTriple may ship for online play and
-the renderer is now retained in the game. Its 20:44Z installation has ten
-independently verified receipt-owned files. The renderer's earlier offline-only
+the renderer is now retained in the game. Its current 21:28Z release-set install
+has eight verified receipt-owned files, superseding the ten-file development
+setup. The renderer's earlier offline-only
 restriction is retired; this does not authorize online probe/replay automation
 or handling changes. Recording discovery remains bounded and offline. Use the
 existing renderer's addon workflow and borrowed lease from consumer
 `docs/STAGE-PLAYBACK.md`; remove only probe-owned files and preserve the renderer.
-The development install also contains diagnostics, which need separate treatment
-in a player renderer package. Exact identity/scope: consumer
+Release installer 5502793 enforces exact renderer/helper payloads and has 68
+actual-script checks in PS7/PS5.1. Exact identity/scope: consumer
 `docs/2026-10-06-renderer-scope.md`.
+
+Independent review of the latest separate-monitor hub/intro frames does not
+establish a driven recording. Renderer findings (camera-local pitch/roll seams,
+null display reset forwarding, wrong x64 write in the disabled DXGI guard) remain
+with Claude; preserve the current install and keep that guard off. Read consumer
+`docs/reviews/2026-10-06-release-span-review.md` before qualifying a changed runtime.
 
 Sonic's newer UE4SS loader now initializes, as observed during the separate triple
 work. `games/dbce-mods-sonic-crossworlds` includes a bounded
