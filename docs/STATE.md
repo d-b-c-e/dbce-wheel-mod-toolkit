@@ -1,5 +1,20 @@
 # Current source checkpoint
 
+## Sonic/Gravel corrected native geometry review — 2026-10-06, 17:12 CT
+
+Sonic e162027 resolves the three source findings recorded below. Independent
+MSVC x64 execution of actual extracted functions covers 20,006 camera poses,
+120,036 seam pairs per game, null/non-null display requests and fake factory2
+selection/typed descriptor copies. Gravel 4b7fd75 passes the same geometry checks
+with +/-8-degree tilt and equal eye offsets; its tilted race image was inspected.
+All eight Sonic and fourteen Gravel installed receipt files match. Sonic's guard
+stays off; its ongoing no-addon race check and post-run restoration are separate.
+Gravel still couples observation/menu rendering to telemetry output, and an
+existing ResX argument suppresses its borderless maintenance thread. Those two
+findings remain open. Consumer reviews bdf0cc1 (Sonic) and c1b4798 (Gravel) record
+the exact tests, archived evidence and limits. No gameplay recording qualification
+or new game/device/install/display operation occurred during this review.
+
 ## OutRun offline start line and selection follow-up — 2026-10-06, 17:00 CT
 
 Installed f021736 passed title -> Single Player -> OutRun -> Dino 246 GTS ->
