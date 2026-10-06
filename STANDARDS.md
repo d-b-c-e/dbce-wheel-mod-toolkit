@@ -227,3 +227,39 @@ screens stay black outside gameplay. Triple views (side cameras, off-axis centre
 the player's car is in gameplay, and the in-game HUD and pause menu stay on the centre screen (STD-007).
 Leaving gameplay returns to the centre-only menu. A game whose menus already behave like this needs
 no change; record per game whether menus, loading and the mod panel are centred.
+
+## STD-020 — Standard feature checklist per game
+2026-10-05 · owner ("make a check list of features that should be standard for each game ... adding more detailed columns to the grid") · applies to: every game
+
+Every game is tracked against the same feature list, as columns of the portfolio grid
+(`dbce-project-mgmt/PROJECTS.md`, "Feature checklist") and in its `TOOLKIT-ADOPTION.md`. A
+feature the game already does well natively counts as done (🎮); one that cannot exist in that
+game is "—". Codes:
+
+| Code | Feature | Done means |
+|---|---|---|
+| STR | Direct steering | The wheel axis reaches the car without the game's gamepad deadzone, curve or smoothing |
+| PED | Analog pedals | Throttle and brake follow the pedal (no on/off thresholds or squaring the player cannot turn off); braking does not cost grip a light touch would not |
+| HB | Analog handbrake | Lever position sets handbrake strength |
+| DEV | Separate devices | Pedals, handbrake and shifter can each be on their own USB device, bound in the mod |
+| H | H-pattern shifter | Gates select gears; out of gear is neutral; reverse works |
+| SEQ | Sequential shifter | Up/down on any device |
+| GLY | Wheel button prompts | In-game prompts show the wheel's buttons, not gamepad/keyboard glyphs |
+| FFB | Mod FFB for any wheel | Forces on any DirectInput FFB wheel (not only the game's brand), F8 on/off (STD-004) |
+| NRM | Normalized FFB | Strength 50% feels the same as in every other mod (STD-003) |
+| TEL | Telemetry | Forza Horizon layout, on by default, HUD-matched, including the start countdown (STD-009, STD-016) |
+| SUR | Surround triples | Angle-correct triples on one Surround window (STD-007) |
+| SPN | Span triples | On separate monitors without Surround, the mod creates the borderless span on a plain launch (STD-015) |
+| DSP | Per-display triples | One view per separate display, where the engine allows (STD-015) |
+| MNU | Centred menus | Menus, loading and the mod panel on the centre screen, sides black outside gameplay, HUD centred (STD-019) |
+| CAM | Camera keys | Numpad camera layout and step settings (STD-005, STD-006) |
+| F6 | Settings panel | F6 panel with the shared pages, empty tabs hidden (STD-004, STD-017) |
+| PLN | Plain launch | Works from Steam/Stream Deck with no parameters (STD-013) |
+| ONL | Online-safe | Handling changes never reach online scores (STD-018); "—" when the game has no online scoring |
+| REC | Recording | A recorded session per game (STD-012) |
+| PLY | Playback | Recorded route plays back for automated tests (STD-012) |
+| INS | Installer | Player installer with backups, settings kept, clean uninstall |
+
+Status marks follow the grid legend (✅ owner-accepted, 🧪 built and installed waiting for the rig,
+🔧 partial, 🎮 native, ❌ missing, — not applicable, ❔ not yet checked). A game is release-ready
+when every applicable column is ✅ or 🎮, or the release notes name the gap.
