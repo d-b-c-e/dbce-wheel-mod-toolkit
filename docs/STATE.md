@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## Owner scope and powered rig — 2026-10-06 afternoon
+
+The owner reports the MOZA R12 is on while away. Only detection/input-at-rest is
+authorized unattended; physical force remains muted while software force and
+telemetry observations are preserved. Sonic's owner-approved UE4SS + SonicTriple
+renderer is retained and may ship for online play; all ten receipt files match.
+The earlier renderer-only offline restriction is retired. Recording/probe/replay
+automation remains offline and handling changes remain under STD-018. Use Sonic's
+separate addon ownership path instead of removing its renderer. The portfolio
+hub records the requested owned off-axis triple renderers for DiRT 3, DiRT 4 and
+GRID 2019; native single-wide output does not satisfy those targets.
+
 ## Woden startup and Surround return — 2026-10-06
 
 Installed `8678f06/session-span.2` passed plain Steam launch and the Surround
