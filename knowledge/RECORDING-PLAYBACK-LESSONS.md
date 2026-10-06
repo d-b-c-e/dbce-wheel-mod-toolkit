@@ -551,6 +551,19 @@ Claude, identified the misleading TS-UFB01B-X name as the virtual test pad. Pref
 device-class/capability evidence over a growing name blacklist for automatic
 wheel selection; preserve explicit controller selections.
 
+The subsequent offline race-entry run reached Palm Beach on the same candidate,
+without driving input. Device-type enumeration reported the virtual pad as
+0x00010215 (GAMEPAD), MOZA R12 as 0x00010318 (1STPERSON), and DS-8X/stalk as
+0x0001021c (SUPPLEMENTAL). A positive DRIVING-only allowlist would reject this
+working wheel. Consumer cf6e176 excludes known incompatible primary classes and
+unreadable/zero axes, then preserves existing FFB/axis ranking; it leaves explicit
+GUIDs and supplemental auxiliary roles intact. It is source/build/fake-COM tested,
+not installed or physically qualified. Cover the actual enumeration/InitSlot path,
+both orders, wheel absent, reported non-driving wheel type, explicit pad selection
+and unchanged optional slots. Capability stress values in a fixture must not be
+described as measured hardware values. Device class narrows candidates; it does
+not certify every remaining joystick/first-person device as a steering wheel.
+
 Do not recover a missing input clock by resampling after an arbitrary wall-time
 threshold: that breaks the snapshot contract. OutRun's fixed-RVA replacement
 owns the full update loop, and its failed installation is already logged. Require

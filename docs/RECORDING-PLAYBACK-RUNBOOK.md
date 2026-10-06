@@ -503,10 +503,25 @@ The TS-UFB01B-X device was confirmed by connected/disconnected enumeration to be
 the tooling's virtual pad: name filtering had missed it and automatic selection
 applied saved wheel mappings 31/34. Preserve the owner's mappings and use explicit
 temporary selection for diagnostics. The bounded check and exact hashes live in
-consumer `docs/2026-10-06-focused-input-followup.md`. Offline race entry and
-read-only phase/pose discovery are next; gameplay recording/playback still does
-not exist, and one prior intermittent freeze remains unexplained. Do not repeat
-the title-only check or infer a force stream from this output-disabled menu run.
+consumer `docs/2026-10-06-focused-input-followup.md`. The later 16:49 run on the
+same candidate passed the complete offline route: title Start -> A Single Player
+-> Right OutRun -> A -> A Dino 246 GTS (Novice) -> A Automatic -> A Splash Wave ->
+A Palm Beach. Observe each native screen before proceeding, with the same pinned
+pad/neutral axes/output mutes and exact restoration. First/last race captures
+show 000 km/h and timer 96 -> 66; Claude reports exit 0. Three installed payloads
+and all eight original files match both attempts' backups. The 52-file evidence
+archive is `SessionEvidence/outrun-f021736-race-entry-20261006`.
+
+Read-only pre/post local-car-tick discovery is next; runtime recording/gameplay
+playback still does not exist. One prior intermittent freeze remains unexplained.
+Do not repeat menu-only checks or infer a force stream from this output-disabled
+stationary run. Source cf6e176 (not installed) fixes automatic primary selection:
+skip GAMEPAD/SUPPLEMENTAL and unreadable/zero axes without requiring DRIVING (the
+R12 reports 1STPERSON). Explicit GUID selection and optional slots are preserved.
+The real x86 selection path fails the new fake-COM test before the fix and passes
+afterward; the full input/UI suite and x86 build pass. Keep installed f021736 until
+the next useful combined recording discovery candidate. No physical acceptance
+or automatic-wheel live check is implied.
 
 - Shared code: `dotnet/Dbce.Wheel.Playback`, tests alongside; now merged to the default branch, separate unpublished 0.2 pin (source
   `50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`). Art uses the

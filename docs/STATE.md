@@ -1,5 +1,18 @@
 # Current source checkpoint
 
+## OutRun offline start line and selection follow-up — 2026-10-06, 17:00 CT
+
+Installed f021736 passed title -> Single Player -> OutRun -> Dino 246 GTS ->
+Automatic -> Splash Wave -> Palm Beach with neutral axes and muted outputs.
+Race captures show 000 km/h while the timer runs; Claude reports exit 0.
+Three payloads and eight original files independently match both attempts'
+backups; 52 evidence files are preserved outside the checkout. Consumer cf6e176
+fixes automatic primary pad selection while retaining the R12's observed
+1STPERSON type, explicit GUIDs and auxiliary roles. Production-linked fake-COM
+red/green, full input/UI checks and x86 build pass; it is not installed. Consumer
+f1ee2d3 documents hashes and limits. Gameplay recording remains unimplemented;
+bounded native tick discovery and calculation-preserving output mute are next.
+
 ## Sonic release-set cross-review — 2026-10-06, 16:49 CT
 
 The retained 21:28Z renderer installation has eight matching files and twelve
