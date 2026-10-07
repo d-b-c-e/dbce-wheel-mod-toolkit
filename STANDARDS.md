@@ -288,3 +288,15 @@ selector; no separate Auto/On/Off radio or extra span toggle. Mods without an in
 the same three names in their config. Reference: iRacing Arcade `TripleLayoutChoice`
 (`SpanPolicy.cs`, repack.117); art of rally's "Off / Single wide display / Three separate
 displays" is the same choice with older labels.
+
+## STD-023 — Frame-rate readout in the settings panel and the log
+2026-10-06 · owner ("is it worth while or even possible to make it a standard part of the toolkit and implementation guidance to put an FPS monitor built into the mod options?") · applies to: every game mod with a settings panel or a log
+
+Measure frame time in the mod's own per-frame update (unscaled time, no extra hooks) and show a
+ten-second summary on the panel page that holds the triple-screen selector (STD-022): average
+fps, 1% low (mean of the slowest 1% of frames) and worst frame in ms, with whether triples are
+on. Write the same line to the mod log every 30 s, so a drive can be judged afterwards without
+an overlay. It must cost nothing noticeable: a fixed buffer, one sort per window, no allocation
+per frame. Native mods (Gravel, Sonic, OutRun) report the same three numbers from their
+present/tick hook. Reference: iRacing Arcade `FrameStats` + `FrameRateWindow` (repack.118,
+unit-tested pure statistics); a shared .NET copy belongs in the toolkit at the next release.
