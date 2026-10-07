@@ -275,3 +275,16 @@ rally is not retuned to meet other games. Compare per event type and speed band 
 toolkit analyzer (`docs/FFB-NORMALIZATION.md`), not whole-drive averages; an effect a game
 does not have is not invented to match. The owner's feel at the rig is the acceptance; offline
 matches are evidence. Normalization work is Codex's.
+
+## STD-022 — One triple-screen selector: Off · Surround · Separate monitors
+2026-10-06 · owner ("it should just be a simple off / surround / separate like the other projects") · applies to: every game with triples
+
+The settings panel offers triple screens as one three-way choice, in this order: **Off** (one
+view, and no span), **Surround** (three views when the game window spans a Surround desktop),
+**Separate monitors** (the mod opens one borderless window across three side-by-side monitors,
+STD-015, then the same three views). Show the current status under it, and say when a choice
+applies at the next game start. Rig measurements, HUD centring and FOV options sit below the
+selector; no separate Auto/On/Off radio or extra span toggle. Mods without an in-game panel use
+the same three names in their config. Reference: iRacing Arcade `TripleLayoutChoice`
+(`SpanPolicy.cs`, repack.117); art of rally's "Off / Single wide display / Three separate
+displays" is the same choice with older labels.
