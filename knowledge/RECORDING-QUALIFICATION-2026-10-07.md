@@ -85,6 +85,31 @@ newline hashing later, version that identity contract and preserve legacy
 matching; never rewrite sealed capture metadata or silently waive source checks.
 Consumer evidence: iRacing docs/reviews/2026-10-07-diagnostic-grip-unavailable.md.
 
+## A null check can invoke IL2CPP game code
+
+iRacing's next instrumented playback (October7, 03:38 CT, consumer06095c7)
+identified the missing force read precisely: `ReadFrontSideForce` called
+`Unity.Collections.NativeArray<T>.op_Equality`, then
+`IL2CPP.Il2CppObjectBaseToPtrNotNull`, which threw. The source's `forces == null`
+was not a plain reference test. This generated wrapper represents a value type;
+its equality operator unboxes both managed operands through the non-null helper.
+The null operand makes the comparison itself fail, even with a valid array.
+The same `ids == null` check would repeat the defect after the first is fixed.
+
+For these generated value wrappers use `is null` or `ReferenceEquals`, retain
+the native buffer/length/index/identity checks, and instrument the first exception
+with both read stage and stack. Do not infer that a particular vehicle lacks tyre
+forces from a catch-all unavailable result. This is not a reason to replace
+UnityEngine.Object's destroyed-object null semantics throughout the camera code.
+The correction still needs an original muted capture demonstrating available
+forces; an old route playback and a successful null test cannot qualify new data.
+
+Private evidence: `SessionEvidence/iracing-nativearray-null-20261007`, original
+log snapshot, exact consumer source and private generated wrapper excerpt;
+manifest SHA256 `4A0E593DA68D1AE99A56F17747223817754B8D5AB96234E0C99309089B8C98A1`.
+No game assembly or decompiled source is distributed here. Claude received the
+runtime finding through the portfolio inbox; no tuning change was proposed.
+
 ## Native proxy capture: guard every device-return route
 
 Gravel's cross-review found an additional path after CreateDevice and the proxy
