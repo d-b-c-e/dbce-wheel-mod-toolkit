@@ -21,6 +21,12 @@ bypass is fixed and tested through both SDK interfaces, but full COM/lifecycle
 hardware suppression remains open and the installed renderer is unchanged.
 See `knowledge/RECORDING-QUALIFICATION-2026-10-07.md`. No device/package pin changed.
 
+iRacing d70e4a2's render-state observer passes its normal read-only fixture but
+still needs scan coverage, object-lifetime identity and type-read recovery fixes
+before qualifying matched A/B frames. The observer-enabled harness passes54
+offline config/restore checks; no candidate was packaged or launched. See
+`knowledge/RENDER-STATE-OBSERVATION-2026-10-07.md` for reusable evidence rules.
+
 ## Woden model dispatch follow-up — October 7
 
 Woden ab7f1fa closes the stage validator/export mismatch after Grip Core replay
