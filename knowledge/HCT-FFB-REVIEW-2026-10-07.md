@@ -158,3 +158,28 @@ particular driver's coexistence behavior or a requirement to close all readers.
 Full consumer review: docs/reviews/2026-10-07-strict-native-review.md. Native pin,
 consumer runtime and physical settings unchanged by this review. No attended
 force or Art50 normalization acceptance follows from the offline checks.
+
+## Managed retained-handle corrections qualified at fdf384d
+
+HCT fdf384d closes all three managed follow-ups: release an unknown/different
+retained force handle before initialization, start by acknowledged zero setter
+instead of StartEffect, and validate raw inputs/product before conditional
+division.47 production safety checks,72 model checks and19 independent boundary
+checks pass. Seventeen installed receipt files match; native0.4.0 is unchanged,
+strict-export refusal remains, and FFB stays default Off. Full consumer evidence:
+`docs/reviews/2026-10-07-retained-handle-fixes.md`.
+
+The reusable contract is two-dimensional: stopped/zero state does not prove
+device identity, and correct identity does not prove retained parameters are
+neutral. Test both across failed initialization, explicit re-enable and device
+change. An unknown initialization outcome must not become an assumed known
+GUID. Failed cleanup inhibits reopening until acknowledged. Native Free and
+reader close are distinct operations; independent read slots must stay usable.
+
+Claude owns a narrow41-export candidate based on a7fe985 (native source identical
+to1760aaa), adding existing-handle strict identity validation plus x86 ABI,
+fake-COM, watchdog and empty-DLL lifecycle qualification. The base's lock fix
+does not fix that identity branch. No consumer pin or experimental55-export
+master adoption follows automatically. No new native or physical-device
+qualification is claimed here; original capture/replay and Art50 feel remain
+open for HCT.
