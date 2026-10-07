@@ -9,23 +9,30 @@
 //   wait <ms>
 //   quit
 // Exits (removing the controller) on quit or after --idle-minutes without commands (30).
+// --slot N (N > 0) runs another controller with its own folder, %LOCALAPPDATA%\dbce\vpad-N (cmd.txt, log.txt), for
+// local multiplayer / split-screen tests; slot 0 (the default) keeps the folder above.
 using System.Diagnostics;
 using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
 
-var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "dbce", "vpad");
+double idleMinutes = 30; int slot = 0;
+for (int i = 0; i + 1 < args.Length; i += 2)
+{
+    if (args[i] == "--idle-minutes" && double.TryParse(args[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes)) idleMinutes = minutes;
+    else if (args[i] == "--slot" && int.TryParse(args[i + 1], out var n) && n >= 0 && n <= 3) slot = n;
+}
+var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "dbce", slot == 0 ? "vpad" : "vpad-" + slot);
 Directory.CreateDirectory(dir);
 var cmdPath = Path.Combine(dir, "cmd.txt");
 var logPath = Path.Combine(dir, "log.txt");
-double idleMinutes = args.Length > 1 && args[0] == "--idle-minutes" && double.TryParse(args[1], out var m) ? m : 30;
 
 void Log(string s) { var line = $"{DateTime.Now:HH:mm:ss.fff} {s}"; Console.WriteLine(line); try { File.AppendAllText(logPath, line + Environment.NewLine); } catch { } }
 
 using var client = new ViGEmClient();
 var pad = client.CreateXbox360Controller();
 pad.Connect();
-Log($"connected virtual Xbox 360 controller; watching {cmdPath}; idle exit after {idleMinutes} min");
+Log($"connected virtual Xbox 360 controller (slot {slot}); watching {cmdPath}; idle exit after {idleMinutes} min");
 
 var buttons = new Dictionary<string, Xbox360Button>(StringComparer.OrdinalIgnoreCase)
 {
