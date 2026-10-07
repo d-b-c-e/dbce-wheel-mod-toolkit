@@ -590,3 +590,38 @@ Exact findings and receipt: consumer `docs/2026-10-06-focused-input-followup.md`
 7. Qualify the exact installed archive. Do not promote a build-only adapter,
    incomplete capture, disabled signal producer, or corrected-input replay as a
    validated reusable system. Leave untested cases explicitly open.
+
+## Read-only native discovery must preserve host cleanup
+
+[dbce-mods-outrun-2006, 2026-10-07; reviewed a181519, fixes pending]
+
+A recorder can be read-only with respect to gameplay and still disrupt shutdown.
+OutRun's first tick-discovery candidate saved allocating text before force/input
+finalization. A one-shot allocation failure through its actual host finalizer
+escaped, skipped all cleanup and stranded the lifecycle gate after its one-time
+claim. Re-entering could not recover. Original 76 x86 checks passed; 15 additional
+setup/reproduction assertions demonstrated this and three completion defects.
+
+- Make optional recording/serialization/logging unable to prevent mandatory
+  output cleanup or lifecycle completion. Contain exceptions at native host/game
+  boundaries; drain/silence outputs before slow disk work where the lifecycle
+  permits. Test failures through the real host finalizer with fake device sinks,
+  not only the recorder's happy-path Finalize method.
+- A last-written completion file is useful only when its success depends on all
+  required data commits. A failed TSV rename must not leave a normal observed
+  outcome and discard the only buffered rows. Preserve explicit failure and
+  bounded recovery evidence without overwriting foreign files. Test row and
+  completion writes separately.
+- Validate the final pending sample before duration-success. Checks performed
+  only when opening the next tick miss the last pre/post pair. Stop and exit may
+  retain partial discovery, but must identify it as incomplete.
+- Model/colour/track equality does not establish object continuity. Retain a
+  local instance or epoch identity, detect same-model replacement between ticks,
+  and preserve the transition row. A pointer checked only within a pair cannot
+  reject a mixed recording across a respawn.
+
+Discovery does not imply an output mute. Disabling a force producer is also not
+an original-force capture. Keep tick/pose discovery, signal preservation, output
+suppression and eventual replay as separately qualified steps. Consumer report:
+`docs/2026-10-07-tick-discovery-review.md`; frozen x86 reproducer and hashes are
+retained privately there. No game/device/native pin or installed payload changed.
