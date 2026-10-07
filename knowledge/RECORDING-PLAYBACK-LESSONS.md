@@ -696,3 +696,30 @@ object owns the moving body and its simulation writer before replaying poses.
 Do not repeat a solved intro/route merely to fill a timer test; combine the next
 bounded slot with useful body discovery. Preserve original capture hashes and
 keep reported frame/restoration evidence separate from independently read rows.
+
+## A stationary pre/post window establishes a boundary, not a complete pose writer
+
+[dbce-mods-outrun-2006, 2026-10-07; case 4025516d4d684460805ff899b2de52e4]
+
+Independent readback of the first native discovery found 5,878 rows / 2,939
+ordered pairs. Position and one matrix changed inside 2,700 calls; two other
+matrices changed inside 2,901 and 1,898. Each recorded post matched the following
+pre for those fields. That supports the chosen observation boundary in this
+window. It cannot exclude writes which restore the same values between samples,
+identify all render/camera state, or establish what each matrix represents.
+Do not promote this to exclusive pose authority or a complete replay writer.
+
+The car was stationary in the retained frames. Units and moving-state semantics
+need a moving window. The 60-second requested discovery contains about 49 seconds
+of car rows after loading; 12 pairs have catch-up tick counts greater than one.
+Retain both update and simulation timing rather than calling every row 1/60 s.
+Counters sampled at update entry and mode sampled at the later car hook can
+differ at a transition; document the phase before declaring inconsistent data.
+
+All 45 package files, three installed runtime files and eight restored owner
+files matched, independently of Claude's normal-exit report. Force production
+was disabled for discovery, so this provides no original-force stream and no
+qualification of a producer-preserving output mute. The next useful step is
+that separate calculation/delivery boundary, followed by moving-state discovery;
+repeating an already observed title or stationary start line adds no evidence.
+Consumer detail: `docs/2026-10-07-live-discovery-readback.md` at 7549659.
