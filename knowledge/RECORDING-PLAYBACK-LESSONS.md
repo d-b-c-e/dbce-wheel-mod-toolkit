@@ -723,3 +723,28 @@ qualification of a producer-preserving output mute. The next useful step is
 that separate calculation/delivery boundary, followed by moving-state discovery;
 repeating an already observed title or stationary start line adds no evidence.
 Consumer detail: `docs/2026-10-07-live-discovery-readback.md` at 7549659.
+
+## Follow the local player's reference before searching for a vehicle class
+
+[dbce-mods-sonic-crossworlds, 2026-10-07; f2f2066 passive candidate]
+
+The frame-guided race run is now independently corroborated by selected hub/race
+frames and exact restoration of 23 owner files, removal of two addon files and
+retention of eight renderer files. Its pawn's zero pose did not identify the car
+body, but reflection exposed VehicleInRacePawn.VehicleActor. The next probe
+follows that reference from the sole local controller's pawn instead of choosing
+the first vehicle found in a world containing opponents and templates.
+
+Preserve the existing pawn stream. Put the extra target in a separately versioned
+stream correlated by sample index/time, with object/class/world and explicit
+validity. Do not turn failed getters into measured zeros. Refuse pose reads for
+an unknown or different world; compare full names before truncating display
+strings. Treat names as observation labels, not lifetime identities. Re-read
+the reference after replacement/unavailability rather than using a cached body.
+
+Sonic's candidate passes 35 actual-Lua and 36 addon-script checks, with a clean
+Lua-only stage prepared but not installed or run. The candidate remains a
+100 ms observation, not a physics hook, original-force producer or pose writer.
+Even valid nonzero coordinates require evidence of body/component, simulation
+writer, scale and camera state before playback. Consumer detail:
+`docs/reviews/2026-10-07-race-body-observation.md`.
