@@ -172,3 +172,25 @@ don't reset a live force model silently just to satisfy an analysis contract.
 Consumer review/fix handoff:57539c9,
 docs/reviews/2026-10-07-player-docs-review.md. Fixes pending at this checkpoint;
 no runtime, installed setting or native output changed by the review.
+
+**Correction follow-up:** DRIVE8af74e6 / review at9552e7e centralizes both
+profiles at512 channels and labels ordinary F11's actual handling/force state
+without muting, alignment or a reset. An independent fixture using the installed
+managed DLLs and production profiles round-trips every297 schema key with a
+distinct value through both routes, no loss; the old256 bound rejects the row.
+79 suites/1069 assertions and29 PS5.1 package cases pass. This is synthetic
+serialization coverage, not fresh game or force qualification. The prior
+f26d937 original remains the live signal evidence.
+
+The delivered-artifact review also exposed a reusable deployment trap: dev and
+player packages used one ownership receipt but different file inventories.
+Deploy-Dev retained player-only game-mod.json bytes while replacing the receipt
+with its14 runtime entries. The next player install correctly refused the now
+unowned file. Actual player -> dev -> player installers reproduced this on a
+dummy game even with the corrected manifest. Fresh-install/upgrade checks alone
+had missed this transition. Preserve verified ownership for retained files or
+align package inventories; never fix it by unconditionally adopting unknown or
+modified files. A complete current-receipt hash pass does not cover orphaned
+files. Add mixed-package update/uninstall cases and reconcile an already-orphaned
+install from verified prior receipts with a backup. Consumer review:
+docs/reviews/2026-10-07-player-doc-fixes-review.md. No live installation was changed.
