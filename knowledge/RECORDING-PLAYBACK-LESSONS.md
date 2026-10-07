@@ -667,3 +667,32 @@ Consumer evidence and next-step recipe:
 `docs/reviews/2026-10-07-combined-observation.md`, `docs/STAGE-PLAYBACK.md`.
 These scheduled 100 ms observations do not establish a simulation-tick hook or
 original force producer. No native/runtime/package change from this review.
+
+## Separate request freshness, observation duration and process supervision
+
+[dbce-mods-sonic-crossworlds, 2026-10-07; passive timing follow-up]
+
+A boot-started five-minute observation left too little time after a three-minute
+intro for frame-checked menus. The narrow fix permits up to600 seconds of passive
+sampling, while keeping the request-consumption expiry at300 seconds and any
+startup/capture/AutoExit action limited to180 seconds. Default duration stays60;
+the longer option must be selected explicitly. A stale request must not become
+acceptable merely because the observation itself will be longer. The outer
+supervisor needs a finite deadline covering startup, observation and normal exit.
+
+Sonic reads its request once at mod startup and its armer refuses a running game.
+Telling an operator to arm at the title would therefore fail; delayed arming
+would require an actual polling/handshake implementation, not a changed command.
+The bounded extension retains external Stop, no asynchronous UObject access,
+unchanged reflection bounds, and at most12,000 sampled rows.24 actual-Lua tests
+and35 real-script addon checks pass offline; this does not qualify a600-second
+runtime run or justify rushing or prequeuing menu inputs.
+
+The later frame-guided run already reached a race. Its1,876-row capture contains
+121 race-pawn samples with zero pose/velocity, and reflection names the pawn's
+VehicleActor ObjectProperty. That is a concrete read-only body candidate, not
+authoritative simulation state. Seeing a race pawn is not enough: find which
+object owns the moving body and its simulation writer before replaying poses.
+Do not repeat a solved intro/route merely to fill a timer test; combine the next
+bounded slot with useful body discovery. Preserve original capture hashes and
+keep reported frame/restoration evidence separate from independently read rows.
