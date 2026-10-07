@@ -203,7 +203,9 @@ load that persists after contact, not excessive peak strength. First distinguish
 the input signal, static clipping/boost, time-dependent filters and native
 delivery. iRacing's October 6 owner setting of roughly 0.09 is retained EMA
 history per physics tick: a cleared input falls below 0.1% after three ticks.
-Its continuous slip-times-load proxy has no separate finite crash cue to expire.
+That historical Classic slip-times-load proxy had no separate finite crash cue
+to expire. The later Grip/crash candidate has its own recording and cue review
+gaps; do not apply a Classic validation pass to that different selected output.
 A marked original recording is needed before attributing lingering weight to
 the model or the wheel. Changed-command native logs do not establish update
 cadence, contact timing, driver acceptance or measured torque. See the consumer
@@ -215,9 +217,44 @@ review `docs/reviews/2026-10-06-ffb-release-feel.md`; no retune was made.
 |---|---|---|
 | Art | forces.csv `output`, `time_s`, `epoch`, `speed_kmh` | Separate crash/landing/shift effects are absent from this steering CSV. |
 | Woden | `analysis.force.preview/valid/reset`, `motion.speed` | `ffb.preview` is zero in this muted capture because actual delivery lifecycle resets each tick. The independent analysis model preserves force history. |
-| iRacing | `ffb.Output` and saved `ffb.*` tune, `car.SpeedMs` | `NativeCommand` and DeliveryScale are delivery gates, not the upstream model force. Its current reference is a low-speed diagnostic. |
+| iRacing | Historical Classic `ffb.Output` and saved `ffb.*` tune, `car.SpeedMs` | Grip/crash selected output is not reconstructed by the Classic-only analyzer. NativeCommand/DeliveryScale are delivery gates, not upstream force. Current original reference is a low-speed diagnostic. |
 | DRIVE | Production DriveForceModel over original solver channels | Stock Logitech effect requests are not the new mod's signed steering force. Kinematic replay contacts are not original solver observations. |
 | F-Zero | Separate spring/damper coefficients and road amplitude | Conditional effects depend on physical wheel displacement/velocity. Fallback constant is used only if spring is unavailable; do not add both. |
+
+## Implemented consumer trace and migration example
+
+DRIVE main `44af231` now records `drive.force-trace@1`: exact model/toolkit
+identity, effective per-sample settings, explicit capture-start reset and reset
+epochs, original dirt/impact inputs, intended integer force, separate attempted
+command and acceptance. Its validator re-evaluates the actual production model,
+rejects corrupted/missing settings or removed metadata, and rejects any output
+attempt in a muted recording. Older recordings remain readable with explicitly
+unqualified legacy force evidence. Absence of an observation hook is unavailable
+input, even when its placeholder was zero; export validity preserves that gap.
+
+Its `ffb-export` re-evaluates the model for a Strength trial using the original
+per-sample settings/inputs and filter history. Its separate `ffb-axle-export`
+compares an actual AxleForceCurve adapter to production v2 with all auxiliary
+effects disabled on both paths. Grounded tyre inputs are required; explicit
+airborne is observed zero, missing input is a reset/invalid row, never an
+undisclosed acceleration fallback. Both paths share reference, slip conversion,
+Strength, inversion and reset epochs. Native sign remains a consumer boundary.
+
+On the owner's 6,001-row Holzberg drive, the matched steering paths at Strength
+50 were nearly identical: maximum software-request difference 0.00016341
+percentage points. This removes a reason to raise gain blindly while showing
+why equal whole-drive histograms cannot qualify missing or different crashes.
+Clipped synthetic cases expose the filter-order difference; the recorded drive
+does not exercise it substantially at 50. This adapter is still an offline
+migration candidate, not the installed runtime. 69 suites / 784 assertions pass;
+commands, immutable evidence and release gaps are in the consumer's
+`docs/FFB-COMPARISON.md` and `docs/reviews/2026-10-06-ffb-port-readiness.md`.
+
+For crash reuse, preserve the complete detection and independent finite-effect
+contract. A same-duration cosine mixed into steering is a different policy from
+Art's native constant plus phase-zero sine; update cadence and clipping change
+the result. See [the reproduced port review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md)
+before adopting toolkit `8191840` as gold-reference-equivalent.
 
 ## Tomorrow's attended checks
 
