@@ -1,5 +1,15 @@
 # Current source checkpoint
 
+## Native Forza intake — October 7 afternoon
+
+The existing receive-only wire recorder now has explicit FH4/FH5/FH6 profiles,
+source executable/build metadata and sender endpoints. FH6's published collision
+extension and integer puddle flags are separate from the unchanged toolkit
+profile. All 14 decoder/socket tests pass, including an actual consumer encoder;
+native game captures are still owed. Data Out supplies telemetry, not an original
+wheel-force stream or an in-game replay input. See `docs/FORZA-CAPTURE.md` and
+`knowledge/NATIVE-TELEMETRY-INTAKE-2026-10-07.md`. No runtime/native pin changed.
+
 ## Original force captures qualified — October 7 follow-up
 
 DRIVE model3 reviewed runtime e7e8c06, installed private source f26d937, passes

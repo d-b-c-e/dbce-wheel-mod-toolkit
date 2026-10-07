@@ -7,6 +7,7 @@ No game injection, replay transmission, or device access. Python stdlib only.
 """
 import argparse
 import base64
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -15,10 +16,15 @@ import struct
 import time
 
 CORNERS = ("FrontLeft", "FrontRight", "RearLeft", "RearRight")
+PROFILES = ("toolkit", "fh4", "fh5", "fh6")
 
 
-def decode(data):
+def decode(data, profile="toolkit"):
     """Strict length/finite-value decode; 232 sled, 311 dash, 324 Horizon."""
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown producer profile: {profile}")
+    if profile != "toolkit" and len(data) != 324:
+        raise ValueError(f"{profile} requires the 324-byte Horizon datagram, got {len(data)}")
     if len(data) not in (232, 311, 324):
         raise ValueError(f"Unsupported Forza datagram length: {len(data)}")
     fields = {}
@@ -43,10 +49,21 @@ def decode(data):
     arrays = ("NormalizedSuspensionTravel", "TireSlipRatio", "WheelRotationSpeed", "WheelOnRumbleStrip",
               "WheelInPuddleDepth", "SurfaceRumble", "TireSlipAngle", "TireCombinedSlip", "SuspensionTravelMeters")
     for a, name in enumerate(arrays):
+        # FH6's published contract calls these S32 presence flags. The toolkit's
+        # older float depth fields retain their exact names and interpretation.
+        if profile == "fh6" and name == "WheelInPuddleDepth":
+            name = "WheelInPuddle"
         for i, corner in enumerate(CORNERS):
-            read(name + "." + corner, 68 + 16 * a + 4 * i, "i" if name == "WheelOnRumbleStrip" else "f")
+            read(name + "." + corner, 68 + 16 * a + 4 * i,
+                 "i" if name in ("WheelOnRumbleStrip", "WheelInPuddle") else "f")
+            if profile == "fh6" and name == "WheelInPuddle" and fields[name + "." + corner] not in (0, 1):
+                raise ValueError("FH6 published WheelInPuddle flag must be 0 or 1; retain raw bytes for contract review")
     for i, name in enumerate(("CarOrdinal", "CarClass", "CarPerformanceIndex", "DrivetrainType", "NumCylinders")):
         read(name, 212 + 4 * i, "i")
+    if profile == "fh6":
+        read("CarGroup", 232, "I")
+        read("SmashableVelDiff", 236)
+        read("SmashableMass", 240)
     if len(data) > 232:
         dash = 244 if len(data) == 324 else 232
         names = ("PositionX", "PositionY", "PositionZ", "Speed", "Power", "Torque",
@@ -62,14 +79,21 @@ def decode(data):
     return fields
 
 
-def packet_record(data, elapsed):
+def packet_record(data, elapsed, profile="toolkit"):
     result = {"type": "packet", "seconds": elapsed, "length": len(data),
               "rawBase64": base64.b64encode(data).decode("ascii")}
     try:
-        result["fields"] = decode(data)
+        result["fields"] = decode(data, profile)
     except ValueError as error:
         result["error"] = str(error)
-    if len(data) == 324:
+    if profile != "toolkit":
+        # Caller-supplied provenance, not authentication inferred from packet bytes.
+        result["source"] = "native-declared"
+        result["profile"] = profile
+        if len(data) == 324:
+            result["horizonExtraBase64"] = base64.b64encode(data[232:244]).decode("ascii")
+            result["trailingByte"] = data[323]
+    elif len(data) == 324:
         result["source"] = {0x52: "mod", 0x4B: "keeper", 0x53: "synthetic"}.get(data[323], "unknown")
     return result
 
@@ -81,9 +105,20 @@ def main():
     parser.add_argument("--seconds", type=float, default=120)
     parser.add_argument("--max-mb", type=int, default=256)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--profile", choices=PROFILES, default="toolkit",
+                        help="Explicit producer contract; native names do not authenticate the UDP sender")
+    parser.add_argument("--source-exe", type=Path, help="Read-only executable hash for capture provenance")
+    parser.add_argument("--source-build", help="Declared game build ID (not inferred from telemetry)")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535 or not 0 < args.seconds <= 3600 or not 1 <= args.max_mb <= 1024:
         parser.error("Port 1..65535, seconds >0..3600, max-mb 1..1024 required")
+    if args.profile == "fh6" and 5200 <= args.port <= 5300:
+        parser.error("FH6 reserves ports 5200..5300 for its own outgoing socket; use another receiver port")
+    identity = {"profile": args.profile, "declaredBuild": args.source_build}
+    if args.source_exe:
+        with args.source_exe.open("rb") as executable:
+            identity["executableSha256"] = hashlib.file_digest(executable, "sha256").hexdigest().upper()
+        identity["executableName"] = args.source_exe.name
     args.output.parent.mkdir(parents=True, exist_ok=True)
     summary = {"type": "footer", "packets": 0, "invalid": 0, "driving": 0, "curb": 0, "rumble": 0,
                "ranges": {}, "stopReason": "duration"}
@@ -95,16 +130,18 @@ def main():
         sock.settimeout(.25)
         with args.output.open("x", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps({"type": "header", "schema": "dbce/forza-wire-v1", "bind": args.bind,
-                                     "port": args.port, "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2}) + "\n")
+                                     "port": args.port, "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2,
+                                     "producer": identity}) + "\n")
             output.flush()  # lets unattended runners observe that the receiver is ready
             start = time.monotonic()
             try:
                 while time.monotonic() - start < args.seconds:
                     try:
-                        data, _ = sock.recvfrom(65535)
+                        data, peer = sock.recvfrom(65535)
                     except socket.timeout:
                         continue
-                    row = packet_record(data, time.monotonic() - start)
+                    row = packet_record(data, time.monotonic() - start, args.profile)
+                    row["sender"] = {"address": peer[0], "port": peer[1]}
                     text = json.dumps(row, allow_nan=False, separators=(",", ":")) + "\n"
                     if output.tell() + len(text) > args.max_mb * 1024**2 - 16384:
                         summary["stopReason"] = "size-limit"
