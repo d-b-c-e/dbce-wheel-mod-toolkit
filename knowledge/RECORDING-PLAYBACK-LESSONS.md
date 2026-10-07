@@ -625,3 +625,34 @@ an original-force capture. Keep tick/pose discovery, signal preservation, output
 suppression and eventual replay as separately qualified steps. Consumer report:
 `docs/2026-10-07-tick-discovery-review.md`; frozen x86 reproducer and hashes are
 retained privately there. No game/device/native pin or installed payload changed.
+
+## A menu route is a sequence of verified states, not a button count
+
+[dbce-mods-sonic-crossworlds, 2026-10-07; combined case 9f062b7fb71141df9715c04ce7d1ee87]
+
+A previously successful timed controller sequence diverged when startup notices
+changed. The game was already on offline Grand Prix when the next Start press
+opened News/events; later confirms reached World Ranking. The operator stopped
+the pad before queued acceleration. The passive observer correctly reported
+1,989 boot/menu samples and no race pawn. Owner files and renderer retention
+were independently checked; this remains menu discovery, not a gameplay capture.
+
+For a bounded next attempt, inspect a fresh game-window frame before each input
+and after its release/transition. Stop on an unknown or out-of-scope screen; do
+not queue driving input behind assumed menu completion. Establish actual race
+world/pawn/HUD before driving. A file named race-start or race-moving can still
+show a menu, and outcome=observed can mean only the observation timer completed.
+
+Read the observer's publication contract before using its files as automation
+input. Sonic's modes/menu/dialog TSVs are written only at finish. Its mode rows
+include templates/placeholders and three simultaneously visible offline options;
+visibility is not selection. The menu record supplies focus, but only
+retrospectively. Use frames now, or deliberately add a fresh sequence/time plus
+current-world/menu/focus/visible-modal feed with stale/ambiguous-state refusal.
+An enumerated text field is not proof that its owning popup is visibly active.
+Do not replace a state gate with more generous fixed sleeps.
+
+Consumer evidence and next-step recipe:
+`docs/reviews/2026-10-07-combined-observation.md`, `docs/STAGE-PLAYBACK.md`.
+These scheduled 100 ms observations do not establish a simulation-tick hook or
+original force producer. No native/runtime/package change from this review.
