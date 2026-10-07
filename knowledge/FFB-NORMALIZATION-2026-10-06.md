@@ -48,8 +48,9 @@ its own speed fade; this capture's saved reference is 4500, not default 5000.
 F-Zero's main centering is a condition effect evaluated by the device. Neither a
 shared number nor a matching output histogram establishes equivalent feel.
 
-Recommended next work: preserve Art as the attended reference; try Woden's
-explicit lower-gain/higher-cap candidate, collect representative iRacing driving,
+Recommended next work (refined by STD-021): preserve Art's fixed 50 reference;
+use Woden's lower-gain/higher-cap experiment to develop a candidate at displayed
+Strength 50, collect representative iRacing driving,
 qualify DRIVE producer data during muted capture, and keep F-Zero condition
 effects separate. Do not silently double Woden's gain to make 50 mean unity.
 
@@ -109,3 +110,36 @@ four CSVs/sidecars, clean-source archive and exact binaries, test log, analyzer
 and dependency. Rerun the copied analyzer into a new directory. Keep effect
 clock, physics clock and session-relative clock semantics in each adapter's
 documentation; never guess offsets from the first observed rows.
+
+## Owner gold-standard direction and pinned response — October 6, 20:12 CT
+
+The owner's 17:50 direction makes Art the fixed target, not merely the first
+comparison case. STD-021 already records the decision. The versioned profile
+`profiles/normalization/art-of-rally-50-v1.json` pins source ddabada (0.4.1 model),
+Strength 50 and all separate impact settings/default enablement. No release or
+new physical acceptance is implied by freezing that implementation.
+
+A device-free .NET executable compiled the exact committed LandingFeedback and
+ImpactMixer source into a fake output fixture: 12 normalized-intensity cases and
+63 checks pass. At full intensity, crash strength 50 requests a .50 push for
+120 ms plus .25/25 Hz rattle for 250 ms (last 150 ms fade); landing/shift defaults
+request .05/25 Hz for 120 ms. Crash and shift remain default off. Steering
+Strength does not multiply these separate cue controls. The profile records
+this explicitly; the owner's saved crash/landing strengths are not migrated.
+
+The analyzer accepts an optional hash-pinned reference artifact. New checks
+verify unchanged statistics, full reference retention and refusal of tampered,
+unknown, invalid-strength or unidentified references. All **48** shared replay/
+normalization tests pass. A new report over the original **17** series retains
+every previous statistic exactly; those diverse workloads still cannot establish
+an event-matched calibration. Woden 35 and DRIVE 75 remain diagnostic trials,
+not recommended slider positions for the requested common-50 behavior.
+
+Private evidence at `SessionEvidence/art-gold-reference-20261006-01` includes
+committed source/defaults, the standalone .NET project and fake sink, executable
+cue outputs, profile, 35 independently copied comparison inputs, copied analyzer,
+new manifest/report and validation. Re-run its Reference.csproj with source.json
+and a new effect-output path, or its force_normalization.py with comparison.json
+and a new report directory. Source recordings and the earlier baseline were not
+modified. Remaining work: matched event/severity captures and model calibration
+at 50, then the owner's same-wheel/base-profile physical comparison.

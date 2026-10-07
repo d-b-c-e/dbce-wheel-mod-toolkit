@@ -101,6 +101,39 @@ class FileTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'quantity'):
             f.analyze(self.manifest)
 
+    def test_pinned_reference_preserves_statistics_and_records_full_profile(self):
+        baseline = f.analyze(self.manifest)
+        reference = self.root / 'reference.json'
+        profile = dict(schema='dbce.ffb-normalization-reference', version=1,
+                       id='art-50', game='Art of Rally', modelVersion='0.4.1',
+                       sourceCommit='fixture', strengthPercent=50, effects=[{'durationMs': 120}])
+        reference.write_text(json.dumps(profile))
+        manifest = json.loads(self.manifest.read_text())
+        manifest['reference'] = dict(path=reference.name, sha256=hashlib.sha256(reference.read_bytes()).hexdigest())
+        self.manifest.write_text(json.dumps(manifest))
+        report = f.analyze(self.manifest)
+        self.assertEqual(baseline['series'], report['series'])
+        self.assertEqual(report['reference']['profile'], profile)
+        self.assertIn('Art of Rally at Strength 50', f.markdown(report))
+        reference.write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'hash mismatch'):
+            f.analyze(self.manifest)
+
+    def test_reference_schema_and_strength_refused_even_when_hash_matches(self):
+        for changes in ({'version': 9}, {'strengthPercent': True}, {'strengthPercent': 0},
+                        {'strengthPercent': float('nan')}, {'sourceCommit': ''}):
+            profile = dict(schema='dbce.ffb-normalization-reference', version=1,
+                           id='art-50', game='Art of Rally', modelVersion='0.4.1',
+                           sourceCommit='fixture', strengthPercent=50)
+            profile.update(changes)
+            reference = self.root / 'reference.json'
+            reference.write_text(json.dumps(profile))
+            manifest = json.loads(self.manifest.read_text())
+            manifest['reference'] = dict(path=reference.name, sha256=hashlib.sha256(reference.read_bytes()).hexdigest())
+            self.manifest.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):
+                f.analyze(self.manifest)
+
     def test_complete_session_and_dropped_sample_refusal(self):
         p = self.root / 'session.jsonl'
         records = [{'metadata': {}}, *[{'sample': {'sequence': i, 'elapsedSeconds': i*.1, 'channels': {'v': .2}}} for i in range(2)],

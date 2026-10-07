@@ -1,5 +1,11 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+**FFB reference (owner, 2026-10-06):** Art of Rally is the fixed gold standard
+at Strength 50 (STD-021). Use `profiles/normalization/art-of-rally-50-v1.json`
+with the exact source/defaults/per-effect requests. Tune other games at their
+50 setting; do not retune Art or substitute other displayed strengths. Original
+signals survive physical-output muting; final feel remains an attended check.
+
 **FFB normalization (2026-10-06):** read `docs/FFB-NORMALIZATION.md` and
 `knowledge/FFB-NORMALIZATION-2026-10-06.md`. Offline baselines/trials cover Art,
 Woden, iRacing and DRIVE; F-Zero has a labelled synthetic component response.

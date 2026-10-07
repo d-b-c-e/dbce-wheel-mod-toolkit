@@ -1,0 +1,2 @@
+# Versioned normalization references are hash-pinned; preserve exact bytes.
+profiles/normalization/*.json -text

@@ -154,6 +154,17 @@ def analyze(manifest_path):
     manifest_path = Path(manifest_path).resolve()
     manifest = load_json(manifest_path)
     require(manifest["schema"] == "dbce.ffb-normalization" and manifest["version"] == 1, "unknown manifest")
+    reference = None
+    if "reference" in manifest:
+        reference_path = artifact(manifest_path.parent, manifest["reference"])
+        profile = load_json(reference_path)
+        require(profile["schema"] == "dbce.ffb-normalization-reference" and profile["version"] == 1,
+                "unknown reference profile")
+        for key in ("id", "game", "modelVersion", "sourceCommit"):
+            require(isinstance(profile.get(key), str) and bool(profile[key]), "missing reference identity: " + key)
+        require(0 < finite(profile["strengthPercent"]) <= 100, "invalid reference strength")
+        reference = {"sha256": manifest["reference"]["sha256"], "profile": profile}
+        artifact(manifest_path.parent, manifest["reference"])
     results = []
     seen = set()
     for spec in manifest["series"]:
@@ -175,17 +186,26 @@ def analyze(manifest_path):
                         "sourceSha256": spec["source"]["sha256"], "validation": spec["validation"],
                         "limitations": spec["limitations"], "cap": spec["cap"], **stats})
     require(results, "empty comparison")
+    if reference is not None:
+        artifact(manifest_path.parent, manifest["reference"])
     return {"schema": "dbce.ffb-normalization-report", "version": 1,
             "manifestSha256": replay_case.sha256(manifest_path), "physicalAcceptance": False,
             "scope": "Duration-weighted software requests; different drives are not matched physical workloads. No automatic gain recommendation.",
-            "series": results}
+            "reference": reference, "series": results}
 
 
 def markdown(report):
     def percent(v):
         return "—" if v is None else f"{v*100:.2f}%"
     lines = ["# FFB software comparison", "", report["scope"], "",
-             "Values are fractions of the software request range, not measured wheel torque. Spring/damper coefficients and periodic amplitudes must be compared separately from constant force.", "",
+             "Values are fractions of the software request range, not measured wheel torque. Spring/damper coefficients and periodic amplitudes must be compared separately from constant force.", ""]
+    if report.get("reference"):
+        ref = report["reference"]
+        profile = ref["profile"]
+        lines += [f"Reference: **{profile['game']} at Strength {profile['strengthPercent']}**, model `{profile['modelVersion']}`, profile `{profile['id']}`.",
+                  f"Pinned source `{profile['sourceCommit']}`; reference SHA-256 `{ref['sha256']}`.",
+                  "Per-effect settings remain part of the reference. Trial settings below may differ; this report does not certify a match or rescale any series.", ""]
+    lines += [
              "| Series / speed | Seconds | RMS | Abs P95 | Peak | At configured cap |",
              "|---|---:|---:|---:|---:|---:|"]
     for s in report["series"]:

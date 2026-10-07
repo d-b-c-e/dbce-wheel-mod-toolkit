@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## Art gold-standard FFB profile — owner direction, October 6
+
+STD-021 fixes Art's 0.4.1 model at Strength 50 as the reference; tune other games
+toward it at 50, retaining independent cue settings and default opt-outs. New
+profiles/normalization/art-of-rally-50-v1.json pins source ddabada and complete
+crash push/rattle, landing and shift requests. Twelve production fake-sink cases
+pass 63 checks; the shared analyzer now retains a hash-pinned reference and all
+48 tests pass. The new report preserves all 17 earlier series statistics exactly.
+No runtime settings, installed files, Art release work or physical forces changed.
+See docs/FFB-NORMALIZATION.md and the dated findings for evidence and remaining
+matched-event/owner acceptance work.
+
 ## Sonic/Gravel corrected native geometry review — 2026-10-06, 17:12 CT
 
 Sonic e162027 resolves the three source findings recorded below. Independent

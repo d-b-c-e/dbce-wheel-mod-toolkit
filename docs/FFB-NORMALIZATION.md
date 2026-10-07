@@ -1,10 +1,48 @@
 # Cross-game force normalization
 
-The owner wants Strength 50 to feel comparable across the portfolio (STD-003).
+**Art of Rally is the gold standard** (owner direction October 6; STD-021 refines
+STD-003). Hold Art's reference tuning fixed. At Strength 50 in both games, tune
+other games' comparable steering, crashes, landings and other available effects
+toward Art's level and character. Do not ask the owner to use 35 in one game or
+75 in another to satisfy the 50-to-50 requirement.
+
+The versioned software reference is
+[`art-of-rally-50-v1.json`](../profiles/normalization/art-of-rally-50-v1.json),
+pinned to Art's 0.4.1 implementation `ddabadaccb02f43a93a6492b0fb647555133b33e`.
+Code identity is independent of release publication and current saved settings.
+Preserve this reference when making candidate calibrations.
 The first automated baseline is available in
 [the October 6 findings](../knowledge/FFB-NORMALIZATION-2026-10-06.md).
 It measures **software requests**, not delivered torque. No runtime tune,
 installed setting or wheel profile was changed for that comparison.
+
+## What 50 means in the Art reference
+
+Steering Strength 50 gives gain 1, reference 11,500 N and smoothing 0.2. Art's
+landing, crash and shift strengths are separate from steering Strength, so the
+whole per-effect profile is pinned rather than setting every slider to 50.
+
+| Component, when enabled | Full-intensity reference request | Default enablement |
+|---|---|---|
+| Crash push | 0.50 nominal constant-force magnitude, positive X, 120 ms | Off |
+| Crash rattle | 0.25 amplitude, 25 Hz, 250 ms, fade over final 150 ms | Part of enabled crash cue when supported |
+| Landing | 0.05 sine amplitude, 25 Hz, 120 ms | On |
+| Gear shift | 0.05 sine amplitude, 25 Hz, 120 ms | Off |
+
+The profile contains production request vectors at normalized intensity 0.25,
+0.5, 1 and 2 (saturated to 1). These are **synthetic production-model requests**,
+not measured torque or equal physical crash severity across games. Twelve cases
+pass 63 checks through pinned LandingFeedback with a fake sink. Optional cues
+are enabled only in the synthetic calculation; saved opt-outs are unchanged.
+Do not sum rattle amplitude, push and steering peak into claimed wheel torque:
+native effect mixing and the base's limits require separate evidence.
+
+For impacts, retain onset, physical severity inputs where known, peak/amplitude,
+duration, frequency, fade, repeat suppression and overlap policy. For steering,
+retain speed, load/slip, release and saturation. Art's steering CSV omits its
+separate impact effects and cannot qualify crashes. Different tracks at the
+same speed remain different workloads. A missing counterpart is unavailable,
+not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
@@ -92,6 +130,22 @@ Each series has the following shape (replace hashes/paths with real values):
 }
 ```
 
+New comparisons should also have a top-level `reference` artifact pointing to
+a retained copy of the versioned profile:
+
+```json
+"reference": {
+  "path": "art-of-rally-50-v1.json",
+  "sha256": "0500feda949dac31803e8d904293464e5e2e3692a861a0ca0a53afebb8730287"
+}
+```
+
+The analyzer checks its hash/schema/identity and retains the full reference in
+the report. It does not rescale series or rename a non-50 trial as calibrated.
+Historical version-1 manifests without a reference still run as historical
+comparisons. The new 17-series gold-reference report reproduces every earlier
+statistic exactly while explicitly naming the fixed reference.
+
 Paths resolve relative to the manifest; private absolute paths are also allowed.
 Pin the original input, model source/binaries, exporter and adapter validation
 report as artifacts for a counterfactual. The manifest hash seals the chosen
@@ -150,12 +204,14 @@ The tool deliberately makes no automatic cross-game gain recommendation.
 ## Tomorrow's attended checks
 
 Keep the same wheel/base profile and note every mod's exact tune. Use Art's
-accepted steering as the initial reference. Check centering direction, normal
+pinned 50 profile as the reference. Check centering direction, normal
 corners, release in a slide and recovery before comparing impacts separately.
-Woden's offline Strength 35 / cap 50 trial is a candidate for an explicit short
-A/B: it reduces clipping while allowing brief peaks above the old 25 cap. It is
-not installed or accepted. Restore the original tune after the comparison unless
-the owner chooses the candidate. Do not describe raising the cap as harmless.
+Woden's earlier Strength 35 / cap 50 trial demonstrates the gain/cap tradeoff;
+it is not the requested final calibration. Develop candidate mappings with
+the displayed Strength still 50 and disclose internal gain/shaping/cap changes.
+Raising the cap changes possible peak output and needs an attended comparison.
+The earlier DRIVE 75 trial is likewise diagnostic, not a substitute for
+calibrating its 50 setting. Preserve saved settings until an explicit trial.
 
 iRacing needs a new normal-speed owner drive; its short diagnostic cannot settle
 cross-game cornering feel. DRIVE needs a new capture on the current FFB runtime
