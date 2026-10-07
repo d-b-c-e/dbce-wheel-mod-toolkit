@@ -57,11 +57,16 @@ capture/export and physical normalization remain open. See the
 [adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
 Historical Classic comparisons retain their original scope.
 
-**Woden Grip v4 review, October 7:** candidate82f2812 preserves Classic v3 and
-adds the estimated-tyre adapter with a driving-load mean. Baseline47/37821 and
-UI644 pass; extra fake-device checks reproduce damping bypassing low-speed fade,
-invalid loads contaminating the reference and negative curve magnitudes reversing
-force. V4 replay/export remains unsupported; original Kenya v3 still passes.
+**Woden Grip v4 follow-up, October 7:** fixes8bc3444 pass the three independent
+low-speed damping, invalid-load reference and negative-curve cases on frozen
+16f0f9c (59/37973 with all eight review cases). Core Grip replay now succeeds.
+Consumer ab7f1fa closes a separate end-to-end gap: stage-review still rejected
+the new model before its exporter could run. It restores recorded reference
+state, validates model/tune/car/curve identity, excludes missing/provisional
+references, and labels synthetic provenance. Full source checks and original
+Kenya v3 (3601 rows, zero error) pass. Fresh live-physics Grip capture and
+physical calibration remain open. See the
+[stage-model integration lesson](../knowledge/STAGE-MODEL-DISPATCH-2026-10-07.md).
 Review the [findings and recording requirements](../knowledge/WODEN-GRIP-V4-DESIGN-REVIEW-2026-10-07.md) before
 interpreting it as measured lateral force or normalized physical feel. The old
 Kenya reference lacks the new friction-curve inputs, so it validates v3 only;

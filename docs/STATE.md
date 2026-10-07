@@ -1,5 +1,14 @@
 # Current source checkpoint
 
+## Woden model dispatch follow-up — October 7
+
+Woden ab7f1fa closes the stage validator/export mismatch after Grip Core replay
+was added. Recorded reference state and qualification now survive the complete
+offline path, Classic3601-row compatibility still has zero error, and synthetic
+evidence remains labelled. The three earlier force defects pass independent
+fake-device checks on16f0f9c. No live Grip baseline or physical normalization is
+claimed. See `knowledge/STAGE-MODEL-DISPATCH-2026-10-07.md`.
+
 ## Native session groundwork — October 7
 
 Windows C++17 `native/session/session_writer.h` now produces the shared version-1
