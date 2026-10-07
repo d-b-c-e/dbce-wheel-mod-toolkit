@@ -31,9 +31,43 @@ arithmetic or a change to Art's fixed reference.
 
 DRIVE's unchanged 75/1023 suite and seven independent suites (82/1052 total)
 confirmed the findings and the positive pause/gap/teleport/reset controls. The
-candidate remains uninstalled pending corrections, plugin fake-sink checks,
-original live-physics evidence and attended feel. Its crash remains a sampled
+initial candidate was held pending corrections and plugin fake-sink checks.
+Those source findings are now closed at DRIVE `e7e8c06`:85 suites/1087 plus59
+actual-plugin boundary cases/258 checks. Original live-physics evidence and
+attended feel remain open. Its crash remains a sampled
 constant-force fallback, not Art's independent native finite effects.
+
+## Exercise the actual producer and delivery boundary
+
+Pure model tests did not expose two later DRIVE bugs. A source-linked harness
+compiled byte-exact ForceFeedback.cs with production Core and fake native/game
+boundaries, invoked its registered prefix bodies and replayed its emitted rows.
+This added the following reusable requirements:
+
+- Incomplete contact coverage may coexist with valid earlier contacts in the
+  same tick. A successful callback followed by a read fault must retain ordered
+  observed contacts, replay available intent and report partial coverage; it
+  must not reject that honest producer row as contradictory.
+- A capture reset must reset or record every state that a fresh replay needs,
+  including the previous car identity. Warming the real producer on one car,
+  resetting for capture, then sampling another found state that fresh-pipeline
+  fixtures did not contain.
+- Test the delivery gate itself: cold-muted must calculate and record while
+  making zero acquisitions/writes; transition from an active sink must zero;
+  initialization, focus, frame gaps, invalid input and shutdown need distinct
+  cases. Preserve requested versus attempted/accepted commands.
+- Inject native lifecycle failures. DRIVE previously logged a failed window
+  exit guard and continued output; it now zeroes/stops/closes and retries later.
+  Fake-sink success proves the call policy, not the guard ABI or physical torque.
+- A post-gap model may intentionally seed at zero. A recovery test should allow
+  that documented step before expecting force; never remove a valid release to
+  satisfy an over-eager test.
+
+The harness substitutes Unity/config/Harmony registration/native boundaries;
+it does not execute real detours or load a driver. Keep this distinction in the
+review and retain full rows/call order for the next agent. DRIVE's review doc
+names the frozen private source, receipts and exact repeat commands. Original
+recording, cold route/restoration and physical acceptance remain separate gates.
 
 ## Native proxy capture: guard every device-return route
 
