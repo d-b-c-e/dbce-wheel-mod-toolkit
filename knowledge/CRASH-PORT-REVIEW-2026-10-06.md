@@ -1,5 +1,32 @@
 # Shared crash port: differences from the accepted Art reference
 
+## Follow-up on 9ddd8e6 / iRacing 19db938
+
+The corrected shared detector passes the four previously failing actual-Art
+comparisons (stale contact, 150 ms gap, duplicate tick and teleport). Independent
+`CrashCue.Requests(.5)` parameters match Art's actual mixer fake sink. Eleven
+independent oracle checks and all 92 toolkit tests pass. The sampled delivery is
+now explicitly `crash-constant-fallback@2`; its 25 Hz DC-alias reproduction is
+fixed, but it remains separate from native Art-equivalent effect delivery.
+
+iRacing's consumer record/analyze contract still needs work: it trusts recorded
+crash output rather than reconstructing it, ignores the enabled analysis-only
+Grip stream, rejects the unchanged legacy Classic source fingerprint, lacks a
+car-change Grip reset marker, and consumes raw contact inputs on the first recorder
+read. Consumer suite 347 passes; nine additional frozen-source cases reproduce
+these gaps. The 3,001-row legacy reference replays exactly but fails one identity
+check. Runtime implementation remains with Claude; DRIVE adoption and physical
+cue qualification are not approved by these offline results.
+
+Detailed review: iRacing repository
+`docs/reviews/2026-10-06-grip-contract-followup.md`. Frozen private evidence:
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/iracing-grip-review-19db938-20261006`;
+547 files hash-verified, manifest SHA-256
+`4360F7B02D52C6918533CC96CCB284A7DBA991EB3CDB9D2A9F43039F43059831`.
+This follows the original findings below; it does not overwrite their evidence.
+
+## Original review of 8191840
+
 Review of toolkit `8191840` and iRacing integration `1ba711f`, following the
 owner's request to carry Art's crash/normalization behavior into the family.
 Claude owns implementation; this review changes no runtime or installed tune.
