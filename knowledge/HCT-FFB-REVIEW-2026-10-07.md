@@ -183,3 +183,27 @@ does not fix that identity branch. No consumer pin or experimental55-export
 master adoption follows automatically. No new native or physical-device
 qualification is claimed here; original capture/replay and Art50 feel remain
 open for HCT.
+
+## Exact a7fe985 x86 base independently checked
+
+[dbce-mods-horizon-chase-turbo, 2026-10-07] Author-staged native0.6 /41-export
+DLL B1EB96BC2429D3E0B101A142FF32F3EF6B4565E692FEF4F69ED9EE0517C1710F
+passes static x86/header/definition checks and all25 consumer signature matches.
+The exact-source x86 burst/publication tests and fresh pre-init worker mode pass;
+the actual DLL passes32 device-free empty worker/free/unload cycles. This is
+qualification of the suggested base, not a corrected strict-identity pin.
+
+The independent29-check source fixture reproduces strict Init returning success
+on retained A with preferred B **and with the preferred GUID cleared**. Matching
+A is a passing reuse control. Independent readers survive Free; borrowed readers
+become dormant then recover on the same GUID. Defect assertions must not be
+reported as safety passes. Export presence, version600 and passing watchdog
+tests do not establish retained-device identity. Source attribution and tested
+binary hashes are also distinct from an independently reproduced build.
+
+Claude still owns the identity correction and x86/x64 requalification. No pin,
+game or hardware change in this review; all17 installed HCT payloads match,
+old native0.4 remains refused and FFB remains Off. Managed fdf384d fixes stay
+closed. Consumer detail: `docs/reviews/2026-10-07-native-base-review.md`.
+Private evidence: SessionEvidence/hct-native-a7fe985-review-20261007 (23 sealed
+files; seal00D52FC3245C6CFEF177AACFA35AEF2D54D0C53171896CD1BACA61F1C1F9C694).
