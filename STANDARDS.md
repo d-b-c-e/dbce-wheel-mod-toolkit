@@ -263,3 +263,15 @@ game is "—". Codes:
 Status marks follow the grid legend (✅ owner-accepted, 🧪 built and installed waiting for the rig,
 🔧 partial, 🎮 native, ❌ missing, — not applicable, ❔ not yet checked). A game is release-ready
 when every applicable column is ✅ or 🎮, or the release notes name the gap.
+
+## STD-021 — art of rally is the FFB reference
+2026-10-06 · owner ("I want to treat Art of Rally as our gold standard for FFB values. So a crash or other FFB values in other games should approximately line up with Art of Rally if both games are at 50%") · applies to: every game with FFB
+
+Refines STD-003. With both games at Strength 50, each game's forces should come out at about
+the level art of rally's do for the same kind of event: steering load in comparable cornering,
+crash cues, landings and surface texture. The reference is art of rally 0.4.1 at its defaults
+(Strength 50; crash cue = 120 ms push plus 25 Hz rattle at half the crash strength). art of
+rally is not retuned to meet other games. Compare per event type and speed band with the
+toolkit analyzer (`docs/FFB-NORMALIZATION.md`), not whole-drive averages; an effect a game
+does not have is not invented to match. The owner's feel at the rig is the acceptance; offline
+matches are evidence. Normalization work is Codex's.
