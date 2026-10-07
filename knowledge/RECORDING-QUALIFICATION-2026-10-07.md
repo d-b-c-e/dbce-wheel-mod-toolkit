@@ -69,6 +69,22 @@ review and retain full rows/call order for the next agent. DRIVE's review doc
 names the frozen private source, receipts and exact repeat commands. Original
 recording, cold route/restoration and physical acceptance remain separate gates.
 
+## Source identity includes checkout bytes
+
+iRacing's October7 EuroTruck capture had zero numeric replay mismatches but an
+archived strict report with passed=false: two fingerprinted source files used LF
+in the analyzer checkout and CRLF in the recorded build. The four recorded hashes
+were reproduced from da709ce with CRLF. Copying the matching analyzer privately
+and verifying its bytes produced a strict3001-row pass without a mismatch
+override. The actual Grip Strength50 export still excluded all3001 rows because
+tyre force was unavailable. These are separate results: matched implementation,
+exact reproduction and usable calibration input must each be checked.
+
+Retain the original source/artifact bytes with captures. If introducing canonical
+newline hashing later, version that identity contract and preserve legacy
+matching; never rewrite sealed capture metadata or silently waive source checks.
+Consumer evidence: iRacing docs/reviews/2026-10-07-diagnostic-grip-unavailable.md.
+
 ## Native proxy capture: guard every device-return route
 
 Gravel's cross-review found an additional path after CreateDevice and the proxy
