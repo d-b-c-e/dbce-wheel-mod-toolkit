@@ -1,5 +1,15 @@
 # Current source checkpoint
 
+## Native session groundwork — October 7
+
+Windows C++17 `native/session/session_writer.h` now produces the shared version-1
+session stream, tested by the existing strict managed reader. It is a separate
+source pin, with bounded/exclusive files and explicit completion; no native FFB
+DLL or official release pin changed. The companion muted-effect copy helper is
+only one part of a consumer's sink guard. Gravel integration is source work:
+no live recorder/player or hardware mute qualification is implied. See
+`docs/NATIVE-SESSION.md` for the limits and reproduction command.
+
 ## iRacing shared force adapter review — October 6 evening
 
 STD-025 correctly consolidates tyre steering in AxleForceCurve. Initial iRacing
