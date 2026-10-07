@@ -300,3 +300,12 @@ an overlay. It must cost nothing noticeable: a fixed buffer, one sort per window
 per frame. Native mods (Gravel, Sonic, OutRun) report the same three numbers from their
 present/tick hook. Reference: iRacing Arcade `FrameStats` + `FrameRateWindow` (repack.118,
 unit-tested pure statistics); a shared .NET copy belongs in the toolkit at the next release.
+
+## STD-024 — Optional on-screen frame-rate counter
+2026-10-06 · owner ("I was referring more to an option to turn on an FPS monitor that was persistent and drawn on the screen") · applies to: every game mod with a settings panel · refines STD-023
+
+Next to the STD-023 summary, offer **Show frame rate on screen** (off by default, saved): a small
+persistent counter drawn by the mod in the top-right corner of the centre screen (of the full
+window without triples), showing current fps (smoothed) and the 1% low of the last ten seconds,
+with a dark outline so it reads on any background. Draw it only in the repaint pass and allocate
+nothing per frame. Reference: iRacing Arcade `FrameStats.DrawOverlay` (repack.119).
