@@ -6,6 +6,12 @@ other games' comparable steering, crashes, landings and other available effects
 toward Art's level and character. Do not ask the owner to use 35 in one game or
 75 in another to satisfy the 50-to-50 requirement.
 
+Replay success and complete input coverage are separate. Preserve partial
+crash qualification through exports, record independent hook availability and
+exclude absent grounded tyre forces without dropping genuine observed zeros.
+The [October 7 review lessons](../knowledge/RECORDING-QUALIFICATION-2026-10-07.md)
+include reproduced DRIVE failures and the required car-state boundaries.
+
 The versioned software reference is
 [`art-of-rally-50-v1.json`](../profiles/normalization/art-of-rally-50-v1.json),
 pinned to Art's 0.4.1 implementation `ddabadaccb02f43a93a6492b0fb647555133b33e`.

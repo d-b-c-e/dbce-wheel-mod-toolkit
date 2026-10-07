@@ -1,5 +1,14 @@
 # Current source checkpoint
 
+## Recording qualification boundaries — October 7
+
+DRIVE's combined model3 independent review reproduced partial crash status lost
+in export, missing Classic force counted as zero and a missing car-state reset;
+candidate remains uninstalled pending fixes. Gravel's semantic-enumeration mute
+bypass is fixed and tested through both SDK interfaces, but full COM/lifecycle
+hardware suppression remains open and the installed renderer is unchanged.
+See `knowledge/RECORDING-QUALIFICATION-2026-10-07.md`. No device/package pin changed.
+
 ## Woden model dispatch follow-up — October 7
 
 Woden ab7f1fa closes the stage validator/export mismatch after Grip Core replay
