@@ -52,6 +52,23 @@ not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
+**DRIVE model3 live qualification, October7:** installed private source`f26d937`
+passed an original muted Grip diagnostic and separate cold playback. All6001
+original force rows reconstructed within2.98e-7, with no unavailable inputs or
+native output attempts. One contact/25 sampled cue rows and1028 pre-mute324-byte
+telemetry packets were retained; both exits0 and exact restoration passed.
+Use `ffb-trial source.jsonl new.csv 50 grip` (or `classic`) for trace contract2;
+the older `ffb-export` commands below retain their contract1/legacy scope.
+Map CSV validity to `eligible`. Both trials have6001 eligible rows in this run.
+
+The retained comparison separates recorded steering-only values from combined
+Grip/Classic requests and preserves the fixed Art reference. The script spends
+33.72s below5km/h and has no60+ coverage; dirt is observed zero. It qualifies the
+pipeline, not a calibration multiplier, nonzero live texture or physical feel.
+The crash remains `crash-constant-fallback@2`. See DRIVE
+`docs/reviews/2026-10-07-model3-live-qualification.md` and the frozen matching
+analyzer/commands in private `SessionEvidence/drive-grip-original-20261007`.
+
 **iRacing Grip adapter follow-up, October 7:** da709ce also closes the NaN-slip
 and driving Grip-Off eligibility finding after d3b7b0e's crash/lifecycle fixes.
 Independent consumer363 and20 follow-up cases pass (19 positive; one retained
