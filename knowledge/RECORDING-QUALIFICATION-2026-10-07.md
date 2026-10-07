@@ -194,3 +194,25 @@ modified files. A complete current-receipt hash pass does not cover orphaned
 files. Add mixed-package update/uninstall cases and reconcile an already-orphaned
 install from verified prior receipts with a backup. Consumer review:
 docs/reviews/2026-10-07-player-doc-fixes-review.md. No live installation was changed.
+
+**Ownership follow-up:** DRIVE7fec68d retains the verified file entry and the
+player -> dev -> player -> uninstall route passes13 actual-installer checks.
+The live repair is independently tied to the historical receipt: only the
+verified manifest entry was added, then all37 installed player receipt hashes
+and the main-config pre-state match. No blind file adoption was used.
+
+The next boundary matters too: direct player -> dev -> uninstall still refuses
+with both uninstallers. Dev state retains game-mod.json but drops packageId;
+the player remover uses that identity to allow the manifest, while the dev
+remover never allows it. Reinstalling the player first masks this gap. Both
+refusals leave all files intact. Preserve the ownership *contract* (identity
+and each remover's validated inventory), not just its file list. Test direct
+removal at each package transition, repeated updates and missing/modified
+metadata; do not expand an allowlist to arbitrary prior receipt paths.
+
+The consumer's old deployment fixtures also referenced unsupported historical
+ZIPs. Test-Deployment now takes explicit current archives and refuses identical
+plugin/Core bytes so replacement/rollback cannot pass by skipping the write.
+All13 cases pass for selector.3 -> docs.1. This is installer coverage only;
+force, route and physical qualifications remain unchanged. Full finding and
+repeatable evidence: consumer docs/reviews/2026-10-07-ownership-followup.md.
