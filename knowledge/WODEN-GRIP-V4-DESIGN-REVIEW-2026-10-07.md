@@ -1,5 +1,54 @@
 # Woden Grip v4: adapter design review
 
+## Implementation follow-up: 82f2812
+
+The clean candidate addresses signed-wheel cancellation, estimated-curve
+identity, the ineffective IdealSlip control, a 0.5 s recovery ramp, existing
+Classic preferences and event-time crash strength. Its reference policy has
+deliberately changed to a **driving-load mean**, distinct from the resting
+proposal below. This review does not endorse a ratio from unmatched histograms.
+
+Independent unmodified tests pass47 suites/37821 assertions and UI644. Eight
+extra source/fake-device cases add five positive checks and three defect
+reproductions. Muted production still learns the reference; shared-reference
+analysis reaches nonzero force with zero device opens/writes. Focus recovery,
+new-car reset and legacy config save/reload pass. The original Kenya3601 rows
+replay at zero error; a complete synthetic160-row v4 capture is correctly
+refused by the existing Classic-only replay reader.
+
+Before physical comparison, fix:
+
+1. **Damping outside the speed fade.** Strength50/Damping.05, warmed reference,
+   zero speed/slip and steer0->.2 over20ms send-.5 to the fake sink while the
+   result says low-speed fade. GripSmoothing0 isolates the damper. Classic is0.
+   Apply the intended low-speed policy to damping without double-fading tyres.
+2. **Reference accumulation before contact validation.** Rejected FL=-4999 and
+   FR=5000 rows still qualify reference1/Driving; the next valid10000-load row
+   leaves reference91.081 and a saturated target. Validate the reference's own
+   per-wheel inputs before learning, while retaining independence from mute.
+3. **Negative friction magnitudes accepted.** Positive slip with ev=-1/av=-.75
+   sends+.4 instead of-.4. Reject negative magnitudes and nonfinite knots or
+   intermediates; retain valid zeros. The malformed values in2/3 are synthetic
+   boundary tests, not observed live Woden behavior.
+
+Player help and schema still say resting reference / kind2=resting and claim
+Strength50 already matches Art. Correct them to the implemented driving mean
+and estimated, uncalibrated model. Full v4 reference/model/analysis/crash replay
+and export remain to implement before a new muted capture can qualify them.
+No runtime edits, installs, launches or device/rig operations accompanied this
+review; implementation remains with Claude. The later GameSampler66d46e8 was
+excluded from this frozen review.
+
+Detailed consumer report: `docs/2026-10-07-grip-v4-review.md` in Woden.
+Private evidence under `%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/`:
+`woden-grip-review-82f2812-20261007`, 459 verified files; manifest SHA-256
+`E098B0B1906DB6CEDE7C3B9E5E6EB8F3A92B1631D7541E7FCAE99C3F63FFAD6E`.
+242 archived source files match allowing newline conversion; only test Program
+registrations were modified and an extra review test file added. Ledger now
+contains all25 IDs;016/017/020/022 remain unchecked and021/025 partial.
+
+## Original proposal review
+
 Owner priority: improve Woden's Strength50 response using Art of Rally as the
 fixed reference. Claude owns the Woden force model, controller and replay work;
 Codex owns this independent design review. Reviewed committed Woden `f1ee7af`

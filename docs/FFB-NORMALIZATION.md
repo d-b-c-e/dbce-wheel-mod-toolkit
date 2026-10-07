@@ -57,9 +57,12 @@ capture/export and physical normalization remain open. See the
 [adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
 Historical Classic comparisons retain their original scope.
 
-**Woden Grip v4 proposal, October 7:** a separate estimated-tyre adapter is being
-implemented by Claude, preserving Classic v3. Review the [design and recording
-requirements](../knowledge/WODEN-GRIP-V4-DESIGN-REVIEW-2026-10-07.md) before
+**Woden Grip v4 review, October 7:** candidate82f2812 preserves Classic v3 and
+adds the estimated-tyre adapter with a driving-load mean. Baseline47/37821 and
+UI644 pass; extra fake-device checks reproduce damping bypassing low-speed fade,
+invalid loads contaminating the reference and negative curve magnitudes reversing
+force. V4 replay/export remains unsupported; original Kenya v3 still passes.
+Review the [findings and recording requirements](../knowledge/WODEN-GRIP-V4-DESIGN-REVIEW-2026-10-07.md) before
 interpreting it as measured lateral force or normalized physical feel. The old
 Kenya reference lacks the new friction-curve inputs, so it validates v3 only;
 v4 needs a new muted capture. No v4 runtime acceptance is claimed.
