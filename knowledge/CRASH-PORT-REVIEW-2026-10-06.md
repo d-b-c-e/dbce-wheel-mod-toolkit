@@ -1,5 +1,28 @@
 # Shared crash port: differences from the accepted Art reference
 
+## iRacing ef8f1c8 follow-up, October 7
+
+iRacing's next contract fixes the primary selected-model/analysis checks and
+retains an immutable ordered contact snapshot for both recorders. Independent
+consumer suite359 and the original strict 3001-row Classic reference pass. A car
+change with actual FFB disabled and enabled analysis also replays correctly.
+
+Remaining reusable lessons, reproduced against frozen ef8f1c8: an unknown initial
+crash state must not receive complete-force qualification merely because recorded
+cue arithmetic is consistent; every asynchronous contact must carry the settings
+it consumed at event time. A 15-row unseeded capture still passes with zero crash
+rows reconstructed, and a Strength50 contact followed by a Strength20 setting
+before the next tick produces a false replay failure. Source-reviewed exporter
+still ignores car-reset epochs and counts unavailable/releasing/reference-learning
+rows as valid. Runtime fixes remain with Claude; these are recording/normalization
+gaps, not measured hardware results.
+
+Detailed consumer review: `docs/reviews/2026-10-07-force-contract-ef8f1c8.md` in the
+iRacing repo. Private frozen evidence: `SessionEvidence/iracing-grip-review-ef8f1c8-20261007`
+under `%LOCALAPPDATA%/Dbce/StagePlayback`, 478 hash-verified files; manifest SHA-256
+`94D5166BE3DCD894E20240ACAE5E8F8BA8A170C5DFFA27AA318F7583DB0A9626`.
+No runtime or physical output action accompanied this review.
+
 ## Follow-up on 9ddd8e6 / iRacing 19db938
 
 The corrected shared detector passes the four previously failing actual-Art
