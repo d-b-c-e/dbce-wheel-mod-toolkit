@@ -1,5 +1,25 @@
 # Current source checkpoint
 
+## Woden beta.2 and iRacing owner candidate — October 6 evening
+
+Woden 0.2.14-beta.2 is a published early-tester prerelease at fe91064 with the
+owner-accepted b47ba15 bumper fit. GitHub metadata confirms the ZIP digest
+DF954661A190F21A5738E9BEFC7A822A68308F7DC8FA9A96FCC5B7743C8A8EC1.
+Consumer release records report 111 installer checks and an identical installed
+bumper-fit.1 runtime. Claude reports the owner's MatchGameFov=false choice;
+preserve it. Historical session-span.2 is superseded as the installed reference,
+while its exact replay/startup evidence remains historical. The focus/interruption
+matrix and physical FFB normalization are not closed by publication.
+
+iRacing repack.116 / d369e42 adds an F6 separate-monitor span switch; Claude has
+installed it for the active owner test with SpanSeparateMonitors=true, while the
+default remains off. Do not launch or run installer fixtures concurrently. Its
+release preparation stopped at the old toolkit path after earlier gates passed.
+The source fix uses the reorganized toolkits directory and checks source presence
+before long release checks; focused PS7/PS5.1 preflight and eight pinned-source
+hash checks pass. A fresh repack and full preparation remain for a closed-game
+slot. The installed runtime is unchanged by this packaging-only correction.
+
 ## Art gold-standard FFB profile — owner direction, October 6
 
 STD-021 fixes Art's 0.4.1 model at Strength 50 as the reference; tune other games

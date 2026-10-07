@@ -251,11 +251,22 @@ The launcher is currently source-checkout tooling; the installed generic
 
 ## Woden: accepted reference, background replay and span startup
 
-Canonical checkout: `E:/Source/games/dbce-mods-woden-rally-edge`, main. The combined
-installed runtime is `0.2.14+8678f06fa967e0985d963315b72ef879c79e3235`, player
-archive session-span.2, SHA-256
-`53D3115372CEFF76F0969B12250A31B91AB864DF36EEE6D637ECF617ED8D007A`.
-Earlier accepted and session-focus.1 runtimes are backed up. The owner accepted Kenya
+Canonical checkout: `E:/Source/games/dbce-mods-woden-rally-edge`, main. Current
+public early-tester release is
+[0.2.14-beta.2](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.14-beta.2),
+tag `fe91064`, runtime change `b47ba15`; ZIP SHA-256
+`DF954661A190F21A5738E9BEFC7A822A68308F7DC8FA9A96FCC5B7743C8A8EC1`.
+GitHub release metadata independently confirms the published prerelease and asset
+digest. Consumer `docs/PUBLIC-RELEASE.md` records 111 installer checks, matched
+public download and the identical runtime installed as bumper-fit.1. Claude
+reports owner acceptance of the bumper fit and owner-selected `MatchGameFov=false`
+(real bonnet/bumper geometry); preserve this preference. Release/install work
+belongs to Claude; do not launch a parallel publication or reinstall.
+
+Historical replay/span evidence below predates the bumper revision. Earlier
+session-span.2 used `8678f06` and ZIP
+`53D3115372CEFF76F0969B12250A31B91AB864DF36EEE6D637ECF617ED8D007A`;
+it is no longer the current installed runtime. The owner accepted Kenya
 SS1 / car 8 route and cameras after 3,601 poses passed
 (maximum error .00006103515625 m / .0000172453823 degrees). Native cold startup,
 normal exit and exact restoration passed. Original force analysis retained
@@ -275,9 +286,10 @@ passed borderless 7680x1440 at (0,0) on Surround, then (-2560,0) after returning
 to separate monitors; Claude reported both normal exits. Pre/post/current registry
 exports match byte-for-byte and all 55 original LocalLow files match. Startup
 backgrounds still extend onto the sides, so centre-only front-end/loading/panel
-coverage remains incomplete. Focus transitions/interruption checks and the wider
-public-release/owner-drive checklist remain open; no repeat launch is needed to
-re-establish these passed startup cases.
+coverage was incomplete on that candidate. Focus transitions/interruption checks
+remain open; beta.2 publication and bumper acceptance do not repeat or close the
+recording/replay matrix. No repeat launch is needed solely to re-establish these
+passed startup cases.
 
 The seven sealed reference files are now protected outside disposable worktrees.
 Use this exact private reference, a closed game, and a new result directory:
@@ -295,10 +307,10 @@ Set-Location 'E:/Source/games/dbce-mods-woden-rally-edge'
 
 Build the consumer TelemetryInspector before using source-checkout supervision.
 The installed Stage-Session.ps1 alone does not back up/restore the environment.
-The exact session-span.2 player package passed 111 stock Windows PowerShell
-5.1 installer checks, is installed, and is not published. See consumer
-`docs/PUBLIC-RELEASE.md` and `docs/2026-10-06-span-qualification.md` for the
-private receipt path, full payload hashes and acceptance limits.
+The historical session-span.2 player package passed 111 stock Windows PowerShell
+5.1 installer checks. Current public packaging and historical span qualification
+are recorded separately in consumer `docs/PUBLIC-RELEASE.md` and
+`docs/2026-10-06-span-qualification.md`; retain their distinct acceptance limits.
 
 ## DRIVE Rally: accepted owner recording and cold playback
 
