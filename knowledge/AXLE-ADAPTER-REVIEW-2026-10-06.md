@@ -51,3 +51,22 @@ No new standard or runtime API was introduced by this review. STD-025 remains
 the owner requirement; iRacing's initial adapter is partial until corrected.
 No install, launch, input, focus, display, device or physical force action was
 part of this review. Claude owns the coordinated consumer implementation.
+
+## Follow-up: comparison logging in iRacing cd9c017
+
+The owner's sharper-but-weaker report led to a provisional ideal-slip/load-ratio
+tune. The first three findings remain open. Two more fake-sink cases show why
+live comparison must run the actual candidate model: dividing clipped output by
+gain labels a 0.90 Strength-50 request as 0.50 when observed at Strength 100;
+FFB-disabled driving is also counted as zero force. Use an independently reset/
+seeded gain-1 analysis processor on original inputs or explicitly collect only
+eligible actual Strength-50 samples. Separate car/tune epochs. Never derive a
+counterfactual by scaling a clipped/smoothed output.
+
+The hardcoded Art P50/P95/RMS 0.36/0.76/0.43 is the whole Norway capture, with
+140.76 of149.55 seconds above60km/h. Its20–60 band instead has
+P50/P95/RMS0.1856/0.4334/0.2353;60+ gives0.3712/0.7637/0.4419. The second
+Art capture differs again at identical tuning. Keep source identity, matching
+bands/event types, duration weighting and clipping/release measurements with
+every comparison. No single drive distribution is a universal calibration target.
+See the consumer review's repack.121 addendum for source and reproduction paths.
