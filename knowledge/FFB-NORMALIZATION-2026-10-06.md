@@ -143,3 +143,27 @@ and a new effect-output path, or its force_normalization.py with comparison.json
 and a new report directory. Source recordings and the earlier baseline were not
 modified. Remaining work: matched event/severity captures and model calibration
 at 50, then the owner's same-wheel/base-profile physical comparison.
+
+## Comparison wrapper input closure — October 7 cross-review
+
+Claude's hub review found that Compare-FfbToArt pinned Woden source.jsonl but
+not force-config.json (consumed by ReadOptions) or complete.tsv (the capture
+seal). Re-sealing a different tune could therefore change a trial without its
+receipt identifying the changed input. The wrapper now pins all three in the
+receipt and comparison artifacts, re-hashes them after export, and retains the
+legacy source field. The seal covers the context/schema validated by the actual
+exporter. Pin the complete set of inputs used by an export, not only its samples.
+
+The same review found PS5.1 redirected native stderr could abort the analyzer
+pipeline before logging/checking its exit. The wrapper now retains analyzer.log
+under Continue, restores the prior error policy and checks the captured exit code,
+as for export.log.18 boundary checks pass in PS5.1 and PS7, including real Python
+stderr and per-input mutation; the old wrapper fails the stderr control.
+
+The full frozen Woden Classic peak25 run under PS5.1 is byte-identical and all
+existing statistics for Art/Woden remain unchanged. Earlier reports/receipts
+stay immutable; these are provenance/diagnostic corrections, not normalization
+or physical acceptance. Repeat commands: hub tools/Compare-FfbToArt.md and
+tools/Test-CompareFfbToArt.ps1. Private SessionEvidence/ffb-wrapper-followup-20261007
+retains logs, exact source and verification. The exporter's current flat DLL/JSON
+copy layout does not support future runtime/satellite subfolders without review.
