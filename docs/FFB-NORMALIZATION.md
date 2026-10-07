@@ -46,11 +46,14 @@ not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
-**iRacing Grip adapter review, October 7:** d3b7b0e closes the unseeded-cue,
-event-time strength and trial lifecycle findings. Independent consumer363,
-seven extra positive cases, the original strict3001-row Classic reference and
-the actual Classic export CLI pass. One extra case still reproduces invalid
-Classic input being exported as eligible zero. Map normalization validity to
+**iRacing Grip adapter follow-up, October 7:** da709ce also closes the NaN-slip
+and driving Grip-Off eligibility finding after d3b7b0e's crash/lifecycle fixes.
+Independent consumer363 and20 follow-up cases pass (19 positive; one retained
+malformed-data reproduction), as do the original strict3001-row Classic
+reference and actual export CLI. Negative finite speed-fade settings and an
+intermediate gain overflow still need exclusion from normalization; neither is
+an observed gameplay case. See consumer review c5019df,
+`docs/reviews/2026-10-07-force-contract-da709ce.md`. Map normalization validity to
 CSV `eligible`, not car-state `valid` (see below). Fresh live-qualified Grip
 capture/export and physical normalization remain open. See the
 [shared crash review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md) and
