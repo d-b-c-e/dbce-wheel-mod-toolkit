@@ -145,3 +145,30 @@ hardware suppression. The accepted Gravel renderer was not replaced; its
 sampled recorder still reports hardware/trajectory/force-replay qualification
 false. Device-return interception stays in the consumer; reusable writer and
 effect-parameter copying stay in the toolkit.
+
+## Audit every capture entry point when the signal schema grows
+
+DRIVE player-guide review at059798a / installed686414c found that supervised
+stage recording used a512-channel bound but ordinary F11 still used256.
+Production DriveCrashStage/DriveForceTrace2 emits seven channels per contact,
+up to eight contacts. With a representative original base sample (stage-only
+trajectory index removed), zero contacts produces231 channels, three252,
+four259 and eight287. The pinned SessionRecorder rejects the entire four-to-eight
+contact row at256, incrementing InvalidCount and DroppedSamples; all nine cases
+pass at512. This was reproduced offline using exact installed managed DLLs,
+not an observed lost row in the sealed live capture. That original had232..242
+channels per row and its stage qualification remains valid.
+
+Test every user/developer recording route against the largest actual production
+row and a reader round trip after adding contact/effect channels. A schema's
+entry count is not the number present in every row. Keep bounded limits, preserve
+all observations and report loss; do not trim events to fit the old bound.
+
+Also review metadata at each entry point. DRIVE's ordinary F11 block still said
+physicsChanges=None and lacked the stage force-source/reset contract. Reusing
+stage metadata verbatim would falsely claim muted physical output, trajectory
+alignment and a capture-start reset. Describe ordinary observations accurately;
+don't reset a live force model silently just to satisfy an analysis contract.
+Consumer review/fix handoff:57539c9,
+docs/reviews/2026-10-07-player-docs-review.md. Fixes pending at this checkpoint;
+no runtime, installed setting or native output changed by the review.
