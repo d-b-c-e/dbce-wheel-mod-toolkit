@@ -267,6 +267,25 @@ percentiles are duration weighted, preventing 100 Hz recordings from outweighing
 is unavailable, not a zero-force result. `validSamplePeak` includes the final
 sample; interval peaks only include samples with accepted duration.
 
+Reports also retain request order in `temporal.version = 1`. Each speed band
+includes duration-weighted signed/absolute means, sign reversals outside a
+plus/minus 0.02 neutral zone, and request variation per eligible second. Variation
+is the sum of absolute changes between adjacent eligible interval-start values,
+divided by eligible duration; it is not an interpolated slew rate or a physical
+bandwidth measurement. A neutral request preserves the last non-neutral sign
+within a continuous segment. Sign means numerical request polarity; a spring
+coefficient's sign is not wheel direction.
+
+At absolute thresholds 0.25, 0.50 and 0.75, JSON reports time occupancy, run count
+and the longest continuous same-sign hold. Thresholds use the software unit
+range, independently of the configured cap; Woden Classic capped at 0.25 cannot
+produce a 0.50 hold. Markdown shows the 0.50 threshold. Exclusions, reset epochs,
+duplicate timestamps and leaving/re-entering a speed band break continuity;
+the all-speed series continues across speed changes. There is still no invented
+final hold. These measurements distinguish sustained requests from short peaks,
+but do not identify corner entry/apex/exit or contact release without labelled
+events and the original vehicle signals.
+
 `atCapFraction` counts output within 0.0001 of the declared cap (or above it).
 `atUnitFraction` uses full nominal range. These are final-output occupancy, not
 an internal clipping detector: smoothing can hide earlier saturation. A high
@@ -277,6 +296,13 @@ Recompute the production model from original signals, retaining reset history.
 Different tracks, tyres, assists and maneuvers are different workloads. Speed
 bands help expose coverage gaps but do not by themselves match corner severity.
 The tool deliberately makes no automatic cross-game gain recommendation.
+
+The October 7 saved MOZA preset inspection supports a common-profile working
+assumption, not historical active-device verification or a uniform physical
+scale. See [saved device context and timing qualification](../knowledge/MOZA-NORMALIZATION-CONTEXT-2026-10-07.md).
+Preserve the profile and record it alongside the next attended drive; do not
+multiply software requests by the saved strength/torque percentages and label
+the result measured torque.
 
 Compare release behavior as well as magnitude. A report of "heavy" can mean
 load that persists after contact, not excessive peak strength. First distinguish

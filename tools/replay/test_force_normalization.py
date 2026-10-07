@@ -59,6 +59,80 @@ class StatisticsTests(unittest.TestCase):
             f.mapped({'t': 0, 'v': 0, 's': 1e308}, {'time': 't', 'value': 'v', 'speed': 's', 'speedScale': 3.6})
 
 
+class TemporalTests(unittest.TestCase):
+    def timing(self, rows, band='all'):
+        return f.summarize(rows)['temporal']['bands'][band]
+
+    def test_same_magnitudes_different_order_exposes_sustained_vs_alternating(self):
+        a = [row(i*.1, v) for i, v in enumerate((.6, .6, -.6, -.6, 0))]
+        b = [row(i*.1, v) for i, v in enumerate((.6, -.6, .6, -.6, 0))]
+        x, y = f.summarize(a), f.summarize(b)
+        self.assertEqual(x['bands'], y['bands'])
+        x, y = x['temporal']['bands']['all'], y['temporal']['bands']['all']
+        self.assertEqual((x['signReversals'], y['signReversals']), (1, 3))
+        self.assertAlmostEqual(x['thresholds']['0.5']['longestSameSignSeconds'], .2)
+        self.assertAlmostEqual(y['thresholds']['0.5']['longestSameSignSeconds'], .1)
+        self.assertAlmostEqual(x['variationPerSecond'], 3)
+        self.assertAlmostEqual(y['variationPerSecond'], 9)
+
+    def test_neutral_zone_does_not_count_noise_but_breaks_strong_hold(self):
+        s = self.timing([row(i*.1,v) for i,v in enumerate((.6,.01,-.01,-.6,0))])
+        self.assertEqual(s['signReversals'], 1)
+        self.assertEqual(s['thresholds']['0.5']['runs'], 2)
+        self.assertAlmostEqual(s['thresholds']['0.5']['fraction'], .5)
+        self.assertAlmostEqual(s['meanSigned'], 0)
+
+    def test_exclusions_do_not_join_force_holds_or_reversals(self):
+        s = self.timing([row(0,.6),row(.05,.6,epoch=1),row(.1,-.6,False,1),
+                         row(.15,-.6,epoch=1),row(2,-.6,epoch=1),row(2.05,0,epoch=1)])
+        self.assertEqual(s['segments'], 2)
+        self.assertEqual(s['signReversals'], 0)
+        self.assertEqual(s['variationPerSecond'], 0)
+        self.assertAlmostEqual(s['thresholds']['0.5']['longestSameSignSeconds'], .05)
+
+    def test_speed_band_reentry_breaks_hold_only_in_that_band(self):
+        rows = [row(0,.6),row(.1,.6,speed=70),row(.2,.6),row(.3,.6),row(.4,0)]
+        all_rows, band = self.timing(rows), self.timing(rows,'20-60 km/h')
+        self.assertAlmostEqual(all_rows['thresholds']['0.5']['longestSameSignSeconds'], .4)
+        self.assertAlmostEqual(band['thresholds']['0.5']['longestSameSignSeconds'], .2)
+        self.assertEqual(band['segments'], 2)
+
+    def test_repeated_samples_do_not_change_order_metrics(self):
+        a = self.timing([row(0,.6),row(.1,-.6),row(.2,0)])
+        b = self.timing([row(0,.6),row(.05,.6),row(.1,-.6),row(.15,-.6),row(.2,0)])
+        for key in ('seconds','meanSigned','meanAbsolute','variationPerSecond','signReversals','segments'):
+            self.assertAlmostEqual(a[key], b[key])
+        for key in a['thresholds']:
+            for metric in a['thresholds'][key]:
+                self.assertAlmostEqual(a['thresholds'][key][metric], b['thresholds'][key][metric])
+
+    def test_final_sample_does_not_invent_force_duration(self):
+        s = self.timing([row(0,.2),row(.1,1)])
+        self.assertAlmostEqual(s['meanAbsolute'], .2)
+        self.assertEqual(s['thresholds']['0.5']['fraction'], 0)
+        self.assertEqual(s['variationPerSecond'], 0)
+
+    def test_duplicate_timestamp_epoch_round_trip_does_not_bridge_reset(self):
+        s = self.timing([row(0,.6),row(.1,.6),row(.1,.6,epoch=1),row(.1,.6),row(.2,0)])
+        self.assertEqual(s['segments'], 2)
+        self.assertEqual(s['thresholds']['0.5']['runs'], 2)
+        self.assertAlmostEqual(s['thresholds']['0.5']['longestSameSignSeconds'], .1)
+
+    def test_empty_band_is_unavailable(self):
+        s = self.timing([row(0,.6),row(.1,0)],'60+ km/h')
+        self.assertIsNone(s['meanAbsolute'])
+        self.assertIsNone(s['thresholds']['0.5']['fraction'])
+        self.assertIsNone(s['thresholds']['0.5']['longestSameSignSeconds'])
+
+    def test_threshold_fraction_is_duration_weighted_and_unit_based(self):
+        s = self.timing([row(0,.2),row(.09,.8),row(.1,0)])
+        self.assertAlmostEqual(s['thresholds']['0.5']['fraction'], .1)
+        self.assertAlmostEqual(s['meanAbsolute'], .26)
+        capped = f.summarize([row(0,.25),row(.1,.25)],cap=.25)
+        self.assertEqual(capped['bands']['all']['atCapFraction'],1)
+        self.assertEqual(capped['temporal']['bands']['all']['thresholds']['0.5']['fraction'],0)
+
+
 class FileTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -85,6 +159,12 @@ class FileTests(unittest.TestCase):
         before = (output / 'report.json').read_bytes()
         self.assertEqual(f.main([str(self.manifest), str(output)]), 2)
         self.assertEqual(before, (output / 'report.json').read_bytes())
+
+    def test_report_labels_temporal_scope_and_keeps_magnitude_table_together(self):
+        report = f.markdown(f.analyze(self.manifest))
+        self.assertIn('not detected corner phases', report)
+        self.assertLess(report.index('| fixture / all |'), report.index('## Request timing: fixture'))
+        self.assertIn('| all | 10.00% | 10.00% | 0.00% |', report)
 
     def test_tampered_source_and_validation_refused(self):
         self.source.write_text('t,v\n0,0\n.1,0\n')

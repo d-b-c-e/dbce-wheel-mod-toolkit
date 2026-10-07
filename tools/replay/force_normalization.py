@@ -123,31 +123,98 @@ def metrics(intervals, cap):
             "atUnitFraction": sum(dt for v, dt in intervals if abs(v) >= .9999)/duration}
 
 
+def temporal_metrics(intervals):
+    """Ordered holds; no continuity across gaps, epochs, duplicates or bands.
+
+    Variation uses changes between consecutive interval starts, not a guessed
+    ramp between samples. The last sample has no known hold duration. These
+    metrics describe software requests, never torque or identified corners.
+    """
+    duration = sum(end - start for start, end, _, _ in intervals)
+    thresholds = {str(x): {"fraction": None, "longestSameSignSeconds": None, "runs": 0}
+                  for x in (.25, .5, .75)}
+    if not intervals:
+        return {"seconds": 0., "meanSigned": None, "meanAbsolute": None,
+                "variationPerSecond": None, "signReversals": 0, "segments": 0,
+                "thresholds": thresholds}
+    sums = {x: 0. for x in thresholds}
+    runs = {x: [0, 0.] for x in thresholds}
+    for item in thresholds.values():
+        item["longestSameSignSeconds"] = 0.
+    previous = None
+    direction = reversals = segments = 0
+    variation = signed = absolute = 0.
+    for start, end, value, segment in intervals:
+        continuous = previous is not None and start == previous[1] and segment == previous[3]
+        if not continuous:
+            segments += 1
+            direction = 0
+            runs = {x: [0, 0.] for x in thresholds}
+        else:
+            variation += abs(value - previous[2])
+        sign = 1 if value > .02 else -1 if value < -.02 else 0
+        if sign:
+            if direction and sign != direction:
+                reversals += 1
+            direction = sign
+        dt = end - start
+        signed += value * dt
+        absolute += abs(value) * dt
+        for key, item in thresholds.items():
+            hold_sign = (1 if value > 0 else -1) if abs(value) >= float(key) else 0
+            if not hold_sign:
+                runs[key] = [0, 0.]
+                continue
+            sums[key] += dt
+            if runs[key][0] != hold_sign:
+                item["runs"] += 1
+                runs[key] = [hold_sign, 0.]
+            runs[key][1] += dt
+            item["longestSameSignSeconds"] = max(item["longestSameSignSeconds"], runs[key][1])
+        previous = (start, end, value, segment)
+    for key, item in thresholds.items():
+        item["fraction"] = sums[key] / duration
+    return {"seconds": duration, "meanSigned": signed / duration,
+            "meanAbsolute": absolute / duration, "variationPerSecond": variation / duration,
+            "signReversals": reversals, "segments": segments, "thresholds": thresholds}
+
+
 def summarize(rows, cap=1, max_gap=.1):
     require(0 < finite(cap) <= 1 and 0 < finite(max_gap) <= 1, "invalid cap/gap")
     bands = {name: [] for name in ("all", "0-5 km/h", "5-20 km/h", "20-60 km/h", "60+ km/h", "speed unavailable")}
+    ordered = {name: [] for name in bands}
     excluded = {"invalid": 0., "epoch": 0., "gap": 0.}
     duplicates = 0
+    segment = 0
     for left, right in zip(rows, rows[1:]):
         dt = right["time"] - left["time"]
         require(dt >= 0, "time reversed; adapters must provide a monotonic timeline")
         if dt == 0:
             duplicates += 1
+            segment += 1  # An instantaneous reset/change cannot establish a continuous hold.
             continue
         reason = "epoch" if left["epoch"] != right["epoch"] else "invalid" if not left["valid"] else "gap" if dt > max_gap + 1e-9 else None
         if reason:
             excluded[reason] += dt
+            segment += 1
             continue
         pair = (left["value"], dt)
         speed = left["speed"]
         band = "speed unavailable" if speed is None else "0-5 km/h" if speed < 5 else "5-20 km/h" if speed < 20 else "20-60 km/h" if speed < 60 else "60+ km/h"
         bands["all"].append(pair)
         bands[band].append(pair)
+        interval = (left["time"], right["time"], left["value"], segment)
+        ordered["all"].append(interval)
+        ordered[band].append(interval)
     require(bands["all"], "no valid intervals")
     return {"samples": len(rows), "spanSeconds": rows[-1]["time"] - rows[0]["time"],
             "duplicateTimes": duplicates, "excludedSeconds": excluded,
             "validSamplePeak": max(abs(r["value"]) for r in rows if r["valid"]),
-            "bands": {name: metrics(data, cap) for name, data in bands.items()}}
+            "bands": {name: metrics(data, cap) for name, data in bands.items()},
+            "temporal": {"version": 1, "hold": "left sample until next timestamp; final sample has no duration",
+                         "neutralZone": .02, "thresholdBasis": "fraction of software unit range, not configured cap or torque",
+                         "variationBasis": "sum of changes between adjacent eligible interval-start requests / eligible seconds",
+                         "bands": {name: temporal_metrics(data) for name, data in ordered.items()}}}
 
 
 def analyze(manifest_path):
@@ -212,6 +279,15 @@ def markdown(report):
         for band, m in s["bands"].items():
             if m["seconds"]:
                 lines.append(f"| {s['id']} / {band} | {m['seconds']:.2f} | {percent(m['rms'])} | {percent(m['absP95'])} | {percent(m['peak'])} | {percent(m['atCapFraction'])} |")
+    for s in report["series"]:
+        lines += ["", f"## Request timing: {s['id']}", "",
+                  "Ordered software requests; sign reversals cross a +/-2% neutral zone. Holds break at exclusions, epochs, duplicate timestamps and speed-band boundaries. These are not detected corner phases or physical response times.", "",
+                  "| Speed | Mean absolute | Mean signed | Time at >=50% | Longest same-sign >=50% hold (s) | Sign reversals | Variation / eligible s |",
+                  "|---|---:|---:|---:|---:|---:|---:|"]
+        for band, m in s['temporal']['bands'].items():
+            if m['seconds']:
+                half = m['thresholds']['0.5']
+                lines.append(f"| {band} | {percent(m['meanAbsolute'])} | {percent(m['meanSigned'])} | {percent(half['fraction'])} | {half['longestSameSignSeconds']:.3f} | {m['signReversals']} | {m['variationPerSecond']:.3f} |")
     for s in report["series"]:
         lines += ["", f"## {s['id']}", "", f"{s['quantity']}; {s['evidence']}. Model: `{s['model']}`.", "",
                   "Settings: `" + json.dumps(s["settings"], sort_keys=True) + "`.", "",
