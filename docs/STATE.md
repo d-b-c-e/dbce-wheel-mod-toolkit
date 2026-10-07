@@ -1,10 +1,22 @@
 # Current source checkpoint
 
+## Original force captures qualified — October 7 follow-up
+
+DRIVE model3 reviewed runtime e7e8c06, installed private source f26d937, passes
+the original6001-row muted Grip capture and separate cold playback, both exit0
+with exact restoration. iRacing5c7b3a5 / repack.138 fixes the NativeArray null
+comparison regression; its new original3001-row Grip/contact capture and both
+Strength50 exports independently pass with available inputs, zero mismatches
+and zero native attempts. iRacing still exits0xC0000005 after sealing, although
+cleanup/restoration succeeds. Both workloads are low-speed diagnostics; neither
+qualifies physical normalization. Woden still needs an original Grip capture.
+See `docs/FFB-NORMALIZATION.md` for frozen evidence and per-effect limits.
+
 ## Recording qualification boundaries — October 7
 
 DRIVE's combined model3 independent review reproduced partial crash status lost
 in export, missing Classic force counted as zero and a missing car-state reset;
-candidate remains uninstalled pending fixes. Gravel's semantic-enumeration mute
+these are closed in the reviewed/live-qualified follow-up above. Gravel's semantic-enumeration mute
 bypass is fixed and tested through both SDK interfaces, but full COM/lifecycle
 hardware suppression remains open and the installed renderer is unchanged.
 See `knowledge/RECORDING-QUALIFICATION-2026-10-07.md`. No device/package pin changed.

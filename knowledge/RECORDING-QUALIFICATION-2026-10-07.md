@@ -110,6 +110,21 @@ manifest SHA256 `4A0E593DA68D1AE99A56F17747223817754B8D5AB96234E0C99309089B8C98A
 No game assembly or decompiled source is distributed here. Claude received the
 runtime finding through the portfolio inbox; no tuning change was proposed.
 
+**Original-capture follow-up:** consumer5c7b3a5 / repack.138 is independently
+qualified on a fresh automated EuroTruck drive: all3001 rows have valid tyre
+force and active Grip, strict steering/crash replay has zero error, both actual
+Strength50 exports have3001 eligible rows, and native attempts stay zero.
+Full suspension observation and3001 pre-mute324-byte packets are retained.
+The initial spawn rejection (wheel index -1) precedes the sealed capture and
+does not justify removing index/identity guards. Prior unavailable captures
+remain ineligible; no gain retune follows from this short low-speed workload.
+
+Keep the outcomes separate: the sealed capture is valid but the original game
+still exits0xC0000005; successful restoration does not convert it to a normal
+exit. The frozen analyzer and complete run remain outside disposable worktrees
+at `SessionEvidence/iracing-grip-fixed-20261007` (134 files; manifest
+`BA1844B475C3BBC5F6244FDD9E131351810B3343DF537B63EC0ACD127740F56D`).
+
 ## Native proxy capture: guard every device-return route
 
 Gravel's cross-review found an additional path after CreateDevice and the proxy

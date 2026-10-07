@@ -77,11 +77,30 @@ reference and actual export CLI. Negative finite speed-fade settings and an
 intermediate gain overflow still need exclusion from normalization; neither is
 an observed gameplay case. See consumer review c5019df,
 `docs/reviews/2026-10-07-force-contract-da709ce.md`. Map normalization validity to
-CSV `eligible`, not car-state `valid` (see below). Fresh live-qualified Grip
-capture/export and physical normalization remain open. See the
+CSV `eligible`, not car-state `valid` (see below). The later repack.138 capture
+below qualifies live Grip capture/export; physical normalization remains open. See the
 [shared crash review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md) and
 [adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
 Historical Classic comparisons retain their original scope.
+
+**iRacing live Grip repair qualified, October 7:** `5c7b3a5` replaces the
+generated NativeArray wrappers' overloaded null comparisons with managed null
+patterns. The failing operator, not the vehicle or static getter, caused the
+missing force. Independent analysis of repack.138's original EuroTruck capture
+passes3001/3001 with matching source bytes, active Grip and available tyre force
+on every row, four reconstructed contacts and zero native attempts. Steering
+alone has1926 positive/904 negative/171 zero requests;3001 pre-mute324-byte
+telemetry packets are preserved. Both actual Strength50 exports have3001
+eligible rows and match the producer's exports byte-for-byte.
+
+This closes the original signal/export gate. Only5.634s are above20km/h and none
+above60, so matched owner driving is still needed; no gain change follows.
+Recorded crash strength70 is separate from the steering-only Strength50 trial.
+The owned game exits0xC0000005 despite successful restoration/disarm/lease
+release: force qualification does not close shutdown. The old unavailable-force
+captures stay excluded. Frozen original/analyzer/reports/repeat commands:
+`SessionEvidence/iracing-grip-fixed-20261007` under LocalAppData/Dbce/StagePlayback;
+consumer `docs/reviews/2026-10-07-grip-restored-qualification.md` records the seal.
 
 **Woden Grip v4 follow-up, October 7:** fixes8bc3444 pass the three independent
 low-speed damping, invalid-load reference and negative-curve cases on frozen
@@ -278,7 +297,7 @@ review `docs/reviews/2026-10-06-ffb-release-feel.md`; no retune was made.
 |---|---|---|
 | Art | forces.csv `output`, `time_s`, `epoch`, `speed_kmh` | Separate crash/landing/shift effects are absent from this steering CSV. |
 | Woden | `analysis.force.preview/valid/reset`, `motion.speed` | `ffb.preview` is zero in this muted capture because actual delivery lifecycle resets each tick. The independent analysis model preserves force history. |
-| iRacing | Historical Classic `ffb.Output` and saved `ffb.*` tune, `car.SpeedMs` | Grip/crash selected output is not reconstructed by the Classic-only analyzer. NativeCommand/DeliveryScale are delivery gates, not upstream force. Current original reference is a low-speed diagnostic. |
+| iRacing | Contract2 selected steering/crash plus model-aware steering-only `ffb-export`; historical Classic `ffb.Output` | Repack.138 original Grip capture/export is qualified with matching analyzer bytes. Older Classic-only analysis cannot reconstruct Grip/crashes. NativeCommand/DeliveryScale are delivery gates. Current original workload is a low-speed diagnostic. |
 | DRIVE | Production DriveForceModel over original solver channels | Stock Logitech effect requests are not the new mod's signed steering force. Kinematic replay contacts are not original solver observations. |
 | F-Zero | Separate spring/damper coefficients and road amplitude | Conditional effects depend on physical wheel displacement/velocity. Fallback constant is used only if spring is unavailable; do not add both. |
 
@@ -329,9 +348,10 @@ Raising the cap changes possible peak output and needs an attended comparison.
 The earlier DRIVE 75 trial is likewise diagnostic, not a substitute for
 calibrating its 50 setting. Preserve saved settings until an explicit trial.
 
-iRacing needs a new normal-speed owner drive; its short diagnostic cannot settle
-cross-game cornering feel. DRIVE needs a new capture on the current FFB runtime
-with calculation preserved while only physical/network sinks are muted. F-Zero
+iRacing needs a new normal-speed owner drive; its qualified short Grip diagnostic
+cannot settle cross-game cornering feel. DRIVE's model3 original muted capture
+and cold replay now pass; owner matched steering/crashes and nonzero live road
+texture remain open. F-Zero
 needs a validated reference and wheel displacement/velocity context for condition
 effects. Record owner acceptance separately from model tests. No unattended
 physical-force test is needed for this offline stage.
