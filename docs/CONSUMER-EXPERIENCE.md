@@ -56,6 +56,17 @@ the only matching input must not silently switch force output to B.
 This extra association step is a current capability gap in automatic setup,
 not evidence that cross-backend matching has been verified.
 
+When legacy steering already works, also offer an owner-triggered explicit FFB
+choice that preserves its binding and calibration. Explain before the pick that
+this saves a feedback wheel directly; it does not create a Steering association.
+Do not make the player rebind a working axis merely to choose output hardware,
+and do not make startup/Refresh/Resolve silently change selection mode. iRacing's
+October 6 legacy recovery uses the same explicit-GUID selector as its ordinary
+wheel picker; identity-bound paths retain the confirmed-association route. Its
+production-selector tests cover retained bindings, absent/reordered/duplicate
+devices and a same-name replacement. Source/offline checks do not establish
+rendered UI or physical force acceptance.
+
 An additive shared metadata API would need real cross-backend validation,
 including identical devices and reconnect/reorder cases. It is not part of the
 UI rollout; do not update a consumer's native pin on the assumption it exists.
