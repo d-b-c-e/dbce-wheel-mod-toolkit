@@ -70,3 +70,40 @@ Art capture differs again at identical tuning. Keep source identity, matching
 bands/event types, duration weighting and clipping/release measurements with
 every comparison. No single drive distribution is a universal calibration target.
 See the consumer review's repack.121 addendum for source and reproduction paths.
+
+## Impact port handoff after owner feedback
+
+At about 22:35 CT the owner still felt iRacing weaker, particularly in crashes,
+despite its whole-session steering histogram exceeding the Norway reference.
+iRacing had no separate impact cue. This supports comparing effect families and
+temporal response rather than treating the steering histogram as physical feel.
+Claude owns the shared impact implementation, consumer collision adapter and
+frame-statistics extraction; Codex continues recording/normalization review and
+offline verification. Live owner tune changes need separate analysis epochs.
+
+Do not confuse this toolkit's existing ImpactMixer (0e8cc0b) with Art's class
+of the same name. The former mixes a 100 ms biphasic pulse into structural
+force with default 25% reserved headroom, reducing structural output even when
+no cue plays. Art uses separate finite effects and different arbitration. Port
+or version the accepted Art policy without silently changing the existing
+type's contract. Pure contact classification/intensity/continuity and cue
+arbitration are reusable; engine collision hooks and local-car identity remain
+in the consumer. Record detection, requested effect parameters and delivery
+separately, including during physically muted playback.
+
+Art's full-intensity CrashStrength 50 request is a positive-X 0.50 constant
+push for 120 ms plus a separate 0.25-amplitude 25 Hz sine for 250 ms, phase 0,
+fading over the last 150 ms. This setting is independent of steering Strength.
+Use the pinned profile and its 12-case/63-check fake-sink reference for parity;
+matching the waveform does not calibrate the receiving game's event severity.
+
+Native compatibility was checked from source and the consumer's pinned hash:
+iRacing uses package v0.13 with native0.6 override 1760aaa (41 exports,
+2517883E907D91D37F25366189E1515BBC32C3C24214DCFE719B4350BCF820BE).
+It lacks the constant-burst and shaped-periodic exports used by Art's package
+v0.15/native0.8. Conversely v0.15 lacks the override's INIT_ONCE/atomic lock
+publication and initialization before watchdog creation. Preserve those fixes
+when adopting a burst-capable native build. Reuse iRacing's single existing
+FfbNative lifecycle; a shared pure effect policy must not acquire a second
+device through another wrapper. No runtime, install or device action followed
+from this source-only compatibility review.
