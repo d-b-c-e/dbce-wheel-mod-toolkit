@@ -593,7 +593,7 @@ Exact findings and receipt: consumer `docs/2026-10-06-focused-input-followup.md`
 
 ## Read-only native discovery must preserve host cleanup
 
-[dbce-mods-outrun-2006, 2026-10-07; reviewed a181519, fixes pending]
+[dbce-mods-outrun-2006, 2026-10-07; original a181519, corrections reviewed at 069fe41]
 
 A recorder can be read-only with respect to gameplay and still disrupt shutdown.
 OutRun's first tick-discovery candidate saved allocating text before force/input
@@ -625,6 +625,17 @@ an original-force capture. Keep tick/pose discovery, signal preservation, output
 suppression and eventual replay as separately qualified steps. Consumer report:
 `docs/2026-10-07-tick-discovery-review.md`; frozen x86 reproducer and hashes are
 retained privately there. No game/device/native pin or installed payload changed.
+
+The 069fe41 follow-up closes all four findings: cleanup/gate completion precedes
+optional discovery save, native entry points contain exceptions, normal outcome
+requires committed data (one non-overwriting retry named in `dataFile`), final
+pending pre fails, and same-model replacement emits an instance epoch. The 100
+discovery checks, production lifecycle suites and 33 independent source-linked
+fault checks pass. The latter compiles the actual discovery namespace and host
+finalizer against fake game/log/device boundaries, including throwing producer
+and logging paths. Installed f021736 remains unchanged; no live discovery or
+output-mute acceptance follows. If serialization/storage fails, rows may be lost;
+best-effort failed markers and missing completion must stay explicitly incomplete.
 
 ## A menu route is a sequence of verified states, not a button count
 
