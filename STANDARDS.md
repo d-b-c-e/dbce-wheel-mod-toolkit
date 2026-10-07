@@ -309,3 +309,19 @@ persistent counter drawn by the mod in the top-right corner of the centre screen
 window without triples), showing current fps (smoothed) and the 1% low of the last ten seconds,
 with a dark outline so it reads on any background. Draw it only in the repaint pass and allocate
 nothing per frame. Reference: iRacing Arcade `FrameStats.DrawOverlay` (repack.119).
+
+## STD-025 — One force model for every tyre game, in the toolkit
+2026-10-06 · owner ("even though we're using the toolkit every game has its own model? Is there a strong reason for that? I should think one of our goals is to continually improve all games at once"; "Art of Rally's force model is quite good - it would pay off if we could ... translate that into a force model through the toolkit") · applies to: every game with tyre physics · builds on STD-003, STD-021
+
+The steering force is the toolkit's model: `Dbce.Wheel.Ffb.AxleForceCurve` (art of rally's front-axle
+sideways force x pneumatic trail that lightens past the peak-grip slip, low-speed fade, clamp,
+smoothing; gain Strength / 50). A game mod supplies only an adapter that reads the standard inputs
+- front-axle sideways force, mean front slip angle in degrees, the peak-grip slip angle, speed and
+a full-scale reference (newtons where the game uses SI forces, otherwise a multiple of the front
+axle's resting load measured in game) - plus its calibration constants. Crash cues, landings and
+surface texture follow the same rule as they move into the toolkit. Improvements are made in the
+toolkit and reach every game at its next toolkit pin; a game-specific model needs a written reason.
+Games without tyre physics (F-Zero, pure arcade racers) keep a documented model of their own.
+State on 2026-10-06: art of rally (origin), #DRIVE Rally (adopted), iRacing Arcade (grip adapter,
+repack.120, classic model kept as an option); Super Woden Rally Edge and the rest still have their
+own models and migrate when next tuned. Reference adapter: iRacing `GripForceProcessor`.
