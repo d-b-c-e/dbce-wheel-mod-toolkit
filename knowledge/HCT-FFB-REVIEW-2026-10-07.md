@@ -83,3 +83,40 @@ the old pin's constant-only watchdog is not a general all-effect mute contract.
 These findings do not change any toolkit binary or consumer gain. HCT still
 needs an original signal capture, qualified replay and an owner comparison
 before entering the normalization evidence set.
+
+## Follow-up: 38b5220 and old native failure semantics
+
+HCT's next candidate passes 71 model/mapping checks and 29 production fake-sink
+checks. Normal disable/read-loss and finite-setting gates improve, but an
+independent extended fixture reproduces remaining boundary failures (11
+reproduction/control assertions, not safety passes). Consumer detail:
+`docs/reviews/2026-10-07-ffb-fix-review.md`.
+
+- **One device in a prior enumeration is not strict selection.** Native 0.4.0
+  re-enumerates inside InitDirectInput and permits fallback. It also returns
+  success for an existing native device before checking new preferences. A
+  managed singleton check certifies neither that later snapshot nor that handle.
+  Use the tested strict-selection native contract, including existing-handle
+  identity and reader continuity, rather than adding more managed enumerations.
+- **Void zero is best effort.** ZeroForces discards the integer setter result.
+  A normal return cannot acknowledge neutral output. Fake native boundaries must
+  model ordinary rejected HRESULTs that do not throw, including a void wrapper
+  hiding them. Cache only acknowledged commands; preserve unresolved stopping.
+- **Stopped is not zero-valued.** A successful StopEffect may retain nonzero
+  parameters after a failed zero write. Starting before replacing those values
+  can replay stale force ahead of the intended ramp. Qualify the sequence using
+  persistent fake device parameters, not only the last integer sent. Pending
+  stopping must inhibit Init/Start/nonzero output even after an explicit toggle.
+- **Capture the setting at the callback.** A pure model can correctly latch its
+  strength while the adapter feeds last Tick's cached value. Test config changes
+  immediately before and after the actual callback; preserve the consumed value
+  in the event record.
+- **A successful getter is not a valid observation.** Check finite raw values
+  and derived ratios, and label optional fallback input unavailable. Substituting
+  zero must not silently create an eligible measured-zero row later.
+
+The installed 17-file receipt and 264 rebuilt/installed method IL bodies were
+checked offline. FFB remains default Off; no device was opened or force sent by
+the reviewer. Recommended next step is qualified x86 strict selection plus the
+consumer stop/restart fixes before attended output, not a hardware experiment
+to discover which actuator the old fallback happened to choose.
