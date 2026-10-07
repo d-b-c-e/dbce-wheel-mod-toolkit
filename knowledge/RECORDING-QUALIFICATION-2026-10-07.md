@@ -216,3 +216,17 @@ plugin/Core bytes so replacement/rollback cannot pass by skipping the write.
 All13 cases pass for selector.3 -> docs.1. This is installer coverage only;
 force, route and physical qualifications remain unchanged. Full finding and
 repeatable evidence: consumer docs/reviews/2026-10-07-ownership-followup.md.
+
+**Direct-removal correction, DRIVE bb92a99:** the scope is now one canonical
+manifest, requiring the prior unified identity, matching recorded bytes and
+matching schema/game/package identity. Only then are both its file entry and
+packageId carried. The dev remover recognizes the same validated inventory as
+the player remover. All 34 author checks and 30 independent checks pass; the
+latter verify every owned file removed and every remaining fixture byte intact
+through both removers, arbitrary prior paths excluded, and matching hashes with
+wrong identities still refused ownership. An unchanged hash is not by itself
+authority to adopt a file. Full-inventory assertions are stronger than checking
+only the main plugin and receipt disappeared. The original failure reproducer
+now fails its defect expectation as intended; historical evidence is retained.
+This closes the scoped removal finding without a live install, force test or
+route replay. Exact evidence and repeat commands are in the same consumer review.
