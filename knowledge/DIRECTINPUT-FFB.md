@@ -131,6 +131,14 @@ byte pushes right and a positive SDL steering-axis level turns the R12 left
 
 ## Device selection
 
+**Explicit selection correction (2026-10-07):** the historical automatic
+candidate ordering below is not a strict device association. A consumer that
+promises force on an explicitly selected instance must use strict GUID selection
+and fail if that target is missing or cannot open; never silently try another
+actuator. Older preferred-GUID exports do not provide that guarantee. Match the
+package, native component version and exact binary before reviewing behavior.
+See [the HCT review](HCT-FFB-REVIEW-2026-10-07.md).
+
 - Enumerate `DI8DEVCLASS_GAMECTRL` with `DIEDFL_ATTACHEDONLY`; check
   `DIDEVCAPS.dwFlags & DIDC_FORCEFEEDBACK`; record axes/buttons — two devices
   with the same product name are told apart by capabilities.

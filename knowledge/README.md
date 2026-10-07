@@ -4,6 +4,11 @@ verification limits; not a cross-device tune recommendation.
 
 # Knowledge base — index and migration tracker
 
+[Horizon Chase first-FFB review](HCT-FFB-REVIEW-2026-10-07.md): package versus
+native version identity, strict device selection, production sink transitions,
+finite-value boundaries and sampled effects versus Art's native effects.
+[dbce-mods-horizon-chase-turbo, 2026-10-07; source/fake-sink only].
+
 [Five-game FFB normalization baseline](FFB-NORMALIZATION-2026-10-06.md) and
 [repeatable offline comparison commands](../docs/FFB-NORMALIZATION.md)
 [dbce-wheel-mod-toolkit and five consumers, 2026-10-06].
