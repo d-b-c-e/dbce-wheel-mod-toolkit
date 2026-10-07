@@ -120,3 +120,41 @@ checked offline. FFB remains default Off; no device was opened or force sent by
 the reviewer. Recommended next step is qualified x86 strict selection plus the
 consumer stop/restart fixes before attended output, not a hardware experiment
 to discover which actuator the old fallback happened to choose.
+
+## Native0.6 proposal and retained-handle follow-up
+
+HCT4dc4331/4c95664 closes void-zero acknowledgement, unresolved-stop continuation,
+partial-init cleanup and event-time crash strength; the bundled native0.4.0 is
+now refused before force opens.37 author sink checks and72 model checks pass.
+Four independent production-path assertions still reproduce retained-parameter
+EnsureInit restart, existing-handle identity bypass and non-finite authority
+hidden by a conditional zero. Fixing Send's restart branch alone missed the
+separate initialization branch. Checking a quotient alone missed invalid raw
+authority when the division was skipped.
+
+The suggested OutRun x86 native0.6.0 is exact f8f0619,166400 bytes,
+SHA4F7FFBB590C30E2A8D33F2E7A3D7E8C770BDD2466053A2333D67C55D98BB08B4.
+Its strict flag only constrains opening a new candidate: InitDirectInput returns
+success for an existing g_device before validating its GUID. Export presence
+does not establish the full identity contract.23 exact-source x86 fake-COM checks
+reproduce this and test reader/free/watchdog behavior; no system DirectInput or
+hardware is opened. The lock-publication successor does not itself fix identity.
+
+SetHoldTimeoutMs after successful initialization is not the documented pre-init
+publication-race sequence: the lock is already initialized before worker
+creation, and Free joins while retaining the lock. Keep that scoped statement
+separate from general watchdog qualification. OutRun's no-watchdog adoption
+cannot stand in for HCT's use; prefer the reviewed41-export publication successor
+as a narrow candidate base, then qualify exact x86 and consumer lifecycle paths.
+
+Reader-first slots stay independent; force-first same-GUID slots borrow the
+force handle. FreeDirectInput preserves both slot records and independent read
+handles; borrowed slots become unavailable until the same GUID returns.
+CloseReadDevices is separate. Do not silently invalidate consumer slot caches.
+Microsoft's [cooperative-level contract](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee417921(v=vs.85))
+permits nonexclusive reads alongside exclusive access; this is not proof of a
+particular driver's coexistence behavior or a requirement to close all readers.
+
+Full consumer review: docs/reviews/2026-10-07-strict-native-review.md. Native pin,
+consumer runtime and physical settings unchanged by this review. No attended
+force or Art50 normalization acceptance follows from the offline checks.
