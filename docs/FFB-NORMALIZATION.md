@@ -46,6 +46,13 @@ not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
+**iRacing Grip adapter review, October 6:** consumer aac28a0 now calls the
+shared curve, but its force analyzer/exporter still validates Classic. Do not
+use that pass or CSV to qualify Grip. Two additional defects are reproduced:
+abrupt fallback to stronger Classic requests, and calibration from moving load.
+See [shared adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
+Historical Classic comparisons retain their original scope.
+
 Python 3.10+ and each consumer's documented .NET SDK are sufficient for the
 managed exports. No game launch, native wheel library, window, input injection
 or UDP sink is part of these commands. Start in each named repository root.

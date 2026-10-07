@@ -1,5 +1,17 @@
 # Current source checkpoint
 
+## iRacing shared force adapter review — October 6 evening
+
+STD-025 correctly consolidates tyre steering in AxleForceCurve. Initial iRacing
+aac28a0 adoption remains partial: frozen-source offline reproduction finds
+Classic-vs-Grip recording mismatch, abrupt stronger Classic fallback and moving
+load accepted as resting calibration. Six scenarios/nine checks reproduce these
+while all 329 existing consumer tests pass. See
+knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md. The current Classic exporter cannot
+qualify Grip. Art's reference, all runtime/installed settings and the owner's
+rig are unchanged by this review. Findings were sent to Claude through the
+portfolio inbox; adapter fixes and current owner acceptance remain pending.
+
 ## Woden beta.2 and iRacing owner candidate — October 6 evening
 
 Woden 0.2.14-beta.2 is a published early-tester prerelease at fe91064 with the

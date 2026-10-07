@@ -324,4 +324,8 @@ toolkit and reach every game at its next toolkit pin; a game-specific model need
 Games without tyre physics (F-Zero, pure arcade racers) keep a documented model of their own.
 State on 2026-10-06: art of rally (origin), #DRIVE Rally (adopted), iRacing Arcade (grip adapter,
 repack.120, classic model kept as an option); Super Woden Rally Edge and the rest still have their
-own models and migrate when next tuned. Reference adapter: iRacing `GripForceProcessor`.
+own models and migrate when next tuned. Initial adapter: iRacing `GripForceProcessor`.
+Independent review of aac28a0 found recording, automatic fallback and calibration
+defects; do not copy it as a qualified reference until corrected. See
+`knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md` for reproduced cases and the shared
+adapter/recording requirements. The shared-model requirement itself is unchanged.
