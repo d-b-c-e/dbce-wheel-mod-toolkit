@@ -46,12 +46,21 @@ not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
-**iRacing Grip adapter review, October 6:** consumer aac28a0 now calls the
-shared curve, but its force analyzer/exporter still validates Classic. Do not
-use that pass or CSV to qualify Grip. Two additional defects are reproduced:
-abrupt fallback to stronger Classic requests, and calibration from moving load.
-See [shared adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
+**iRacing Grip adapter review, October 7:** ef8f1c8 corrects the earlier
+selected-model/analysis replay, automatic Classic fallback and calibration defects.
+Independent consumer359 and the original strict3001-row Classic reference pass.
+Complete crash qualification still needs an explicit treatment of unseeded rows
+and event-time settings; exporter car-reset/eligibility handling also remains open
+at that source identity. See the [shared crash review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md)
+and [adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
 Historical Classic comparisons retain their original scope.
+
+**Woden Grip v4 proposal, October 7:** a separate estimated-tyre adapter is being
+implemented by Claude, preserving Classic v3. Review the [design and recording
+requirements](../knowledge/WODEN-GRIP-V4-DESIGN-REVIEW-2026-10-07.md) before
+interpreting it as measured lateral force or normalized physical feel. The old
+Kenya reference lacks the new friction-curve inputs, so it validates v3 only;
+v4 needs a new muted capture. No v4 runtime acceptance is claimed.
 
 Python 3.10+ and each consumer's documented .NET SDK are sufficient for the
 managed exports. No game launch, native wheel library, window, input injection
