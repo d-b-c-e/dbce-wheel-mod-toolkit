@@ -46,13 +46,15 @@ not a measured zero; do not invent a new effect to fill the comparison.
 
 ## Reproduce the comparison without a rig
 
-**iRacing Grip adapter review, October 7:** ef8f1c8 corrects the earlier
-selected-model/analysis replay, automatic Classic fallback and calibration defects.
-Independent consumer359 and the original strict3001-row Classic reference pass.
-Complete crash qualification still needs an explicit treatment of unseeded rows
-and event-time settings; exporter car-reset/eligibility handling also remains open
-at that source identity. See the [shared crash review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md)
-and [adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
+**iRacing Grip adapter review, October 7:** d3b7b0e closes the unseeded-cue,
+event-time strength and trial lifecycle findings. Independent consumer363,
+seven extra positive cases, the original strict3001-row Classic reference and
+the actual Classic export CLI pass. One extra case still reproduces invalid
+Classic input being exported as eligible zero. Map normalization validity to
+CSV `eligible`, not car-state `valid` (see below). Fresh live-qualified Grip
+capture/export and physical normalization remain open. See the
+[shared crash review](../knowledge/CRASH-PORT-REVIEW-2026-10-06.md) and
+[adapter requirements](../knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md).
 Historical Classic comparisons retain their original scope.
 
 **Woden Grip v4 proposal, October 7:** a separate estimated-tyre adapter is being
@@ -185,6 +187,22 @@ world-units-per-frame proxy. Allowed quantities are constant-force-request,
 spring-coefficient, damper-coefficient and periodic-amplitude; allowed evidence
 levels are recorded-model-output, counterfactual and synthetic. Keep effect
 families separate. A collision edge is not a force magnitude.
+
+For iRacing's model-aware `ffb-export` CSV (d3b7b0e onward), use this mapping:
+
+```json
+{"time":"time_s","value":"request","valid":"eligible","epoch":"epoch","speed":"speed_kmh"}
+```
+
+CSV `valid` only describes car/driving state. `eligible` also accounts for the
+selected model's tyre/reference availability and excludes provisional reference
+learning. A 200-row synthetic production/trial integration check admitted
+0.28 s with this map versus 3.34 s using `valid`; this is an adversarial fixture,
+not a driving result. Keep the CSV `exclusion` reasons with the evidence.
+At d3b7b0e, explicitly marked invalid Classic inputs can still produce an
+eligible safety-release zero; reject such inputs for calibration until that
+consumer guard is fixed. Exact replay of a safety response does not make missing
+input a measured force. Do not reject genuine cancellation or airborne zero.
 
 ## Statistics and interpretation
 

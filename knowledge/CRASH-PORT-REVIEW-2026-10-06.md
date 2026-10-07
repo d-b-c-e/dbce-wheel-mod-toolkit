@@ -1,5 +1,32 @@
 # Shared crash port: differences from the accepted Art reference
 
+## iRacing d3b7b0e follow-up, October 7
+
+The three ef8f1c8 findings below are corrected. Invented cues before a known
+crash state or after contact overflow fail explicitly; partial rows remain
+labelled. Contact snapshots retain event-time strength, so Strength50 followed
+by a Strength20 edit before the tick replays correctly. Pure strength trials
+follow car/reset lifecycle, separate model/tune epochs and exclude missing
+tyre/reference or provisional calibration intervals.
+
+Independent consumer363 and seven extra positive cases pass. The original
+3001-row Classic reference and actual export CLI also pass strictly. Both pure
+trial models equal production outputs on all 200 synthetic rows; this does not
+qualify a new live Grip capture. One additional case reproduces a smaller
+remaining gap: marked NaN Classic slip correctly releases to zero and passes
+model replay, but the exporter labels that row eligible. Qualify selected model
+inputs before using it for normalization. The shared tool must map `valid` to
+CSV `eligible`; the wrong column admits unavailable/reference-learning rows.
+
+Detailed consumer review: `docs/reviews/2026-10-07-force-contract-d3b7b0e.md`.
+Private evidence under `%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/`:
+`iracing-grip-review-d3b7b0e-20261007`, 529 verified files, manifest SHA-256
+`609822D7D025D115D70C2D82678C2FDE2661A89551666B1CBB04166513F983B0`.
+All304 archived source files match with newline normalization. Fresh muted
+Grip/contact capture, matched event evidence and attended feel remain open.
+Sampled fallback delivery remains distinct from Art's finite native effects.
+No runtime, installed setting, game, device or rig operation occurred.
+
 ## iRacing ef8f1c8 follow-up, October 7
 
 iRacing's next contract fixes the primary selected-model/analysis checks and
