@@ -191,6 +191,17 @@ Different tracks, tyres, assists and maneuvers are different workloads. Speed
 bands help expose coverage gaps but do not by themselves match corner severity.
 The tool deliberately makes no automatic cross-game gain recommendation.
 
+Compare release behavior as well as magnitude. A report of "heavy" can mean
+load that persists after contact, not excessive peak strength. First distinguish
+the input signal, static clipping/boost, time-dependent filters and native
+delivery. iRacing's October 6 owner setting of roughly 0.09 is retained EMA
+history per physics tick: a cleared input falls below 0.1% after three ticks.
+Its continuous slip-times-load proxy has no separate finite crash cue to expire.
+A marked original recording is needed before attributing lingering weight to
+the model or the wheel. Changed-command native logs do not establish update
+cadence, contact timing, driver acceptance or measured torque. See the consumer
+review `docs/reviews/2026-10-06-ffb-release-feel.md`; no retune was made.
+
 ## Game mapping pitfalls
 
 | Game | Useful original stream | Do not mistake for the same thing |
