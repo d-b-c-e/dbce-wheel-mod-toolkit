@@ -53,7 +53,12 @@ def mapped(raw, mapping):
     if mapping.get("speed"):
         scale = finite(mapping.get("speedScale", 1))
         require(scale > 0, "invalid speed conversion")
-        speed = finite(abs(finite(raw[mapping["speed"]])) * scale)
+        raw_speed = raw[mapping["speed"]]
+        # An explicitly excluded CSV row may have no observed speed (e.g. a
+        # Woden menu/no-car row). Keep the row as a timeline break; never invent
+        # zero speed. Eligible rows, NaN/Inf and missing columns still refuse.
+        if not (valid == 0 and raw_speed == ""):
+            speed = finite(abs(finite(raw_speed)) * scale)
     return {"time": time, "value": value, "valid": valid == 1, "epoch": epoch, "speed": speed}
 
 

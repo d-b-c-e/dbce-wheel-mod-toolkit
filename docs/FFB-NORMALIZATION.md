@@ -257,6 +257,22 @@ validation and a pinned source hash. Missing/nonfinite selected values fail
 instead of becoming zeros. Requests must be in [-1,1], time nonnegative and
 monotonic, valid exactly 0/1. Equal timestamps are counted and have zero duration.
 
+An explicitly excluded CSV row (`valid` mapping evaluates to 0) may have an
+empty speed cell when speed was unobserved, such as a Woden menu without a car.
+It remains a timeline break with unavailable speed, never a measured zero.
+Eligible blank speed, missing columns and NaN/Infinity still fail. This narrow
+exception is covered by the analyzer's 24-test suite.
+
+Woden ordinary owner cases now export through the same strict
+`RecordedForceReplay` lifecycle as their baseline validation. The consumer
+accepts either a sealed stage or the five-file ordinary case, never a damaged
+stage fallback. Its CSV must map validity to `eligible`; model v4/v5 terms
+come from the evaluated trial. The preserved September 30 Classic case passes
+end to end (8,251 model rows, 6,922 eligible, five input hashes unchanged).
+This closes the attended-capture plumbing gap; it does not qualify a fresh
+Grip drive or normalize its physical force. Ordinary muted cases reset on
+blocked gates and cannot replace the shaping history of an attended drive.
+
 `valid`, `epoch` and `speed` mappings may be omitted (all valid, one epoch,
 speed unavailable respectively). Speed is an absolute magnitude; `speedScale`
 converts to km/h, e.g. 3.6 for m/s. Do not invent a physical speed for F-Zero's

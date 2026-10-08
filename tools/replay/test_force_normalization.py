@@ -58,6 +58,20 @@ class StatisticsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             f.mapped({'t': 0, 'v': 0, 's': 1e308}, {'time': 't', 'value': 'v', 'speed': 's', 'speedScale': 3.6})
 
+    def test_only_excluded_rows_allow_explicit_blank_speed(self):
+        mapping = dict(time='t', value='v', valid='ok', speed='s')
+        excluded = f.mapped(dict(t=.05,v=0,ok=0,s=''), mapping)
+        self.assertIsNone(excluded['speed'])
+        self.assertFalse(excluded['valid'])
+        summary = f.summarize([row(0,.6),excluded,row(.10,.6),row(.15,0)])
+        self.assertAlmostEqual(summary['excludedSeconds']['invalid'], .05)
+        self.assertAlmostEqual(summary['temporal']['bands']['all']['thresholds']['0.5']['longestSameSignSeconds'], .05)
+        for valid, speed in ((1,''),(0,'NaN'),(0,'Infinity'),(1,'NaN')):
+            with self.assertRaises(ValueError):
+                f.mapped(dict(t=0,v=0,ok=valid,s=speed),mapping)
+        with self.assertRaises(KeyError):
+            f.mapped(dict(t=0,v=0,ok=0),mapping)
+
 
 class TemporalTests(unittest.TestCase):
     def timing(self, rows, band='all'):
