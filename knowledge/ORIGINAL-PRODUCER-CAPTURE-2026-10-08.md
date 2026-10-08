@@ -26,6 +26,8 @@ CannonBall's original cabinet motor law consumes bounded integers and table
 indices. The reader validates those domains *before* invoking the original
 code, including steering [-127,127] and motor limits. A structurally valid JSON
 number is not sufficient admission to a native lookup table.
+The steering bound comes from the game's own `adjust_inputs` cap; a captured
+value outside it means malformed data, not an unusually aggressive drive.
 
 ## Observe muting, rather than writing a reassuring label
 
@@ -41,6 +43,9 @@ accepted delivery makes the capture partial, with no complete footer. Fixtures
 inject those failures. The wrapper calls the production setter once, not once
 for the game and again for evidence. Native DLL absence during the live run is
 additional evidence; neither observation measures actuator torque.
+The per-row -1 covers that Windows force setter only. SDL rumble/haptics and
+telemetry use the same startup mute key but are not observed per row; their
+qualification rests on the reviewed gates, not on the recorded return value.
 
 OutRun 2006 retains the original calculation with virtual sinks and the
 existing feedback-state updates. Its original constant/periodic requests remain

@@ -34,7 +34,21 @@ void Log(string s) { var line = $"{DateTime.Now:HH:mm:ss.fff} {s}"; Console.Writ
 using var client = new ViGEmClient();
 var pad = client.CreateXbox360Controller();
 pad.Connect();
-Log($"connected virtual Xbox 360 controller (slot {slot}); watching {cmdPath}; idle exit after {idleMinutes} min");
+try
+{
+    var startupClock = Stopwatch.StartNew();
+    int inputIndex = NeutralStartup.Ensure(
+        () => { try { return pad.UserIndex; } catch (Nefarius.ViGEm.Client.Targets.Xbox360.Exceptions.Xbox360UserIndexNotReportedException) { return null; } },
+        XInputReadback.Read,
+        () => { pad.SetAxisValue(Xbox360Axis.LeftThumbX, 1); Thread.Sleep(10); pad.ResetReport(); pad.SubmitReport(); },
+        Thread.Sleep, () => startupClock.ElapsedMilliseconds);
+    Log($"connected virtual Xbox 360 controller (command slot {slot}, XInput index {inputIndex}, neutral readback verified); watching {cmdPath}; idle exit after {idleMinutes} min");
+}
+catch
+{
+    pad.Disconnect();
+    throw;
+}
 
 var buttons = new Dictionary<string, Xbox360Button>(StringComparer.OrdinalIgnoreCase)
 {
