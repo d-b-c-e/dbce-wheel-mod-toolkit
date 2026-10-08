@@ -36,6 +36,14 @@
  * idempotent for a valid burst slot. Frequency 1..100 Hz. Shares four periodic
  * slots; continuous Update rejects burst slots. Failed events are never retried.
  *
+ * Native 0.9.1 also retains the 0.5.1 Woden input override: bit 0 from
+ * GetInputCapabilities means ReadDeviceState writes physical buttons 0..127
+ * and four hats x eight directions at 128..159 (N, NE, E, SE, S, SW, W, NW).
+ * Only min(buttonCount,160) bytes are written; legacy 128-byte callers keep
+ * their existing output. Missing/invalid hats are neutral. As before, failed
+ * legacy reads leave buffers untouched: consumers must check the return code.
+ * Do not infer this capability from a version number alone.
+ *
  * Native 0.9.0 ReadDeviceStateWithPov reads one coherent device snapshot.
  * axes must hold exactly 8 ints (X Y Z Rx Ry Rz Slider1 Slider2); POV exactly
  * 4 ints; buttonCount is 0..128 (NULL buttons allowed only at 0). Count fields
@@ -104,6 +112,7 @@ extern "C" {
     X(void, SetLogPath,             (const char* path)) \
     X(int,  GetLastHResult,         (void)) \
     X(int,  GetWheelFfbVersion,     (void)) \
+    X(int,  GetInputCapabilities,   (void)) \
     X(int,  CreatePeriodicEffect,   (int freqHz)) \
     X(int,  UpdatePeriodicEffect,   (int slot, int magnitude, int freqMilliHz)) \
     X(int,  CreatePeriodicBurst,    (int freqHz, int durationMs)) \

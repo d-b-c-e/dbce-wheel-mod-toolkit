@@ -37,6 +37,7 @@
 
 #include <windows.h>
 #include <dinput.h>
+#include "include/digital_input.h"
 #include <shlobj.h>
 #include <cstdio>
 #include <cstdarg>
@@ -59,7 +60,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 900;            // 0.9.0
+static const int  kVersion      = 901;            // 0.9.1
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static std::atomic<HRESULT> g_lastHr{S_OK};
@@ -465,6 +466,17 @@ static void CloseCandidate()
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;
 }
 
+// Stop/release the mismatched actuator under the watchdog's effect lock. Keep
+// its worker, exit guards and shared DirectInput/readers for a later explicit
+// initialization. Ported from the master candidate 5c3503f.
+static void ReleaseRetainedDevice()
+{
+    if (g_lockInit) EnterCriticalSection(&g_lock);
+    g_lastForce = 0;
+    CloseCandidate();
+    if (g_lockInit) LeaveCriticalSection(&g_lock);
+}
+
 // Opens one FFB candidate and creates the constant-force effect on it.
 // Returns 1 on success; on failure everything but the instance is released.
 static int OpenCandidate(int idx)
@@ -550,6 +562,15 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     if (!EnsureEffectLock()) return 0;
 
     if (g_device) {
+        if (g_strictSelection && (!g_preferredGuidSet || !IsEqualGUID(g_preferredGuid, g_activeGuid))) {
+            Log("  strict GUID selection changed: releasing retained device and refusing initialization");
+            // Reuse must obey the same identity rule as a fresh open. Stop the
+            // old actuator while retaining the watchdog, exit guards and
+            // independent readers. Do not silently switch devices in this call.
+            ReleaseRetainedDevice();
+            g_lastHr = DIERR_NOTFOUND;
+            return 0;
+        }
         Log("  already initialised");
         return 1;
     }
@@ -895,6 +916,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     LPDIRECTINPUTDEVICE8 dev = s.isWheel ? g_device : s.dev;
     if (!dev) return 0;
     DIJOYSTATE2 st = {};
+    for (int i = 0; i < 4; ++i) st.rgdwPOV[i] = 0xFFFFFFFF;
     HRESULT hr = dev->Poll();
     if (FAILED(hr) && !s.isWheel) { dev->Acquire(); dev->Poll(); }
     hr = dev->GetDeviceState(sizeof(st), &st);
@@ -907,8 +929,8 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
     if (buttons && buttonCount > 0) {
-        int n = buttonCount < 128 ? buttonCount : 128;
-        for (int i = 0; i < n; ++i) buttons[i] = (st.rgbButtons[i] & 0x80) ? 1 : 0;
+        uint32_t hats[4] = {st.rgdwPOV[0], st.rgdwPOV[1], st.rgdwPOV[2], st.rgdwPOV[3]};
+        WheelDigitalButtons(st.rgbButtons, hats, buttons, buttonCount);
     }
     return 1;
 }
@@ -1874,6 +1896,14 @@ __declspec(dllexport) int GetLastHResult(void) {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return (int)g_lastHr.load(); }
 __declspec(dllexport) int GetWheelFfbVersion(void) {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return kVersion; }
+
+// Woden's 0.5.1 input override: exact hat directions as buttons 128..159.
+// This capability is independent of the newer coherent raw-POV export.
+__declspec(dllexport) int GetInputCapabilities(void)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    return 1;
+}
 
 __declspec(dllexport) BOOL StartEffect(void)
 {

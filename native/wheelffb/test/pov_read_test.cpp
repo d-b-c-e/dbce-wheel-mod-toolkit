@@ -131,6 +131,42 @@ int main() {
     memcpy(wheel.state.rgdwPOV,boundaries,sizeof(boundaries));
     assert(out.read() && out.pov[0]==35999 && out.pov[1]==-1 && out.pov[2]==-1 && out.pov[3]==1);
     wheel.omitPov=true;assert(out.read());for(int p:out.pov)assert(p==-1);wheel.omitPov=false;
+    // Existing Woden managed wrapper uses a different, preserved ABI: 160
+    // digital buttons and GetInputCapabilities, not raw POV output.
+    assert(GetInputCapabilities()==1);
+    unsigned char digital[161];
+    for(int hat=0;hat<4;++hat)for(int direction=0;direction<8;++direction) {
+        for(auto& angle:wheel.state.rgdwPOV)angle=0xFFFFFFFF;
+        wheel.state.rgdwPOV[hat]=direction*4500;
+        memset(digital,42,sizeof(digital));int reads=wheel.reads,polls=wheel.polls;
+        assert(ReadDeviceState(0,out.axes,digital,160)==1);
+        assert(wheel.reads==reads+1 && wheel.polls==polls+1 && wheel.acquires==0);
+        for(int i=0;i<128;++i)assert(digital[i]==(i==0||i==127?1:0));
+        for(int i=128;i<160;++i)assert(digital[i]==(i==128+hat*8+direction));
+        assert(digital[160]==42);
+    }
+    for(DWORD angle:{0xFFFFFFFFUL,0xFFFFUL,0x1234FFFFUL,36000UL}) {
+        for(auto& p:wheel.state.rgdwPOV)p=angle;
+        assert(ReadDeviceState(0,out.axes,digital,160));
+        for(int i=128;i<160;++i)assert(digital[i]==0);
+    }
+    wheel.omitPov=true;assert(ReadDeviceState(0,out.axes,digital,160));
+    for(int i=128;i<160;++i)assert(digital[i]==0);wheel.omitPov=false;
+    for(int count:{-1,0,1,127,128,129,159,160,161,INT_MAX}) {
+        memset(digital,42,sizeof(digital));assert(ReadDeviceState(0,out.axes,digital,count));
+        int written=count<0?0:count>160?160:count;
+        for(int i=written;i<161;++i)assert(digital[i]==42);
+    }
+    assert(ReadDeviceState(0,out.axes,nullptr,160));
+    wheel.readResult=E_FAIL;memset(digital,42,sizeof(digital));
+    assert(!ReadDeviceState(0,out.axes,digital,160));
+    for(auto button:digital)assert(button==42);wheel.readResult=S_OK;
+    wheel.state.rgdwPOV[0]=2249;assert(ReadDeviceState(0,out.axes,digital,160));
+    assert(digital[128]==1 && digital[129]==0);
+    wheel.state.rgdwPOV[0]=2250;assert(ReadDeviceState(0,out.axes,digital,160));
+    assert(digital[128]==0 && digital[129]==1);
+    wheel.state.rgdwPOV[0]=35999;assert(ReadDeviceState(0,out.axes,digital,160));
+    assert(digital[128]==1 && digital[135]==0);
     // Accepted optional-button extents write no bytes outside the declared count.
     assert(ReadDeviceStateWithPov(0,out.axes,8,nullptr,0,out.pov,4));
     out.seed();assert(ReadDeviceStateWithPov(0,out.axes,8,out.buttons,1,out.pov,4));
@@ -232,5 +268,5 @@ int main() {
     assert(OpenCandidate(0) && g_device==&good && good.forceCreates==1 && good.actuatorOns==1);
     CloseCandidate();assert(!g_device && good.releases==1);
     g_di=nullptr;
-    puts("PASS production POV and FFB acquire/recovery/open routes with fake COM; no hardware opened");
+    puts("PASS production legacy 160-button/coherent POV and FFB acquire/recovery/open routes with fake COM; no hardware opened");
 }
