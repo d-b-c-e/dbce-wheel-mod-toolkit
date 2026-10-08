@@ -36,9 +36,9 @@ function Snapshot {
         $_.FullName.Substring($caseRoot.Length) + ':' + (Get-FileHash -LiteralPath $_.FullName).Hash + ':' + $_.LastWriteTimeUtc.Ticks
     })) -join "`n"
 }
-function Run-Status([string]$Current = 'v0.13.0', [switch]$Human) {
+function Run-Status([string]$Current = 'v0.13.0', [switch]$Human, [string]$ConsumerRoot = $siblings) {
     $before = Snapshot
-    $arguments = @('-NoProfile', '-File', $fixtureScript, '-Root', $siblings, '-Current', $Current)
+    $arguments = @('-NoProfile', '-File', $fixtureScript, '-Root', $ConsumerRoot, '-Current', $Current)
     if (-not $Human) { $arguments += '-AsJson' } else { $arguments += '-All' }
     $output = @(& $powershell @arguments 2>&1)
     $code = $LASTEXITCODE
@@ -188,6 +188,21 @@ try {
     $result = Run-Status
     Assert ($result.Code -eq 1 -and (Row $result 'art-of-sim-rally').Status -eq 'LOCAL / DEVELOPMENT PIN') 'Local pin misclassified as release'
     Set-Pin 'art-of-sim-rally' 'v0.13.0'
+    $canonical = Join-Path $siblings 'games/dbce-mods-woden-rally-edge/components/wheel/lib/toolkit/VERSION'
+    Write-Fixture $canonical 'v0.13.0'
+    $result = Run-Status
+    Assert ((Row $result 'woden-rally-edge-wheel').RepoPath -like '*games*dbce-mods-woden-rally-edge*components*wheel') 'Canonical component root not selected'
+    $result = Run-Status -ConsumerRoot (Join-Path $siblings 'games')
+    Assert ((Row $result 'woden-rally-edge-wheel').Status -eq 'CURRENT') 'Root=games did not resolve the direct canonical candidate'
+    New-Item -ItemType Directory -Path (Join-Path $siblings 'games/dbce-mods-iracing-arcade') | Out-Null
+    $result = Run-Status
+    Assert ((Row $result 'iracing-arcade-wheel').Why -match 'repo not found') 'Missing canonical components/wheel fell back to legacy'
+    Write-Fixture $canonical 'invalid-current-pin'
+    $result = Run-Status
+    Assert ((Row $result 'woden-rally-edge-wheel').Status -eq 'INVALID / MISSING PIN') 'Invalid canonical pin fell back to valid stale legacy checkout'
+    Remove-Item -LiteralPath $canonical
+    $result = Run-Status
+    Assert ((Row $result 'woden-rally-edge-wheel').Why -match 'missing') 'Missing canonical pin fell back to valid stale legacy checkout'
     $result = Run-Status 'v99.0.0'
     Assert ($result.Code -eq 1 -and -not $result.Data.TargetAvailable) 'Missing comparison target should require review'
     [ordered]@{ status = 'passed'; assertions = $script:checks; scope = 'offline pins, git ranges, split provenance, output/exit and read-only snapshots' } | ConvertTo-Json -Compress

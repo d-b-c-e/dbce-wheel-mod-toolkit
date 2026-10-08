@@ -13,7 +13,8 @@
     means a component changed, a repo/pin/provenance is missing or invalid, or the
     comparison needs manual review. This does not certify installed game adoption.
 .PARAMETER Root
-    Parent folder containing consumer repos. Defaults to this repo's parent.
+    Workspace root, games folder, or legacy consumer parent. Defaults to the workspace
+    root when the toolkit is under toolkits, otherwise this repo's parent.
 .PARAMETER Current
     Toolkit tag to compare against. Defaults to the nearest local reachable tag.
 .PARAMETER All
@@ -29,7 +30,10 @@
 param([string]$Root, [string]$Current, [switch]$All, [switch]$AsJson)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-if (-not $Root) { $Root = Split-Path -Parent $repo }
+if (-not $Root) {
+    $Root = Split-Path -Parent $repo
+    if ((Split-Path -Leaf $Root) -eq 'toolkits') { $Root = Split-Path -Parent $Root }
+}
 
 function Invoke-Git([string[]]$GitArgs) {
     $ErrorActionPreference = 'Continue'
@@ -118,15 +122,15 @@ $partSources = @{
     'profiles' = @('profiles/force-profiles.ini')
 }
 $consumers = @(
-    @{ Name = 'art-of-sim-rally'; Parts = @('native', 'dotnet'); Pin = 'lib/toolkit/VERSION' }
-    @{ Name = 'iracing-arcade-wheel'; Parts = @('native', 'dotnet'); Pin = 'toolkit.version'
+    @{ Name = 'art-of-sim-rally'; Canonical = 'dbce-mods-art-of-rally'; Parts = @('native', 'dotnet'); Pin = 'lib/toolkit/VERSION' }
+    @{ Name = 'iracing-arcade-wheel'; Canonical = 'dbce-mods-iracing-arcade'; ComponentRoot='components/wheel'; Parts = @('native', 'dotnet'); Pin = 'toolkit.version'
        Note = 'Recording has separate recording-toolkit.json source/binary provenance; not inferred from the release pin.' }
-    @{ Name = 'woden-rally-edge-wheel'; Parts = @('native', 'dotnet'); Pin = 'lib/toolkit/VERSION'
+    @{ Name = 'woden-rally-edge-wheel'; Canonical = 'dbce-mods-woden-rally-edge'; ComponentRoot='components/wheel'; Parts = @('native', 'dotnet'); Pin = 'lib/toolkit/VERSION'
        Note = 'Recording has separate lib/recording/provenance.json; not inferred from the release pin.' }
-    @{ Name = 'drive-rally-wheel'; Parts = @('dotnet'); Pin = 'dependencies.json:toolkit.version'
+    @{ Name = 'drive-rally-wheel'; Canonical = 'dbce-mods-drive-rally'; Parts = @('dotnet'); Pin = 'dependencies.json:toolkit.version'
        ManagedSources = @('dotnet/Dbce.Wheel.Telemetry/'); CustomVendor = $true
-       Note = 'Telemetry only. Recording has separate vendor/recording/provenance.json.' }
-    @{ Name = 'OutRun2006Tweaks-FFB'; Parts = @('include', 'native-x86', 'profiles'); Pin = 'lib/toolkit/VERSION'
+       Note = 'This row covers the Telemetry baseline only. Native/managed FFB and vendored source additions require separate provenance review; Recording has vendor/recording/provenance.json.' }
+    @{ Name = 'OutRun2006Tweaks-FFB'; Canonical = 'dbce-mods-outrun-2006'; Parts = @('include', 'native-x86', 'profiles'); Pin = 'lib/toolkit/VERSION'
        Headers = @('wheelffb.h', 'forza_packet.h', 'force_model.h', 'force_profile.h', 'dinput_proxy.h') }
     @{ Name = 'milestone-wheel-tools'; Parts = @('include', 'powershell'); Pin = 'lib/toolkit/VERSION'
        Headers = @('forza_packet.h') }
@@ -134,6 +138,20 @@ $consumers = @(
        Headers = @('force_model.h', 'force_profile.h', 'impact_mixer.h', 'signal_sample.h')
        Note = 'Shared force/shaping headers and profiles; SDL device output is consumer-owned.' }
 )
+
+function Resolve-ConsumerPath($Consumer) {
+    # Current product locations take precedence over retained legacy checkouts.
+    # A bad canonical pin must not fall back to an older, apparently valid pin.
+    if ($Consumer.Canonical) {
+        foreach ($candidate in @((Join-Path $Root ('games/'+$Consumer.Canonical)), (Join-Path $Root $Consumer.Canonical))) {
+            if (Test-Path -LiteralPath $candidate -PathType Container) {
+                if ($Consumer.ComponentRoot) { return Join-Path $candidate $Consumer.ComponentRoot }
+                return $candidate
+            }
+        }
+    }
+    return Join-Path $Root $Consumer.Name
+}
 
 function Test-Shipped([string]$Path, [string]$Part, $Headers) {
     if ($Path -match '\.Tests/' -or $Path -match '/(?:test_|build_test|conformance|build_conformance)' -or
@@ -194,6 +212,7 @@ $targetAvailable = (Invoke-Git @('rev-parse', '--verify', "$Current^{commit}")).
 
 function Compare-Component($Consumer, $Component, $Pin, $Parts, $Headers, [string]$ErrorText = '') {
     $row = [ordered]@{ Consumer = $Consumer.Name; Component = $Component; Pinned = $Pin.Value;
+        RepoPath = (Resolve-ConsumerPath $Consumer);
         PinSource = $Pin.Source; Status = ''; Act = $false; Why = ''; ChangedParts = @();
         Note = [string]$Consumer.Note; Recommendation = '' }
     if ($ErrorText -or $Pin.Error -or $Pin.Kind -eq 'invalid') {
@@ -245,7 +264,7 @@ function Compare-Component($Consumer, $Component, $Pin, $Parts, $Headers, [strin
 }
 
 $rows = @(foreach ($consumer in $consumers) {
-    $path = Join-Path $Root $consumer.Name
+    $path = Resolve-ConsumerPath $consumer
     if (-not (Test-Path -LiteralPath $path -PathType Container)) {
         Compare-Component $consumer 'baseline' (Pin-Result '' $consumer.Pin 'repo not found') $consumer.Parts $consumer.Headers
         continue

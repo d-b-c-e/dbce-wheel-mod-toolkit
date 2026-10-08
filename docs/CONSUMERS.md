@@ -11,8 +11,9 @@ distinguish attended diagnostic evidence from unverified production behavior.
 made here can be traced to the games that still need it, rather than being
 assumed to have reached them.*
 
-**Do not read the table below as current state.** Run the script; it reads each
-consumer's real pin off disk:
+**Do not read the historical table below as current state.** Run the script for
+its declared release-baseline consumers. Newer component overrides and consumers
+outside that bounded register require the [fleet follow-up](FLEET-FFB-2026-10-08.md).
 
 ```powershell
 .\tools\Get-ConsumerStatus.ps1 -Root E:\Source -All
@@ -57,10 +58,14 @@ source is `dbce-mods-sonic-crossworlds`, and Gravel's is `dbce-mods-gravel`.
 The [shared checklist](SHARED-REPOSITORY-CHECKLIST.md#reviewed-consumer-source-publications)
 records exact reviewed product source commits and verified OutRun/Gravel CI.
 Those source commits are not dependency pins or installed-version evidence.
-The status script still uses legacy checkout names and component-relative layouts.
-It does not automatically discover canonical unified `components/wheel` trees;
-a missing legacy path is a layout/provenance review item, not proof of failed
-migration. No script change or live-checkout relocation is included here.
+The status script was corrected on October 8 to resolve these five canonical
+products under `games/`, including Woden/iRacing `components/wheel`. It accepts
+the workspace root or games folder and retains legacy-root fixture support.
+Canonical locations win over older checkouts; a missing/invalid canonical pin
+never falls back to an old pin. Structured rows include the resolved RepoPath.
+The older component register is still bounded: DRIVE's row covers its Telemetry
+baseline, not newer FFB/source additions, and archived or unregistered consumers
+need separate review. This tool is not a claim of complete fleet adoption.
 Per-consumer historical commands below retain their original component context.
 At the exact product commits in the checklist, Woden declares v0.12.0, iRacing
 and Drive declare v0.13.0, and OutRun declares v0.8.0 baseline plus v0.13.0
@@ -82,7 +87,7 @@ extensions remain separately owned and pinned.
 | `dbce-mods-art-of-rally` | Unity 2019.4 Mono, Unity Mod Manager | Native output; managed Ffb and Telemetry | `lib/toolkit/VERSION` | DLL replacement alone may not; new API call sites require a rebuild |
 | `dbce-mods-iracing-arcade` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | **`components/wheel/toolkit.version`**, tracked; `components/wheel/recording-toolkit.json` is separate | Same managed/native contract rule |
 | `dbce-mods-woden-rally-edge` | Unity 6 IL2CPP, BepInEx 6 | Native output; managed Ffb and Telemetry; separately pinned Recording extension | `components/wheel/lib/toolkit/VERSION`; `components/wheel/lib/recording/provenance.json` is separate | Same managed/native contract rule |
-| `dbce-mods-drive-rally` | Unity Mono, BepInEx 5 | **Managed Telemetry only** from the release; separately pinned Recording extension | `dependencies.json` → `toolkit.version`; `vendor/recording/provenance.json` is separate | Rebuild for consumer/API changes; no native wheel library is implied |
+| `dbce-mods-drive-rally` | Unity Mono, BepInEx 5 | Telemetry release baseline; later managed/native FFB and source additions separately reviewed | `dependencies.json` → `toolkit.version` is the Telemetry baseline; vendor hashes also cover FFB/native, with their origin in consumer FFB docs | Rebuild for consumer/API changes; the baseline checker alone does not establish native adoption |
 | `dbce-mods-outrun-2006` | Native `dinput8` proxy, **x86** | Baseline model/profile/encoder/proxy headers and profiles; separately overridden ABI header and x86 native DLL | `lib/toolkit/VERSION`; override in `lib/toolkit/NATIVE-VERSION` and `NATIVE-PROVENANCE.json` | **Yes** for compiled headers; keep matching native DLL in the package |
 | `milestone-wheel-tools` | native `dinput8` proxy, UE4, x64 | `include`, `powershell` | `lib/toolkit/VERSION` | **yes** — `forza_packet.h` is compiled in |
 | `cruisn-collection` | MAME fork, SDL2 | `force_model.h`, `force_profile.h`, `impact_mixer.h`, `signal_sample.h` and profiles | `lib/toolkit/VERSION`, with `MANIFEST.json` | **Yes** for compiled headers; profile data is deployed separately |
@@ -138,16 +143,18 @@ treating this cached file as adopted runtime profile support.
   `recording-toolkit.json`. Keep this separate from the released toolkit pin;
   that manifest's base toolkit is not the current Ffb/Telemetry/native pin.
   Source/binary provenance does not establish gameplay capture acceptance.
-- **Drive's release payload contains only `Dbce.Wheel.Telemetry.dll`.** Its
-  `dependencies.json` pin does not imply Ffb/native/input adoption. Recording
-  lives under `vendor/recording/` with its own source and binary provenance.
+- **Drive's baseline version covers Telemetry.** The current payload additionally
+  contains Ffb/native libraries. Their origin must be checked separately from
+  the v0.13.0 baseline field. Recording lives under `vendor/recording/` with its
+  own source and binary provenance.
 - **Woden's Recording extension is separately pinned too.** Its
   `lib/recording/provenance.json` explicitly identifies unpublished source; a
   v0.12.0 toolkit pin does not make that extension part of the published package.
 - **`OutRun2006Tweaks-FFB` must ship `WheelFfb.dll` beside `dinput8.dll`** in
   the game folder. CMake copies it into `build/bin` after every build, but a
   deploy that copies only `dinput8.dll` silently loses all force feedback. It
-  is also the only **x86** consumer: `-Parts native-x86`, not `native`.
+  needs **x86**: `-Parts native-x86`, not `native`. HCT is another x86 consumer
+  outside this historical register.
 - **`art-of-sim-rally` renames the native DLL** to `UnityForceFeedback.dll`,
   the name the game's own missing library had and which the mod P/Invokes.
 - **`milestone-wheel-tools` compiles `forza_packet.h`** with MinGW, not MSVC.

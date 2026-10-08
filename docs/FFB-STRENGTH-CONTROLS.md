@@ -79,8 +79,8 @@ a real wheel. Physical feel remains an attended acceptance step.
 |---|---|---|
 | iRacing Arcade | Strength scales steering only; CrashStage uses independent event-time strength | Source labels/help corrected; 403 tests and plugin build pass. Five production-adapter/recorder cases vary steering/crashes independently, including zero steering with a live cue; strict replay passes. Packaging/rendered labels pending. |
 | Art of Rally | Strength drives AxleForceCurve; crash/landing/shift have independent amplitudes | Suitable existing split; label/discoverability rollout recorded in consumer ledger. No reference tune change. |
-| Woden Rally Edge | Crash is separate, but steering strength includes damping; Classic and Grip scales differ | Partial: audit/isolate the steering-only gain before claiming centering-only independence. Keep the owner-selected model and legacy captures. |
-| DRIVE Rally | Grip Strength also scales damping and texture; Classic scales its combined response | Adapter/composition work needed, not just a rename. Preserve model 2/3 replay and installed owner tune. |
+| Woden Rally Edge | Grip5 isolates steering from damping; Grip4/Classic3 retained for exact replay | October8 5056ed4: production-controller recorder/replay, required component checks and exporter pass; 52 suites/37,980 and UI669. Installed grip.4, muted3,601-pose Kenya route passed. Fresh owner Grip capture/calibration pending; old Kenya pose playback is not an FFB workload. |
+| DRIVE Rally | Grip4 isolates steering from damping/texture; crash remains separate; models2/3 retained | October8 9fcabb6: 81/3,301 checks and legacy6,001-row replay pass, installed steering.1. New owner capture was rejected for lost controls, so excluded from NRM. Controls recovered and F6 follow-up5ecbced installed; new owner normalization drive still needed. |
 | F-Zero / other consumers | Not qualified by this survey | Audit the component split; use arcade terminology where applicable. |
 
 Source pointers: iRacing `ForceFeedback.cs`, `ForceStages.cs`, `Panel.cs`,

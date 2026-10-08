@@ -22,7 +22,19 @@ The first automated baseline is available in
 It measures **software requests**, not delivered torque. No runtime tune,
 installed setting or wheel profile was changed for that comparison.
 
-**October 7 evening owner feedback:** iRacing Formula 4 centering at 50 is weak;
+**October 8 follow-up:** iRacing's owner tried the independent Steering strength
+control at90–100, then requested old80 become new50. The accepted default/local
+reference is now0.50, with Steering50, Crash70 and smoothing0; repack.145 was
+installed by Claude with the package hash checked. Paired trials on the original
+4,197-row capture give identical integer steering commands for old80/reference.80
+and new50/reference.50. This calibrates the requested steering scale; it does not
+certify cross-game physical equality. The speed-aware candidate stays offline.
+Woden Grip5 and DRIVE Grip4 now separate steering from auxiliary effects and
+preserve their legacy replay laws; owner normalization captures remain pending.
+DRIVE's October8 first owner tape was explicitly rejected for controls problems
+and must not enter the calibration corpus.
+
+**Historical October 7 evening owner feedback:** iRacing Formula 4 centering at 50 is weak;
 crashes are satisfactory. The original log supports lighter steering requests.
 A first adapter-reference candidate, 1.15 to 0.80, passed synthetic production
 checks and was subsequently tried by the owner: stronger, still below expectation,

@@ -21,17 +21,17 @@ try {
     if($beforeFix -ceq $fixture){throw 'Terminal success exit not found'}
     [IO.File]::WriteAllText($testPath,$beforeFix,[Text.UTF8Encoding]::new($false))
     $stale=Invoke-Wrapper
-    if($stale.Code -ne 1 -or $stale.Text -notmatch '"status":"passed","assertions":76') { throw "Stale native exit did not reproduce: $($stale.Code) $($stale.Text)" }
+    if($stale.Code -ne 1 -or $stale.Text -notmatch '"status":"passed","assertions":91') { throw "Stale native exit did not reproduce: $($stale.Code) $($stale.Text)" }
     [IO.File]::WriteAllText($testPath,$fixture,[Text.UTF8Encoding]::new($false))
     $success=Invoke-Wrapper
-    if($success.Code -ne 0 -or $success.Text -notmatch '"status":"passed","assertions":76') { throw "Success wrapper failed: $($success.Code) $($success.Text)" }
+    if($success.Code -ne 0 -or $success.Text -notmatch '"status":"passed","assertions":91') { throw "Success wrapper failed: $($success.Code) $($success.Text)" }
     $assertion="Assert (`$result.Code -eq 1 -and -not `$result.Data.TargetAvailable) 'Missing comparison target should require review'"
     if(-not $fixture.Contains($assertion)){throw 'Failure-injection assertion not found'}
     $failure=$fixture.Replace($assertion,"Assert `$false 'Intentional exit-contract assertion failure'")
     [IO.File]::WriteAllText($testPath,$failure,[Text.UTF8Encoding]::new($false))
     $failed=Invoke-Wrapper
     if($failed.Code -eq 0 -or $failed.Text -notmatch 'Intentional exit-contract assertion failure' -or $failed.Text -match '"status":"passed"') { throw "Assertion failure was hidden: $($failed.Code) $($failed.Text)" }
-    [ordered]@{status='passed';beforeFixExit=$stale.Code;successExit=$success.Code;assertionFailureExit=$failed.Code;fixtureAssertions=76} | ConvertTo-Json -Compress
+    [ordered]@{status='passed';beforeFixExit=$stale.Code;successExit=$success.Code;assertionFailureExit=$failed.Code;fixtureAssertions=91} | ConvertTo-Json -Compress
 } finally {
     $absolute=[IO.Path]::GetFullPath($root)
     $tempParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
