@@ -50,12 +50,24 @@ toolkit's legacy float depth fields. Unexpected values fail validation while
 retaining the original bytes; do not silently reinterpret a conflicting live
 capture. The native tail byte is recorded without inferring mod/keeper identity.
 
-Data Out is one-way. FH6 documents emission at the game's frame rate during
-driving, with no packets during menus, pauses, native replay or rewind. A silent
-menu capture does not diagnose a receiver failure. The CLI refuses its reserved
-5200..5300 port range. Configure an unused port (8001 here) or an existing mirror;
-never take over a live SimHub port. Direct an unattended diagnostic away from
-physical motion output, and separately verify native FFB is muted before driving.
+Data Out is one-way. FH6's published contract describes emission at the game's
+frame rate during driving and no emission in menus, pauses, replay or rewind.
+The installed Steam build 25588841 differs: an October 7, 2026 kernel-network
+trace observed 287 datagrams of 324 bytes in three seconds while paused on the
+in-world Settings page, sent by the game to SimHub at 127.0.0.1:8000. Their
+contents were not decoded; `IsRaceOn = 0` is a hypothesis, not a measurement.
+Title-screen, replay and rewind behavior remain unmeasured. Do not use menu
+silence alone to prove either a working receiver or a broken one; check the
+configured destination and packet traffic separately. Private trace evidence:
+`E:/Source/_archive/2026-10-07/fh6-setup-20261007-155749`.
+
+The CLI refuses the reserved 5200..5300 port range. Port 8001 in the examples is
+only a listener: it receives nothing from a game configured to send to 8000.
+Arrange an explicitly configured SimHub forwarding destination or a temporary
+game destination with its original value recorded and restored. Neither is set
+up by this tool. Never bind over the live SimHub receiver or silently change its
+feed. Direct unattended diagnostics away from physical motion output, and
+separately verify native FFB is muted before driving.
 
 This supports signal capture, not in-game route playback. Engine Torque is not
 wheel torque. Smashable-object inputs do not establish the complete collision
@@ -67,6 +79,12 @@ loopback sockets, original-byte/peer/executable metadata, malformed-packet and
 reserved-port refusals, and the current Art consumer's actual toolkit encoder.
 These are synthetic protocol/transport checks; no native Forza game capture,
 normalization or physical force acceptance is implied.
+
+October 8 recheck: all 14 tests pass with the current Art consumer's encoder.
+The two modules `test_forza_capture` and `test_forza_native` contain 13 tests;
+the fourteenth is `test_forza_wire`, which requires `FORZA_TEST_FIXTURE` as shown
+below. Use discovery from the repository root to include all three modules and
+resolve their local imports. Without that fixture the fourteenth test skips.
 
 ## Automated checks
 
