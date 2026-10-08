@@ -364,3 +364,22 @@ Details and per-game rollout: `docs/FFB-STRENGTH-CONTROLS.md`. Reference: iRacin
 production ForceFeedback/CrashStage split, clarified F6 labels and recorder/replay tests. Art of
 Rally also separates steering, crash, landing and shift strength. This does not certify normalized
 physical feel or authorize overwriting a saved tune.
+
+## STD-028 — Complete raw registry preservation for game tests
+2026-10-08 · DRIVE control-loss investigation and peer review · applies to: game launch, capture and playback tools that back up HKCU preferences
+
+Capture the complete native value-name/type/raw-byte inventory before a test and
+compare it after restoration. Keep a hash-bound immutable snapshot outside the
+game directory. Do not rely on `reg.exe export` success or equality of exported
+files: long Rewired names can silently truncate export. Never delete a game key
+and import such an export. PowerShell property enumeration is also insufficient
+for Unity's unusual DWORD representations.
+
+`tools/playback/Stage-Registry.ps1` is the shared PS5.1/7 leaf-key implementation:
+explicit caller target plus snapshot hash, full validation before writes,
+per-value restoration, absent-before handling, nested-key refusal and native
+readback. Vendor reviewed source with provenance for standalone consumers.
+Equivalent existing native raw helpers are acceptable; adoption is evidence of
+the actual runner path, not just copying the file. The caller owns the rig lease,
+closed-game precondition and recovery reporting. No game or force device is
+opened by its fixture test. See `docs/STAGE-REGISTRY.md`.

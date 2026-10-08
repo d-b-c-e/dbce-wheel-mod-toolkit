@@ -5,6 +5,13 @@ before changing an adapter. This runbook is intended to work without recovering
 conversation context. Source/layout migrations on other branches do not change
 the identity of a tested installed artifact.
 
+**Owner-state preservation:** use a complete native raw registry snapshot and
+verify every name/type/byte on restore. `reg.exe export` can silently truncate at
+a long Rewired value name while returning success; delete-and-import lost DRIVE's
+pedal bindings and camera preference. See [the shared registry helper](STAGE-REGISTRY.md).
+Before reusing an older runner, inspect its snapshot path. Matching `.reg` files
+does not establish full restoration. Existing native raw helpers remain valid.
+
 For unattended launch admission, `tools/playback/Stage-OwnerIdle.ps1` provides
 `Assert-StageOwnerIdle` (300 seconds by default). It reads raw Windows last-input
 age and refuses recent, missing or invalid observations; it never injects input,
