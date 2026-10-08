@@ -329,3 +329,15 @@ Independent review of aac28a0 found recording, automatic fallback and calibratio
 defects; do not copy it as a qualified reference until corrected. See
 `knowledge/AXLE-ADAPTER-REVIEW-2026-10-06.md` for reproduced cases and the shared
 adapter/recording requirements. The shared-model requirement itself is unchanged.
+
+## STD-026 — One force model for players: no model choice, no other-mod names
+2026-10-07 · owner ("I don't think there's a need to offer an 'Art of Rally' FFB model - it's not really public yet so not need to offer 'Classic'") · applies to: every mod with force feedback · refines STD-025
+
+The FFB settings page shows one force model and no model selector. Player-facing text (F6 labels, help text, config
+descriptions) describes what the force does and does not name other mods; "art of rally" stays an internal tuning
+reference (STD-021) and may appear in developer log lines and docs. An older model may stay behind a config key for
+developer comparisons, but it is not offered in the panel. When a mod drops its selector, saved settings that still
+name the old model move to the single model only once that model is qualified for the game. Until then, keep the
+player on what they had and say so in the adoption ledger.
+State on 2026-10-07: iRacing Arcade adopted (3be5556, repack.141). Super Woden Rally Edge pending: existing installs
+run Classic and its Grip v4 is still under review.
