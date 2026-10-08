@@ -53,6 +53,13 @@
 extern "C" {
 #endif
 
+/* Strict selection also governs a retained handle: after the preferred GUID
+ * is cleared/changed, InitDirectInput stops/releases the previous force device
+ * and returns 0. It does not open the new wheel during that call. A subsequent
+ * explicit Init may open the requested wheel; independent input readers remain.
+ * Same-GUID reuse and non-strict legacy reuse keep their existing behavior.
+ * This contract requires the reviewed retained-identity source successor; older
+ * 0.6.0 binaries with the same ABI do not enforce retained-handle identity. */
 /* X(return type, name, parameter list) */
 #define WHEELFFB_API_LIST(X) \
     X(int,  InitDirectInput,        (int hwnd)) \

@@ -525,6 +525,15 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     if (!EnsureEffectLock()) return 0;
 
     if (g_device) {
+        if (g_strictSelection && (!g_preferredGuidSet || !IsEqualGUID(g_preferredGuid, g_activeGuid))) {
+            Log("  strict GUID selection changed: releasing retained device and refusing initialization");
+            // Reuse must obey the same identity rule as a fresh open. Stop the
+            // old actuator and join its watchdog before release, retaining
+            // independent readers. Do not silently switch devices in this call.
+            FreeDirectInput();
+            g_lastHr = DIERR_NOTFOUND;
+            return 0;
+        }
         Log("  already initialised");
         return 1;
     }
