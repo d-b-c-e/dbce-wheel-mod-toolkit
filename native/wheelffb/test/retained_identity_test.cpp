@@ -121,16 +121,19 @@ int main() {
         Require(InitDirectInput((int)(INT_PTR)window) == 1, "same GUID: success");
         Require(g_device == &r.a && r.a.opens == opens && r.a.releases == releases && r.a.effect.releases == 0, "same GUID: A reused, nothing released or reopened");
     }
-    {   // A retained, B requested: A is stopped and released, then B opens; the identity is B's.
+    {   // A retained, B requested: A is stopped and released and this call refuses (no switch inside one call);
+        // the watchdog and the DirectInput instance stay, and the next call opens B.
         Rig r; SetHoldTimeoutMs(500); HANDLE watchdog = g_holdThread;
         SetPreferredDeviceGuid(&GuidB);
-        Require(InitDirectInput((int)(INT_PTR)window) == 1, "switch to B: success");
-        Require(g_device == &r.b && IsEqualGUID(g_activeGuid, GuidB) && std::strcmp(g_activeName, "Wheel B") == 0, "switch to B: B is the held wheel and identity");
+        Require(InitDirectInput((int)(INT_PTR)window) == 0 && g_lastHr == DIERR_NOTFOUND, "switch to B: this call refuses");
+        Require(g_device == nullptr && IsEqualGUID(g_activeGuid, GUID{}) && g_effect == nullptr && r.b.effects == 0, "switch to B: nothing held or claimed, B not opened yet");
         Require(r.a.effect.stops >= 1 && r.a.effect.releases == 1, "switch to B: A's constant effect stopped and released once");
         Require(r.a.unacquires >= 1 && r.a.releases >= 2, "switch to B: A unacquired and its force handle released (after the inspection release)");
-        Require(r.b.effects == 1 && g_effect == &r.b.effect, "switch to B: a fresh effect on B");
         Require(g_holdThread == watchdog && watchdog != nullptr && !g_stopThreads, "switch to B: the hold watchdog keeps running");
         Require(g_di == &r.input, "switch to B: the DirectInput instance is kept");
+        Require(InitDirectInput((int)(INT_PTR)window) == 1, "switch to B: the next call opens B");
+        Require(g_device == &r.b && IsEqualGUID(g_activeGuid, GuidB) && std::strcmp(g_activeName, "Wheel B") == 0, "switch to B: B is the held wheel and identity");
+        Require(r.b.effects == 1 && g_effect == &r.b.effect && g_holdThread == watchdog, "switch to B: a fresh effect on B, same watchdog");
     }
     {   // A retained, request cleared under strict selection: refused, A released, nothing held.
         Rig r; SetPreferredDeviceGuid(nullptr);
@@ -138,18 +141,21 @@ int main() {
         Require(g_device == nullptr && IsEqualGUID(g_activeGuid, GUID{}) && g_effect == nullptr, "cleared request: no wheel or identity claimed");
         Require(r.a.effect.releases == 1 && r.a.releases >= 2 && r.a.unacquires >= 1, "cleared request: A's effect and force handle released");
     }
-    {   // A retained, B requested but absent: refused with no fallback to A.
+    {   // A retained, B requested but absent: the release call refuses without enumerating; the next call
+        // enumerates, finds no B and refuses with no fallback to A.
         Rig r(false); int opens = r.a.opens;
         SetPreferredDeviceGuid(&GuidB);
-        Require(InitDirectInput((int)(INT_PTR)window) == 0, "absent target: refused");
+        Require(InitDirectInput((int)(INT_PTR)window) == 0, "absent target: release call refused");
+        Require(r.a.effect.releases == 1 && r.a.opens == opens, "absent target: A released, not re-enumerated in the release call");
+        Require(InitDirectInput((int)(INT_PTR)window) == 0, "absent target: next call refused");
         Require(g_device == nullptr && IsEqualGUID(g_activeGuid, GUID{}), "absent target: nothing held");
-        Require(r.a.effect.releases == 1, "absent target: A released, not kept");
         Require(r.a.opens == opens + 1, "absent target: A only inspected by enumeration, never reopened as the force handle");
     }
-    {   // A retained, B requested but its open fails: refused, no fallback to A, identity cleared.
+    {   // A retained, B requested but its open fails: both calls refuse, no fallback to A, identity cleared.
         Rig r; r.b.acquireResult = DIERR_OTHERAPPHASPRIO;
         SetPreferredDeviceGuid(&GuidB);
-        Require(InitDirectInput((int)(INT_PTR)window) == 0, "failed target open: refused");
+        Require(InitDirectInput((int)(INT_PTR)window) == 0, "failed target open: release call refused");
+        Require(InitDirectInput((int)(INT_PTR)window) == 0, "failed target open: next call refused");
         Require(g_device == nullptr && IsEqualGUID(g_activeGuid, GUID{}) && g_effect == nullptr, "failed target open: nothing held");
         Require(r.a.effect.releases == 1, "failed target open: A released, not resumed");
     }
@@ -158,6 +164,6 @@ int main() {
         Require(InitDirectInput((int)(INT_PTR)window) == 1 && g_device == &r.a && r.a.effect.releases == 0, "non-strict: retained A kept as before");
     }
     DestroyWindow(window);
-    std::printf("PASS retained strict identity: %d checks (same-GUID reuse, switch with watchdog kept, cleared, absent, failed open, non-strict unchanged); fake devices only\n", checks);
+    std::printf("PASS retained strict identity: %d checks (same-GUID reuse, refuse-then-reopen with watchdog kept, cleared, absent, failed open, non-strict unchanged); fake devices only\n", checks);
     return 0;
 }

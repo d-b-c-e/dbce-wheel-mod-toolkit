@@ -573,14 +573,18 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     if (g_device) {
         // Strict selection never reports success for a retained wheel other than the requested one (HCT native
         // review 2026-10-07: this branch returned 1 before the preferred GUID was checked). The same GUID is
-        // reused; a different or cleared request releases the retained wheel first and then goes through the
-        // normal strict selection below, which opens the requested wheel or fails without fallback.
+        // reused. A different or cleared request releases the retained wheel and refuses this call (no device
+        // switch inside one call, matching the a7fe985-line fix 7d372ef); the next call opens the requested wheel
+        // through the normal strict selection. Unlike FreeDirectInput, the release keeps the hold watchdog and
+        // exit guards the consumer installed, so the next wheel is still protected.
         if (!g_strictSelection || (g_preferredGuidSet && IsEqualGUID(g_preferredGuid, g_activeGuid))) {
             Log("  already initialised");
             return 1;
         }
-        Log("  strict GUID selection: the retained wheel is not the requested one; releasing it first");
+        Log("  strict GUID selection changed: releasing the retained wheel and refusing this initialization");
         ReleaseRetainedDevice();
+        g_lastHr = DIERR_NOTFOUND;
+        return 0;
     }
 
     g_hwnd = ResolveHwnd(hwnd);
