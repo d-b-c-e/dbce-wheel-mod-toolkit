@@ -15,6 +15,16 @@ assumed to have reached them.*
 its declared release-baseline consumers. Newer component overrides and consumers
 outside that bounded register require the [fleet follow-up](FLEET-FFB-2026-10-08.md).
 
+**October 8 additional consumer:** `games/dbce-mods-outrun-arcade` is now a
+source-only Windows native consumer at `dbadfdc`/`929adc9`. Its
+`lib/toolkit/VERSION.json` pins the reviewed 41-export `50ba139` x64 DLL and C
+header; CMake verifies both hashes. Ten fake-sink/adapter cases and the complete
+game build pass. It is not installed or physically tested. The original cabinet
+motor law remains game-specific; this is neither a tyre-model nor normalization
+adoption. Do not replace it with the experimental 55-export branch. Slipstream's
+separate installed 48-export adoption and all first-five consumer receipts are
+also in the fleet follow-up, outside the older bounded status script.
+
 ```powershell
 .\tools\Get-ConsumerStatus.ps1 -Root E:\Source -All
 # Structured output for tooling, with the same exit semantics:
