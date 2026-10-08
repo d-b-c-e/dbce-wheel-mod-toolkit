@@ -1,0 +1,14 @@
+{
+  "schema": "dbce.axle-reference-calibration@1",
+  "id": "iracing-speed-reference-candidate-v1",
+  "status": "offline-exploratory-not-installed",
+  "game": "iRacing Arcade",
+  "strength": 50,
+  "baseRatio": 0.8,
+  "startKmh": 60,
+  "fullKmh": 100,
+  "highSpeedGain": 1.25,
+  "effect": "steering-only",
+  "rationale": "Preserve the current <=60 km/h reference; explore at most 25 percent extra high-speed steering before production clamp and smoothing. Bound selected for a conservative experiment, not fitted from a tape.",
+  "acceptance": "Pending original owner force capture, strict replay, clipping and transition analysis, peer review, then attended comparison. No physical equivalence claimed."
+}

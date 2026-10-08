@@ -24,9 +24,14 @@ installed setting or wheel profile was changed for that comparison.
 
 **October 7 evening owner feedback:** iRacing Formula 4 centering at 50 is weak;
 crashes are satisfactory. The original log supports lighter steering requests.
-A first adapter-reference candidate, 1.15 to 0.80, passes synthetic production
-checks and is ready for an attended comparison using the existing control.
-It is not applied or calibrated; clipping can increase. See
+A first adapter-reference candidate, 1.15 to 0.80, passed synthetic production
+checks and was subsequently tried by the owner: stronger, still below expectation,
+and rounded even with smoothing zero. It is not an accepted calibration. A
+[bounded speed-reference experiment](../tools/calibration/README.md) now keeps
+.80 through60 km/h and explores up to1.25x steering at100+ km/h, through the
+production law. It is offline only, not installed; no owner force tape exists
+for the October7 evening drive. Clipping/headroom and force transitions matter
+independently of histogram strength. See
 [the centering case](../knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md).
 
 ## What 50 means in the Art reference

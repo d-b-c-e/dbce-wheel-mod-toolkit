@@ -1,5 +1,18 @@
 # Current source checkpoint
 
+## Bounded speed-reference experiment — October 7 evening
+
+The owner found iRacing reference .80 stronger but still rounded with smoothing
+zero. A reusable offline calibration helper/profile now explores no extra gain
+through60 km/h, blending to1.25x at100+; `AxleForceCurve@1` and all runtime pins
+remain unchanged. The consumer analyzer applies the candidate before production
+clamp/filter and retains strict original replay and eligibility. Consumer377
+tests and6333 production-law checks across1666 synthetic cases pass. The
+original3001-row low-speed control replays exactly and both reference trials
+are identical on every row (max40.62 km/h), not high-speed calibration evidence.
+See `tools/calibration/README.md` and the centering knowledge page. Owner F11
+capture, peer review, runtime adoption and attended acceptance are still open.
+
 ## Native Forza intake — October 7 afternoon
 
 The existing receive-only wire recorder now has explicit FH4/FH5/FH6 profiles,
