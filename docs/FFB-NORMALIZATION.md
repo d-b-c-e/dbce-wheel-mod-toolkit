@@ -22,6 +22,13 @@ The first automated baseline is available in
 It measures **software requests**, not delivered torque. No runtime tune,
 installed setting or wheel profile was changed for that comparison.
 
+**October 7 evening owner feedback:** iRacing Formula 4 centering at 50 is weak;
+crashes are satisfactory. The original log supports lighter steering requests.
+A first adapter-reference candidate, 1.15 to 0.80, passes synthetic production
+checks and is ready for an attended comparison using the existing control.
+It is not applied or calibrated; clipping can increase. See
+[the centering case](../knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md).
+
 ## What 50 means in the Art reference
 
 Steering Strength 50 gives gain 1, reference 11,500 N and smoothing 0.2. Art's
