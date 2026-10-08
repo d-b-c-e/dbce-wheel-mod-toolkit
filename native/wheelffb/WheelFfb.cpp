@@ -472,6 +472,18 @@ static void CloseCandidate()
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;
 }
 
+// Strict selection found that the retained wheel is not the one requested: stop every effect family and release it
+// under the effect lock (the hold watchdog reads the same slots under it), and clear its identity. The DirectInput
+// instance, the exit guards and the hold watchdog stay for the device opened next. A read slot that borrowed the
+// wheel's handle reads nothing until its own GUID is held again (ReadDeviceState checks g_activeGuid).
+static void ReleaseRetainedDevice()
+{
+    if (g_lockInit) EnterCriticalSection(&g_lock);
+    g_lastForce = 0;
+    CloseCandidate();   // stops then releases bursts, periodics, conditions, the constant effect and the device
+    if (g_lockInit) LeaveCriticalSection(&g_lock);
+}
+
 // Opens one FFB candidate and creates the constant-force effect on it.
 // Returns 1 on success; on failure everything but the instance is released.
 static int OpenCandidate(int idx)
@@ -559,8 +571,16 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     if (!EnsureEffectLock()) return 0;
 
     if (g_device) {
-        Log("  already initialised");
-        return 1;
+        // Strict selection never reports success for a retained wheel other than the requested one (HCT native
+        // review 2026-10-07: this branch returned 1 before the preferred GUID was checked). The same GUID is
+        // reused; a different or cleared request releases the retained wheel first and then goes through the
+        // normal strict selection below, which opens the requested wheel or fails without fallback.
+        if (!g_strictSelection || (g_preferredGuidSet && IsEqualGUID(g_preferredGuid, g_activeGuid))) {
+            Log("  already initialised");
+            return 1;
+        }
+        Log("  strict GUID selection: the retained wheel is not the requested one; releasing it first");
+        ReleaseRetainedDevice();
     }
 
     g_hwnd = ResolveHwnd(hwnd);
