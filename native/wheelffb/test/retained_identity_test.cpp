@@ -1,11 +1,15 @@
 #include <windows.h>
 static BOOL FakeIsWindow(HWND h){return h==(HWND)1;}
 static DWORD FakeWindowPid(HWND,DWORD* pid){*pid=GetCurrentProcessId();return 1;}
+static LONG_PTR FakeWindowProc(HWND h,int,LONG_PTR){return h==(HWND)1?1:0;}
 #define IsWindow FakeIsWindow
 #define GetWindowThreadProcessId FakeWindowPid
+#undef SetWindowLongPtrW
+#define SetWindowLongPtrW FakeWindowProc
 #include "../WheelFfb.cpp"
 #undef IsWindow
 #undef GetWindowThreadProcessId
+#undef SetWindowLongPtrW
 #include <cassert>
 struct FakeForceEffect : IDirectInputEffect {
     int starts=0, stops=0, sets=0, releases=0;
@@ -122,15 +126,27 @@ int main(){
  CHECK(SetDeviceForcesXY(5000,0)==1 && force.force.playing && force.force.magnitude==5000);
  // Mismatched retained identity must stop/release A, not claim B or switch to it.
  CHECK(g_lockInit);SetHoldTimeoutMs(500);CHECK(g_holdThread!=nullptr);
+ const HANDLE watchdog=g_holdThread;
+ CHECK(InstallExitGuards()==1);const WNDPROC guard=g_guardOrigProc;
+ FakeForceEffect periodic,condition;
+ periodic.playing=true;condition.playing=true;
+ g_periodic[0].fx=&periodic;g_periodic[0].started=true;g_periodic[0].lastMag=1500;
+ g_condition[0].fx=&condition;g_condition[0].started=true;g_condition[0].lastCoeff=2000;
  SetPreferredDeviceGuid(&other);
  const int stops=force.force.stops,releases=force.releases;
  CHECK(InitDirectInput(1)==0);CHECK(g_device==nullptr && g_effect==nullptr);
  CHECK(IsEqualGUID(g_activeGuid,GUID{}) && g_lastHr==DIERR_NOTFOUND);
- CHECK(force.force.stops>stops && !force.force.playing && force.releases==releases+1 && g_holdThread==nullptr && g_lastForce==0);
+ CHECK(force.force.stops>stops && !force.force.playing && force.releases==releases+1 && g_holdThread==watchdog && g_lastForce==0);
+ CHECK(g_di==&input && !g_stopThreads && g_holdMs==500);
+ CHECK(g_guardHwnd==(HWND)1 && g_guardOrigProc==guard && guard!=nullptr);
+ CHECK(periodic.stops==1 && periodic.releases==1 && !periodic.playing && g_periodic[0].fx==nullptr);
+ CHECK(condition.stops==1 && condition.releases==1 && !condition.playing && g_condition[0].fx==nullptr);
  CHECK(input.creates==createsBefore && g_readCount==1 && g_read[0].dev==&reader && reader.releases==0);
  CHECK(ReadDeviceState(0,axes,buttons,128)==1);
  // Reopen A only through an explicit valid request, then clear the preference.
  SetPreferredDeviceGuid(&selected);CHECK(InitDirectInput(1)==1);CHECK(IsEqualGUID(g_activeGuid,selected));
+ CHECK(g_holdThread==watchdog && !g_stopThreads);
+ CHECK(g_guardHwnd==(HWND)1 && g_guardOrigProc==guard);
  SetPreferredDeviceGuid(nullptr);
  CHECK(!g_preferredGuidSet);CHECK(InitDirectInput(1)==0);CHECK(g_device==nullptr && IsEqualGUID(g_activeGuid,GUID{}));
  printf("PASS strict missing/mismatch: old actuator stopped/released, identity cleared, no implicit reopen\n");
@@ -150,6 +166,7 @@ int main(){
  SetStrictDeviceSelection(1);SetPreferredDeviceGuid(&selected);
  // The explicit post-init worker route starts with the already-published lock.
  CHECK(g_lockInit);SetHoldTimeoutMs(500);CHECK(g_holdThread!=nullptr);FreeDirectInput();CHECK(g_holdThread==nullptr && g_lockInit);
+ CHECK(g_guardOrigProc==nullptr && g_guardHwnd==nullptr);
  CHECK(g_readCount==1 && g_read[0].dev==&reader && reader.releases==0);
  CHECK(ReadDeviceState(0,axes,buttons,128)==1);CloseReadDevices();CHECK(reader.releases==1 && g_readCount==0);
  printf("PASS reader-first: separate handle retained through force init and FreeDirectInput\n");

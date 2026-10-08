@@ -448,6 +448,17 @@ static void CloseCandidate()
     g_activeGuid = GUID{}; g_activeName[0] = 0; g_activeAxes = g_activeButtons = 0;
 }
 
+// Stop/release the mismatched actuator under the watchdog's effect lock. Keep
+// its worker, exit guards and shared DirectInput/readers for a later explicit
+// initialization. Ported from the master candidate 5c3503f.
+static void ReleaseRetainedDevice()
+{
+    if (g_lockInit) EnterCriticalSection(&g_lock);
+    g_lastForce = 0;
+    CloseCandidate();
+    if (g_lockInit) LeaveCriticalSection(&g_lock);
+}
+
 // Opens one FFB candidate and creates the constant-force effect on it.
 // Returns 1 on success; on failure everything but the instance is released.
 static int OpenCandidate(int idx)
@@ -528,9 +539,9 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
         if (g_strictSelection && (!g_preferredGuidSet || !IsEqualGUID(g_preferredGuid, g_activeGuid))) {
             Log("  strict GUID selection changed: releasing retained device and refusing initialization");
             // Reuse must obey the same identity rule as a fresh open. Stop the
-            // old actuator and join its watchdog before release, retaining
+            // old actuator while retaining the watchdog, exit guards and
             // independent readers. Do not silently switch devices in this call.
-            FreeDirectInput();
+            ReleaseRetainedDevice();
             g_lastHr = DIERR_NOTFOUND;
             return 0;
         }

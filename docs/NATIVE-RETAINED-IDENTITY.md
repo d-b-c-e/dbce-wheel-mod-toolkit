@@ -10,10 +10,13 @@ before checking strict selection. Clearing the preference or choosing B while
 A was retained therefore reported successful initialization on A. HCT's managed
 release-before-switch workaround does not fix this shared API.
 
-The candidate changes only that retained-handle branch. With strict selection,
-a missing or mismatched preferred GUID calls the existing complete force cleanup
-and returns 0 with `DIERR_NOTFOUND`. Cleanup requests stops, joins the watchdog,
-releases effects/device and clears active identity. It leaves independent input
+With strict selection, a missing or mismatched preferred GUID releases the force
+handle and returns 0 with `DIERR_NOTFOUND`. The consolidated candidate uses
+Claude's `ReleaseRetainedDevice` from master 5c3503f: stop/release every effect
+family and device under the effect lock, clear the last force and active identity,
+and keep the watchdog, exit guards and DirectInput instance. This preserves the
+protections for a later explicit initialization; the first 7d372ef candidate
+used full FreeDirectInput and removed them. It leaves independent input
 readers alive. A borrowed A reader becomes dormant, remains dormant if a later
 explicit initialization opens B, and resumes only when A is opened again.
 
@@ -37,10 +40,11 @@ Both x86 and x64 pass:
 ./native/wheelffb/test/build_lifecycle_test.bat x64
 ```
 
-The identity fixture compiles actual production source and has 49 checks: active
-fake constant force stopped/released on mismatch, missing preference, same-GUID
+The identity fixture compiles actual production source and has 57 checks: active
+fake constant, periodic and condition effects stopped/released on mismatch,
+watchdog and installed exit-guard retention, missing preference, same-GUID
 reuse, no fallback for absent/failed requested targets, non-strict compatibility,
-independent/borrowed readers and watchdog join. The same fixture against the
+independent/borrowed readers and explicit Free watchdog join. The initial 49-check fixture against the
 unchanged a7fe985 source fails at the first mismatch refusal assertion, as required.
 That negative control is retained under `native/wheelffb/build/identity-negative`.
 
@@ -55,8 +59,8 @@ Tested DLLs from `build.bat` (/LD /O2 /W4 /EHsc /DNDEBUG):
 
 | Architecture | SHA-256 |
 |---|---|
-| x86 | 752E9DC1DDD2C11C01FB83F18C20C02248F8A8678988042C66214BA03ADA283D |
-| x64 | F74F43FACAC5D3603591CAF5C70CED6CC8AA95C2C66D26D65034206BA817F6A1 |
+| x86 | 432727681B1A8A6F62D68F2E1ED865FF9F229AECCC628B82FA97147626451968 |
+| x64 | 3F6CC51444879D01FEB900098B2DE94242594D093F523E3C34BD511D69C0D946 |
 
 No game, device acquisition, hardware smoke, physical force or consumer install
 was run. Stop calls and fake effect state do not certify physical torque release.
