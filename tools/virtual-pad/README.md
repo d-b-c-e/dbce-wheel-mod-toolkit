@@ -17,7 +17,8 @@ quit
 ```
 
 Both duration spellings work. Explicit durations must be whole milliseconds
-from 0 through 60000. A missing button duration defaults to150 ms. Stick and
+from 0 through 60000. A missing button duration defaults to150 ms; explicit
+`press A 0` sends down then up immediately, without that default delay. Stick and
 trigger duration0 or omission retains the value until another command; use a
 positive duration for bounded tests. Commands execute sequentially: a timed
 command blocks later commands until its release. Exiting removes the controller.
