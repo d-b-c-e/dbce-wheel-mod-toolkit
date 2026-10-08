@@ -8,6 +8,8 @@
 //   trigger L|R <0..1> [ms=0]
 //   wait <ms>
 //   quit
+// Durations accept either 200 or ms=200, from 0 to 60000. Invalid explicit
+// durations are rejected before any controller state is changed.
 // Exits (removing the controller) on quit or after --idle-minutes without commands (30).
 // --slot N (N > 0) runs another controller with its own folder, %LOCALAPPDATA%\dbce\vpad-N (cmd.txt, log.txt), for
 // local multiplayer / split-screen tests; slot 0 (the default) keeps the folder above.
@@ -57,26 +59,29 @@ while (!quit && idle.Elapsed.TotalMinutes < idleMinutes)
     {
         var p = raw.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (p.Length == 0) continue;
-        int Ms(int i, int fallback) => p.Length > i && int.TryParse(p[i], out var v) ? v : fallback;
+        int Ms(int i, int fallback) => CommandDuration.Read(p, i, fallback);
         try
         {
             switch (p[0].ToLowerInvariant())
             {
                 case "press" when p.Length > 1 && buttons.TryGetValue(p[1], out var b):
-                    pad.SetButtonState(b, true); Thread.Sleep(Ms(2, 150)); pad.SetButtonState(b, false); Thread.Sleep(80); break;
+                    int pressMs = Ms(2, 150);
+                    pad.SetButtonState(b, true); Thread.Sleep(pressMs); pad.SetButtonState(b, false); Thread.Sleep(80); break;
                 case "hold" when p.Length > 1 && buttons.TryGetValue(p[1], out var hb): pad.SetButtonState(hb, true); break;
                 case "release" when p.Length > 1 && buttons.TryGetValue(p[1], out var rb): pad.SetButtonState(rb, false); break;
                 case "stick" when p.Length > 3:
+                    int stickMs = Ms(4, 0);
                     bool left = p[1].Equals("L", StringComparison.OrdinalIgnoreCase);
                     double x = double.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture), y = double.Parse(p[3], System.Globalization.CultureInfo.InvariantCulture);
                     pad.SetAxisValue(left ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX, Axis(x));
                     pad.SetAxisValue(left ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY, Axis(y));
-                    if (Ms(4, 0) > 0) { Thread.Sleep(Ms(4, 0)); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX, 0); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY, 0); }
+                    if (stickMs > 0) { Thread.Sleep(stickMs); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX, 0); pad.SetAxisValue(left ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY, 0); }
                     break;
                 case "trigger" when p.Length > 2:
+                    int triggerMs = Ms(3, 0);
                     var slider = p[1].Equals("L", StringComparison.OrdinalIgnoreCase) ? Xbox360Slider.LeftTrigger : Xbox360Slider.RightTrigger;
                     pad.SetSliderValue(slider, (byte)Math.Clamp(Math.Round(double.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture) * 255), 0, 255));
-                    if (Ms(3, 0) > 0) { Thread.Sleep(Ms(3, 0)); pad.SetSliderValue(slider, 0); }
+                    if (triggerMs > 0) { Thread.Sleep(triggerMs); pad.SetSliderValue(slider, 0); }
                     break;
                 case "wait": Thread.Sleep(Ms(1, 500)); break;
                 case "quit": quit = true; break;

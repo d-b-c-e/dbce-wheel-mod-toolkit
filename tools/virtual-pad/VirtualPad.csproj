@@ -7,6 +7,7 @@
     <AssemblyName>dbce-virtual-pad</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
   </ItemGroup>
 </Project>
