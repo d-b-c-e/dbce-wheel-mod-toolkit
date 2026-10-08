@@ -75,6 +75,16 @@ FFB Off, invalid input, release/reset and recording/replay; do not rely on a pur
 helper test that bypasses the actual adapter and recorder. These tests never need
 a real wheel. Physical feel remains an attended acceptance step.
 
+Inspect the actual pinned profile before assuming a cue exists. Slipstream's
+vendored SimLite preset has zero crash/road/damping amplitudes, despite its old
+documentation promising a crash jolt. In that legacy ForceModel, a positive
+Impact input still sets LastWasEvent with zero ImpactStrength, bypassing steering
+smoothing without producing a cue. Slipstream model `steering-proxy@2` suppresses
+disabled event input at its adapter; the actual-controller fixture fails on the
+old code and passes 60 entry/reversal/release samples after correction. Do not
+silently change this behavior in an older model's recorded replay. Zero amplitude
+does not necessarily mean no effect on composition or shaping history.
+
 | Consumer | Inspected behavior | STD-027 status at introduction |
 |---|---|---|
 | iRacing Arcade | Strength scales steering only; CrashStage uses independent event-time strength | Source labels/help corrected; 403 tests and plugin build pass. Five production-adapter/recorder cases vary steering/crashes independently, including zero steering with a live cue; strict replay passes. Packaging/rendered labels pending. |
