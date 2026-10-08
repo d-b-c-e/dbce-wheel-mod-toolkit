@@ -7,8 +7,8 @@ No physical wheel-force interface is present.
 
 Wait for **neutral readback verified** in the log before launching a game or
 sending commands. Startup checks the controller's actual XInput user index and
-requires three consecutive complete neutral states. A failure disconnects the
-controller within the two-second admission window. `--slot` chooses the command
+requires three consecutive complete neutral states. If admission fails after
+two seconds, it disconnects the controller and exits. `--slot` chooses the command
 directory; it does not force an XInput user index.
 
 Commands go one at a time into `%LOCALAPPDATA%/dbce/vpad/cmd.txt`; the tool

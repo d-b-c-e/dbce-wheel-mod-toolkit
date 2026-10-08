@@ -33,6 +33,13 @@ The lease itself does not check idle input. The caller still owns settings
 backup/restoration, launch/close and final release. This does not add borrowed
 lease support to the Unity replay runners.
 
+When a recipe uses the [virtual pad](../tools/virtual-pad/README.md), wait for
+its `neutral readback verified` readiness line before game input. Command slot
+and XInput user index are different identities. The October 8 helper verifies
+all fields through the pad's actual XInput index; an initial zero report alone
+did not guarantee neutral state on this rig. Keep the input log and independent
+readback beside controlled-response experiments.
+
 ## Preserve a qualified reference before worktree cleanup
 
 For the shared core's sealed trajectories (Woden, iRacing and DRIVE), use the
