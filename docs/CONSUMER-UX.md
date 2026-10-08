@@ -84,7 +84,7 @@ view contract determines which details appear initially:
 |---|---|---|
 | **Setup (optional)** | Distinct guided first-use workflow | The current incomplete step, its check and next action; omit a duplicate overview |
 | **Controls** | All supported bindings and calibration | Steering, Throttle, Brake, Handbrake; then Driving buttons, Menu buttons, Shifter |
-| **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, FFB device dropdown defaulting to the bound steering wheel, Strength, current status, Stop FFB |
+| **FFB** | Wheel selection, strength, tuning and output status | FFB Off/On, FFB device dropdown defaulting to the bound steering wheel, Steering strength, independent effect strengths (STD-027), current status, Stop FFB |
 | **Cameras** | Cycle membership and view adjustment | Bonnet and Bumper Off/On, Change camera binding, live-adjustment hint; Adjustment bindings on demand |
 | **Telemetry** | Dashboard connection and session recording | Telemetry Off/On, receiver preset/destination, sending facts; status/Stop if recording |
 | **Help** | Version, troubleshooting, support evidence and reset | Version, short symptom-based help, UI scale, Create support file; device details in Advanced |
@@ -584,3 +584,9 @@ wheel usually has no glyph art, so they fall back to raw element names ("Button 
 drawn at runtime with the button's label. Labels default to the button number and can be named
 by the player on the Controls page (rims differ, so no per-model art is assumed). Keep the
 game's glyphs for gamepads and keyboards. Record per game whether prompts are covered.
+
+## Steering weight and effect intensity (STD-027)
+
+Use the shared [strength-control contract](FFB-STRENGTH-CONTROLS.md): steering
+weight and crash intensity have separate labelled controls. Reuse an existing
+independent steering gain; do not add a duplicate slider or call it overall force.

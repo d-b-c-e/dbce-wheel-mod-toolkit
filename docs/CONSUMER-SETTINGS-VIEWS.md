@@ -58,7 +58,7 @@ optional details; required setup must stay in Simple.
 |---|---|---|---|
 | **Setup (optional)** | A distinct guided first-use step, check and next action; omit duplicated overview content | Binding/calibration or recovery for the current step, using the same settings | Detailed inspection via its owning page; no second setup wizard |
 | **Controls** | Steering, Throttle, Brake, Handbrake (axis) rows with friendly assignment, live value and Bind/Calibrate/Clear | Grouped Driving buttons, Menu buttons, Mod buttons and Shifter bindings; clutch where supported; all ordinary keyboard/wheel rebinding; calibration with direction/inversion, endpoints and deadzone | Response curves, sensitivity shaping, saturation, manual raw-range editing, digital handbrake threshold tuning, raw action/device details |
-| **FFB** | FFB Off/On, FFB device dropdown, Strength, plain status/recovery | Refresh or explicit device replacement; brief explanation of Strength | Per-effect gains, model/profile selection, smoothing, damping/friction, slip/load scaling, editable limits, response graphs and delivery counters |
+| **FFB** | FFB Off/On, FFB device dropdown, Steering strength, plain status/recovery | Refresh or explicit device replacement; independent effect strengths in a clearly named Effects group (STD-027) | Smoothing, damping/friction, slip/load scaling, editable limits, response graphs and delivery counters; no player model selector (STD-026) |
 | **Cameras** | Bonnet and Bumper Off/On, Change camera binding, short live-adjustment hint | Look behind binding, **Adjustment bindings** with the full rebind workflow and actual saved keys | Selected mount's position/tilt/FOV sliders, numeric tuning, adjustment speed/step settings and scoped pose reset |
 | **Telemetry** | Telemetry Off/On, tested receiver preset, concise actual destination and Sending/Off/Unavailable status | Matching receiver setup instructions, **Connection settings (Advanced)** link; if recording is active, status and Stop recording | Editable host/port, protocol/rate/channel choices, signal availability/provenance, recording configuration and start/mark/open-folder tools |
 | **Help** | Version, short symptom-based help, UI scale if not supplied by the host, Create support file | Clear next recovery action and **Details (Advanced)** for an error; local support-file location | Full device inventory/identifiers, raw values, logs/counters and broad reset/backup tools |
@@ -233,3 +233,11 @@ inventory and results/screenshots. Source/configuration fixtures can establish
 policy and persistence; they cannot establish readability or attended wheel
 behavior. Mark live steps Not tested until performed. Earlier consumer audits
 remain historical; none establishes adoption of this 2026-09-22 clarification.
+
+
+## Independent effect strengths (October 7, STD-027)
+
+Use [Steering and effect strength controls](FFB-STRENGTH-CONTROLS.md) for the
+current force-control semantics. Steering weight and crash intensity are separate
+preferences. Keep old config values and effect models: a wording change must not
+silently retune the wheel or turn an overall multiplier into a steering-only claim.

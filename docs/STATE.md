@@ -1,5 +1,14 @@
 # Current source checkpoint
 
+## Independent steering/effect controls - October 7 owner request
+
+STD-027 and docs/FFB-STRENGTH-CONTROLS.md define independent Steering strength and
+Crash/effect strengths. The shared model already accepts separate gains. iRacing's
+ambiguous overall label is corrected without force/config/recording changes (403
+tests, plugin build). Rollout notes distinguish Art's existing split from Woden
+damping and DRIVE damping/texture coupling; those need more than a rename. No
+native pin or installed tune change.
+
 ## Owner marked-turn analysis — October 7 late evening
 
 Original iRacing F11 capture now replays all 4,197 force/crash rows exactly;

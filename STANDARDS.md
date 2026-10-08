@@ -341,3 +341,26 @@ name the old model move to the single model only once that model is qualified fo
 player on what they had and say so in the adoption ledger.
 State on 2026-10-07: iRacing Arcade adopted (3be5556, repack.141). Super Woden Rally Edge pending: existing installs
 run Classic and its Grip v4 is still under review.
+
+
+## STD-027 — Independent steering and effect strengths
+2026-10-07 · owner ("a slider specifically for centering force just like we have for crash intensity"; "build that into the wheel toolkit and a standard feature across mods") · applies to: every mod with wheel FFB · refines STD-003/004/021
+
+Expose **Steering strength (%)** for tyre-based cornering resistance and return-to-centre feel,
+separate from **Crash strength (%)** and supported landing, shift or road-effect strengths. Keep
+Steering strength in Simple FFB and make the independent effect controls easy to find on the same
+FFB page (Simple or an explicit Effects group). Steering keeps the shared reference at 50; saved
+values and effect defaults stay intact. Do not label a steering-only control "Overall", or merely
+rename a control that also scales other effects. An actual overall gain must say what it scales.
+Use an existing correctly separated gain rather than adding a redundant multiplier. A tyre-force
+strength is not a new fixed centering spring, smoothing setting, physics assist or steering-input
+sensitivity. FFB Off/Stop remains the all-effects stop; zero steering need not zero enabled cues.
+
+Shared implementation is already AxleForceCurve's gain plus separate CrashCue/effect amplitudes;
+no native repin is needed for UI adoption. A consumer that must change composition records a new
+model/tuning contract and preserves legacy replay. Check independence before composition, final
+clipping, invalid inputs and all-effects stopping; combined clipping can still change felt impacts.
+Details and per-game rollout: `docs/FFB-STRENGTH-CONTROLS.md`. Reference: iRacing's existing
+production ForceFeedback/CrashStage split, clarified F6 labels and recorder/replay tests. Art of
+Rally also separates steering, crash, landing and shift strength. This does not certify normalized
+physical feel or authorize overwriting a saved tune.
