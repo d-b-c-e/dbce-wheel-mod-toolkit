@@ -100,3 +100,41 @@ Next: a verified original owner tape from before driving, strict model replay,
 then paired reference trials with comparable corners, rise/release/reversal,
 clipping and delivery cadence. The offline candidate is not installed or promoted;
 runtime adoption would also need per-row calibration identity and legacy replay.
+
+
+## First owner F11 tape and the marked sharp turn
+
+The October 7 22:54 owner recording contains 4,197 samples, zero drops, a complete
+footer and an F5 marker at 42.629 seconds. The original selected steering and
+crash stage replay exactly; all 3,122 recorded driving sends were accepted.
+Settings were Strength 50, reference .80, smoothing 0, ideal slip 12, crash 70.
+
+A reusable analyzer lesson: a remembered camera selection is not activation.
+iRacing's old check rejected 132 countdown rows although no force/input effect
+was active. The owner-requested camera now remains selected across hiding and
+is allowed on the grid. The consumer now labels legacy activation unobservable,
+keeps force handover errors strict and checks optional explicit activation
+against the focused-grid policy. Original bytes and both reports are preserved;
+398 tests cover the correction. Never make a tape pass by changing its channels
+or suppressing all errors just because the force arithmetic matches.
+
+Across the marked +/-5 seconds: 500 rows, valid active Grip, smoothing 0,
+delivery scale 1, no steering clipping, native=requested every row. Recorded
+physics steps are 20 ms; driving wall intervals P95 27.76 ms, max 44.14 ms.
+At the marker, 73.27 km/h yields 23.11% requested force. No added filter,
+unavailable-input release or recovery ramp explains the reported spongy turn;
+end-to-end input/motor latency and subjective feel remain unmeasured.
+
+The paired .80-base speed experiment raises that sample only to 24.60%.
+Above 60 km/h, duration-weighted RMS rises 33.35% to 37.12%, versus 44.19% for
+Art Norway and 23.13% for Art's other owner capture. The lower band is unchanged.
+These different workloads cannot establish a universal match. Both steering
+trials avoid clipping, but combined crash headroom still needs review.
+
+Keep the current tune and the speed candidate offline while gathering feedback;
+do not sell gain as a sharpness correction. Claude approved the offline helper;
+any runtime adoption must retain source/tuning identity and replay, handle invalid
+speed without throwing, label/update comparison shadows and add no player knob.
+Detailed consumer record: docs/reviews/2026-10-07-owner-ffb-marker.md. Frozen private
+evidence: SessionEvidence/iracing-owner-080-20261007-225407, source SHA-256
+`e56ff9a80b1dd5b97a82e469255f3bf454a5ac62b2030e98eaf3ac46d38b9bf6`.

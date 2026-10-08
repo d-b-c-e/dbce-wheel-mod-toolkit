@@ -1,5 +1,16 @@
 # Current source checkpoint
 
+## Owner marked-turn analysis — October 7 late evening
+
+Original iRacing F11 capture now replays all 4,197 force/crash rows exactly;
+zero drops, F5 marker at 42.629 s, 47.45 eligible seconds above 60 km/h. No extra
+software smoothing/release/ramp appears around the reported spongy turn. Paired
+speed gain increases weight without diagnosing sharpness; keep it offline and
+gather feedback. The consumer analyzer corrects selection-versus-activation
+semantics while explicitly retaining the camera-observation gap (398 tests).
+See the centering knowledge page; the earlier missing-owner-tape item below is
+superseded. Runtime/native pins, installed tune and Art reference are unchanged.
+
 ## Bounded speed-reference experiment â€” October 7 evening
 
 The owner found iRacing reference .80 stronger but still rounded with smoothing
