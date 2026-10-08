@@ -58,6 +58,16 @@ none of these contracts or the force-source fingerprint.
 
 ## Checks and rollout
 
+Calibrate the game's reference rather than adding another steering multiplier.
+For example, the iRacing owner requested old80 become new50 on October8: with
+the same `Strength / 50` gain, changing the load reference ratio from .80 to .50
+gives the same pre-clamp steering (`1.6 / .8 = 1 / .5`). Record that reference per
+row, preserve old captures and saved tunes, and apply an owner-requested local
+setting change explicitly. The original4197-row tape gives identical integer
+steering commands for those paired trials; that does not prove matching physical
+torque across games. Crash amplitude remains independent; combined headroom may
+still change. Full evidence: `knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md`.
+
 For a newly separated consumer, exercise zero/partial/full steering with identical
 contacts, and vary crash intensity with identical steering inputs. Check that the
 unselected component is unchanged before composition. Include final saturation,

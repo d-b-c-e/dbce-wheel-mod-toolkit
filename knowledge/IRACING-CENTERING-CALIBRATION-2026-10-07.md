@@ -138,3 +138,39 @@ speed without throwing, label/update comparison shadows and add no player knob.
 Detailed consumer record: docs/reviews/2026-10-07-owner-ffb-marker.md. Frozen private
 evidence: SessionEvidence/iracing-owner-080-20261007-225407, source SHA-256
 `e56ff9a80b1dd5b97a82e469255f3bf454a5ac62b2030e98eaf3ac46d38b9bf6`.
+
+## Owner requests previous80 as new50 - October8
+
+[iRacing Arcade, owner drive of repack.144 / 7010468, source f684c85, 2026-10-08]
+
+After accepting .8 reference / smoothing0 / crash70 as an initial default, the
+owner tried the independent Steering strength slider and preferred about90-100.
+They explicitly requested using80 as the new50. This later request supersedes
+the earlier default decision, not the independent crash setting or force curve.
+
+The new fresh/reset LoadReferenceRatio default is .50 (was .80); Strength stays50
+and Gain stays Strength/50. Thus1.6/.8 =1/.5 before shared fade/clamp/filter. Old
+90-100 maps to56.25-62.5. No extra spring, temporal change, new force-model version,
+native pin or speed-dependent boost. Art's reference and other games are unchanged.
+Saved configs keep their exact choices; the owner's explicit rig change is
+Strength50 plus reference.50 only, through Claude's coordinated install.
+
+408 consumer /219 Core /14 actual configuration tests pass; plugin builds clean.
+Production muted/fake-delivered recorder cases retain an exactly identical crash
+cue and equivalent steering through reset/dropout/filter, with strict replay of
+both tunes. The original4197-row owner tape still replays exactly. Paired trials
+on it have3122 eligible rows, maximum normalized difference1.1920929e-7 and zero
+integer steering-command differences. 89 eligible rows saturate, as old80 did in
+this trial. A stronger steering request can reduce combined crash headroom.
+
+This is a deliberate owner-selected reference calibration, not measured physical
+normalization to Art and not proof that rounded response was only subjective.
+The marked-turn analysis above is still valid. The old speed experiment stays
+offline and immutable. The comparison logger already uses the current reference;
+legacy playback uses the reference recorded on each row, never the new default.
+
+Evidence: consumer docs/reviews/2026-10-08-steering-80-as-50.md and private sealed
+SessionEvidence/iracing-80-as-50-20261008. Package/install and the owner's next
+physical comparison are pending at this source checkpoint. Five existing nullable
+Core warnings are in unchanged force files; do not churn the fingerprint just to
+clean them in this calibration-only change.

@@ -1,3 +1,11 @@
+## October 8 - iRacing owner-requested new50 = previous80
+
+Consumer f684c85 changes the fresh/reset reference default .80 -> .50; Gain remains
+Strength/50 and crash stays independent. Production tests and the original4197-row
+tape verify equivalence (zero integer command differences on the tape). Saved
+settings retained; coordinated owner Strength50/reference.50 install pending.
+See knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md. No native/model change.
+
 # Current source checkpoint
 
 ## Independent steering/effect controls - October 7 owner request
