@@ -1,9 +1,18 @@
+## October 8 - fleet adoption and qualification
+
+Current per-consumer pins, independent steering/effect controls, HCT native
+adoption and DRIVE controls/replay evidence are in
+[the fleet checkpoint](FLEET-FFB-2026-10-08.md). It supersedes pending-status
+claims in historical entries below. Art's reference tune stays fixed; Woden
+and DRIVE still need representative owner drives for normalization. HCT's
+reviewed native update is installed with FFB Off, not physically qualified.
+
 ## October 8 - iRacing owner-requested new50 = previous80
 
 Consumer f684c85 changes the fresh/reset reference default .80 -> .50; Gain remains
 Strength/50 and crash stays independent. Production tests and the original4197-row
 tape verify equivalence (zero integer command differences on the tape). Saved
-settings retained; coordinated owner Strength50/reference.50 install pending.
+settings retained; repack.145 installed and hash-checked by Claude, owner Strength50/reference.50.
 See knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md. No native/model change.
 
 # Current source checkpoint
