@@ -34,6 +34,13 @@ preserve their legacy replay laws; owner normalization captures remain pending.
 DRIVE's October8 first owner tape was explicitly rejected for controls problems
 and must not enter the calibration corpus.
 
+**October 8 native arcade follow-up:** OutRun 2006 and CannonBall now have
+original muted force-producer captures which replay exactly offline. Their
+request domains differ from the tyre adapters: sparse pre-master commands in
+OutRun, cabinet commands and nominal mapper values in CannonBall. These are
+pipeline qualifications, not additional normalized games. See the
+[capture lessons and evidence](../knowledge/ORIGINAL-PRODUCER-CAPTURE-2026-10-08.md).
+
 **Historical October 7 evening owner feedback:** iRacing Formula 4 centering at 50 is weak;
 crashes are satisfactory. The original log supports lighter steering requests.
 A first adapter-reference candidate, 1.15 to 0.80, passed synthetic production

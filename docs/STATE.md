@@ -1,5 +1,11 @@
 ## October 8 - fleet adoption and qualification
 
+The afternoon native-capture follow-up now includes exact original producer
+replay in OutRun 2006 (3,600 rows) and CannonBall (1,802 updates, each with an
+observed mute refusal). [Reusable lessons](../knowledge/ORIGINAL-PRODUCER-CAPTURE-2026-10-08.md)
+cover state, completion, units and the limits of these diagnostic workloads.
+Neither result is gameplay route playback or physical force normalization.
+
 Current per-consumer pins, independent steering/effect controls, HCT native
 adoption and DRIVE controls/replay evidence are in
 [the fleet checkpoint](FLEET-FFB-2026-10-08.md). It supersedes pending-status

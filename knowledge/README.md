@@ -4,6 +4,10 @@ verification limits; not a cross-device tune recommendation.
 
 # Knowledge base — index and migration tracker
 
+[Original native producer capture](ORIGINAL-PRODUCER-CAPTURE-2026-10-08.md)
+[OutRun 2006 and CannonBall, 2026-10-08]: source-matched stateful replay,
+observed mute results, strict completion, speed units and normalization limits.
+
 [Horizon Chase first-FFB review](HCT-FFB-REVIEW-2026-10-07.md): package versus
 native version identity, strict device selection, production sink transitions,
 finite-value boundaries and sampled effects versus Art's native effects.

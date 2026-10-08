@@ -16,10 +16,13 @@ its declared release-baseline consumers. Newer component overrides and consumers
 outside that bounded register require the [fleet follow-up](FLEET-FFB-2026-10-08.md).
 
 **October 8 additional consumer:** `games/dbce-mods-outrun-arcade` is now a
-source-only Windows native consumer at `dbadfdc`/`929adc9`. Its
+Windows native consumer with a temporary original-capture qualification at
+`4336bd9` (record `0569e87`). Its
 `lib/toolkit/VERSION.json` pins the reviewed 41-export `50ba139` x64 DLL and C
-header; CMake verifies both hashes. Ten fake-sink/adapter cases and the complete
-game build pass. It is not installed or physically tested. The original cabinet
+header; CMake verifies both hashes. The complete game build and 31 CTest cases
+pass. All 1,802 original captured updates replay exactly with observed mute
+refusals; the previous installed game was restored after the run. It is not
+physically tested. The original cabinet
 motor law remains game-specific; this is neither a tyre-model nor normalization
 adoption. Do not replace it with the experimental 55-export branch. Slipstream's
 separate installed 48-export adoption and all first-five consumer receipts are
