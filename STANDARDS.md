@@ -276,6 +276,8 @@ toolkit analyzer (`docs/FFB-NORMALIZATION.md`), not whole-drive averages; an eff
 does not have is not invented to match. The owner's feel at the rig is the acceptance; offline
 matches are evidence. Normalization work is Codex's.
 
+*Reference level amended by STD-031 (2026-10-08): art of rally's 50% becomes today's 30%.*
+
 ## STD-022 — One triple-screen selector: Off · Surround · Separate monitors
 2026-10-06 · owner ("it should just be a simple off / surround / separate like the other projects") · applies to: every game with triples
 
@@ -383,3 +385,29 @@ Equivalent existing native raw helpers are acceptable; adoption is evidence of
 the actual runner path, not just copying the file. The caller owns the rig lease,
 closed-game precondition and recovery reporting. No game or force device is
 opened by its fixture test. See `docs/STAGE-REGISTRY.md`.
+
+## STD-029 — New functionality ships installed and turned on
+2026-10-08 · owner ("any new functionality should be deployed on, and ready to test when I sit down for testing - that goes for any game"; "yes, turn triple on by default") · applies to: every game
+
+Refines STD-010 and STD-013. When a feature is built (triples, telemetry, FFB, panel pages), install it to the
+owner's launch target **with the feature on**, so a plain launch shows it; no opt-in file or setting is left for the
+owner to create. Back up whatever the change touches (game settings files included) before writing. A feature stays
+off only while it has a known safety problem (for example a runaway or inverted force), and the handoff and report
+say so and why. Reference: the 2026-10-08 triples-on deployment (DiRT 4, DiRT Rally 2.0, GRID, V-Rally 4, Rush
+Rally 3 / Origins, OutRun 2006; backups in _archive\2026-10-08\owner-triples-on-*).
+
+## STD-030 — The F6 panel comes first
+2026-10-08 · owner ("for everything that we're working on, let's put the mod menu as a priority - it just makes testing everything else simpler - so lets aim for parity on all in progress items with an F6 menu, even if it doesn't have all the options yet. Also make sure it's in line with the toolkit standards") · applies to: every in-progress game
+
+Before other new features, every in-progress game gets an F6 panel in the standard shape (STD-004:
+Simple/Advanced, the same page names and controls; STD-017 hide empty pages; STD-022 triple selector; STD-023
+frame-rate readout; F8 FFB on/off), even with only a few settings. Each feature that lands adds its controls to the
+panel at the same time. A panel that departs from the shape is reworked to it (the owner rated OutRun 2006's
+"very, very bad - totally out of line from the toolkit standards"). Details: docs/CONSUMER-EXPERIENCE.md.
+
+## STD-031 — art of rally's reference level: today's 30% is the new 50%
+2026-10-08 · owner ("Art of Rally - A bit too strong, lets dial it down and make 30% equate to 50% if thats doable") · applies to: art of rally, and through STD-021 every game with FFB
+
+Amends STD-021's reference level. Scale art of rally's forces so that Strength 50 gives what Strength 30 gives
+today (0.6 of the current output at the same setting), keeping its event shapes and the slider range. STD-021's
+comparisons then use the new art of rally 50%. Normalization stays Codex's; the owner's feel is the acceptance.
