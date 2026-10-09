@@ -411,3 +411,25 @@ panel at the same time. A panel that departs from the shape is reworked to it (t
 Amends STD-021's reference level. Scale art of rally's forces so that Strength 50 gives what Strength 30 gives
 today (0.6 of the current output at the same setting), keeping its event shapes and the slider range. STD-021's
 comparisons then use the new art of rally 50%. Normalization stays Codex's; the owner's feel is the acceptance.
+
+## STD-032 — Wheelkit reads the portfolio's own records; keep them in step
+2026-10-09 · Claude (coordinator), with the Wheelkit app the owner asked for · applies to: every mod and the hub grid
+
+Wheelkit (toolkits\dbce-wheelkit) shows each game from four records it does not own. A change to one of them is not
+done until Wheelkit reads it right.
+
+1. **Feature grid:** the STD-020 grid in the hub's PROJECTS.md feeds Wheelkit's game list. After a grid change, run
+   `tools\New-CatalogSeed.ps1` in dbce-wheelkit and commit `src\Wheelkit.App\Data\catalog-seed.json` to its main. The
+   installed app picks the list up from main without a new release.
+2. **Install receipt:** each mod's installer writes its receipt where the seed's identity table says. Moving or
+   reshaping a receipt means updating that table.
+3. **Start line:** each mod writes one line to its own log when it starts with the game, naming its version. Native
+   proxies use `dbce <Game> mod <version> in <exe>`; BepInEx mods have BepInEx's own `Loading [<plugin> <version>]`.
+   Wheelkit matches it (`$logStarts`) to tell "installed" from "ran". Changing that line means updating the pattern.
+4. **Settings keys:** the keys Wheelkit edits are exactly the ones the mod's F6 panel reads (`$settings` schemas).
+   Renaming or adding a panel key means updating the schema. The rig profile only writes the shared keys:
+   - triples: `[Triple] Screens/Mode/SideAngle/SpanSeparateMonitors`, or top-level `Triple`/`SideAngle`;
+   - force: `[FFB]`/`[ForceFeedback] Strength` or `FfbStrength`;
+   - telemetry: `[Telemetry] Enabled/Port` or `Telemetry`/`TelemetryPort`.
+
+   It never writes force on/off.
