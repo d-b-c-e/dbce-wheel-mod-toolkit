@@ -22,7 +22,7 @@ void (*probe12)();
 void logf(const char *fmt, ...)
 {
     if (!g_log) return;
-    char b[256];
+    char b[512];
     va_list ap;
     va_start(ap, fmt);
     _vsnprintf_s(b, sizeof b, _TRUNCATE, fmt, ap);
@@ -180,17 +180,79 @@ static const void *jumpTarget(const BYTE *p)
     return nullptr;
 }
 
-static bool writeCode(void *at, const void *src, size_t n)
+// Length of one instruction from the few that compilers put at the start of these functions: register moves to and
+// from the stack, lea, push/pop, stack adjustment with an immediate, mov edi,edi. 0 for anything else, including
+// branches and (x64) RIP-relative operands, which could not run from another address unchanged.
+static int prologueLength(const BYTE *p)
 {
-    DWORD old;
-    if (!VirtualProtect(at, n, PAGE_EXECUTE_READWRITE, &old)) return false;
-    memcpy(at, src, n);
-    VirtualProtect(at, n, old, &old);
-    FlushInstructionCache(GetCurrentProcess(), at, n);
-    return true;
+    int n = 0;
+#ifdef _WIN64
+    if ((p[0] & 0xF0) == 0x40) ++n;   // REX
+#endif
+    const BYTE op = p[n++];
+    if (op >= 0x50 && op <= 0x5F) return n;   // push / pop register
+    int imm = 0;
+    switch (op) {
+    case 0x89: case 0x8B: case 0x8D: case 0x33: case 0x2B: case 0x03: case 0x85: break;   // mov, lea, xor, sub, add, test
+    case 0x83: imm = 1; break;
+    case 0x81: imm = 4; break;
+    default: return 0;
+    }
+    const BYTE modrm = p[n++];
+    const int mod = modrm >> 6, rm = modrm & 7;
+    if (op == 0x8D && mod == 3) return 0;
+    if (mod != 3 && rm == 4) {
+        const BYTE sib = p[n++];
+        if (mod == 0 && (sib & 7) == 5) n += 4;
+    }
+    if (mod == 1) n += 1;
+    else if (mod == 2) n += 4;
+    else if (mod == 0 && rm == 5) {
+#ifdef _WIN64
+        return 0;
+#else
+        n += 4;   // an absolute address, already moved to the loaded base in the file copy
+#endif
+    }
+    return n + imm;
 }
 
-static BOOL CALLBACK initCall(PINIT_ONCE, PVOID cs, PVOID *) { InitializeCriticalSection((CRITICAL_SECTION *)cs); return TRUE; }
+#ifdef _WIN64
+static const int kCopyAtLeast = 16;   // covers the usual patches: 5-byte relative, 12- and 14-byte absolute jumps
+#else
+static const int kCopyAtLeast = 8;    // 5-byte relative jump, 6-byte push/ret
+#endif
+
+// A copy of the system function's first instructions (from the module file) followed by a jump to the rest of it in
+// place: calling it runs the function as if its entry were untouched, whatever another overlay wrote there. Nothing of
+// the live code is written.
+static void *buildTrampoline(const BYTE *entry, const BYTE *original, int *copied)
+{
+    int k = 0;
+    while (k < kCopyAtLeast) {
+        const int len = prologueLength(original + k);
+        if (!len || k + len > 24) return nullptr;
+        k += len;
+    }
+    BYTE *t = (BYTE *)VirtualAlloc(nullptr, 64, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!t) return nullptr;
+    memcpy(t, original, (size_t)k);
+#ifdef _WIN64
+    const BYTE jmp[6] = {0xFF, 0x25, 0, 0, 0, 0};   // jmp [rip+0] ; dq entry+k
+    memcpy(t + k, jmp, sizeof jmp);
+    const void *back = entry + k;
+    memcpy(t + k + 6, &back, 8);
+#else
+    t[k] = 0xE9;
+    const INT32 rel = (INT32)((entry + k) - (t + k + 5));
+    memcpy(t + k + 1, &rel, 4);
+#endif
+    DWORD old;
+    if (!VirtualProtect(t, 64, PAGE_EXECUTE_READ, &old)) { VirtualFree(t, 0, MEM_RELEASE); return nullptr; }
+    FlushInstructionCache(GetCurrentProcess(), t, 64);
+    *copied = k;
+    return t;
+}
 
 bool PatchSlot(void **vt, int index, void *hook, SlotHook &h)
 {
@@ -206,37 +268,43 @@ bool PatchSlot(void **vt, int index, void *hook, SlotHook &h)
     return true;
 }
 
-// First re-entry: what the system call needs (the other overlay's changed bytes at the system function, if any).
+static void bytesText(const BYTE *p, int n, char *out, size_t size)
+{
+    out[0] = 0;
+    for (int i = 0; i < n && 3 * (size_t)i + 3 < size; ++i) sprintf_s(out + 3 * i, size - 3 * (size_t)i, "%02x ", p[i]);
+}
+
+// First re-entry: the trampoline to the system function (or a direct call when that cannot be built and its entry is
+// as in the file).
 static void noteLoop(SlotHook &h)
 {
     if (InterlockedCompareExchange(&h.preparing, 1, 0) != 0) { while (!h.looped) Sleep(0); return; }
-    const char *other = moduleName(h.next);
     char otherName[MAX_PATH];
-    strncpy_s(otherName, other, _TRUNCATE);
+    strncpy_s(otherName, moduleName(h.next), _TRUNCATE);
+    HMODULE m = h.system ? moduleOf(h.system) : nullptr;
     if (!h.system) {
         logf("overlay: %s: ours and %s call each other and the system's function is unknown; the looping calls are skipped", h.name, otherName);
+    } else if (!m || !fileBytes(m, h.system, h.original, sizeof h.original)) {
+        logf("overlay: %s: ours and %s call each other; the system function's file could not be read, so it is called as it is", h.name, otherName);
     } else {
-        BYTE file[sizeof h.original];
-        HMODULE m = moduleOf(h.system);
-        if (m && fileBytes(m, h.system, file, sizeof file)) {
-            const BYTE *now = (const BYTE *)h.system;
-            int last = -1;
-            for (int i = 0; i < (int)sizeof file; ++i) if (now[i] != file[i]) last = i;
-            memcpy(h.original, file, sizeof file);
-            h.span = last + 1;
-            if (h.span) {
-                char bytes[3 * 16 + 1] = "";
-                for (int i = 0; i < 16 && i < h.span; ++i) sprintf_s(bytes + 3 * i, sizeof bytes - 3 * i, "%02x ", now[i]);
-                const void *to = jumpTarget(now);
-                logf("overlay: %s: ours and %s call each other; the system function's first %d bytes (in %s) were changed to jump there (%s); "
-                     "ours calls it with its original bytes put back for each call", h.name, to ? moduleName(to) : "another module", h.span, otherName, bytes);
-            } else {
-                logf("overlay: %s was hooked again over ours by %s, which now calls ours while ours called it; ours calls the system's function from now on",
-                     h.name, otherName);
-            }
-        } else {
-            logf("overlay: %s: ours and %s call each other; the system function's file bytes could not be read, so it is called as it is", h.name, otherName);
-        }
+        const BYTE *now = (const BYTE *)h.system;
+        int last = -1;
+        for (int i = 0; i < (int)sizeof h.original; ++i) if (now[i] != h.original[i]) last = i;
+        h.copied = 0;
+        h.trampoline = buildTrampoline(now, h.original, &h.copied);
+        h.fileOk = true;
+        char bytes[3 * 16 + 1], first[3 * 24 + 1];
+        bytesText(now, last + 1 < 16 ? last + 1 : 16, bytes, sizeof bytes);
+        bytesText(h.original, 24, first, sizeof first);
+        const void *to = last >= 0 ? jumpTarget(now) : nullptr;
+        if (last >= 0)
+            logf("overlay: %s: ours and %s call each other; %s's first %d bytes jump there (%s); %s",
+                 h.name, to ? moduleName(to) : "another module", otherName, last + 1, bytes,
+                 h.trampoline ? "ours runs a copy of its first instructions, then the rest in place" : "its first instructions could not be copied: the looping calls are skipped");
+        else
+            logf("overlay: %s was hooked again over ours by %s, which now calls ours while ours called it; ours calls the system's function from now on%s",
+                 h.name, otherName, h.trampoline ? " (through a copy of its first instructions)" : "");
+        if (!h.trampoline) logf("overlay: %s: first bytes in the file: %s", h.name, first);
     }
     InterlockedExchange(&h.looped, 1);
 }
@@ -244,27 +312,23 @@ static void noteLoop(SlotHook &h)
 bool Reentry(SlotHook &h, int depth)
 {
     if (depth == 0) return true;
-    if (depth == 1) { noteLoop(h); return h.system != nullptr; }
+    if (depth == 1) { noteLoop(h); return SystemFunction(h) != nullptr; }
     if (!InterlockedExchange(&h.skipNoted, 1)) logf("overlay: %s: the loop went on through the system's function; those calls are skipped", h.name);
     return false;
 }
 
-SystemCall::SystemCall(SlotHook &h) : fn(h.system), h_(h), locked_(false), swapped_(false)
+void *SystemFunction(SlotHook &h)
 {
-    if (!fn || h.span <= 0) return;
-    InitOnceExecuteOnce(&h.once, initCall, &h.cs, nullptr);
-    EnterCriticalSection(&h.cs);
-    locked_ = true;
-    memcpy(saved_, fn, (size_t)h.span);
-    if (memcmp(saved_, h.original, (size_t)h.span) == 0) return;   // the other overlay took its change back
-    swapped_ = writeCode(fn, h.original, (size_t)h.span);
-    if (!swapped_) fn = nullptr;                                   // still changed: calling it would loop
-}
-
-SystemCall::~SystemCall()
-{
-    if (swapped_) writeCode(h_.system, saved_, (size_t)h_.span);
-    if (locked_) LeaveCriticalSection(&h_.cs);
+    if (!h.system) return nullptr;
+    if (!h.fileOk) return h.system;                     // nothing to compare with: as it is
+    const BYTE *now = (const BYTE *)h.system;
+    if (h.trampoline) {
+        // The copy jumps back to entry+copied: those bytes must still be the file's (a longer patch would cut them).
+        if (memcmp(now + h.copied, h.original + h.copied, sizeof h.original - (size_t)h.copied) == 0) return h.trampoline;
+        if (!InterlockedExchange(&h.tailNoted, 1)) logf("overlay: %s: the system function was changed past the copied instructions; those calls are skipped", h.name);
+        return nullptr;
+    }
+    return memcmp(now, h.original, sizeof h.original) == 0 ? h.system : nullptr;   // unchanged entry: call it
 }
 } // namespace detail
 
@@ -371,7 +435,7 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain *sc, UINT sync, UINT flags)
     if (!detail::Reentry(g_present, depth)) return S_OK;
     detail::Depth in(depth);
     if (depth == 1 && !(flags & DXGI_PRESENT_TEST)) render(sc);
-    if (g_present.looped) { detail::SystemCall c(g_present); return c.fn ? ((PresentFn)c.fn)(sc, sync, flags) : S_OK; }
+    if (g_present.looped) { auto fn = (PresentFn)detail::SystemFunction(g_present); return fn ? fn(sc, sync, flags) : S_OK; }
     return ((PresentFn)g_present.next)(sc, sync, flags);
 }
 HRESULT STDMETHODCALLTYPE hkPresent1(IDXGISwapChain1 *sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS *p)
@@ -380,7 +444,7 @@ HRESULT STDMETHODCALLTYPE hkPresent1(IDXGISwapChain1 *sc, UINT sync, UINT flags,
     if (!detail::Reentry(g_present1, depth)) return S_OK;
     detail::Depth in(depth);
     if (depth == 1 && !(flags & DXGI_PRESENT_TEST)) render(sc);
-    if (g_present1.looped) { detail::SystemCall c(g_present1); return c.fn ? ((Present1Fn)c.fn)(sc, sync, flags, p) : S_OK; }
+    if (g_present1.looped) { auto fn = (Present1Fn)detail::SystemFunction(g_present1); return fn ? fn(sc, sync, flags, p) : S_OK; }
     return ((Present1Fn)g_present1.next)(sc, sync, flags, p);
 }
 HRESULT STDMETHODCALLTYPE hkResize(IDXGISwapChain *sc, UINT n, UINT w, UINT h, DXGI_FORMAT f, UINT flags)
@@ -394,7 +458,7 @@ HRESULT STDMETHODCALLTYPE hkResize(IDXGISwapChain *sc, UINT n, UINT w, UINT h, D
         if (sc == g_chain) { releaseTarget(); if (detail::resize12) detail::resize12(sc); }
         LeaveCriticalSection(&g_cs);
     }
-    if (g_resize.looped) { detail::SystemCall c(g_resize); return c.fn ? ((ResizeFn)c.fn)(sc, n, w, h, f, flags) : DXGI_ERROR_INVALID_CALL; }
+    if (g_resize.looped) { auto fn = (ResizeFn)detail::SystemFunction(g_resize); return fn ? fn(sc, n, w, h, f, flags) : DXGI_ERROR_INVALID_CALL; }
     return ((ResizeFn)g_resize.next)(sc, n, w, h, f, flags);
 }
 

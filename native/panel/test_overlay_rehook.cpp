@@ -20,15 +20,16 @@
 
 static int failures;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); ++failures; } } while (0)
-static bool g_installed, g_alreadyNoted, g_loopNoted, g_bytesNoted, g_skipNoted;
+static bool g_installed, g_alreadyNoted, g_loopNoted, g_bytesNoted, g_skipNoted, g_tailNoted;
 static void logLine(const char *s)
 {
     printf("  log: %s\n", s);
     if (strstr(s, "present hook installed")) g_installed = true;
     if (strstr(s, "Present was already hooked by")) g_alreadyNoted = true;
     if (strstr(s, "Present was hooked again over ours")) g_loopNoted = true;
-    if (strstr(s, "Present: ours and test_overlay_rehook.exe call each other") && strstr(s, "bytes (in dxgi.dll) were changed") && strstr(s, "original bytes put back")) g_bytesNoted = true;
-    if (strstr(s, "calls are skipped")) g_skipNoted = true;
+    if (strstr(s, "Present: ours and test_overlay_rehook.exe call each other; dxgi.dll's first 14 bytes jump there") && strstr(s, "a copy of its first instructions")) g_bytesNoted = true;
+    if (strstr(s, "changed past the copied instructions")) g_tailNoted = true;
+    else if (strstr(s, "calls are skipped")) g_skipNoted = true;
 }
 static bool ffbOn() { return true; }
 static void stopFfb() {}
@@ -153,14 +154,50 @@ int main(int argc, char **argv)
         g_otherCalls = 0;
         g_otherMaxDepth = 0;
         dbce::panel::SetOpen(true);
-        CHECK(SUCCEEDED(sc->Present(0, 0)));      // ours -> dxgi (jumps) -> other -> ours (loop seen) -> dxgi, bytes put back
+        CHECK(SUCCEEDED(sc->Present(0, 0)));      // ours -> dxgi (jumps) -> other -> ours (loop seen) -> copy of dxgi's first instructions
         CHECK(g_bytesNoted);
         CHECK(g_otherCalls == 1);
-        CHECK(memcmp(systemPresent, "\xFF\x25\0\0\0\0", 6) == 0);   // the other overlay's jump is back after the call
+        CHECK(memcmp(systemPresent, "\xFF\x25\0\0\0\0", 6) == 0);   // the other overlay's jump is never touched
         g_otherCalls = 0;
         for (int i = 0; i < 3; ++i) CHECK(SUCCEEDED(sc->Present(0, 0)));
-        CHECK(g_otherCalls == 0);                 // from then on: game -> ours -> dxgi with its own bytes
+        CHECK(g_otherCalls == 0);                 // from then on: game -> ours -> the copy -> the rest of dxgi's Present
         CHECK(!g_skipNoted);
+
+        // 3. Two threads presenting at once through the copy (nothing of the live code is written, so nothing to race).
+        HWND w2 = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP, 0, 0, 640, 360, nullptr, nullptr, wc.hInstance, nullptr);
+        ID3D11Device *dev2 = nullptr;
+        ID3D11DeviceContext *ctx2 = nullptr;
+        IDXGISwapChain *sc2 = makeChain(w2, &dev2, &ctx2);
+        CHECK(sc2 != nullptr);
+        static volatile LONG bad;
+        struct Run { static DWORD WINAPI Go(LPVOID p) { for (int i = 0; i < 200; ++i) if (FAILED(((IDXGISwapChain *)p)->Present(0, 0))) InterlockedIncrement(&bad); return 0; } };
+        HANDLE t = CreateThread(nullptr, 0, Run::Go, sc2, 0, nullptr);
+        for (int i = 0; i < 200; ++i) if (FAILED(sc->Present(0, 0))) InterlockedIncrement(&bad);
+        WaitForSingleObject(t, 30000);
+        CloseHandle(t);
+        CHECK(bad == 0);
+        CHECK(!g_skipNoted);
+        if (sc2) { sc2->Release(); ctx2->Release(); dev2->Release(); }
+        DestroyWindow(w2);
+
+        // 4. A longer patch that reaches past the copied instructions: the nested call is skipped, never run half-patched.
+        DWORD old;
+        BYTE *tail = (BYTE *)systemPresent + 24;
+        BYTE keep[4];
+        memcpy(keep, tail, 4);
+        VirtualProtect(tail, 4, PAGE_EXECUTE_READWRITE, &old);
+        memset(tail, 0xCC, 4);
+        VirtualProtect(tail, 4, old, &old);
+        g_otherCalls = 0;
+        g_otherMaxDepth = 0;
+        HRESULT hr = sc->Present(0, 0);           // ours -> (copy refused) -> skipped; no overflow, no int3 reached
+        CHECK(hr == S_OK);
+        CHECK(g_tailNoted);
+        CHECK(g_otherMaxDepth <= 1);
+        VirtualProtect(tail, 4, PAGE_EXECUTE_READWRITE, &old);
+        memcpy(tail, keep, 4);
+        VirtualProtect(tail, 4, old, &old);
+        FlushInstructionCache(GetCurrentProcess(), tail, 4);
         otherPatchEntry(systemPresent, false);
 #else
         printf("  skip: the entry shape is checked on x64 only\n");

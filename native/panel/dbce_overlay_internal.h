@@ -15,39 +15,31 @@ extern void (*resize12)(IDXGISwapChain *sc);    // before ResizeBuffers: release
 extern void (*probe12)();                       // from the overlay worker: install the D3D12 queue capture
 
 // A hook on a shared vtable slot that survives another overlay taking ours as its "original". Steam's overlay patches
-// the first bytes of the system function (dxgi's Present) and, when the game creates its swap chain after ours is in
-// the slot, keeps our hook as what it calls next, while ours calls the system function, which jumps to Steam: the two
-// call each other until the stack overflows (V-Rally 4, 2026-10-09: ~12,800 nested Steam and dbce frames in the dumps).
-// A hook entered again on the same thread is that loop. From then on ours calls the system function itself: directly
-// when its bytes are as in the module file, otherwise with the file's bytes put back for the length of the call (the
-// other overlay's bytes restored after; one such call at a time). The chain becomes game -> other overlay -> ours ->
-// system. Should the loop still go on, the further nested calls are skipped rather than overflow. Without another
-// overlay, or with one that does not take ours as its original, nothing changes.
+// the first bytes of the system function (dxgi's Present: a 5-byte jump) and, when the game creates its swap chain
+// after ours is in the slot, keeps our hook as what it calls next, while ours calls the system function, which jumps
+// to Steam: the two call each other until the stack overflows (V-Rally 4, 2026-10-09: ~12,800 nested Steam and dbce
+// frames in the dumps). A hook entered again on the same thread is that loop. From then on ours calls the system
+// function through a trampoline: its first instructions copied from the module file (at least 16 bytes on x64, 8 on
+// x86, so the usual patch sizes are covered; only plain prologue instructions, no relative addressing) followed by a
+// jump to the rest of it in place. No live code is ever written, so other threads running that code are unaffected.
+// The chain becomes game -> other overlay -> ours -> system. Before each such call the bytes after the copied ones are
+// checked against the file; if another patch reaches past them, or the loop goes on even so, the nested call is
+// skipped rather than overflow. Without another overlay, or with one that does not take ours as its original, nothing
+// changes.
 struct SlotHook {
     const char *name;
     void *volatile next;          // what the hook calls until a loop is seen: the slot's previous value
     void *system;                 // the slot's value before anyone patched it (null when unknown)
     volatile long looped;         // set once the loop was seen and the fields below are ready
-    volatile long preparing, skipNoted;
-    int span;                     // how many first bytes of the system function the other overlay changed (0: none)
+    volatile long preparing, skipNoted, tailNoted;
+    bool fileOk;                  // original[] holds the module file's bytes
     unsigned char original[32];   // the system function's first bytes as in the module file
-    INIT_ONCE once;               // per hook: one system call with restored bytes at a time
-    CRITICAL_SECTION cs;
+    void *trampoline;             // the copy of its first instructions + jump back (null: not built)
+    int copied;                   // how many bytes the trampoline copied
 };
 bool PatchSlot(void **vt, int index, void *hook, SlotHook &h);   // installs the hook; resolves h.system
 bool Reentry(SlotHook &h, int depth);   // first thing in each hook (depth before this call): false = skip this call
-class SystemCall {                      // once h.looped: the system function to call (null: skip), bytes put back
-public:
-    explicit SystemCall(SlotHook &h);
-    ~SystemCall();
-    void *fn;
-private:
-    SlotHook &h_;
-    bool locked_, swapped_;
-    unsigned char saved_[32];
-    SystemCall(const SystemCall &) = delete;
-    SystemCall &operator=(const SystemCall &) = delete;
-};
+void *SystemFunction(SlotHook &h);      // once h.looped: what to call instead of h.next (null: skip the call)
 struct Depth {                  // per-thread nesting count for one hook
     int &d;
     explicit Depth(int &x) : d(x) { ++d; }
