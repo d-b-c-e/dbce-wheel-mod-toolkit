@@ -426,4 +426,34 @@ void Draw(int width, int height)
     ImGui::End();
 }
 
+
+// ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------
+void PollDev()
+{
+    static ULONGLONG nextAt;
+    static FILETIME seen;
+    if (!g_cfg.devFile) return;
+    ULONGLONG now = GetTickCount64();
+    if (now < nextAt) return;
+    nextAt = now + 500;
+    WIN32_FILE_ATTRIBUTE_DATA a;
+    if (!GetFileAttributesExA(g_cfg.devFile, GetFileExInfoStandard, &a)) return;
+    if (CompareFileTime(&a.ftLastWriteTime, &seen) == 0) return;
+    seen = a.ftLastWriteTime;
+    char text[128] = "";
+    HANDLE f = CreateFileA(g_cfg.devFile, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return;
+    DWORD got = 0;
+    ReadFile(f, text, sizeof text - 1, &got, nullptr);
+    CloseHandle(f);
+    text[got] = 0;
+    char verb[16] = "", page[16] = "", view[16] = "";
+    sscanf_s(text, "%15s %15s %15s", verb, (unsigned)sizeof verb, page, (unsigned)sizeof page, view, (unsigned)sizeof view);
+    if (!_stricmp(verb, "close")) { SetOpen(false); logf("panel: dev channel closed the panel"); return; }
+    if (_stricmp(verb, "open")) return;
+    for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) { g_page = (Page)p; g_pageChanged = true; }
+    if (view[0]) g_advanced = !_stricmp(view, "advanced");   // not saved: a test does not change the owner's view
+    SetOpen(true);
+    logf("panel: dev channel opened %s (%s)", kPageNames[g_page], g_advanced ? "Advanced" : "Simple");
+}
 }} // namespace dbce::panel

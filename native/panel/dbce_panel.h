@@ -25,6 +25,9 @@ struct Config {
     bool (*ffbOn)() = nullptr;                  // null: no Stop FFB in this mod
     void (*stopFfb)() = nullptr;
     void (*log)(const char *line) = nullptr;
+    // Unattended checks only (no OS input): a file whose text is "open <Page> [simple|advanced]" or "close" is applied
+    // when it changes (polled twice a second by the overlay). Null: off.
+    const char *devFile = nullptr;
 };
 
 // Called once by the mod before the overlay starts (not from DllMain).
@@ -43,6 +46,8 @@ void StopFfbFromKey();
 //   <renderer NewFrame>; DrainInput(w, h); ImGui::NewFrame(); Draw(w, h); ImGui::Render(); <render draw data>
 // Prepare returns true when the UI scale changed and the font atlas must be rebuilt (also on the first frame).
 bool Prepare(int width, int height);
+// The dev channel (Config::devFile); cheap enough to call every frame.
+void PollDev();
 void BuildFonts();
 void Draw(int width, int height);
 float Scale();

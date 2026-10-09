@@ -78,6 +78,7 @@ bool adopt(IDXGISwapChain *sc)
 
 void render(IDXGISwapChain *sc)
 {
+    if (sc == g_chain) dbce::panel::PollDev();
     if (sc == g_chain && !dbce::panel::IsOpen()) return;   // closed: nothing per frame on the game's chain
     EnterCriticalSection(&g_cs);
     if (!adopt(sc) || sc != g_chain || !dbce::panel::IsOpen()) { LeaveCriticalSection(&g_cs); return; }
@@ -192,7 +193,8 @@ DWORD WINAPI worker(LPVOID)
     ID3D11Device *dev = nullptr;
     ID3D11DeviceContext *ctx = nullptr;
     HRESULT hr = E_FAIL;
-    for (D3D_DRIVER_TYPE t : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP}) {
+    const D3D_DRIVER_TYPE types[2] = {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
+    for (D3D_DRIVER_TYPE t : types) {
         hr = create(nullptr, t, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &sd, &sc, &dev, nullptr, &ctx);
         if (SUCCEEDED(hr)) break;
     }
