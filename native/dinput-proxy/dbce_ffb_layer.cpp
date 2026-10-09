@@ -40,7 +40,19 @@ enum Hook { H_CREATEDEV, H_SETPROP, H_ACQUIRE, H_GETSTATE, H_GETDATA, H_SETCOOP,
             H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_COUNT };
 struct Slot { void **vt; void *orig; };
 Slot g_slots[H_COUNT][8];
-HRESULT STDMETHODCALLTYPE unrecorded() { return E_FAIL; }
+// The answer for a table that was never recorded (should not happen): E_FAIL from a stub with the hook's own argument
+// count, so a 32-bit __stdcall caller's stack stays balanced (every argument here is pointer-sized on x86).
+HRESULT STDMETHODCALLTYPE unrecorded1(void *) { return E_FAIL; }
+HRESULT STDMETHODCALLTYPE unrecorded2(void *, void *) { return E_FAIL; }
+HRESULT STDMETHODCALLTYPE unrecorded3(void *, void *, void *) { return E_FAIL; }
+HRESULT STDMETHODCALLTYPE unrecorded4(void *, void *, void *, void *) { return E_FAIL; }
+HRESULT STDMETHODCALLTYPE unrecorded5(void *, void *, void *, void *, void *) { return E_FAIL; }
+void *unrecorded(Hook h)
+{
+    static void *const byArgs[6] = {nullptr, (void *)&unrecorded1, (void *)&unrecorded2, (void *)&unrecorded3, (void *)&unrecorded4, (void *)&unrecorded5};
+    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1};   // self included, in Hook order
+    return byArgs[args[h]];
+}
 void *orig(Hook h, void *self)
 {
     void **vt = *(void ***)self;
@@ -49,7 +61,7 @@ void *orig(Hook h, void *self)
     for (auto &s : g_slots[h]) if (s.vt == vt) { o = s.orig; break; }
     LeaveCriticalSection(&g_cs);
     if (!o) { static volatile LONG n; if (InterlockedIncrement(&n) <= 5) dlog("ffb: hook %d reached through an unrecorded table; returned E_FAIL", (int)h); }
-    return o ? o : (void *)&unrecorded;
+    return o ? o : unrecorded(h);
 }
 void patch(Hook h, void *obj, int index, void *hook)
 {
