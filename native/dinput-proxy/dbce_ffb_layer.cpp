@@ -337,8 +337,13 @@ HRESULT STDMETHODCALLTYPE hkCreateEffect(void *self, REFGUID g, LPCDIEFFECT e, L
 typedef HRESULT(STDMETHODCALLTYPE *SetPropFn)(void *, REFGUID, LPCDIPROPHEADER);
 HRESULT STDMETHODCALLTYPE hkSetProp(void *self, REFGUID prop, LPCDIPROPHEADER ph)
 {
-    HRESULT hr = ((SetPropFn)orig(H_SETPROP, self))(self, prop, ph);
     ULONG_PTR id = (ULONG_PTR)&prop;
+    // Auto-centring is a force too (the wheel's own spring): while FFB is off or muted it is never switched on.
+    if (blocked() && ph && id == (ULONG_PTR)&DIPROP_AUTOCENTER && ph->dwSize >= sizeof(DIPROPDWORD) && ((LPCDIPROPDWORD)ph)->dwData != DIPROPAUTOCENTER_OFF) {
+        if (diagOk()) dlog("ffb: SetProperty AUTOCENTER on refused while FFB is %s", g_opt.mute ? "muted" : "off");
+        return DI_OK;
+    }
+    HRESULT hr = ((SetPropFn)orig(H_SETPROP, self))(self, prop, ph);
     if (ph && id <= 0xFFFF && diagOk()) {
         if (id == (ULONG_PTR)&DIPROP_RANGE && ph->dwSize >= sizeof(DIPROPRANGE))
             dlog("input: SetProperty RANGE obj=0x%lx how=%lu %ld..%ld -> 0x%08lx", ph->dwObj, ph->dwHow, ((LPCDIPROPRANGE)ph)->lMin, ((LPCDIPROPRANGE)ph)->lMax, (unsigned long)hr);

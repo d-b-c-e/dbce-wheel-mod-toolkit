@@ -10,7 +10,8 @@
 //    DIEFFECT.dwGain, which the MOZA R12 ignores (Rush Rally 3, 2026-10-08). Saved in [FFB] Strength.
 //  - The F6 panel's input rule: while the panel is open the game gets no keyboard, mouse or wheel buttons (axes pass).
 //  - The panel's FFB page body (DrawPanelPage).
-// The test switch (Options::mute) keeps every effect from starting whatever the setting says.
+// The test switch (Options::mute) keeps every effect from starting whatever the setting says. While FFB is off or muted,
+// the wheel's auto-centring spring is never switched on either (it is a force).
 #pragma once
 #include <windows.h>
 
