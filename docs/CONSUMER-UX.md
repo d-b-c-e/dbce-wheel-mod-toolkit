@@ -558,6 +558,25 @@ FFB settings leaves controls/cameras/telemetry intact. Reset all settings names
 what it affects, preserves a backup and requires a deliberate confirmation.
 Neither updating the mod nor a failed calibration deletes personal bindings.
 
+## Shared panel implementations by engine (STD-030, 2026-10-09)
+
+Use the shared piece for the game's route instead of a new panel; each one draws the UX-1 frame (title, View
+Simple/Advanced, Stop FFB when offered, Close, flat tabs in the fixed order, empty pages hidden, Help always) and the
+STD-023 frame rate under Cameras (Help when there is no Cameras page).
+
+| Route | Shared piece | Games (2026-10-09) |
+| --- | --- | --- |
+| Native DLL proxy (dinput8, D3D11 or D3D12, x64 or x86) | `native/panel` (Dear ImGui; DXGI present hook, D3D12 queue capture, F6/F8/Esc input hook, dev channel) and `native/dinput-proxy/dbce_ffb_layer` (FFB Off/On, Strength, effect-gain emulation, the force log) | Rush Rally 3, V-Rally 4, DiRT 4, DiRT Rally 2.0, GRID (2019) (D3D12), DiRT 3 (x86) |
+| UE4SS (Unreal with the toolkit triple renderer) | `native/ue4ss-panel`: the same panel as one DLL a Lua mod loads with `package.loadlib`, a per-game `panel.ini`; edits the renderer's `config.ini` | ADRIFT (its own first copy), Sonic CrossWorlds (wiring pending) |
+| Electron page | Slow Roads `src/app/dbce-panel.js` (HTML in the same shape, saves through a console line the loader validates) | Slow Roads; promote to the toolkit when a second Electron game appears |
+| Unity / .NET mod loaders | each mod's own panel to UX-1 (art of rally, Woden, #DRIVE Rally, iRacing Arcade, Horizon Chase Turbo) | as listed |
+| Others (CannonBall SDL/OpenGL, Slipstream FNA, OutRun 2006 D3D9) | none shared yet: Dear ImGui with the matching backend and the `native/panel` frame code is the intended route | |
+
+For every route: the dev channel file (`%LOCALAPPDATA%\dbce\<game>\panel-dev.txt`, `open <Page> [simple|advanced]` or
+`close`) is ignored when it was written before the game started, so a file left by an unattended run never opens the
+panel for the player; settings are saved when a control is let go, not on every frame of a drag; a choice that applies
+at the next start says so.
+
 ## Adoption and exceptions
 
 Each consumer records `UX baseline: UX-1, revised 2026-09-16`, the guidance
