@@ -1,5 +1,6 @@
 // Shared F6 settings panel: frame, navigation and standard widgets (see dbce_panel.h; UX-1 in docs/CONSUMER-UX.md).
 #include "dbce_panel.h"
+#include "dbce_frame_stats.hpp"
 #include "../third_party/imgui/imgui.h"
 #include "../third_party/imgui/imgui_internal.h"
 #include <stdarg.h>
@@ -23,6 +24,9 @@ static ImFont *g_body, *g_small, *g_heading;
 static char g_note[160];
 static bool g_noteOk = true;
 static ULONGLONG g_noteAt;
+static FrameWindow g_frames;            // STD-023, present thread only
+static LARGE_INTEGER g_frameFreq, g_frameLast;
+static ULONGLONG g_frameLoggedAt;
 
 static const char *const kPageNames[PAGE_COUNT] = {"Controls", "FFB", "Cameras", "Telemetry", "Help"};
 
@@ -264,11 +268,16 @@ bool Choice(const char *label, const char *const *options, int count, int *value
 
 bool Percent(const char *label, int *value, int minValue, int maxValue, int defaultValue, const char *help)
 {
+    return Slider(label, value, minValue, maxValue, defaultValue, "%d%%", help);
+}
+
+bool Slider(const char *label, int *value, int minValue, int maxValue, int defaultValue, const char *format, const char *help)
+{
     rowLabel(label);
     const char *reset = "Default";
     float avail = ImGui::GetContentRegionAvail().x - buttonWidth(reset) - ImGui::GetStyle().ItemSpacing.x;
     ImGui::SetNextItemWidth((std::max)(120 * g_scale, avail));
-    bool changed = ImGui::SliderInt((std::string("##") + label).c_str(), value, minValue, maxValue, "%d%%", ImGuiSliderFlags_AlwaysClamp);
+    bool changed = ImGui::SliderInt((std::string("##") + label).c_str(), value, minValue, maxValue, format, ImGuiSliderFlags_AlwaysClamp);
     ImGui::SameLine();
     ImGui::PushID(label);
     ImGui::BeginDisabled(*value == defaultValue);
@@ -323,6 +332,42 @@ void EndGroup()
     ImGui::Dummy(ImVec2(0, 8 * g_scale));   // 16 between groups (8 here + item spacing) versus 8 within (UX-03-G)
 }
 
+// ---- frame rate (STD-023) -----------------------------------------------------------------------------------
+static void frameLine(char *out, size_t size, const FrameSummary &s)
+{
+    const char *triples = g_cfg.triplesOn ? (g_cfg.triplesOn() ? "; triples on" : "; triples off") : "";
+    sprintf_s(out, size, "%.0f fps average, 1%% low %.0f fps, worst frame %.1f ms%s", s.avgFps, s.lowFps, s.worstMs, triples);
+}
+void NoteFrame()
+{
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    if (!g_frameFreq.QuadPart) QueryPerformanceFrequency(&g_frameFreq);
+    if (g_frameLast.QuadPart) {
+        const double ms = (double)(now.QuadPart - g_frameLast.QuadPart) * 1000.0 / (double)g_frameFreq.QuadPart;
+        if (g_frames.Add(ms)) {
+            const ULONGLONG t = GetTickCount64();
+            if (!g_frameLoggedAt || t - g_frameLoggedAt >= 30000) {
+                char line[160];
+                frameLine(line, sizeof line, g_frames.Last());
+                logf("frame rate (10 s): %s", line);
+                g_frameLoggedAt = t;
+            }
+        }
+    }
+    g_frameLast = now;
+}
+static void drawFrameRate()
+{
+    BeginGroup("frame-rate");
+    const FrameSummary &s = g_frames.Last();
+    char line[160] = "Measuring (10 s)";
+    if (s.valid) frameLine(line, sizeof line, s);
+    Status("Frame rate", line);
+    if (Advanced()) Text("The last ten seconds, measured at the game's present; the same line goes to the log every 30 s.");
+    EndGroup();
+}
+
 // ---- Help page (always present) -----------------------------------------------------------------------------
 static void drawHelp(bool advanced)
 {
@@ -339,6 +384,7 @@ static void drawHelp(bool advanced)
     }
     EndGroup();
     if (g_cfg.drawPage) g_cfg.drawPage(PAGE_HELP, advanced);
+    if (!g_cfg.pages[PAGE_CAMERAS]) drawFrameRate();
 }
 
 // ---- the frame ----------------------------------------------------------------------------------------------
@@ -422,6 +468,7 @@ void Draw(int width, int height)
     if (!g_cfg.pages[g_page]) g_page = PAGE_HELP;
     if (g_page == PAGE_HELP) drawHelp(g_advanced);
     else if (g_cfg.drawPage) g_cfg.drawPage(g_page, g_advanced);
+    if (g_page == PAGE_CAMERAS) drawFrameRate();
     ImGui::EndChild();
     ImGui::End();
 }

@@ -28,6 +28,8 @@ struct Config {
     // Unattended checks only (no OS input): a file whose text is "open <Page> [simple|advanced]" or "close" is applied
     // when it changes (polled twice a second by the overlay). Null: off.
     const char *devFile = nullptr;
+    // STD-023: whether the three views are on, for the frame-rate readout and its log line. Null: not reported.
+    bool (*triplesOn)() = nullptr;
 };
 
 // Called once by the mod before the overlay starts (not from DllMain).
@@ -48,6 +50,9 @@ void StopFfbFromKey();
 bool Prepare(int width, int height);
 // The dev channel (Config::devFile); cheap enough to call every frame.
 void PollDev();
+// Every presented frame of the game's swap chain, open or closed (STD-023): ten-second frame-rate windows, shown on the
+// Cameras page (Help when there is none) and logged every 30 s.
+void NoteFrame();
 void BuildFonts();
 void Draw(int width, int height);
 float Scale();
@@ -57,6 +62,8 @@ float Scale();
 bool OffOn(const char *label, bool *value, const char *help = nullptr);
 bool Choice(const char *label, const char *const *options, int count, int *value, const char *help = nullptr);
 bool Percent(const char *label, int *value, int minValue, int maxValue, int defaultValue, const char *help = nullptr);
+// A slider with its own unit, e.g. "%d\u00b0" for degrees (Percent is this with "%d%%").
+bool Slider(const char *label, int *value, int minValue, int maxValue, int defaultValue, const char *format, const char *help = nullptr);
 void Status(const char *label, const char *value, Tone tone = Tone::Normal);
 void Heading(const char *text);
 void Text(const char *text);                    // short wrapped help in secondary text

@@ -141,7 +141,7 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
 
 void render(IDXGISwapChain *sc)
 {
-    if (sc == g_chain) dbce::panel::PollDev();
+    if (sc == g_chain) { dbce::panel::NoteFrame(); dbce::panel::PollDev(); }
     if (sc == g_chain && !dbce::panel::IsOpen()) return;   // closed: nothing per frame on the game's chain
     EnterCriticalSection(&g_cs);
     if (!adopt(sc) || sc != g_chain || !dbce::panel::IsOpen()) { LeaveCriticalSection(&g_cs); return; }
