@@ -23,3 +23,9 @@ $cmd12 = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c
 $out12 = cmd /c $cmd12 2>&1
 $out12 | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $out12 | Select-Object -Last 25; throw 'D3D12 overlay check failed' }
+
+# Another overlay (Steam's) hooking Present again over ours must not make the two hooks call each other forever.
+$cmdRe = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_rehook.cpp /Fo`"$build\\`" $($objs -join ' ') /Fe`"$build\test_overlay_rehook.exe`" /link user32.lib && `"$build\test_overlay_rehook.exe`""
+$outRe = cmd /c $cmdRe 2>&1
+$outRe | Select-String -Pattern ' warning | error |FAIL|PASS|log:' | ForEach-Object { $_.Line }
+if ($LASTEXITCODE) { $outRe | Select-Object -Last 25; throw 'present hook re-hook check failed' }

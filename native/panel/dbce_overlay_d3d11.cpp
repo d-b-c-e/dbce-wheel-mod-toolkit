@@ -10,6 +10,7 @@
 #include <dxgi1_2.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 namespace dbce { namespace overlay {
 
@@ -57,6 +58,99 @@ void drawFrame(int w, int h)
     dbce::panel::Draw(w, h);
     ImGui::Render();
 }
+
+static const char *moduleName(const void *p)
+{
+    static thread_local char name[MAX_PATH];
+    HMODULE m = nullptr;
+    if (!p || !GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)p, &m) ||
+        !GetModuleFileNameA(m, name, MAX_PATH))
+        return "memory outside any module";
+    const char *slash = strrchr(name, '\\');
+    return slash ? slash + 1 : name;
+}
+
+static bool executableAt(const IMAGE_NT_HEADERS *nt, ULONG_PTR rva)
+{
+    const IMAGE_SECTION_HEADER *s = IMAGE_FIRST_SECTION(nt);
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++s)
+        if ((s->Characteristics & IMAGE_SCN_MEM_EXECUTE) && rva >= s->VirtualAddress && rva < s->VirtualAddress + s->Misc.VirtualSize) return true;
+    return false;
+}
+
+// The slot's value before anyone patched it: the pointer in the module's file on disk (relative to the file's own
+// ImageBase), moved to where the module is loaded. Only a value inside one of the module's executable sections counts.
+static void *systemSlot(void **vt, int index)
+{
+    HMODULE mod = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&vt[index], &mod) || !mod) return nullptr;
+    wchar_t path[MAX_PATH];
+    DWORD n = GetModuleFileNameW(mod, path, MAX_PATH);
+    if (!n || n >= MAX_PATH) return nullptr;
+    const BYTE *base = (const BYTE *)mod;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(base + ((const IMAGE_DOS_HEADER *)base)->e_lfanew);
+    const ULONG_PTR rva = (ULONG_PTR)((const BYTE *)&vt[index] - base);
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return nullptr;
+    BYTE head[4096];
+    DWORD got = 0;
+    void *result = nullptr;
+    if (ReadFile(f, head, sizeof head, &got, nullptr) && got >= sizeof(IMAGE_DOS_HEADER)) {
+        const LONG lfanew = ((const IMAGE_DOS_HEADER *)head)->e_lfanew;
+        const IMAGE_NT_HEADERS *fnt = lfanew > 0 && (DWORD)lfanew + sizeof(IMAGE_NT_HEADERS) <= got ? (const IMAGE_NT_HEADERS *)(head + lfanew) : nullptr;
+        if (fnt && fnt->Signature == IMAGE_NT_SIGNATURE && fnt->OptionalHeader.Magic == nt->OptionalHeader.Magic) {
+            const IMAGE_SECTION_HEADER *s = IMAGE_FIRST_SECTION(fnt);
+            const WORD count = fnt->FileHeader.NumberOfSections;
+            if ((const BYTE *)(s + count) <= head + got) {
+                for (WORD i = 0; i < count; ++i, ++s) {
+                    if (rva < s->VirtualAddress || rva + sizeof(void *) > (ULONG_PTR)s->VirtualAddress + s->SizeOfRawData) continue;
+                    LARGE_INTEGER at;
+                    at.QuadPart = (LONGLONG)s->PointerToRawData + (LONGLONG)(rva - s->VirtualAddress);
+                    ULONG_PTR raw = 0;
+                    DWORD r = 0;
+                    if (SetFilePointerEx(f, at, nullptr, FILE_BEGIN) && ReadFile(f, &raw, sizeof raw, &r, nullptr) && r == sizeof raw) {
+                        const ULONG_PTR fileBase = (ULONG_PTR)fnt->OptionalHeader.ImageBase;
+                        if (raw >= fileBase && raw - fileBase < nt->OptionalHeader.SizeOfImage && executableAt(nt, raw - fileBase))
+                            result = (void *)(base + (raw - fileBase));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    CloseHandle(f);
+    // A slot still holding a pointer into its own module is the system's function as loaded; trust it over the file
+    // (the file can be newer than the loaded copy after an update that waits for a restart).
+    void *cur = vt[index];
+    if ((const BYTE *)cur >= base && (ULONG_PTR)((const BYTE *)cur - base) < nt->OptionalHeader.SizeOfImage &&
+        executableAt(nt, (ULONG_PTR)((const BYTE *)cur - base)))
+        return cur;
+    return result;
+}
+
+bool PatchSlot(void **vt, int index, void *hook, SlotHook &h)
+{
+    h.system = systemSlot(vt, index);
+    DWORD old;
+    if (!VirtualProtect(&vt[index], sizeof(void *), PAGE_EXECUTE_READWRITE, &old)) return false;
+    h.next = vt[index];
+    vt[index] = hook;
+    VirtualProtect(&vt[index], sizeof(void *), old, &old);
+    if (h.next != h.system)
+        logf("overlay: %s was already hooked by %s; ours runs first, then it%s", h.name, moduleName(h.next),
+             h.system ? "" : " (the system's function is unknown: a hook loop could not be broken)");
+    return true;
+}
+
+void *Reentered(SlotHook &h)
+{
+    if (!InterlockedExchange(&h.looped, 1))
+        logf(h.system ? "overlay: %s was hooked again over ours by %s, which now calls ours while ours called it; ours calls the system's function from now on"
+                      : "overlay: %s was hooked again over ours by %s and the system's function is unknown; the looping call is skipped",
+             h.name, moduleName(h.next));
+    if (h.system) h.next = h.system;
+    return h.system;
+}
 } // namespace detail
 
 namespace {
@@ -64,9 +158,7 @@ using detail::logf;
 typedef HRESULT(STDMETHODCALLTYPE *PresentFn)(IDXGISwapChain *, UINT, UINT);
 typedef HRESULT(STDMETHODCALLTYPE *Present1Fn)(IDXGISwapChain1 *, UINT, UINT, const DXGI_PRESENT_PARAMETERS *);
 typedef HRESULT(STDMETHODCALLTYPE *ResizeFn)(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT);
-PresentFn g_present;
-Present1Fn g_present1;
-ResizeFn g_resize;
+detail::SlotHook g_present = {"Present"}, g_present1 = {"Present1"}, g_resize = {"ResizeBuffers"};
 
 CRITICAL_SECTION g_cs;              // the render state below: Present and ResizeBuffers can come from different threads
 IDXGISwapChain *g_chain;            // the swap chain the panel draws on (its window has the input hook); not owned
@@ -156,33 +248,34 @@ void render(IDXGISwapChain *sc)
     LeaveCriticalSection(&g_cs);
 }
 
+// Each hook: entered again on the same thread means another overlay's hook and ours are calling each other (see
+// detail::SlotHook); that inner call goes to the system's function instead, and so does every later one.
 HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain *sc, UINT sync, UINT flags)
 {
+    static thread_local int depth;
+    if (depth) { auto f = (PresentFn)detail::Reentered(g_present); return f ? f(sc, sync, flags) : S_OK; }
+    detail::Depth in(depth);
     if (!(flags & DXGI_PRESENT_TEST)) render(sc);
-    return g_present(sc, sync, flags);
+    return ((PresentFn)g_present.next)(sc, sync, flags);
 }
 HRESULT STDMETHODCALLTYPE hkPresent1(IDXGISwapChain1 *sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS *p)
 {
+    static thread_local int depth;
+    if (depth) { auto f = (Present1Fn)detail::Reentered(g_present1); return f ? f(sc, sync, flags, p) : S_OK; }
+    detail::Depth in(depth);
     if (!(flags & DXGI_PRESENT_TEST)) render(sc);
-    return g_present1(sc, sync, flags, p);
+    return ((Present1Fn)g_present1.next)(sc, sync, flags, p);
 }
 HRESULT STDMETHODCALLTYPE hkResize(IDXGISwapChain *sc, UINT n, UINT w, UINT h, DXGI_FORMAT f, UINT flags)
 {
+    static thread_local int depth;
+    if (depth) { auto fn = (ResizeFn)detail::Reentered(g_resize); return fn ? fn(sc, n, w, h, f, flags) : DXGI_ERROR_INVALID_CALL; }
+    detail::Depth in(depth);
     // The panel's references to the back buffers must go before the buffers can be resized.
     EnterCriticalSection(&g_cs);
     if (sc == g_chain) { releaseTarget(); if (detail::resize12) detail::resize12(sc); }
     LeaveCriticalSection(&g_cs);
-    return g_resize(sc, n, w, h, f, flags);
-}
-
-bool patchSlot(void **vt, int index, void *hook, void **orig)
-{
-    DWORD old;
-    if (!VirtualProtect(&vt[index], sizeof(void *), PAGE_EXECUTE_READWRITE, &old)) return false;
-    *orig = vt[index];
-    vt[index] = hook;
-    VirtualProtect(&vt[index], sizeof(void *), old, &old);
-    return true;
+    return ((ResizeFn)g_resize.next)(sc, n, w, h, f, flags);
 }
 
 DWORD WINAPI worker(LPVOID)
@@ -218,12 +311,12 @@ DWORD WINAPI worker(LPVOID)
     if (FAILED(hr) || !sc) { logf("overlay: probe swap chain failed (0x%08lx); no panel", (unsigned long)hr); if (w) DestroyWindow(w); return 0; }
     void **vt = *(void ***)sc;
     EnterCriticalSection(&g_cs);
-    bool ok = patchSlot(vt, 8, (void *)&hkPresent, (void **)&g_present) && patchSlot(vt, 13, (void *)&hkResize, (void **)&g_resize);
+    bool ok = detail::PatchSlot(vt, 8, (void *)&hkPresent, g_present) && detail::PatchSlot(vt, 13, (void *)&hkResize, g_resize);
     IDXGISwapChain1 *sc1 = nullptr;
     bool ok1 = false;
     if (ok && SUCCEEDED(sc->QueryInterface(__uuidof(IDXGISwapChain1), (void **)&sc1)) && sc1) {
         void **vt1 = *(void ***)sc1;
-        ok1 = vt1 == vt && patchSlot(vt, 22, (void *)&hkPresent1, (void **)&g_present1);
+        ok1 = vt1 == vt && detail::PatchSlot(vt, 22, (void *)&hkPresent1, g_present1);
         sc1->Release();
     }
     LeaveCriticalSection(&g_cs);

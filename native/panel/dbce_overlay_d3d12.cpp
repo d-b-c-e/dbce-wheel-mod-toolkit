@@ -15,16 +15,19 @@ using detail::logf;
 
 // ---- the game's present queue ------------------------------------------------------------------------------
 typedef void(STDMETHODCALLTYPE *EclFn)(ID3D12CommandQueue *, UINT, ID3D12CommandList *const *);
-EclFn g_ecl;
+detail::SlotHook g_ecl = {"ExecuteCommandLists"};
 ID3D12CommandQueue *volatile g_lastDirect;   // the last direct queue that executed work (the game's; not owned)
 
 void STDMETHODCALLTYPE hkEcl(ID3D12CommandQueue *q, UINT n, ID3D12CommandList *const *lists)
 {
+    static thread_local int depth;   // entered again: another overlay's hook and ours call each other (detail::SlotHook)
+    if (depth) { if (auto f = (EclFn)detail::Reentered(g_ecl)) f(q, n, lists); return; }
+    detail::Depth in(depth);
     if (q != g_lastDirect) {
         D3D12_COMMAND_QUEUE_DESC d = q->GetDesc();
         if (d.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) g_lastDirect = q;
     }
-    g_ecl(q, n, lists);
+    ((EclFn)g_ecl.next)(q, n, lists);
 }
 
 // ---- per swap chain ------------------------------------------------------------------------------------------
@@ -177,7 +180,7 @@ bool render12(IDXGISwapChain *sc)
     barrier(f.buffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     g_list->Close();
     ID3D12CommandList *lists[1] = {g_list};
-    if (g_ecl) g_ecl(g_queue, 1, lists); else g_queue->ExecuteCommandLists(1, lists);
+    if (g_ecl.next) ((EclFn)g_ecl.next)(g_queue, 1, lists); else g_queue->ExecuteCommandLists(1, lists);
     f.fence = ++g_fenceNext;
     g_queue->Signal(g_fence, f.fence);
     return true;
@@ -202,13 +205,7 @@ void probe12()
     ID3D12CommandQueue *q = nullptr;
     if (SUCCEEDED(dev->CreateCommandQueue(&qd, IID_PPV_ARGS(&q))) && q) {
         void **vt = *(void ***)q;
-        DWORD old;
-        if (VirtualProtect(&vt[10], sizeof(void *), PAGE_EXECUTE_READWRITE, &old)) {
-            g_ecl = (EclFn)vt[10];
-            vt[10] = (void *)&hkEcl;
-            VirtualProtect(&vt[10], sizeof(void *), old, &old);
-            logf("overlay: D3D12 queue capture installed");
-        }
+        if (detail::PatchSlot(vt, 10, (void *)&hkEcl, g_ecl)) logf("overlay: D3D12 queue capture installed");
         q->Release();
     }
     dev->Release();
