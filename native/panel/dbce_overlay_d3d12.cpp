@@ -21,12 +21,13 @@ ID3D12CommandQueue *volatile g_lastDirect;   // the last direct queue that execu
 void STDMETHODCALLTYPE hkEcl(ID3D12CommandQueue *q, UINT n, ID3D12CommandList *const *lists)
 {
     static thread_local int depth;   // entered again: another overlay's hook and ours call each other (detail::SlotHook)
-    if (depth) { if (auto f = (EclFn)detail::Reentered(g_ecl)) f(q, n, lists); return; }
+    if (!detail::Reentry(g_ecl, depth)) return;
     detail::Depth in(depth);
-    if (q != g_lastDirect) {
+    if (depth == 1 && q != g_lastDirect) {
         D3D12_COMMAND_QUEUE_DESC d = q->GetDesc();
         if (d.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) g_lastDirect = q;
     }
+    if (g_ecl.looped) { detail::SystemCall c(g_ecl); if (c.fn) ((EclFn)c.fn)(q, n, lists); return; }
     ((EclFn)g_ecl.next)(q, n, lists);
 }
 
@@ -180,7 +181,9 @@ bool render12(IDXGISwapChain *sc)
     barrier(f.buffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     g_list->Close();
     ID3D12CommandList *lists[1] = {g_list};
-    if (g_ecl.next) ((EclFn)g_ecl.next)(g_queue, 1, lists); else g_queue->ExecuteCommandLists(1, lists);
+    if (g_ecl.looped) { detail::SystemCall c(g_ecl); if (c.fn) ((EclFn)c.fn)(g_queue, 1, lists); }
+    else if (g_ecl.next) ((EclFn)g_ecl.next)(g_queue, 1, lists);
+    else g_queue->ExecuteCommandLists(1, lists);
     f.fence = ++g_fenceNext;
     g_queue->Signal(g_fence, f.fence);
     return true;

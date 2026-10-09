@@ -59,74 +59,138 @@ void drawFrame(int w, int h)
     ImGui::Render();
 }
 
+static HMODULE moduleOf(const void *p)
+{
+    HMODULE m = nullptr;
+    return p && GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)p, &m) ? m : nullptr;
+}
+
 static const char *moduleName(const void *p)
 {
     static thread_local char name[MAX_PATH];
-    HMODULE m = nullptr;
-    if (!p || !GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)p, &m) ||
-        !GetModuleFileNameA(m, name, MAX_PATH))
-        return "memory outside any module";
+    HMODULE m = moduleOf(p);
+    if (!m || !GetModuleFileNameA(m, name, MAX_PATH)) return "memory outside any module";
     const char *slash = strrchr(name, '\\');
     return slash ? slash + 1 : name;
 }
 
-static bool executableAt(const IMAGE_NT_HEADERS *nt, ULONG_PTR rva)
+static const IMAGE_NT_HEADERS *ntOf(HMODULE m) { return (const IMAGE_NT_HEADERS *)((const BYTE *)m + ((const IMAGE_DOS_HEADER *)m)->e_lfanew); }
+
+static bool inCode(HMODULE m, const void *p)
 {
+    const BYTE *base = (const BYTE *)m;
+    const IMAGE_NT_HEADERS *nt = ntOf(m);
+    if ((const BYTE *)p < base) return false;
+    const ULONG_PTR rva = (ULONG_PTR)((const BYTE *)p - base);
+    if (rva >= nt->OptionalHeader.SizeOfImage) return false;
     const IMAGE_SECTION_HEADER *s = IMAGE_FIRST_SECTION(nt);
     for (WORD i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++s)
         if ((s->Characteristics & IMAGE_SCN_MEM_EXECUTE) && rva >= s->VirtualAddress && rva < s->VirtualAddress + s->Misc.VirtualSize) return true;
     return false;
 }
 
-// The slot's value before anyone patched it: the pointer in the module's file on disk (relative to the file's own
-// ImageBase), moved to where the module is loaded. Only a value inside one of the module's executable sections counts.
-static void *systemSlot(void **vt, int index)
+// n bytes at p (inside module m) as the module's file on disk has them, placed the way the loader places them at the
+// module's current base (base relocations in the window applied: x86 code holds absolute addresses). False when the
+// file cannot be read or a relocation crosses the window's edge.
+static bool fileBytes(HMODULE m, const void *p, void *out, DWORD n)
 {
-    HMODULE mod = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&vt[index], &mod) || !mod) return nullptr;
     wchar_t path[MAX_PATH];
-    DWORD n = GetModuleFileNameW(mod, path, MAX_PATH);
-    if (!n || n >= MAX_PATH) return nullptr;
-    const BYTE *base = (const BYTE *)mod;
-    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(base + ((const IMAGE_DOS_HEADER *)base)->e_lfanew);
-    const ULONG_PTR rva = (ULONG_PTR)((const BYTE *)&vt[index] - base);
+    const DWORD len = GetModuleFileNameW(m, path, MAX_PATH);
+    if (!len || len >= MAX_PATH) return false;
+    const BYTE *base = (const BYTE *)m;
+    const IMAGE_NT_HEADERS *nt = ntOf(m);
+    const ULONG_PTR rva = (ULONG_PTR)((const BYTE *)p - base);
     HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (f == INVALID_HANDLE_VALUE) return nullptr;
+    if (f == INVALID_HANDLE_VALUE) return false;
     BYTE head[4096];
     DWORD got = 0;
-    void *result = nullptr;
+    bool ok = false;
+    ULONG_PTR fileBase = 0;
     if (ReadFile(f, head, sizeof head, &got, nullptr) && got >= sizeof(IMAGE_DOS_HEADER)) {
         const LONG lfanew = ((const IMAGE_DOS_HEADER *)head)->e_lfanew;
         const IMAGE_NT_HEADERS *fnt = lfanew > 0 && (DWORD)lfanew + sizeof(IMAGE_NT_HEADERS) <= got ? (const IMAGE_NT_HEADERS *)(head + lfanew) : nullptr;
         if (fnt && fnt->Signature == IMAGE_NT_SIGNATURE && fnt->OptionalHeader.Magic == nt->OptionalHeader.Magic) {
+            fileBase = (ULONG_PTR)fnt->OptionalHeader.ImageBase;
             const IMAGE_SECTION_HEADER *s = IMAGE_FIRST_SECTION(fnt);
             const WORD count = fnt->FileHeader.NumberOfSections;
             if ((const BYTE *)(s + count) <= head + got) {
                 for (WORD i = 0; i < count; ++i, ++s) {
-                    if (rva < s->VirtualAddress || rva + sizeof(void *) > (ULONG_PTR)s->VirtualAddress + s->SizeOfRawData) continue;
+                    if (rva < s->VirtualAddress || rva + n > (ULONG_PTR)s->VirtualAddress + s->SizeOfRawData) continue;
                     LARGE_INTEGER at;
                     at.QuadPart = (LONGLONG)s->PointerToRawData + (LONGLONG)(rva - s->VirtualAddress);
-                    ULONG_PTR raw = 0;
                     DWORD r = 0;
-                    if (SetFilePointerEx(f, at, nullptr, FILE_BEGIN) && ReadFile(f, &raw, sizeof raw, &r, nullptr) && r == sizeof raw) {
-                        const ULONG_PTR fileBase = (ULONG_PTR)fnt->OptionalHeader.ImageBase;
-                        if (raw >= fileBase && raw - fileBase < nt->OptionalHeader.SizeOfImage && executableAt(nt, raw - fileBase))
-                            result = (void *)(base + (raw - fileBase));
-                    }
+                    ok = SetFilePointerEx(f, at, nullptr, FILE_BEGIN) && ReadFile(f, out, n, &r, nullptr) && r == n;
                     break;
                 }
             }
         }
     }
     CloseHandle(f);
-    // A slot still holding a pointer into its own module is the system's function as loaded; trust it over the file
-    // (the file can be newer than the loaded copy after an update that waits for a restart).
-    void *cur = vt[index];
-    if ((const BYTE *)cur >= base && (ULONG_PTR)((const BYTE *)cur - base) < nt->OptionalHeader.SizeOfImage &&
-        executableAt(nt, (ULONG_PTR)((const BYTE *)cur - base)))
-        return cur;
-    return result;
+    if (!ok) return false;
+    const ULONG_PTR delta = (ULONG_PTR)base - fileBase;
+    const IMAGE_DATA_DIRECTORY &dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+    if (!delta || !dir.VirtualAddress || !dir.Size) return true;
+    const BYTE *q = base + dir.VirtualAddress, *end = q + dir.Size;
+    while (q + sizeof(IMAGE_BASE_RELOCATION) <= end) {
+        const IMAGE_BASE_RELOCATION *b = (const IMAGE_BASE_RELOCATION *)q;
+        if (b->SizeOfBlock < sizeof *b || q + b->SizeOfBlock > end) break;
+        if (b->VirtualAddress + 0x1000 > rva && b->VirtualAddress < rva + n) {
+            const WORD *e = (const WORD *)(b + 1);
+            const DWORD count = (b->SizeOfBlock - (DWORD)sizeof *b) / (DWORD)sizeof(WORD);
+            for (DWORD i = 0; i < count; ++i) {
+                const int type = e[i] >> 12;
+                const DWORD size = type == IMAGE_REL_BASED_DIR64 ? 8 : type == IMAGE_REL_BASED_HIGHLOW ? 4 : 0;
+                const ULONG_PTR at = (ULONG_PTR)b->VirtualAddress + (e[i] & 0xFFF);
+                if (!size || at + size <= rva || at >= rva + n) continue;
+                if (at < rva || at + size > rva + n) return false;
+                BYTE *v = (BYTE *)out + (at - rva);
+                if (size == 8) { ULONGLONG x; memcpy(&x, v, 8); x += (ULONGLONG)delta; memcpy(v, &x, 8); }
+                else { DWORD x; memcpy(&x, v, 4); x += (DWORD)delta; memcpy(v, &x, 4); }
+            }
+        }
+        q += b->SizeOfBlock;
+    }
+    return true;
 }
+
+// The slot's value before anyone patched it. A slot still pointing into its own module's code is that (the file can be
+// newer than the loaded copy after an update that waits for a restart); otherwise the module file's entry.
+static void *systemSlot(void **vt, int index)
+{
+    HMODULE m = moduleOf(&vt[index]);
+    if (!m) return nullptr;
+    if (inCode(m, vt[index])) return vt[index];
+    void *v = nullptr;
+    return fileBytes(m, &vt[index], &v, sizeof v) && inCode(m, v) ? v : nullptr;
+}
+
+// Where a patched function entry jumps (the usual hook shapes), or null.
+static const void *jumpTarget(const BYTE *p)
+{
+    __try {
+        if (p[0] == 0xE9) { INT32 rel; memcpy(&rel, p + 1, 4); return p + 5 + rel; }
+#ifdef _WIN64
+        if (p[0] == 0xFF && p[1] == 0x25) { INT32 rel; memcpy(&rel, p + 2, 4); const void *t; memcpy(&t, p + 6 + rel, 8); return t; }
+        if (p[0] == 0x48 && p[1] == 0xB8 && p[10] == 0xFF && p[11] == 0xE0) { const void *t; memcpy(&t, p + 2, 8); return t; }
+#else
+        if (p[0] == 0xFF && p[1] == 0x25) { const void *const *at; memcpy(&at, p + 2, 4); return *at; }
+        if (p[0] == 0x68 && p[5] == 0xC3) { const void *t; memcpy(&t, p + 1, 4); return t; }
+#endif
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return nullptr;
+}
+
+static bool writeCode(void *at, const void *src, size_t n)
+{
+    DWORD old;
+    if (!VirtualProtect(at, n, PAGE_EXECUTE_READWRITE, &old)) return false;
+    memcpy(at, src, n);
+    VirtualProtect(at, n, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), at, n);
+    return true;
+}
+
+static BOOL CALLBACK initCall(PINIT_ONCE, PVOID cs, PVOID *) { InitializeCriticalSection((CRITICAL_SECTION *)cs); return TRUE; }
 
 bool PatchSlot(void **vt, int index, void *hook, SlotHook &h)
 {
@@ -142,14 +206,65 @@ bool PatchSlot(void **vt, int index, void *hook, SlotHook &h)
     return true;
 }
 
-void *Reentered(SlotHook &h)
+// First re-entry: what the system call needs (the other overlay's changed bytes at the system function, if any).
+static void noteLoop(SlotHook &h)
 {
-    if (!InterlockedExchange(&h.looped, 1))
-        logf(h.system ? "overlay: %s was hooked again over ours by %s, which now calls ours while ours called it; ours calls the system's function from now on"
-                      : "overlay: %s was hooked again over ours by %s and the system's function is unknown; the looping call is skipped",
-             h.name, moduleName(h.next));
-    if (h.system) h.next = h.system;
-    return h.system;
+    if (InterlockedCompareExchange(&h.preparing, 1, 0) != 0) { while (!h.looped) Sleep(0); return; }
+    const char *other = moduleName(h.next);
+    char otherName[MAX_PATH];
+    strncpy_s(otherName, other, _TRUNCATE);
+    if (!h.system) {
+        logf("overlay: %s: ours and %s call each other and the system's function is unknown; the looping calls are skipped", h.name, otherName);
+    } else {
+        BYTE file[sizeof h.original];
+        HMODULE m = moduleOf(h.system);
+        if (m && fileBytes(m, h.system, file, sizeof file)) {
+            const BYTE *now = (const BYTE *)h.system;
+            int last = -1;
+            for (int i = 0; i < (int)sizeof file; ++i) if (now[i] != file[i]) last = i;
+            memcpy(h.original, file, sizeof file);
+            h.span = last + 1;
+            if (h.span) {
+                char bytes[3 * 16 + 1] = "";
+                for (int i = 0; i < 16 && i < h.span; ++i) sprintf_s(bytes + 3 * i, sizeof bytes - 3 * i, "%02x ", now[i]);
+                const void *to = jumpTarget(now);
+                logf("overlay: %s: ours and %s call each other; the system function's first %d bytes (in %s) were changed to jump there (%s); "
+                     "ours calls it with its original bytes put back for each call", h.name, to ? moduleName(to) : "another module", h.span, otherName, bytes);
+            } else {
+                logf("overlay: %s was hooked again over ours by %s, which now calls ours while ours called it; ours calls the system's function from now on",
+                     h.name, otherName);
+            }
+        } else {
+            logf("overlay: %s: ours and %s call each other; the system function's file bytes could not be read, so it is called as it is", h.name, otherName);
+        }
+    }
+    InterlockedExchange(&h.looped, 1);
+}
+
+bool Reentry(SlotHook &h, int depth)
+{
+    if (depth == 0) return true;
+    if (depth == 1) { noteLoop(h); return h.system != nullptr; }
+    if (!InterlockedExchange(&h.skipNoted, 1)) logf("overlay: %s: the loop went on through the system's function; those calls are skipped", h.name);
+    return false;
+}
+
+SystemCall::SystemCall(SlotHook &h) : fn(h.system), h_(h), locked_(false), swapped_(false)
+{
+    if (!fn || h.span <= 0) return;
+    InitOnceExecuteOnce(&h.once, initCall, &h.cs, nullptr);
+    EnterCriticalSection(&h.cs);
+    locked_ = true;
+    memcpy(saved_, fn, (size_t)h.span);
+    if (memcmp(saved_, h.original, (size_t)h.span) == 0) return;   // the other overlay took its change back
+    swapped_ = writeCode(fn, h.original, (size_t)h.span);
+    if (!swapped_) fn = nullptr;                                   // still changed: calling it would loop
+}
+
+SystemCall::~SystemCall()
+{
+    if (swapped_) writeCode(h_.system, saved_, (size_t)h_.span);
+    if (locked_) LeaveCriticalSection(&h_.cs);
 }
 } // namespace detail
 
@@ -249,32 +364,37 @@ void render(IDXGISwapChain *sc)
 }
 
 // Each hook: entered again on the same thread means another overlay's hook and ours are calling each other (see
-// detail::SlotHook); that inner call goes to the system's function instead, and so does every later one.
+// detail::SlotHook); from then on ours calls the system's function, and only the outermost call does the panel's work.
 HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain *sc, UINT sync, UINT flags)
 {
     static thread_local int depth;
-    if (depth) { auto f = (PresentFn)detail::Reentered(g_present); return f ? f(sc, sync, flags) : S_OK; }
+    if (!detail::Reentry(g_present, depth)) return S_OK;
     detail::Depth in(depth);
-    if (!(flags & DXGI_PRESENT_TEST)) render(sc);
+    if (depth == 1 && !(flags & DXGI_PRESENT_TEST)) render(sc);
+    if (g_present.looped) { detail::SystemCall c(g_present); return c.fn ? ((PresentFn)c.fn)(sc, sync, flags) : S_OK; }
     return ((PresentFn)g_present.next)(sc, sync, flags);
 }
 HRESULT STDMETHODCALLTYPE hkPresent1(IDXGISwapChain1 *sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS *p)
 {
     static thread_local int depth;
-    if (depth) { auto f = (Present1Fn)detail::Reentered(g_present1); return f ? f(sc, sync, flags, p) : S_OK; }
+    if (!detail::Reentry(g_present1, depth)) return S_OK;
     detail::Depth in(depth);
-    if (!(flags & DXGI_PRESENT_TEST)) render(sc);
+    if (depth == 1 && !(flags & DXGI_PRESENT_TEST)) render(sc);
+    if (g_present1.looped) { detail::SystemCall c(g_present1); return c.fn ? ((Present1Fn)c.fn)(sc, sync, flags, p) : S_OK; }
     return ((Present1Fn)g_present1.next)(sc, sync, flags, p);
 }
 HRESULT STDMETHODCALLTYPE hkResize(IDXGISwapChain *sc, UINT n, UINT w, UINT h, DXGI_FORMAT f, UINT flags)
 {
     static thread_local int depth;
-    if (depth) { auto fn = (ResizeFn)detail::Reentered(g_resize); return fn ? fn(sc, n, w, h, f, flags) : DXGI_ERROR_INVALID_CALL; }
+    if (!detail::Reentry(g_resize, depth)) return DXGI_ERROR_INVALID_CALL;
     detail::Depth in(depth);
-    // The panel's references to the back buffers must go before the buffers can be resized.
-    EnterCriticalSection(&g_cs);
-    if (sc == g_chain) { releaseTarget(); if (detail::resize12) detail::resize12(sc); }
-    LeaveCriticalSection(&g_cs);
+    if (depth == 1) {
+        // The panel's references to the back buffers must go before the buffers can be resized.
+        EnterCriticalSection(&g_cs);
+        if (sc == g_chain) { releaseTarget(); if (detail::resize12) detail::resize12(sc); }
+        LeaveCriticalSection(&g_cs);
+    }
+    if (g_resize.looped) { detail::SystemCall c(g_resize); return c.fn ? ((ResizeFn)c.fn)(sc, n, w, h, f, flags) : DXGI_ERROR_INVALID_CALL; }
     return ((ResizeFn)g_resize.next)(sc, n, w, h, f, flags);
 }
 
