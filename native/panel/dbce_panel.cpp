@@ -487,6 +487,14 @@ void PollDev()
     if (!GetFileAttributesExA(g_cfg.devFile, GetFileExInfoStandard, &a)) return;
     if (CompareFileTime(&a.ftLastWriteTime, &seen) == 0) return;
     seen = a.ftLastWriteTime;
+    // A command left from an earlier run (written before this process started) is never applied: the owner's own
+    // launch must not open the panel.
+    static FILETIME started;
+    if (!started.dwLowDateTime && !started.dwHighDateTime) {
+        FILETIME exitT, kernelT, userT;
+        if (!GetProcessTimes(GetCurrentProcess(), &started, &exitT, &kernelT, &userT)) started.dwLowDateTime = 1;
+    }
+    if (CompareFileTime(&a.ftLastWriteTime, &started) < 0) return;
     char text[128] = "";
     HANDLE f = CreateFileA(g_cfg.devFile, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
     if (f == INVALID_HANDLE_VALUE) return;

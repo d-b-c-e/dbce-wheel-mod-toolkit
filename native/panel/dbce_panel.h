@@ -26,7 +26,8 @@ struct Config {
     void (*stopFfb)() = nullptr;
     void (*log)(const char *line) = nullptr;
     // Unattended checks only (no OS input): a file whose text is "open <Page> [simple|advanced]" or "close" is applied
-    // when it changes (polled twice a second by the overlay). Null: off.
+    // when it changes (polled twice a second by the overlay); a file last written before the process started is ignored.
+    // Null: off.
     const char *devFile = nullptr;
     // STD-023: whether the three views are on, for the frame-rate readout and its log line. Null: not reported.
     bool (*triplesOn)() = nullptr;
