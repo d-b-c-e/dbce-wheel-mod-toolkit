@@ -25,3 +25,28 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
 
 Rendered offline only; not yet seen in a game. No binding capture, wheel/pad navigation of the panel or Settings button
 yet. XInput pads are not suppressed while the panel is open. A D3D9 overlay is still to do.
+
+## Living with the Steam overlay (2026-10-09)
+
+Steam's overlay can take our Present hook as its "original". It patches the first bytes of dxgi's Present (5 bytes,
+`e9` to a relay), puts dxgi's entry back in the vtable slot, and keeps what it found in the slot (ours) as the function
+it calls next. Ours then called dxgi's entry, which jumped back to Steam, until the stack ran out. This killed V-Rally 4
+on its first frame; the CrashRpt dumps are in `_archive\2026-10-09\vr4-crash-*`.
+
+- **Installed builds (fb90c22, 80f2456):** each slot hook counts its nesting per thread. On the first re-entry it calls
+  the system function with the module file's original bytes put back for that call. Only V-Rally 4 takes this path
+  today; the other six panel games show no loop.
+- **Review (Astra, hcom 2916/2948, inbox 2026-10-09-astra-overlay-3e7ed72-followup.md):**
+  - rewriting live code is not safe against other threads;
+  - a restore can overwrite a newer patch;
+  - a code copy rebuilt later from disk is not bound to the loaded build;
+  - skipping a Present or ExecuteCommandLists is not a valid fallback.
+
+  3e7ed72 (copy from disk with a jump back, no live writes) answers the first two. It is committed but **not
+  installed anywhere**.
+- **Agreed next version (not started):**
+  - relocate instructions with Microsoft Detours;
+  - copy them from the live code at install, only when it matches the module file and its headers;
+  - otherwise, or if the copy cannot be made, do not install the hook at all;
+  - D3D11 first; the D3D12 queue hook stays out unless forwarding is guaranteed;
+  - tests count real forwarding calls.
