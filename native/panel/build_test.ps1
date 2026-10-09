@@ -7,8 +7,15 @@ $here = $PSScriptRoot
 $build = Join-Path $here 'build'
 New-Item -ItemType Directory -Force $build | Out-Null
 $im = '..\third_party\imgui'
-$imgui = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp $im\backends\imgui_impl_dx11.cpp"
-$cmd = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui /Fo`"$build\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_panel_render.cpp dbce_panel.cpp dbce_panel_input.cpp dbce_overlay_d3d11.cpp /Fo`"$build\\`" `"$build\imgui.obj`" `"$build\imgui_draw.obj`" `"$build\imgui_tables.obj`" `"$build\imgui_widgets.obj`" `"$build\imgui_impl_dx11.obj`" /Fe`"$build\test_panel_render.exe`" && `"$build\test_panel_render.exe`" `"$build`""
+$imgui = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp $im\backends\imgui_impl_dx11.cpp $im\backends\imgui_impl_dx12.cpp"
+$cmd = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui /Fo`"$build\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_panel_render.cpp dbce_panel.cpp dbce_panel_input.cpp dbce_overlay_d3d11.cpp dbce_overlay_d3d12.cpp /Fo`"$build\\`" `"$build\imgui.obj`" `"$build\imgui_draw.obj`" `"$build\imgui_tables.obj`" `"$build\imgui_widgets.obj`" `"$build\imgui_impl_dx11.obj`" `"$build\imgui_impl_dx12.obj`" /Fe`"$build\test_panel_render.exe`" && `"$build\test_panel_render.exe`" `"$build`""
 $out = cmd /c $cmd 2>&1
 $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw 'panel render check failed' }
+
+# D3D12 overlay path on WARP through the real present hook and queue capture.
+$objs = 'dbce_panel', 'dbce_panel_input', 'dbce_overlay_d3d11', 'dbce_overlay_d3d12', 'imgui', 'imgui_draw', 'imgui_tables', 'imgui_widgets', 'imgui_impl_dx11', 'imgui_impl_dx12' | ForEach-Object { "`"$build\$_.obj`"" }
+$cmd12 = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d12.cpp /Fo`"$build\\`" $($objs -join ' ') /Fe`"$build\test_overlay_d3d12.exe`" /link user32.lib && `"$build\test_overlay_d3d12.exe`" `"$build`""
+$out12 = cmd /c $cmd12 2>&1
+$out12 | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel' | ForEach-Object { $_.Line }
+if ($LASTEXITCODE) { $out12 | Select-Object -Last 25; throw 'D3D12 overlay check failed' }
