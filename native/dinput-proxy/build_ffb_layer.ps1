@@ -23,6 +23,19 @@ foreach ($arch in 'x64', 'x86') {
     if ($LASTEXITCODE) { $fo | Select-Object -Last 25; throw "fence checks failed ($arch)" }
 }
 
+# The layer's production hooks against fake DirectInput objects (test_layer.cpp: pedal rest shaping, device churn and
+# capacity, identity and status reports), x64 and x86. Links the layer with the panel and Dear ImGui (compiled at /W0).
+foreach ($arch in 'x64', 'x86') {
+    $vv = Join-Path $vs ('VC\Auxiliary\Build\vcvars{0}.bat' -f $(if ($arch -eq 'x64') { '64' } else { '32' }))
+    $dir = Join-Path $build "layer-$arch"
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $imSrc = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp"
+    $imObj = 'imgui', 'imgui_draw', 'imgui_tables', 'imgui_widgets' | ForEach-Object { "`"$dir\$_.obj`"" }
+    $lo = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imSrc /Fo`"$dir\\`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im test_layer.cpp dbce_ffb_layer.cpp ..\panel\dbce_panel.cpp ..\panel\dbce_panel_input.cpp $imObj /Fo`"$dir\\`" /Fe`"$dir\test_layer.exe`" dinput8.lib dxguid.lib user32.lib && `"$dir\test_layer.exe`"" 2>&1
+    $lo | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
+    if ($LASTEXITCODE) { $lo | Select-Object -Last 25; throw "layer hook checks failed ($arch)" }
+}
+
 # 32-bit consumers (DiRT 3): the layer and the panel/overlay compile for x86 too, where __stdcall argument counts matter.
 $vcvars32 = Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat'
 $b32 = Join-Path $build 'x86'

@@ -216,13 +216,9 @@ struct FencedDevice final : I {
         if (!SUCCEEDED(hr) || !data) return hr;
         auto *inj = settings().injections;
         if (inj && inj->any()) inject(*inj, cb, data);
-        if (const auto *shapes = settings().shapes) {
-            auto r = dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); });
-            static volatile LONG n;
-            if (r.unavailable && sample(n))
-                logf("shape: device %s: %d pedal shape(s) unavailable (a non-standard read or an unreadable or non-increasing range); left as read",
-                     instance.c_str(), r.unavailable);
-        }
+        if (const auto *shapes = settings().shapes)
+            dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); },
+                [](const dbce::controls::PedalShape &s, dbce::controls::ShapeMiss m, long mn, long mx) { logf("%s", dbce::shape::firstLine(s, m, mn, mx).c_str()); });
         return hr;
     }
     STDMETHODIMP GetDeviceData(DWORD n, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD f) override { return real->GetDeviceData(n, d, k, f); }

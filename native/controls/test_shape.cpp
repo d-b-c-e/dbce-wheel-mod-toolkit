@@ -69,6 +69,49 @@ int main()
     check(!t.add("brake", must("axis 4" + R12 + " range=0..65535 rest=65535 travel=+1"), why) && why == "rest-at-full", "rest at the full end refused");
 
     const std::string a1 = "{00000000-0000-0000-0000-0000000000a1}", b2 = "{00000000-0000-0000-0000-0000000000b2}";
+    // A binding built in code (not by parse()) must still be well formed: normalized identities, travel exactly +-1.
+    auto malformed = [&](void (*edit)(Binding &), const char *reason) {
+        Binding b = brake;
+        b.index = 3;   // another axis, so the duplicate rule does not answer first
+        edit(b);
+        ShapeTable fresh;
+        std::string w;
+        return !fresh.add("brake", b, w) && w == reason;
+    };
+    check(malformed([](Binding &b) { b.dev = ""; }, "bad-dev"), "empty dev refused");
+    check(malformed([](Binding &b) { b.dev = "{000000A1-0000-0000-0000-000000000000}"; }, "bad-dev"), "upper-case dev refused (parse stores lowercase)");
+    check(malformed([](Binding &b) { b.dev = "000000a1-0000-0000-0000-000000000000"; }, "bad-dev"), "dev without braces refused");
+    check(malformed([](Binding &b) { b.prod = "{0006346e}"; }, "bad-prod"), "malformed prod refused");
+    check(malformed([](Binding &b) { b.travel = 0; }, "bad-travel"), "travel 0 refused");
+    check(malformed([](Binding &b) { b.travel = 2; }, "bad-travel"), "travel +2 refused");
+    check(malformed([](Binding &b) { b.index = 8; }, "bad-index"), "axis 8 refused");
+    check(malformed([](Binding &b) { b.rest = 70000; }, "rest outside the range"), "rest beyond the range refused");
+
+    // Observation: requested is not applied until a read was shaped; misses keep their reason; the status lines say so.
+    {
+        ShapeTable o;
+        o.add("brake", brake, why);
+        check(describe(o)[0].find("not seen yet") != std::string::npos && o.state(0).shaped == 0, "requested: not seen yet");
+        long ax[8] = {0, 0, 0, 0, 0, 1743, 0, 0};
+        StateView sv; sv.axes = ax;
+        int firsts = 0;
+        auto first = [&](const PedalShape &, ShapeMiss, long, long) { ++firsts; };
+        auto ok = [](int, long &mn, long &mx) { mn = 0; mx = 65535; return true; };
+        auto bad = [](int, long &, long &) { return false; };
+        o.apply("{00000000-0000-0000-0000-0000000000a1}", sv, bad, first);
+        o.apply("{00000000-0000-0000-0000-0000000000a1}", sv, bad, first);
+        check(firsts == 1 && o.state(0).unavailable == 2 && o.state(0).lastMiss == ShapeMiss::Range, "a miss is reported once per reason, counted every time");
+        check(describe(o)[0].find("NOT corrected") != std::string::npos, "status: not corrected: " + describe(o)[0]);
+        o.apply("{00000000-0000-0000-0000-0000000000a1}", sv, ok, first);
+        o.apply("{00000000-0000-0000-0000-0000000000a1}", sv, ok, first);
+        check(firsts == 2 && o.state(0).shaped == 2, "the first correction is reported once");
+        check(describe(o)[0].find("corrected, but some reads were not") != std::string::npos, "status: corrected after a miss");
+        o.missAll("{00000000-0000-0000-0000-0000000000a1}", ShapeMiss::Format, first);
+        check(firsts == 3 && o.state(0).lastMiss == ShapeMiss::Format, "a new miss reason is reported");
+        o.noteUnidentified();
+        check(describe(o).size() == 2 && describe(o)[1].find("could not identify") != std::string::npos, "unidentified devices listed");
+    }
+
     long axes[8] = {33265, 0, 0, 0, 0, 1743, 0, 0};
     StateView v;
     v.axes = axes;

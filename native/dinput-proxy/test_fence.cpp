@@ -335,12 +335,13 @@ int main()
         dev4->SetDataFormat(&c_dfDIJoystick2);
         DIJOYSTATE2 s4{};
         dev4->GetDeviceState(sizeof s4, &s4);
-        check(s4.lRz == 0 && logged("pedal shape(s) unavailable"), "unreadable range: left as read, reported");
+        check(s4.lRz == 0 && logged("NOT corrected: the game's range for the axis is unreadable"), "unreadable range: left as read, reported");
         g_log.clear();
         fake4.device.rangeFails = false;
         dev4->SetDataFormat(&custom);
         dev4->GetDeviceState(sizeof s4, &s4);
-        check(s4.lRz == 0 && logged("pedal shape(s) unavailable"), "a custom format: left as read, reported");
+        check(s4.lRz == 0 && logged("NOT corrected: the game reads the device in a non-standard format"), "a custom format: left as read, reported");
+        check(shapes.state(0).shaped > 0 && shapes.state(0).unavailable == 2 && shapes.state(0).lastMiss == dbce::controls::ShapeMiss::Format, "the corrections and both misses are recorded");
         dev4->Release(); di4->Release();
         settings().shapes = nullptr;
         dev->GetDeviceState(sizeof shaped, &shaped);

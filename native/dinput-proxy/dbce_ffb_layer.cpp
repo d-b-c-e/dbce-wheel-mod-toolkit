@@ -58,7 +58,7 @@ bool diagOk() { return InterlockedIncrement(&g_diagLines) <= 2000; }   // bounde
 
 // ---- vtable patching, one original per (hook, table) -------------------------------------------------------
 enum Hook { H_CREATEDEV, H_SETPROP, H_ACQUIRE, H_GETSTATE, H_GETDATA, H_SETCOOP, H_CREATEEFF, H_SENDFF,
-            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_COUNT };
+            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_D_RELEASE, H_COUNT };
 struct Slot { void **vt; void *orig; };
 Slot g_slots[H_COUNT][8];
 // The answer for a table that was never recorded (should not happen): E_FAIL from a stub with the hook's own argument
@@ -71,7 +71,7 @@ HRESULT STDMETHODCALLTYPE unrecorded5(void *, void *, void *, void *, void *) { 
 void *unrecorded(Hook h)
 {
     static void *const byArgs[6] = {nullptr, (void *)&unrecorded1, (void *)&unrecorded2, (void *)&unrecorded3, (void *)&unrecorded4, (void *)&unrecorded5};
-    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2};   // self included, in Hook order
+    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2, 1};   // self included, in Hook order
     return byArgs[args[h]];
 }
 void *orig(Hook h, void *self)
@@ -467,8 +467,8 @@ void applyShapes(void *self, DWORD cb, LPVOID data, const dbce::controls::ShapeT
     EnterCriticalSection(&g_cs);
     for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self && g_devs[i].reportedOk) { inst = guidText(g_devs[i].reported); format = g_devs[i].format; break; }
     LeaveCriticalSection(&g_cs);
-    if (inst.empty()) return;
-    auto r = dbce::shape::applyToState(shapes, inst, format, cb, data, [self](int axis, long &mn, long &mx) {
+    if (inst.empty()) return;   // an unidentified device was counted once at CreateDevice
+    dbce::shape::applyToState(shapes, inst, format, cb, data, [self](int axis, long &mn, long &mx) {
         static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
         DIPROPRANGE rg{};
         rg.diph.dwSize = sizeof rg; rg.diph.dwHeaderSize = sizeof rg.diph; rg.diph.dwObj = ofs[axis]; rg.diph.dwHow = DIPH_BYOFFSET;
@@ -476,10 +476,7 @@ void applyShapes(void *self, DWORD cb, LPVOID data, const dbce::controls::ShapeT
         if (FAILED(((GetPropFn)vt[5])(self, DIPROP_RANGE, &rg.diph))) return false;
         mn = rg.lMin; mx = rg.lMax;
         return true;
-    });
-    static volatile LONG warned;
-    if (r.unavailable && InterlockedIncrement(&warned) <= 20)
-        dlog("shape: device %s: %d pedal shape(s) unavailable (a non-standard read or an unreadable or non-increasing range); left as read", inst.c_str(), r.unavailable);
+    }, [](const dbce::controls::PedalShape &s, dbce::controls::ShapeMiss m, long mn, long mx) { dlog("%s", dbce::shape::firstLine(s, m, mn, mx).c_str()); });
 }
 typedef HRESULT(STDMETHODCALLTYPE *GetStateFn)(void *, DWORD, LPVOID);
 HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
@@ -517,6 +514,21 @@ HRESULT STDMETHODCALLTYPE hkSetFormat(void *self, LPCDIDATAFORMAT f)
     return hr;
 }
 
+// A released device leaves the table, so the game's later devices still get injection and pedal shaping (the table
+// holds 32 live devices). Only the object's address is used after the real Release, never the object.
+typedef ULONG(STDMETHODCALLTYPE *DevReleaseFn)(void *);
+ULONG STDMETHODCALLTYPE hkDevRelease(void *self)
+{
+    const ULONG n = ((DevReleaseFn)orig(H_D_RELEASE, self))(self);
+    if (n == 0) {
+        EnterCriticalSection(&g_cs);
+        for (int i = 0; i < g_devCount; ++i)
+            if (g_devs[i].dev == self) { g_devs[i] = g_devs[--g_devCount]; break; }
+        LeaveCriticalSection(&g_cs);
+    }
+    return n;
+}
+
 typedef HRESULT(STDMETHODCALLTYPE *CreateDevFn)(void *, REFGUID, void **, LPUNKNOWN);
 HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUNKNOWN unk)
 {
@@ -535,7 +547,10 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
             HRESULT ih = ((InfoFn)vt[15])(*out, &info);
             if (FAILED(ih)) { info.dwSize = sizeof(DIDEVICEINSTANCEW); ih = ((InfoFn)vt[15])(*out, &info); }
             if (SUCCEEDED(ih)) { reported = info.guidInstance; reportedOk = true; }
-            else dlog("shape: CreateDevice: the device's own instance could not be read (0x%08lx); its pedal shapes will not apply", ih);
+            else {
+                g_shapes->noteUnidentified();
+                dlog("shape: CreateDevice: the device's own instance could not be read (0x%08lx); any pedal rest correction it needs will not apply", ih);
+            }
         }
         EnterCriticalSection(&g_cs);   // the instance the game asked for, for test injection by instance
         int slot = -1;
@@ -543,6 +558,10 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
         if (slot < 0 && g_devCount < 32) slot = g_devCount++;
         if (slot >= 0) g_devs[slot] = {*out, g, 0, reported, reportedOk};
         LeaveCriticalSection(&g_cs);
+        if (slot < 0) {
+            if (g_shapes && reportedOk && g_shapes->countFor(guidText(reported))) g_shapes->noteUnidentified();
+            dlog("ffb: CreateDevice: 32 devices are already open; this one gets no test injection or pedal rest correction");
+        }
     }
     return hr;
 }
@@ -586,6 +605,7 @@ void HookDevice(void *dev)
     patch(H_SETCOOP, dev, 13, (void *)&hkSetCoop);
     patch(H_CREATEEFF, dev, 18, (void *)&hkCreateEffect);
     patch(H_SENDFF, dev, 22, (void *)&hkSendFf);
+    patch(H_D_RELEASE, dev, 2, (void *)&hkDevRelease);
 }
 
 bool SetShapes(const dbce::controls::ShapeTable *table)
