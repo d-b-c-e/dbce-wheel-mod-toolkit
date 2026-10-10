@@ -3,7 +3,7 @@
 // binding resolution.
 //   inject raw <axis|button|hat> <index> [angle] dev=<guid> value=<raw> ms=<50-15000> [range=<min>..<max>]
 //   inject action <id> <n> ms=<50-15000>
-// Raw axis values are in `range` (default 0..65535, Wheelkit's capture range); buttons take 0 or 128; hats an angle or -1.
+// Raw axis values are in `range` (default 0..65535, Wheelkit's capture range); buttons take 1 (down) or 0; hats an angle or -1.
 #pragma once
 #include "dbce_controls.hpp"
 
@@ -80,7 +80,7 @@ inline bool parseInject(const std::string &lineIn, const Section *applied, Injec
     if (b.dev.empty()) { why = "dev= is required (the device instance)"; return false; }
     if (!haveValue || !haveMs) { why = "value= and ms= are required"; return false; }
     if (b.kind == Kind::Axis && (out.raw < b.min || out.raw > b.max)) { why = "value outside the range"; return false; }
-    if (b.kind == Kind::Button && out.raw != 0 && out.raw != 128) { why = "a button takes 0 or 128"; return false; }
+    if (b.kind == Kind::Button && out.raw != 0 && out.raw != 1) { why = "a button takes 1 (down) or 0"; return false; }
     if (b.kind == Kind::Hat && out.raw != -1 && out.raw != b.angle) { why = "a hat takes its angle or -1"; return false; }
     return true;
 }

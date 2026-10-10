@@ -58,17 +58,20 @@ rescales linearly first: `v = min + (sample - sampleMin) * (max - min) / (sample
   `n = -n` when `inverted`. `travel` and `rest` are ignored for steering, because Wheelkit's capture asks only to
   "move one control": the recorded travel is whichever way the player happened to turn, never an inversion.
 - **Pedal axis (`throttle`, `brake`, `clutch`, `handbrake`):** released is `rest`; fully pressed is `max` when
-  `travel = +1`, otherwise `min`; `n = clamp((v - rest) / (full - rest), 0, 1)`. `inverted` is not applied to pedals
-  (the captured travel already says which way is pressed); adapters log it as ignored. A binding with `full == rest` is
-  invalid.
-- **Button:** pressed when the DirectInput byte has bit 0x80 set.
+  `travel = +1`, otherwise `min`; `n = clamp((v - rest) / (full - rest), 0, 1)`. The captured travel sets released
+  and full first; then `inverted`, the player's explicit choice (Wheelkit offers it for pedals too), gives
+  `n = 1 - n`, as art of rally's production `Binding.Normalize` does. A binding with `full == rest` is invalid.
+- **Button:** the shared sample is a boolean, down (1) or up (0). Each reader converts at its own boundary, before
+  normalization: a raw DirectInput byte is down when bit 0x80 is set (`diButtonDown`); a reader that already exports
+  booleans (the toolkit's native reader, `ReadDeviceStateWithPov`) gives 1 for down, and 1 is never read as released.
 - **Hat direction:** pressed when the POV is not centred (`-1`, or low word `0xFFFF`) and the circular distance between
   the POV and `angle` is at most 4500 (so a diagonal presses both neighbours, as most games treat it).
 
 **Denormalization** (used only by test injection, section 6) is the exact inverse, with the result rounded to the
 nearest integer, halves away from zero (C++ `std::lround`, C# `Math.Round(v, MidpointRounding.AwayFromZero)`), then
 clamped to `range`; `n` is clamped to its shape's range first: steer `v = centre + n * half` (`-n` when inverted); pedal
-`v = rest + n * (full - rest)`; button `n >= 0.5` -> 0x80, else 0; hat `n >= 0.5` -> `angle`, else -1.
+`v = rest + n' * (full - rest)` with `n' = 1 - n` when inverted, else `n`; button `n >= 0.5` -> down (1), else up (0),
+which a DirectInput writer delivers as 0x80 or 0; hat `n >= 0.5` -> `angle`, else -1.
 
 ## 4. Text form (one line per binding)
 
@@ -140,8 +143,9 @@ Test injection is development-only and gated twice. The mod reads its dev channe
 `%LOCALAPPDATA%\dbce\<game>\inject.on` existed when the game started. That switch is separate from the force mute,
 and a command file is honoured only when it is newer than the game process. Commands:
 
-- `inject raw <kind> <index> [angle] dev=<guid> value=<raw> ms=<50-15000>`: the game's next reads of that object on
-  that device instance return `value` (in the binding's range, rescaled to the game's) for `ms`.
+- `inject raw <kind> <index> [angle] dev=<guid> value=<raw> ms=<50-15000> [range=<min>..<max>]`: the game's next
+  reads of that object on that device instance return `value` for `ms`. An axis value is in `range` (default 0..65535),
+  rescaled to the range the game set; a button takes 1 (down) or 0; a hat its angle or -1.
 - `inject action <id> <n> ms=<50-15000>`: resolves `<id>` through the applied bindings, denormalizes `n` (section 3),
   then does exactly what `inject raw` does. The game still interprets the raw sample itself.
 

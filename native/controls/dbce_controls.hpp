@@ -199,11 +199,15 @@ inline std::string fits(const std::string &action, const Binding &b)
 
 inline double clampd(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-// Raw sample (in the binding's range; for buttons the DirectInput byte; for hats the POV value) -> normalized:
+// A raw DirectInput button byte -> the shared boolean sample (down when bit 0x80 is set). Readers that already export
+// booleans pass 1 for down straight to normalize().
+inline bool diButtonDown(long byte) { return (byte & 0x80) != 0; }
+
+// Raw sample (axes: in the binding's range; buttons: the shared boolean, 1 down; hats: the POV value) -> normalized:
 // steer -1..1 (right positive), pedal 0..1, digital 0 or 1. Assumes fits(action, b) == "".
 inline double normalize(const std::string &action, const Binding &b, long raw)
 {
-    if (b.kind == Kind::Button) return (raw & 0x80) ? 1.0 : 0.0;
+    if (b.kind == Kind::Button) return raw != 0 ? 1.0 : 0.0;
     if (b.kind == Kind::Hat) {
         if (raw < 0 || (raw & 0xFFFF) == 0xFFFF) return 0.0;
         long d = std::labs((raw % 36000) - b.angle);
@@ -216,13 +220,15 @@ inline double normalize(const std::string &action, const Binding &b, long raw)
         return b.inverted ? -n : n;
     }
     const long full = b.travel > 0 ? b.max : b.min;
-    return clampd(double(raw - b.rest) / double(full - b.rest), 0.0, 1.0);
+    const double n = clampd(double(raw - b.rest) / double(full - b.rest), 0.0, 1.0);
+    return b.inverted ? 1.0 - n : n;   // the player's explicit inversion, after the captured travel
 }
 
-// Normalized -> raw sample (the exact inverse; rounded half away from zero, clamped to the range). Test injection only.
+// Normalized -> raw sample (the exact inverse; rounded half away from zero, clamped to the range; buttons the shared
+// boolean, which a DirectInput writer delivers as 0x80). Test injection only.
 inline long denormalize(const std::string &action, const Binding &b, double n)
 {
-    if (b.kind == Kind::Button) return n >= 0.5 ? 0x80 : 0;
+    if (b.kind == Kind::Button) return n >= 0.5 ? 1 : 0;
     if (b.kind == Kind::Hat) return n >= 0.5 ? b.angle : -1;
     double v;
     if (shapeOf(action) == Shape::Centred) {
@@ -230,7 +236,8 @@ inline long denormalize(const std::string &action, const Binding &b, double n)
         v = (b.min + b.max) / 2.0 + n * ((b.max - b.min) / 2.0);
     } else {
         const long full = b.travel > 0 ? b.max : b.min;
-        v = b.rest + clampd(n, 0.0, 1.0) * double(full - b.rest);
+        n = clampd(n, 0.0, 1.0);
+        v = b.rest + (b.inverted ? 1.0 - n : n) * double(full - b.rest);
     }
     long r = (long)std::lround(v);
     return r < b.min ? b.min : r > b.max ? b.max : r;

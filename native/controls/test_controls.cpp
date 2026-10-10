@@ -76,6 +76,8 @@ int main(int argc, char **argv)
             long v[6];
             for (int i = 0; i < 6; ++i) v[i] = std::strtol(f[i + 1].c_str(), nullptr, 10);
             check(rescale(v[0], v[1], v[2], v[3], v[4]) == v[5], where + " rescale");
+        } else if (f[0] == "dibutton" && f.size() == 3) {
+            check((diButtonDown(std::strtol(f[1].c_str(), nullptr, 10)) ? 1 : 0) == std::strtol(f[2].c_str(), nullptr, 10), where + " dibutton");
         } else check(false, where + " unknown vector: " + line);
     }
     check(vectors >= 70, "at least 70 vectors read (" + std::to_string(vectors) + ")");
@@ -116,7 +118,7 @@ int main(int argc, char **argv)
         InjectCommand c; std::string why;
         check(parseInject("inject action steer 0.5 ms=1000", &s, c, why) && c.action == "steer" && c.binding.index == 0 && c.raw == 49151 && c.ms == 1000, "inject action steer 0.5");
         check(parseInject("inject action throttle 1 ms=50", &s, c, why) && c.raw == 65535, "inject action throttle 1");
-        check(parseInject("inject action confirm 1 ms=200", &s, c, why) && c.binding.kind == Kind::Button && c.raw == 128, "inject action confirm");
+        check(parseInject("inject action confirm 1 ms=200", &s, c, why) && c.binding.kind == Kind::Button && c.raw == 1, "inject action confirm");
         check(parseInject("inject action navLeft 1 ms=200", &s, c, why) && c.raw == 27000, "inject action navLeft");
         check(!parseInject("inject action brake 1 ms=200", &s, c, why) && why == "brake is not bound", "unbound action refused");
         check(!parseInject("inject action steer 0.5 ms=20", &s, c, why), "ms below 50 refused");
@@ -126,7 +128,7 @@ int main(int argc, char **argv)
         check(parseInject("inject raw axis 0 dev={00000000-0000-0000-0000-0000000000a1} value=-100 ms=100 range=-32768..32767", nullptr, c, why) && c.binding.min == -32768, "inject raw axis with a range");
         check(parseInject("inject raw hat 0 9000 dev={00000000-0000-0000-0000-0000000000a1} value=9000 ms=100", nullptr, c, why), "inject raw hat");
         check(!parseInject("inject raw button 3 value=128 ms=100", nullptr, c, why) && why.find("dev=") == 0, "raw needs the instance");
-        check(!parseInject("inject raw button 3 dev={00000000-0000-0000-0000-0000000000a1} value=1 ms=100", nullptr, c, why), "a button takes 0 or 128");
+        check(!parseInject("inject raw button 3 dev={00000000-0000-0000-0000-0000000000a1} value=128 ms=100", nullptr, c, why), "a button takes 0 or 1");
         check(!parseInject("inject raw axis 1 dev={00000000-0000-0000-0000-0000000000a1} value=70000 ms=100", nullptr, c, why), "raw value outside the range");
         check(!parseInject("press steer", &s, c, why), "not an inject command");
     }
