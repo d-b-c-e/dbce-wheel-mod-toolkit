@@ -48,4 +48,16 @@ foreach (double bad in new[] { double.NaN, double.PositiveInfinity, double.Negat
     try { full.Denormalize("steer", bad); } catch (ArgumentOutOfRangeException) { refused = true; }
     Check(refused, "Nonfinite inverse refused");
 }
+foreach(int angle in new[]{0,4500,9000,13500,18000,22500,27000,31500})
+{
+    var hat=Parse("hat 0 "+angle.ToString(CultureInfo.InvariantCulture)+ids);
+    for(int raw=0;raw<36000;raw++)
+    {
+        int forward=(raw-angle+36000)%36000;
+        bool expected=forward<=4500 || forward>=31500;
+        Check(ControlBinding.HatPressed(raw,angle)==expected && (hat.Normalize("confirm",raw)==1)==expected,"Circular POV boundary");
+    }
+}
+foreach(int raw in new[]{-1,65535,0x1234ffff}) Check(!ControlBinding.HatPressed(raw,0),"Neutral hat");
+Check(!ControlBinding.HatPressed(0,-1) && !ControlBinding.HatPressed(0,36000),"Invalid target angle");
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");

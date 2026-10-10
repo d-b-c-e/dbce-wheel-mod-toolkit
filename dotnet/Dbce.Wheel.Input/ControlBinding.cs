@@ -178,16 +178,19 @@ namespace Dbce.Wheel.Input
         }
         static double Clamp(double n, double min, double max) => Math.Max(min, Math.Min(max, n));
         public static bool DirectInputButtonDown(int value) => (value & 0x80) != 0;
+        /// <summary>STD-033 circular hat match; reusable by adapters retaining an older binding store.</summary>
+        public static bool HatPressed(int raw, int angle)
+        {
+            if (angle < 0 || angle >= 36000 || raw < 0 || (raw & 0xffff) == 0xffff) return false;
+            int d = Math.Abs(raw % 36000 - angle);
+            return Math.Min(d, 36000 - d) <= 4500;
+        }
         public double Normalize(string action, int raw)
         {
             if (Fits(action) != "") throw new ArgumentException("Binding does not fit action", nameof(action));
             if (Kind == ControlKind.Button) return raw != 0 ? 1 : 0;
             if (Kind == ControlKind.Hat)
-            {
-                if (raw < 0 || (raw & 0xffff) == 0xffff) return 0;
-                int d = Math.Abs(raw % 36000 - Angle);
-                return Math.Min(d, 36000 - d) <= 4500 ? 1 : 0;
-            }
+                return HatPressed(raw, Angle) ? 1 : 0;
             if (ShapeOf(action) == ControlShape.Centred)
             {
                 double n = Clamp((raw - ((double)Minimum + Maximum) / 2) / (((double)Maximum - Minimum) / 2), -1, 1);
