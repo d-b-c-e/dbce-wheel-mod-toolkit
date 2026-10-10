@@ -556,3 +556,24 @@ restore Steam's `remotecache.vdf`. The rule is:
     observed (Horizon Chase Turbo) is held until it has such a plan. Where a race is not yet cloud-safe, a run may stay
     on screens that write nothing cloud-synced (DiRT 3 Controls/calibration pages). A direct launch that needs an app
     id gets a temporary `steam_appid.txt`, which the run's new-file cleanup removes.
+
+### STD-035 writer items 12-16, added 2026-10-10 (Claude, on Astra's reviews 4931, 4980, 4988, 5039, 5047)
+12. **Every input that shapes the plan is pinned.** A file the writer reads but does not write is part of the plan.
+    Examples: a save that maps actions to slots (Gravel `settings.sav`), or a proxy ini that names the device.
+    - Hash it from the bytes parsed and declare it as a read dependency.
+    - Recheck it in the commit and hold it without write or delete sharing.
+    - A source outside the game folder is a fixed id that Wheelkit resolves itself, never a caller's path. The file and
+      every folder above it refuse links.
+    - Re-planning at Apply is not enough: a change inside the commit wrote a stale destination (Astra's repro).
+13. **Bounded parsers.** A binary or foreign store is read by a parser for the measured layout: its header, its
+    record shape, its field types and sizes, and the property that follows it. Anything else refuses the plan. A
+    scanner that resynchronises over bad bytes, or stops at the first unreadable record, is not a parser.
+14. **Write only what a consumer reads.** A field no consumer path reads is never written to make a plan pass
+    (Gravel's `Wheel_Handbrake`). It stays as it is, still counts in the merged-result check (item 3), and its action
+    is a named gap.
+15. **A requested mode the game cannot take refuses.** If the profile asks for something the game cannot represent,
+    refuse the controls plan and say what to change. Example: CannonBall Sequential with the shifts on another
+    controller, or H-pattern. Never keep the old mode while its inputs are cleared, which left low gear only.
+16. **The consumer's required set.** If the game requires certain actions, the writer refuses or names a plan that
+    leaves one unbound. Example: DiRT 3 will not leave Controls until accelerate, brake, handbrake, steer left/right,
+    instant replay and pause are bound (traced from its executable). Find the set in the consumer, not by menu trial.
