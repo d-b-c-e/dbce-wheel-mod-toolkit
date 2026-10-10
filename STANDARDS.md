@@ -494,3 +494,49 @@ Proven 2026-10-10 on V-Rally 4, F-Zero, OutRun 2006 (Claude) and art of rally (A
    - configured: Apply plus readback, or the game's own key check;
    - observed: per sample, with the unobservable ones named;
    - accepted: the owner.
+
+## STD-035 — Profile-controls writers and test injection: identity, provenance and failure rules
+2026-10-10 · Claude, with Astra (reviews 4408-4804) · applies to: every Wheelkit control writer and every mod with dev-only test injection
+
+These rules came out of tonight's reviews of the CannonBall, Slipstream, Horizon Chase Turbo, F-Zero and OutRun 2006
+chains. STD-033 and STD-034 still apply.
+
+**Writer (Wheelkit adapter):**
+1. **Capability first.** Write controls only for a mod build that declares the adapter in a receipt. The receipt pins
+   the consumer binary's hash and the source commit it was built from. A dirty tree names no commit, and the installer
+   pins the clean source before the build and checks it again before the first game write.
+2. **Provenance.** Old bindings stay only when the store already names this wheel by identity: vendor/product plus the
+   instance, or the instance itself. Otherwise:
+   - every slot or axis the profile does not write is cleared to the store's "none";
+   - every old entry that is dropped, displaced or replaced is named in the plan.
+   - Bindings without a profile action (CannonBall coin, HCT nitro) are kept and named, never moved silently.
+3. **The merged result is what counts.** Check written keys together with kept values and the consumer's defaults. Use
+   the consumer's own parse: integers as `stoi` reads them, a missing key as its default. A shared axis, or a button
+   that would do two things, refuses the whole Apply and names both keys. Never "fix" a collision by clearing a kept
+   binding.
+4. **No binding without the mode that reads it.** Gears are written only with the gear mode that uses them. A reader
+   switch (`[Wheel] Enabled`) is turned on in the preview, never left off while controls are reported applied.
+5. **Consumer check.** The writer's expected fixture bytes are copied into the mod repo. The game's or mod's own parser
+   reads them in a test (`Config::load_controls`, `Settings.Load`, `PedalAxis.Parse`).
+
+**Runtime (mod) test injection:**
+6. **Identity at the open.** The device is chosen by identity and checked just before and just after the open (for SDL,
+   the opened joystick's instance id, not a reusable index). Injection arms only on that handle. A listing taken at
+   start is not proof of the handle opened later.
+7. **One device epoch.** A close, disconnect, failed read or unreadable command file ends injection for the process:
+   running samples are dropped and a reopened device never takes a raw sample. A failed read clears every output the
+   reader gives the game in the same tick, and the game takes only a valid current read.
+8. **Two independent no-force interlocks.** First, the request latch (STD-034 item 4). Second, an environment mute
+   (`DBCE_FFB_MUTE`) that keeps the force library uncreated or unloaded.
+9. **Bounded, strict files.** `inject.on` and the command file are each read in one bounded stream of strict UTF-8.
+   Oversize is refused, never truncated, and duplicate session keys are refused.
+10. **Lifecycle tests on the real reader.** Test the production reader against a fake device layer (fake SDL, a fake
+    DirectInput listing): identity, twins, a change during the open, read failure, disconnect, and injection through
+    the real read path. A static input array is resolved when it is used (Slipstream's DeviceStates), with a test for
+    null at start, then creation, then replacement.
+
+**Live runs:**
+11. **The owner's saves are never a test artifact.** Redirect saves to a run copy (Slipstream `SaveDirOverride`), or do
+    not launch. A Steam Cloud game without a redirect (Horizon Chase Turbo) waits for a save-safe harness or an attended
+    launch. A direct launch that needs an app id gets a temporary `steam_appid.txt`, which the run's new-file cleanup
+    removes.
