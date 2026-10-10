@@ -82,6 +82,17 @@ int main(int argc, char **argv)
     }
     check(vectors >= 70, "at least 70 vectors read (" + std::to_string(vectors) + ")");
 
+    // One line only: CR and LF cannot sit in the line-based vector file, so they are checked here (Astra 3473).
+    {
+        const std::string r12 = "dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944}";
+        for (const char *cut : {"\r", "\n", "\r\n"}) {
+            Binding b; std::string why;
+            check(!parse("button 1 " + r12 + " name=\"MOZA" + cut + "steer = axis 0\"", b, why) && why == "bad-name", "CR/LF inside a name");
+            check(!parse("button 1" + std::string(cut) + r12, b, why) && why == "bad-name", "CR/LF between tokens");
+        }
+        Binding b; std::string why;
+        check(parse("button\t1\t" + r12 + "\tname=\"MOZA\tR12\"", b, why) && b.name == "MOZA\tR12", "tab stays a separator and a name character");
+    }
     // [Controls] section: header values, valid, explicitly unbound, invalid and unknown entries.
     {
         const std::string r12 = "dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944}";

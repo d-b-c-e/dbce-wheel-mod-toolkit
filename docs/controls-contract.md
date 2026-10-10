@@ -171,6 +171,16 @@ cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.h
 ## 7. Shared test vectors
 
 `native/controls/controls-vectors.txt` holds parse, reject, fits, normalize, denormalize, rescale and DirectInput
-button cases. The C++ header (`native/controls/dbce_controls.hpp`) runs all of them (`build_test.ps1`). A change to
-section 3 or 4 changes the vectors in the same commit. **Pending:** Wheelkit's C# does not run them yet; art of
-rally's parser covers its own contract (Astra, 2026-10-09). Until it does, C#/C++ parity is a goal, not evidence.
+button cases. A change to section 3 or 4 changes the vectors in the same commit. Two implementations run every
+vector:
+
+| Implementation | Runner | Result (2026-10-10, 131 vectors) |
+|---|---|---|
+| C++ `native/controls/dbce_controls.hpp` (vendored by the native mods) | `native/controls/build_test.ps1`, MSVC x64 and x86 | 255 checks pass |
+| C# `dotnet/Dbce.Wheel.Input/ControlBinding.cs` (Astra, fae8138; vendored by Wheelkit) | `dotnet run --project dotnet/Dbce.Wheel.Input.Tests` | 139 checks pass |
+
+- **6b4e25a** added the 32-bit limits: every integer is a DirectInput LONG, and the old header failed 16 checks on
+  x86 (steering reversed at INT32 ranges).
+- **This revision** added one-line text: no control character other than tab (`bad-name`). CR and LF cannot sit in
+  a line-based file, so each runner checks them separately (native `test_controls.cpp`; managed: Astra's harness).
+- art of rally's parser covers its own contract (Astra, 2026-10-09).

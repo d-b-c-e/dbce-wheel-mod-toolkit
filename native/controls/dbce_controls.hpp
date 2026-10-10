@@ -85,6 +85,12 @@ inline bool integer(const std::string &s, long &v)
 inline bool parse(const std::string &text, Binding &out, std::string &reason)
 {
     out = Binding{};
+    // A binding is one line: no control character other than tab anywhere (C0, DEL, or a UTF-8 encoded C1), so a device
+    // name cannot introduce another INI key. The managed parser's rule (char.IsControl), with its reason code.
+    for (size_t k = 0; k < text.size(); ++k) {
+        const unsigned char c = (unsigned char)text[k], next = k + 1 < text.size() ? (unsigned char)text[k + 1] : 0;
+        if ((c < 0x20 && c != '\t') || c == 0x7F || (c == 0xC2 && next >= 0x80 && next <= 0x9F)) { reason = "bad-name"; return false; }
+    }
     std::vector<std::string> tok;
     for (size_t i = 0; i < text.size();) {
         while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) ++i;
