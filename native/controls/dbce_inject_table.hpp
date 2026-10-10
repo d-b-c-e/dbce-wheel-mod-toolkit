@@ -18,6 +18,7 @@ struct StateView {
     unsigned char *buttons = nullptr;
     int buttonCount = 0;
     unsigned long *povs = nullptr;
+    int povCount = 4;                  // how many of the four POVs the reader really has (fewer: the rest are never delivered)
 };
 
 class InjectionTable {
@@ -125,7 +126,10 @@ public:
                 ++substituted;
                 if (!i.announced) { i.announced = true; log.push_back("inject: button " + std::to_string(i.index) + " on " + dev + (i.value ? " down" : " up") + " for " + std::to_string(i.ms) + " ms"); }
             } else {
-                if (!s.povs) continue;
+                if (!s.povs || i.index >= s.povCount) {
+                    if (s.povs && !i.announced) { i.announced = true; log.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " is outside the " + std::to_string(s.povCount) + " hats the game reads; not delivered"); }
+                    continue;
+                }
                 s.povs[i.index] = (unsigned long)i.value;   // -1 is centred (0xFFFFFFFF)
                 ++substituted;
                 if (!i.announced) { i.announced = true; log.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(i.value) + " for " + std::to_string(i.ms) + " ms"); }

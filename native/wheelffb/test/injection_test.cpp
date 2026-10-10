@@ -272,6 +272,13 @@ static int armed()
         };
         CHECK(table.apply(kR12Text, sv, 1001, range, lines) == 1 && ax[1] == 0 && ax[3] == 0);
         CHECK(table.apply(kR12Text, sv, 1002, range, lines) == 2 && ax[3] == 65535);
+        // A reader with fewer hats than four: a hat beyond them is never delivered or counted.
+        unsigned long povs[4] = {0xFFFFFFFFul, 0xFFFFFFFFul, 0xFFFFFFFFul, 0xFFFFFFFFul};
+        dbce::controls::StateView hv; hv.povs = povs; hv.povCount = 1;
+        CHECK(dbce::controls::parseInject(TRaw("hat", 2, 9000, 2000, "9000"), nullptr, c, w) && table.add(c, 1002).empty());
+        CHECK(table.apply(kR12Text, hv, 1003, range, lines) == 0 && povs[2] == 0xFFFFFFFFul);
+        hv.povCount = 4;
+        CHECK(table.apply(kR12Text, hv, 1004, range, lines) == 1 && povs[2] == 9000);
     }
 
     // Close drops everything; a reopened slot gets nothing old back.
