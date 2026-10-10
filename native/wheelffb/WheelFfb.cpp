@@ -48,6 +48,7 @@
 #include <initializer_list>
 #include "burst_effect.h"
 #include "constant_burst.h"
+#include "../controls/dbce_inject_table.hpp"   // test injection (STD-033 section 6): C++17
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -381,6 +382,24 @@ static void ReleaseEffect()
 }
 
 // --------------------------------------------------------------------------
+// the force gate and the no-force test mode (STD-033 section 6; Astra 3842/3921)
+// --------------------------------------------------------------------------
+
+// Process lifetime, both non-zero states final: 0 nothing yet; 1 a force path was used (an exclusive open, an effect, an
+// external session - attempted, even if it failed), so the test mode can never arm; 2 the no-force test mode
+// (EnableTestInjection), so every force path is refused before it touches a device, an effect or a hook.
+static std::atomic<int> g_forceState{0};
+// Every force-capable entry calls this first. Returns false (and logs) in the no-force test mode.
+static bool ForceGate(const char* what)
+{
+    int expected = 0;
+    if (g_forceState.compare_exchange_strong(expected, 1) || expected == 1) return true;
+    Log("%s refused: the no-force test mode is latched for this process (EnableTestInjection)", what);
+    g_lastHr.store(E_ACCESSDENIED);
+    return false;
+}
+
+// --------------------------------------------------------------------------
 // exports
 // --------------------------------------------------------------------------
 
@@ -424,6 +443,7 @@ static HWND ResolveGameWindow(HWND passed)
 // dead effect can be rebuilt mid-session - see SetDeviceForcesXY.
 static HRESULT CreateForceEffect()
 {
+    if (g_forceState.load() == 2) return E_ACCESSDENIED;   // the no-force test mode creates no effect
     HRESULT hr;
     // A single constant force on X (+Y where the device has it). This mirrors
     // what the game asks for: SetDeviceForcesXY is the only force call it makes.
@@ -489,6 +509,7 @@ static void ReleaseRetainedDevice()
 static int OpenCandidate(int idx)
 {
     HRESULT hr = S_OK;
+    if (!ForceGate("open the force-feedback device")) return 0;
 
     if (FAILED(g_di->CreateDevice(g_candidates[idx].guid, &g_device, nullptr)) || !g_device) {
         Log("  could not open the device");
@@ -564,6 +585,7 @@ __declspec(dllexport) int InitDirectInput(int hwnd)
     if(g_externalMode.load())return 0;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return 0;
+    if (!ForceGate("InitDirectInput")) return 0;
     Log("InitDirectInput(hwnd=%d)", hwnd);
     g_hwnd = ResolveGameWindow((HWND)(INT_PTR)hwnd);
     if (g_hwnd != (HWND)(INT_PTR)hwnd) Log("  using this process's own window %p instead of %p", (void*)g_hwnd, (void*)(INT_PTR)hwnd);
@@ -891,6 +913,48 @@ struct ReadSlot { LPDIRECTINPUTDEVICE8 dev; bool isWheel; GUID guid; char name[M
 static ReadSlot g_read[kMaxReadSlots];
 static int      g_readCount = 0;
 
+// Test injection into these reads (STD-033 section 6; Astra 3842/3921), only in the no-force test mode. Raw samples
+// come in through SubmitTestInjection and replace objects of a read slot's next successful reads, matched by the
+// slot's instance GUID, exactly like the DirectInput proxies' fence (controls/dbce_inject_table.hpp). The auxiliary
+// reader (ReadAuxButtons) never injects.
+static dbce::controls::InjectionTable g_injections;
+static bool g_slotInjected[kMaxReadSlots];   // the slot's last read attempt carried an injected sample
+static long g_injAccepted = 0, g_injReads = 0;
+static char g_testRefusal[200] = "";
+struct InstanceName { char text[40]; };   // a plain struct: these helpers sit inside the exports' extern "C" block
+static InstanceName InstanceText(const GUID& g)
+{
+    InstanceName r;
+    sprintf_s(r.text, "{%08lx-%04hx-%04hx-%02x%02x-%02x%02x%02x%02x%02x%02x}", g.Data1, g.Data2, g.Data3, g.Data4[0], g.Data4[1],
+              g.Data4[2], g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7]);
+    return r;
+}
+// st was just read successfully from dev for this slot: running samples for its instance replace their objects.
+static void DeliverInjections(int slot, LPDIRECTINPUTDEVICE8 dev, DIJOYSTATE2& st)
+{
+    if (g_forceState.load() != 2 || !g_injections.any()) return;
+    dbce::controls::StateView v;
+    v.axes = (long*)&st.lX; v.buttons = st.rgbButtons; v.buttonCount = 128; v.povs = (unsigned long*)st.rgdwPOV;
+    std::vector<std::string> lines;
+    const int n = g_injections.apply(InstanceText(g_read[slot].guid).text, v, GetTickCount64(), [dev](int axis, long& mn, long& mx) {
+        static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
+        DIPROPRANGE r = {};
+        r.diph.dwSize = sizeof r; r.diph.dwHeaderSize = sizeof r.diph; r.diph.dwObj = ofs[axis]; r.diph.dwHow = DIPH_BYOFFSET;
+        if (FAILED(dev->GetProperty(DIPROP_RANGE, &r.diph))) return false;
+        mn = r.lMin; mx = r.lMax;
+        return true;
+    }, lines);
+    for (auto& l : lines) Log("%s", l.c_str());
+    if (n > 0) { g_slotInjected[slot] = true; ++g_injReads; }
+}
+// A failed read or a closed slot: its running samples are dropped, so a reconnect never gets an old one back.
+static void DropInjections(int slot, const char* why)
+{
+    if (g_forceState.load() != 2 || slot < 0 || slot >= kMaxReadSlots) return;
+    const int n = g_injections.clearFor(InstanceText(g_read[slot].guid).text);
+    if (n) Log("test injection: %d running sample(s) for read slot %d dropped (%s)", n, slot, why);
+}
+
 static void SetFullRange(LPDIRECTINPUTDEVICE8 dev)
 {
     DIPROPRANGE range = {};
@@ -913,6 +977,7 @@ __declspec(dllexport) int OpenReadDevice(int index)
     if (index < 0 || index >= g_auxCount) { Log("OpenReadDevice(%d): out of range (%d devices)", index, g_auxCount); return -1; }
     if (g_readCount >= kMaxReadSlots) { Log("OpenReadDevice(%d): no free slot", index); return -1; }
     ReadSlot& s = g_read[g_readCount];
+    g_slotInjected[g_readCount] = false;
     s.dev = nullptr; s.isWheel = false; s.guid = g_aux[index].guid;
     strncpy_s(s.name, sizeof(s.name), g_aux[index].name, _TRUNCATE);
     if (g_device && IsEqualGUID(g_aux[index].guid, g_activeGuid)) {
@@ -944,6 +1009,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     ExternalDeviceGuard externalDevice; ExternalReadResult externalResult(slot);
+    if (slot >= 0 && slot < kMaxReadSlots) g_slotInjected[slot] = false;   // every attempt starts clear
     if (!externalDevice.allowed || slot < 0 || slot >= g_readCount || !axes) return 0;
     ReadSlot& s = g_read[slot];
     // A read slot belongs to the original controller, never whichever wheel
@@ -958,8 +1024,10 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     if (FAILED(hr)) {
         // The wheel's acquisition is the force-feedback path's business.
         if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
+        DropInjections(slot, "read failed");
         return 0;
     }
+    DeliverInjections(slot, dev, st);
     axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
@@ -984,6 +1052,7 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
     if (axesOk) memset(axes, 0, 8 * sizeof(*axes));
     if (buttonsOk && buttonCount) memset(buttons, 0, buttonCount);
     if (povOk) for (int i = 0; i < 4; ++i) pov[i] = -1;
+    if (slot >= 0 && slot < kMaxReadSlots) g_slotInjected[slot] = false;   // every attempt starts clear
     if (!externalDevice.allowed || !axesOk || !buttonsOk || !povOk || slot < 0 || slot >= g_readCount) return 0;
 
     ReadSlot& s = g_read[slot];
@@ -1000,8 +1069,10 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
     if (FAILED(hr)) {
         // Never reacquire the shared FFB handle: its effect lifecycle owns it.
         if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
+        DropInjections(slot, "read failed");
         return 0;
     }
+    DeliverInjections(slot, dev, st);   // into the one snapshot, before it is copied out
     axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
@@ -1024,7 +1095,87 @@ __declspec(dllexport) void CloseReadDevices(void)
         if (g_read[i].dev) { g_read[i].dev->Unacquire(); g_read[i].dev->Release(); g_read[i].dev = nullptr; }
     }
     if (g_readCount) Log("CloseReadDevices(): %d slot(s) released", g_readCount);
+    if (g_forceState.load() == 2) {   // no running sample outlives its slot (a reopened device starts clean)
+        const int dropped = g_injections.clearFor("");
+        if (dropped) Log("test injection: %d running sample(s) dropped (CloseReadDevices)", dropped);
+    }
+    for (bool& b : g_slotInjected) b = false;
     g_readCount = 0;
+}
+
+// ---- test injection exports (STD-033 section 6; Astra 3842/3921). Development only. ----------------------------
+
+// flags: 1 = the irreversible no-force test mode; anything else is refused. Returns 1 armed (also when already armed),
+// 0 refused (the reason is logged and shown by GetTestInjectionStatus). Only before any force path was ever used in
+// this process; from then on every force export refuses before touching a device, an effect or a hook.
+__declspec(dllexport) int EnableTestInjection(int flags)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    auto refuse = [](const char* why) {
+        strncpy_s(g_testRefusal, sizeof(g_testRefusal), why, _TRUNCATE);
+        Log("EnableTestInjection refused: %s", why);
+        return 0;
+    };
+    if (flags != 1) return refuse("unknown flags (1 is the no-force test mode)");
+    if (g_externalMode.load()) return refuse("an external force-feedback session was entered in this process");
+    int expected = 0;
+    if (g_forceState.compare_exchange_strong(expected, 2) || expected == 2) {
+        g_testRefusal[0] = 0;
+        Log("EnableTestInjection: no-force test mode latched for this process; raw samples may replace reads of open read slots");
+        return 1;
+    }
+    return refuse("a force path was already used in this process (InitDirectInput, Aquire, an effect or an external session)");
+}
+
+// One raw sample, the toolkit grammar: "inject raw <axis|button|hat> <index> [angle] dev=<instance> value=<raw>
+// ms=<50-15000>", printable ASCII, 1-512 bytes, for an instance open in a read slot. Returns 1 accepted, 0 refused
+// with the reason in why (NUL-terminated, truncated to whySize).
+__declspec(dllexport) int SubmitTestInjection(const char* line, char* why, int whySize)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    auto fail = [&](const char* m) { if (why && whySize > 0) strncpy_s(why, (size_t)whySize, m, _TRUNCATE); return 0; };
+    if (why && whySize > 0) why[0] = 0;
+    if (g_forceState.load() != 2) return fail("test injection is not armed (EnableTestInjection first)");
+    if (!line) return fail("no line");
+    const size_t n = strnlen(line, 513);
+    if (n == 0 || n > 512) return fail("the line must be 1-512 bytes");
+    for (size_t i = 0; i < n; ++i)
+        if ((unsigned char)line[i] < 0x20 || (unsigned char)line[i] > 0x7e) return fail("the line must be printable ASCII");
+    dbce::controls::InjectCommand c;
+    std::string reason;
+    if (!dbce::controls::parseInject(std::string(line, n), nullptr, c, reason)) return fail(reason.c_str());
+    bool open = false;
+    for (int i = 0; i < g_readCount; ++i)
+        if ((g_read[i].dev || g_read[i].isWheel) && c.binding.dev == InstanceText(g_read[i].guid).text) open = true;
+    if (!open) return fail("that device instance is not open in a read slot");
+    reason = g_injections.add(c, GetTickCount64());
+    if (!reason.empty()) return fail(reason.c_str());
+    ++g_injAccepted;
+    Log("test injection accepted: %.*s", (int)n, line);
+    return 1;
+}
+
+// "off", "refused: <why>" or "armed: no force; ..." in buf (NUL-terminated, truncated to size). Returns 1 when armed.
+__declspec(dllexport) int GetTestInjectionStatus(char* buf, int size)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    const bool armed = g_forceState.load() == 2;
+    if (buf && size > 0) {
+        if (armed)
+            _snprintf_s(buf, (size_t)size, _TRUNCATE, "armed: no force; %s; %ld accepted, %ld reads carried an injected sample",
+                        g_injections.any() ? "samples running" : "no sample running", g_injAccepted, g_injReads);
+        else if (g_testRefusal[0]) _snprintf_s(buf, (size_t)size, _TRUNCATE, "refused: %s", g_testRefusal);
+        else _snprintf_s(buf, (size_t)size, _TRUNCATE, "off");
+    }
+    return armed ? 1 : 0;
+}
+
+// 1 when the slot's last read attempt actually carried an injected sample (not a pending, refused or ended one).
+// Cleared by every read attempt, failure, close and reopen. Managed Assign must refuse while the mode is armed.
+__declspec(dllexport) int LastReadInjected(int slot)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    return slot >= 0 && slot < kMaxReadSlots && g_slotInjected[slot] ? 1 : 0;
 }
 
 static void MarkPersistentEffectsStopped();
@@ -1048,6 +1199,7 @@ __declspec(dllexport) void Aquire(void)
     if(g_externalMode.load())return;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return;
+    if (!ForceGate("Aquire")) return;
     if (!g_device) { Log("Aquire() with no device"); return; }
     EnterCriticalSection(&g_lock);
     HRESULT hr = AcquireFfbDevice(false);
@@ -1340,13 +1492,14 @@ static void ReleasePeriodics()
 __declspec(dllexport) int SetDeviceForcesXY(int x, int y)
 {
     if(g_externalMode.load()){if(x==0 && y==0)ExternalLegacyCancel(false);return 0;}
-    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); return SetDeviceForcesXYInternal(x, y); }
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex); if (!ForceGate("SetDeviceForcesXY")) return 0; return SetDeviceForcesXYInternal(x, y); }
 
 __declspec(dllexport) int CreatePeriodicEffect(int freqHz)
 {
     if(g_externalMode.load())return -1;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return -1;
+    if (!ForceGate("CreatePeriodicEffect")) return -1;
     if (!g_device) { Log("CreatePeriodicEffect(%d): no device", freqHz); return -1; }
     EnterCriticalSection(&g_lock);
     if (!g_periodicProbed) {
@@ -1374,6 +1527,7 @@ __declspec(dllexport) int UpdatePeriodicEffect(int slot, int magnitude, int freq
     if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
+    if (!ForceGate("UpdatePeriodicEffect")) return 0;
     if (slot < 0 || slot >= kMaxPeriodic || !g_periodic[slot].used || g_periodic[slot].durationMs != 0 || !g_device || g_panicked) return 0;
     PeriodicSlot& s = g_periodic[slot];
     if (magnitude < 0) magnitude = 0;
@@ -1444,6 +1598,7 @@ __declspec(dllexport) int CreatePeriodicBurst(int freqHz, int durationMs)
     if(g_externalMode.load())return -1;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return -1;
+    if (!ForceGate("CreatePeriodicBurst")) return -1;
     if (!g_device || g_panicked || !wheel_burst::valid(freqHz, durationMs)) { g_lastHr = E_INVALIDARG; return -1; }
     EnterCriticalSection(&g_lock);
     int slot = -1;
@@ -1486,6 +1641,7 @@ static int PlayBurst(int slot, int magnitude, int freqMilliHz, int phase, int fa
 __declspec(dllexport) int PlayPeriodicBurst(int slot, int magnitude, int freqMilliHz)
 {
     if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
+    if (!ForceGate("PlayPeriodicBurst")) return 0;
     return PlayBurst(slot, magnitude, freqMilliHz, 0, 0, false);
 }
 
@@ -1494,6 +1650,7 @@ __declspec(dllexport) int PlayShapedPeriodicBurst(int slot, int magnitude, int f
     if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load()){if(magnitude==0)ExternalLegacyCancel(false);return 0;}
+    if (!ForceGate("PlayShapedPeriodicBurst")) return 0;
     int accepted = PlayBurst(slot, magnitude, freqMilliHz, phaseHundredths, fadeMs, true);
     if (!accepted) {
         static ULONGLONG lastReport = 0; ULONGLONG now = GetTickCount64();
@@ -1551,6 +1708,7 @@ __declspec(dllexport) int CreateConstantBurst(int durationMs) {
     if(g_externalMode.load())return -1;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return -1;
+    if(!ForceGate("CreateConstantBurst"))return -1;
     if(!g_device || g_panicked || durationMs<1 || durationMs>500){g_lastHr=E_INVALIDARG;return -1;}
     EnterCriticalSection(&g_lock);
     int slot=-1;for(int i=0;i<kMaxConstantBurst;i++)if(!g_constantBurst[i].used){slot=i;break;}
@@ -1564,6 +1722,7 @@ __declspec(dllexport) int PlayConstantBurst(int slot,int signedMagnitude) {
     if(g_externalMode.load()){if(signedMagnitude==0)ExternalLegacyCancel(false);return 0;}
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load()){if(signedMagnitude==0)ExternalLegacyCancel(false);return 0;}
+    if(!ForceGate("PlayConstantBurst"))return 0;
     if(!g_device || g_panicked || slot<0 || slot>=kMaxConstantBurst || signedMagnitude < -10000 || signedMagnitude>10000){g_lastHr=E_INVALIDARG;return 0;}
     EnterCriticalSection(&g_lock);
     auto& s=g_constantBurst[slot];DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
@@ -1704,6 +1863,7 @@ __declspec(dllexport) int CreateConditionEffect(int type)
     if(g_externalMode.load())return -1;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return -1;
+    if (!ForceGate("CreateConditionEffect")) return -1;
     if (!g_device) { Log("CreateConditionEffect(%s): no device", ConditionName(type)); return -1; }
     if (!ConditionGuid(type)) { Log("CreateConditionEffect: unknown type %d", type); return -1; }
     EnterCriticalSection(&g_lock);
@@ -1729,6 +1889,7 @@ __declspec(dllexport) int UpdateConditionEffect(int slot, int coefficient, int s
     if(g_externalMode.load()){if(coefficient==0)ExternalLegacyCancel(false);return 0;}
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load()){if(coefficient==0)ExternalLegacyCancel(false);return 0;}
+    if (!ForceGate("UpdateConditionEffect")) return 0;
     if (slot < 0 || slot >= kMaxCondition || !g_condition[slot].used || !g_device || g_panicked) return 0;
     ConditionSlot& s = g_condition[slot];
     if (coefficient >  kForceMax) coefficient =  kForceMax;
@@ -1982,6 +2143,7 @@ __declspec(dllexport) BOOL StartEffect(void)
     if(g_externalMode.load())return FALSE;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return FALSE;
+    if (!ForceGate("StartEffect")) return FALSE;
     if (!g_effect) { Log("StartEffect() with no effect"); return FALSE; }
     EnterCriticalSection(&g_lock);
     HRESULT hr = StartEffectRetrying(g_effect, "constant force");
@@ -2006,6 +2168,7 @@ __declspec(dllexport) BOOL SetAutoCenter(BOOL enable)
     if(g_externalMode.load())return FALSE;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return FALSE;
+    if (enable && !ForceGate("SetAutoCenter(on)")) return FALSE;   // off is no force; it needs no device either
     Log("SetAutoCenter(%d)", enable);
     if (!g_device) return FALSE;
 
@@ -2027,6 +2190,10 @@ __declspec(dllexport) void FreeDirectInput(void)
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load()){ExternalLegacyCancel(true);return;}
     Log("FreeDirectInput()");
+    if (g_forceState.load() == 2) {   // the no-force mode itself stays latched; only running samples go
+        const int dropped = g_injections.clearFor("");
+        if (dropped) Log("test injection: %d running sample(s) dropped (FreeDirectInput)", dropped);
+    }
     RemoveExitGuards();
     g_stopThreads.store(true);
     // Stop torque before waiting, without releasing any worker-visible object.

@@ -256,6 +256,8 @@ __declspec(dllexport) int ExternalFfbEnter(HWND ownerWindow) {
     // Enter must run on the window thread before concurrent toolkit use. Once
     // opted in, no shutdown function ever clears this process-lifetime latch.
     if(g_externalMode.load())return g_externalReady && ownerWindow==g_externalOwner && ExternalOwnerValid()?EXT_OK:EXT_WRONG_MODE;
+    // Before any hook, watchdog or device: an external session is a force path (no-force test mode: refused).
+    if(!ForceGate("ExternalFfbEnter"))return EXT_BUSY;
     if(g_device || g_effect || g_auxDevice || g_readCount || g_holdThread || g_guardOrigProc)return EXT_BUSY;
     for(const auto& s:g_periodic)if(s.used || s.fx)return EXT_BUSY;
     for(const auto& s:g_constantBurst)if(s.used || s.fx)return EXT_BUSY;

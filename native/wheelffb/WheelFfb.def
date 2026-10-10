@@ -61,3 +61,7 @@ EXPORTS
     ExternalFfbDisarm
     ExternalFfbClose
     ExternalFfbGetStatus
+    EnableTestInjection
+    SubmitTestInjection
+    GetTestInjectionStatus
+    LastReadInjected

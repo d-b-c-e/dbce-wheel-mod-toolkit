@@ -196,6 +196,25 @@ cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.h
   - It is read only; build it under the game's exe name.
   - First run: V-Rally 4 0.6.0, 2026-10-09 21:49. Every raw and action sample was delivered and ended as commanded.
 
+Mods that read the wheel through the shared native (`native/wheelffb`, e.g. Art of Rally, Woden) use its own gate
+instead of a proxy fence (2026-10-10, Astra 3842/3921):
+- `EnableTestInjection(1)` latches an irreversible no-force mode for the process. It is refused once any force path
+  was used, even an attempted one: InitDirectInput, Aquire, an effect or an external session. After it, every force
+  export refuses before it touches a device, an effect or a hook.
+- Reads keep working through `OpenReadDevice`'s own non-exclusive handles.
+- `SubmitTestInjection` takes the `inject raw` grammar above (printable ASCII, 1-512 bytes) for an instance open in
+  a read slot. `ReadDeviceState` and `ReadDeviceStateWithPov` deliver it into the next successful reads of that slot.
+- `LastReadInjected(slot)` reports an actual substitution only. A failed read, `CloseReadDevices` and
+  `FreeDirectInput` drop running samples. The auxiliary reader never injects.
+- The managed caller reads the command file, keeps Assign refused while the mode is armed, and observes the game
+  separately.
+- Checks: `test/injection_test.cpp`, run by `build_injection_test.bat`, against fake COM devices on x64 and x86. It
+  covers the refusals, the per-process latch, and an enable-versus-open race.
+
+Proxies may also correct a pedal's rest (`native/controls/dbce_shape.hpp`, applied after injection in the fence and the
+force layer): the game's end-anchored pedal filter then reads the contract's value. It is opt-in per game, declared by
+that game's capability, and the observed state is reported per pedal (corrected, not seen yet, or NOT corrected and why).
+
 ## 7. Shared test vectors
 
 `native/controls/controls-vectors.txt` holds parse, reject, fits, normalize, denormalize, rescale and DirectInput

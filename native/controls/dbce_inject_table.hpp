@@ -58,13 +58,24 @@ public:
         std::lock_guard<std::mutex> g(m_);
         for (auto &i : items_) if (i.active && nowMs >= i.until) { i.active = false; active_.fetch_sub(1); }
     }
+    // Drop every running injection for one instance (it was closed, disconnected or failed a read), or for all ("").
+    // Returns how many were dropped. A device opened again later never gets an old pulse back.
+    int clearFor(const std::string &dev)
+    {
+        std::lock_guard<std::mutex> g(m_);
+        int n = 0;
+        for (auto &i : items_) if (i.active && (dev.empty() || i.dev == dev)) { i.active = false; active_.fetch_sub(1); ++n; }
+        return n;
+    }
 
     // Replace this read's samples for `dev`. `range(axis, min, max)` reads the range the game set on that axis; when
     // it cannot, that axis is not delivered (never guessed). Log lines (first delivery, refusal, end) go to `log`.
+    // Returns how many objects this read actually carries an injected sample for (not pending, refused or ended ones).
     template <class RangeFn>
-    void apply(const std::string &dev, StateView &s, uint64_t nowMs, RangeFn range, std::vector<std::string> &log)
+    int apply(const std::string &dev, StateView &s, uint64_t nowMs, RangeFn range, std::vector<std::string> &log)
     {
-        if (!any()) return;
+        if (!any()) return 0;
+        int substituted = 0;
         std::lock_guard<std::mutex> g(m_);
         for (auto &i : items_) {
             if (!i.active || i.dev != dev) continue;
@@ -86,6 +97,7 @@ public:
                 long v = rescale(i.value, i.bindMin, i.bindMax, i.devMin, i.devMax);
                 v = v < i.devMin ? i.devMin : v > i.devMax ? i.devMax : v;
                 s.axes[i.index] = v;
+                ++substituted;
                 if (!i.announced) {
                     i.announced = true;
                     log.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(v) + " (sample " + std::to_string(i.value) + " in " +
@@ -98,13 +110,16 @@ public:
                     continue;
                 }
                 s.buttons[i.index] = i.value ? 0x80 : 0;
+                ++substituted;
                 if (!i.announced) { i.announced = true; log.push_back("inject: button " + std::to_string(i.index) + " on " + dev + (i.value ? " down" : " up") + " for " + std::to_string(i.ms) + " ms"); }
             } else {
                 if (!s.povs) continue;
                 s.povs[i.index] = (unsigned long)i.value;   // -1 is centred (0xFFFFFFFF)
+                ++substituted;
                 if (!i.announced) { i.announced = true; log.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(i.value) + " for " + std::to_string(i.ms) + " ms"); }
             }
         }
+        return substituted;
     }
 
 private:

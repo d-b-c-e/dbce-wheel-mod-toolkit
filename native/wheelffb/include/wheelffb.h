@@ -51,6 +51,16 @@
  * on the consumer's device owner thread. Open FFB before its shared read slot;
  * close/reopen readers when promoting an input-only device to FFB ownership.
  *
+ * Test injection (STD-033 section 6), development only. EnableTestInjection(1) latches an irreversible no-force
+ * mode for the process, and only before any force path was ever used (InitDirectInput, Aquire, an effect, an
+ * external session; attempted counts). Then every force export refuses before touching a device, an effect or a
+ * hook, reads keep working through OpenReadDevice's own non-exclusive handles, and SubmitTestInjection adds a raw
+ * sample ("inject raw <axis|button|hat> <index> [angle] dev=<instance> value=<raw> ms=<50-15000>", printable
+ * ASCII, 1-512 bytes) that ReadDeviceState and ReadDeviceStateWithPov deliver into the next successful reads of the
+ * read slot with that instance GUID. LastReadInjected(slot) reports whether the slot's last read attempt actually
+ * carried one; a failed read, CloseReadDevices and FreeDirectInput drop running samples. ReadAuxButtons never
+ * injects. GetTestInjectionStatus: "off", "refused: ..." or "armed: no force; ...".
+ *
  * Three families of effect, and they are not interchangeable:
  *   constant   SetDeviceForcesXY - the force your model computes
  *   periodic   CreatePeriodicEffect - a waveform the base renders itself
@@ -128,7 +138,11 @@ extern "C" {
     X(int, ExternalFfbSubmitConstant, (unsigned long long session, const ExternalFfbForceFrameV1* frame)) \
     X(int, ExternalFfbDisarm, (unsigned long long session, unsigned int reason)) \
     X(int, ExternalFfbClose, (unsigned long long session)) \
-    X(int, ExternalFfbGetStatus, (unsigned long long session, ExternalFfbStatusV1* status))
+    X(int, ExternalFfbGetStatus, (unsigned long long session, ExternalFfbStatusV1* status)) \
+    X(int, EnableTestInjection, (int flags)) \
+    X(int, SubmitTestInjection, (const char* line, char* why, int whySize)) \
+    X(int, GetTestInjectionStatus, (char* buf, int size)) \
+    X(int, LastReadInjected, (int slot))
 
 #define WHEELFFB_TYPEDEF(ret, name, args) typedef ret (__cdecl *WheelFfb_##name##_t) args;
 WHEELFFB_API_LIST(WHEELFFB_TYPEDEF)

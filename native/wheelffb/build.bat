@@ -22,7 +22,7 @@ if not defined VSPATH ( echo ERROR: MSVC x64 toolset not found & exit /b 1 )
 if /i "%ARCH%"=="x86" ( call "!VSPATH!\VC\Auxiliary\Build\vcvars32.bat" >nul ) else ( call "!VSPATH!\VC\Auxiliary\Build\vcvars64.bat" >nul )
 if errorlevel 1 ( echo ERROR: vcvars64 failed & exit /b 1 )
 
-cl.exe /nologo /LD /O2 /W4 /EHsc /DNDEBUG ^
+cl.exe /nologo /std:c++17 /LD /O2 /W4 /EHsc /DNDEBUG ^
   /Fo"%OUT%\\" /Fe"%OUT%\WheelFfb.dll" ^
   "%HERE%WheelFfb.cpp" ^
   /link /DEF:"%HERE%WheelFfb.def" /MACHINE:%ARCH%

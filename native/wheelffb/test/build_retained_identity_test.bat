@@ -14,7 +14,7 @@ for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Mi
 if not defined VSPATH exit /b 1
 if "%ARCH%"=="x86" (call "!VSPATH!\VC\Auxiliary\Build\vcvars32.bat" >nul) else (call "!VSPATH!\VC\Auxiliary\Build\vcvars64.bat" >nul)
 if errorlevel 1 exit /b 1
-cl.exe /nologo /O2 /W4 /EHsc /Fo"%OUT%\\" /Fe"%OUT%\retained_identity_test.exe" retained_identity_test.cpp user32.lib
+cl.exe /nologo /std:c++17 /O2 /W4 /EHsc /Fo"%OUT%\\" /Fe"%OUT%\retained_identity_test.exe" retained_identity_test.cpp user32.lib
 if errorlevel 1 exit /b %errorlevel%
 "%OUT%\retained_identity_test.exe"
 exit /b %errorlevel%
