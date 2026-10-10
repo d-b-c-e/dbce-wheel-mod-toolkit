@@ -1,6 +1,7 @@
 // Runs controls-vectors.txt against dbce_controls.hpp, plus the [Controls] section reader. No game, no device.
 // test_controls.exe [vectors file]
 #include "dbce_controls.hpp"
+#include "dbce_inject.hpp"
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -106,6 +107,28 @@ int main(int argc, char **argv)
         check(!v2.error.empty() && v2.bound.empty(), "schema 2: nothing applies");
         Section none = parseSection({"steer = axis 0 " + r12 + " range=0..65535 rest=0 travel=+1"});
         check(none.error == "no Schema" && none.bound.empty(), "no schema: nothing applies");
+    }
+    // Test injection commands (dbce_inject.hpp).
+    {
+        const std::string r12 = "dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944}";
+        Section s = parseSection({"Schema = 1", "steer = axis 0 " + r12 + " range=0..65535 rest=33265 travel=-1",
+                                  "throttle = axis 2 " + r12 + " range=0..65535 rest=0 travel=+1", "confirm = button 31 " + r12, "navLeft = hat 0 27000 " + r12});
+        InjectCommand c; std::string why;
+        check(parseInject("inject action steer 0.5 ms=1000", &s, c, why) && c.action == "steer" && c.binding.index == 0 && c.raw == 49151 && c.ms == 1000, "inject action steer 0.5");
+        check(parseInject("inject action throttle 1 ms=50", &s, c, why) && c.raw == 65535, "inject action throttle 1");
+        check(parseInject("inject action confirm 1 ms=200", &s, c, why) && c.binding.kind == Kind::Button && c.raw == 128, "inject action confirm");
+        check(parseInject("inject action navLeft 1 ms=200", &s, c, why) && c.raw == 27000, "inject action navLeft");
+        check(!parseInject("inject action brake 1 ms=200", &s, c, why) && why == "brake is not bound", "unbound action refused");
+        check(!parseInject("inject action steer 0.5 ms=20", &s, c, why), "ms below 50 refused");
+        check(!parseInject("inject action steer x ms=200", &s, c, why), "bad value refused");
+        check(!parseInject("inject action steer 0.5 ms=200", nullptr, c, why), "no applied controls refused");
+        check(parseInject("inject raw axis 2 dev={00000000-0000-0000-0000-0000000000A1} value=40000 ms=1500", nullptr, c, why) && c.binding.dev == "{00000000-0000-0000-0000-0000000000a1}" && c.raw == 40000 && c.binding.max == 65535, "inject raw axis");
+        check(parseInject("inject raw axis 0 dev={00000000-0000-0000-0000-0000000000a1} value=-100 ms=100 range=-32768..32767", nullptr, c, why) && c.binding.min == -32768, "inject raw axis with a range");
+        check(parseInject("inject raw hat 0 9000 dev={00000000-0000-0000-0000-0000000000a1} value=9000 ms=100", nullptr, c, why), "inject raw hat");
+        check(!parseInject("inject raw button 3 value=128 ms=100", nullptr, c, why) && why.find("dev=") == 0, "raw needs the instance");
+        check(!parseInject("inject raw button 3 dev={00000000-0000-0000-0000-0000000000a1} value=1 ms=100", nullptr, c, why), "a button takes 0 or 128");
+        check(!parseInject("inject raw axis 1 dev={00000000-0000-0000-0000-0000000000a1} value=70000 ms=100", nullptr, c, why), "raw value outside the range");
+        check(!parseInject("press steer", &s, c, why), "not an inject command");
     }
     if (g_failures) { std::cerr << g_failures << " of " << g_checks << " controls checks failed\n"; return 1; }
     std::cout << "PASS " << g_checks << " controls checks (" << vectors << " shared vectors)\n";

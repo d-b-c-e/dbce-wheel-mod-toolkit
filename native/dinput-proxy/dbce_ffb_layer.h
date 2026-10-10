@@ -43,4 +43,15 @@ bool Muted();
 // game's effects.
 void DrawPanelPage(bool advanced);
 
+// Test injection (STD-033 section 6, toolkit docs/controls-contract.md). Development only: a mod calls
+// AllowInjection(true) only when its inject.on switch existed at game start. Inject() makes the game's next
+// GetDeviceState reads of one object on one device instance (matched by the instance GUID the game created it with,
+// nothing else) return a raw sample for `ms` (50-15000), before the game's own binding resolution. kind 1 = axis
+// (index 0-7: X Y Z Rx Ry Rz Slider0 Slider1; value in bindMin..bindMax, rescaled to the range the game set),
+// 2 = button (0-127; value 0 or nonzero), 3 = hat (0-3; value an angle or -1). Buffered GetDeviceData reads are not
+// covered. Returns false with a reason when off, unknown or full.
+void AllowInjection(bool on);
+bool Inject(const GUID &instance, int kind, int index, long value, long bindMin, long bindMax, DWORD ms, char *why, size_t whyLen);
+bool ParseGuid(const char *text, GUID *out);   // "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}"
+
 }} // namespace dbce::ffb

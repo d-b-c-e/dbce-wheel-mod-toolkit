@@ -20,6 +20,14 @@ INIT_ONCE g_once = INIT_ONCE_STATIC_INIT;
 volatile LONG g_on = 1, g_strength = 50, g_diagLines, g_swallowed;
 void *g_wheelDev;
 
+// Test injection (STD-033): the devices the game created, by instance, and the raw samples running on them.
+struct DevRec { void *dev; GUID instance; };
+DevRec g_devs[32];
+int g_devCount;
+struct Inj { bool active; GUID instance; int kind, index; long value, bindMin, bindMax; ULONGLONG until; bool ranged; long devMin, devMax; bool announced; DWORD ms; };
+Inj g_inj[16];
+volatile LONG g_injectOk, g_injActive;
+
 BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *) { InitializeCriticalSection(&g_cs); return TRUE; }
 void ensure() { InitOnceExecuteOnce(&g_once, initOnce, nullptr, nullptr); }
 
@@ -401,11 +409,60 @@ HRESULT STDMETHODCALLTYPE hkGetData(void *self, DWORD cbObj, LPDIDEVICEOBJECTDAT
     if (SUCCEEDED(hr) && inOut && dbce::panel::IsOpen() && !(flags & DIGDD_PEEK)) *inOut = 0;   // consumed, not delivered
     return hr;
 }
+// Running test injections on this device replace its raw sample (before the game resolves its bindings). Axis values
+// arrive in the binding's capture range and are rescaled to the range the game set on that axis.
+typedef HRESULT(STDMETHODCALLTYPE *GetPropFn)(void *, REFGUID, LPDIPROPHEADER);
+void applyInjections(void *self, DWORD cb, LPVOID data)
+{
+    const bool two = cb == sizeof(DIJOYSTATE2);
+    if (!data || (!two && cb != sizeof(DIJOYSTATE))) return;
+    auto s = (DIJOYSTATE *)data;
+    const ULONGLONG now = GetTickCount64();
+    char line[300];
+    EnterCriticalSection(&g_cs);
+    GUID inst{};
+    bool known = false;
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { inst = g_devs[i].instance; known = true; break; }
+    for (auto &j : g_inj) {
+        line[0] = 0;
+        if (!j.active || !known || j.instance != inst) continue;
+        if (now >= j.until) {
+            j.active = false;
+            InterlockedDecrement(&g_injActive);
+            sprintf_s(line, "inject: %s %d on device %p ended after %lu ms", j.kind == 1 ? "axis" : j.kind == 2 ? "button" : "hat", j.index, self, j.ms);
+        } else if (j.kind == 1 && j.index >= 0 && j.index < 8) {
+            static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
+            if (!j.ranged) {
+                DIPROPRANGE r{};
+                r.diph.dwSize = sizeof r; r.diph.dwHeaderSize = sizeof r.diph; r.diph.dwObj = ofs[j.index]; r.diph.dwHow = DIPH_BYOFFSET;
+                void **vt = *(void ***)self;
+                if (SUCCEEDED(((GetPropFn)vt[5])(self, DIPROP_RANGE, &r.diph)) && r.lMax > r.lMin) { j.devMin = r.lMin; j.devMax = r.lMax; }
+                else { j.devMin = 0; j.devMax = 65535; }
+                j.ranged = true;
+            }
+            const double t = double(j.value - j.bindMin) / double(j.bindMax - j.bindMin);
+            const LONG v = (LONG)(j.devMin + t * double(j.devMax - j.devMin) + (t >= 0 ? 0.5 : -0.5));
+            ((LONG *)s)[j.index] = v;   // lX lY lZ lRx lRy lRz rglSlider[0..1] are the first eight LONGs
+            if (!j.announced) sprintf_s(line, "inject: axis %d on device %p = %ld (sample %ld in %ld..%ld, the game's range %ld..%ld) for %lu ms", j.index, self, v, j.value, j.bindMin, j.bindMax, j.devMin, j.devMax, j.ms);
+        } else if (j.kind == 2 && j.index >= 0 && j.index < (two ? 128 : 32)) {
+            (two ? ((DIJOYSTATE2 *)data)->rgbButtons : s->rgbButtons)[j.index] = j.value ? 0x80 : 0;
+            if (!j.announced) sprintf_s(line, "inject: button %d on device %p = %s for %lu ms", j.index, self, j.value ? "pressed" : "released", j.ms);
+        } else if (j.kind == 3 && j.index >= 0 && j.index < 4) {
+            (two ? ((DIJOYSTATE2 *)data)->rgdwPOV : s->rgdwPOV)[j.index] = (DWORD)j.value;
+            if (!j.announced) sprintf_s(line, "inject: hat %d on device %p = %ld for %lu ms", j.index, self, j.value, j.ms);
+        } else if (!j.announced) sprintf_s(line, "inject: %s %d is outside the state the game reads (%lu bytes); not delivered", j.kind == 2 ? "button" : "object", j.index, cb);
+        if (line[0] && j.active) j.announced = true;
+        if (line[0]) { LeaveCriticalSection(&g_cs); dlog("%s", line); EnterCriticalSection(&g_cs); }
+    }
+    LeaveCriticalSection(&g_cs);
+}
+
 typedef HRESULT(STDMETHODCALLTYPE *GetStateFn)(void *, DWORD, LPVOID);
 HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
 {
     HRESULT hr = ((GetStateFn)orig(H_GETSTATE, self))(self, cb, data);
     if (SUCCEEDED(hr)) suppressForPanel(cb, data);
+    if (SUCCEEDED(hr) && g_injectOk && g_injActive > 0) applyInjections(self, cb, data);
     if (SUCCEEDED(hr) && data && (cb == sizeof(DIJOYSTATE) || cb == sizeof(DIJOYSTATE2))) {   // the first five reads, then every 10 s
         static volatile LONG n;
         static ULONGLONG last;
@@ -426,7 +483,15 @@ typedef HRESULT(STDMETHODCALLTYPE *CreateDevFn)(void *, REFGUID, void **, LPUNKN
 HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUNKNOWN unk)
 {
     HRESULT hr = ((CreateDevFn)orig(H_CREATEDEV, self))(self, g, out, unk);
-    if (SUCCEEDED(hr) && out && *out) HookDevice(*out);
+    if (SUCCEEDED(hr) && out && *out) {
+        HookDevice(*out);
+        EnterCriticalSection(&g_cs);   // the instance the game asked for, for test injection by instance
+        int slot = -1;
+        for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == *out) slot = i;
+        if (slot < 0 && g_devCount < 32) slot = g_devCount++;
+        if (slot >= 0) g_devs[slot] = {*out, g};
+        LeaveCriticalSection(&g_cs);
+    }
     return hr;
 }
 
@@ -468,6 +533,58 @@ void HookDevice(void *dev)
     patch(H_SETCOOP, dev, 13, (void *)&hkSetCoop);
     patch(H_CREATEEFF, dev, 18, (void *)&hkCreateEffect);
     patch(H_SENDFF, dev, 22, (void *)&hkSendFf);
+}
+
+void AllowInjection(bool on)
+{
+    ensure();
+    InterlockedExchange(&g_injectOk, on ? 1 : 0);
+    if (on) dlog("inject: test injection is ON (inject.on at start): raw samples may replace the wheel's for a test run");
+}
+
+bool ParseGuid(const char *s, GUID *out)
+{
+    // "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}" (no ole32 in a proxy)
+    if (!s || !out || strlen(s) != 38 || s[0] != '{' || s[37] != '}') return false;
+    auto hex = [](const char *p, int n, unsigned long long &v) {
+        v = 0;
+        for (int i = 0; i < n; ++i) {
+            char c = p[i];
+            int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+            if (d < 0) return false;
+            v = v * 16 + (unsigned)d;
+        }
+        return true;
+    };
+    unsigned long long a, b, c, d, e;
+    if (s[9] != '-' || s[14] != '-' || s[19] != '-' || s[24] != '-' || !hex(s + 1, 8, a) || !hex(s + 10, 4, b) || !hex(s + 15, 4, c) || !hex(s + 20, 4, d) || !hex(s + 25, 12, e)) return false;
+    out->Data1 = (unsigned long)a; out->Data2 = (unsigned short)b; out->Data3 = (unsigned short)c;
+    out->Data4[0] = (unsigned char)(d >> 8); out->Data4[1] = (unsigned char)d;
+    for (int i = 0; i < 6; ++i) out->Data4[2 + i] = (unsigned char)(e >> (8 * (5 - i)));
+    return true;
+}
+
+bool Inject(const GUID &instance, int kind, int index, long value, long bindMin, long bindMax, DWORD ms, char *why, size_t whyLen)
+{
+    ensure();
+    auto fail = [&](const char *m) { if (why && whyLen) strcpy_s(why, whyLen, m); return false; };
+    if (!g_injectOk) return fail("test injection is off (no inject.on at game start)");
+    if (kind < 1 || kind > 3 || index < 0 || (kind == 1 && (index > 7 || bindMax <= bindMin)) || ms < 50 || ms > 15000) return fail("bad injection");
+    EnterCriticalSection(&g_cs);
+    bool opened = false;
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].instance == instance) opened = true;
+    Inj *slot = nullptr;
+    for (auto &j : g_inj) if (j.active && j.instance == instance && j.kind == kind && j.index == index) slot = &j;
+    if (!slot) for (auto &j : g_inj) if (!j.active) { slot = &j; break; }
+    if (opened && slot) {
+        if (!slot->active) InterlockedIncrement(&g_injActive);
+        *slot = Inj{true, instance, kind, index, value, bindMin, bindMax, GetTickCount64() + ms, false, 0, 0, false, ms};
+    }
+    LeaveCriticalSection(&g_cs);
+    if (!opened) return fail("the game has not opened that device instance");
+    if (!slot) return fail("16 injections already running");
+    if (why && whyLen) why[0] = 0;
+    return true;
 }
 
 bool On() { return g_on != 0; }
