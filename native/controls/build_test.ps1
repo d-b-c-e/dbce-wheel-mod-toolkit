@@ -13,4 +13,9 @@ foreach ($arch in 'x64', 'x86') {
     $out = cmd /c $cmd 2>&1
     $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw "controls checks failed ($arch)" }
+    # Pedal rest shaping (dbce_shape.hpp).
+    $shape = Join-Path $dir 'test_shape.exe'
+    $out = cmd /c "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 test_shape.cpp /Fo`"$dir\\`" /Fe`"$shape`" && `"$shape`"" 2>&1
+    $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
+    if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw "shape checks failed ($arch)" }
 }
