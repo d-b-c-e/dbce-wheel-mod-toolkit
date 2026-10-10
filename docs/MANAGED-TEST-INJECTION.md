@@ -24,8 +24,8 @@ Missing/partial exports never fall back to a managed sample override. Any
 exception, malformed native response or loss of the no-force confirmation
 ends this client's submission path; restart the process to retry.
 
-SubmitRaw accepts one `inject raw ...` command, at most 1023 UTF-8 bytes, with
-no control characters. It passes those bytes unchanged and NUL-terminated;
+SubmitRaw accepts one `inject raw ...` command, at most 512 printable ASCII
+bytes, matching native candidate 6d90b45. It passes those bytes unchanged and NUL-terminated;
 the native shared parser owns grammar, device identity, range and duration.
 No current binding is inverted to calculate a test sample. The harness must
 derive raw stimuli and expected actions independently from the original profile
@@ -46,7 +46,7 @@ dotnet build tests/NativeTestInjection -c Release -f net48
 ./tests/NativeTestInjection/bin/Release/net48/NativeTestInjection.exe
 ```
 
-Both runtimes pass 73 checks: partial ABI, exact flags and bytes, unarmed calls,
+Both runtimes pass 79 checks: partial ABI, exact flags and bytes, unarmed calls,
 sticky failure/assignment guard, acceptance versus delivery, native refusal,
 invalid return values, exceptions, unterminated and malformed UTF-8 responses,
 command bounds and invalid slot checks. These do not qualify the native no-force
