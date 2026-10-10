@@ -73,6 +73,10 @@ clamped to `range`; `n` is clamped to its shape's range first: steer `v = centre
 `v = rest + n' * (full - rest)` with `n' = 1 - n` when inverted, else `n`; button `n >= 0.5` -> down (1), else up (0),
 which a DirectInput writer delivers as 0x80 or 0; hat `n >= 0.5` -> `angle`, else -1.
 
+Both directions compute in double (or 64-bit) from the first operation. Any legal range reaches -2147483648..
+2147483647, and the sum `min + max`, the span `max - min` and the distance `full - rest` of such a range overflow a
+32-bit integer (C++ `long` on Windows). The shared vectors include those limits.
+
 ## 4. Text form (one line per binding)
 
 Used by the `[Controls]` INI storage adapter, in mod logs, and in the shared test vectors.
@@ -85,7 +89,7 @@ angle     = 1*5DIGIT                                 ; hat only, 0-35999
 attribute = "dev=" guid / "prod=" guid
           / "range=" int ".." int / "rest=" int / "travel=" ("+1" / "-1")
           / "inverted" / "calibrated" / "name=" quoted
-int       = ["-"] 1*10DIGIT
+int       = ["-"] 1*10DIGIT                          ; -2147483648-2147483647 (DirectInput LONG), else invalid
 guid      = "{" 8HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 12HEXDIG "}"
 quoted    = DQUOTE *(%x20-21 / %x23-5B / %x5D-7E / "\" DQUOTE / "\\") DQUOTE
 ```

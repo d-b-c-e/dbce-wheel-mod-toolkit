@@ -3,6 +3,7 @@
 // native mod vendors the same file and the offline tests run anywhere. Wheelkit's C# runs the same shared vectors
 // (controls-vectors.txt).
 #pragma once
+#include <cerrno>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -61,13 +62,19 @@ inline std::string guid(const std::string &s)
     }
     return out + "}";
 }
+// A decimal integer that fits DirectInput's 32-bit LONG (-2147483648..2147483647) on every platform. Anything else,
+// including values strtol would silently clamp where long is 32 bits (Windows), is refused.
 inline bool integer(const std::string &s, long &v)
 {
     if (s.empty() || s.size() > 11) return false;
     size_t i = s[0] == '-' ? 1 : 0;
     if (i == s.size()) return false;
     for (size_t k = i; k < s.size(); ++k) if (s[k] < '0' || s[k] > '9') return false;
-    v = std::strtol(s.c_str(), nullptr, 10);
+    errno = 0;
+    char *end = nullptr;
+    const long long x = std::strtoll(s.c_str(), &end, 10);
+    if (errno == ERANGE || end != s.c_str() + s.size() || x < INT32_MIN || x > INT32_MAX) return false;
+    v = (long)x;
     return true;
 }
 } // namespace detail
@@ -214,13 +221,16 @@ inline double normalize(const std::string &action, const Binding &b, long raw)
         if (d > 18000) d = 36000 - d;
         return d <= 4500 ? 1.0 : 0.0;
     }
+    // Every operand widened to double before adding or subtracting: legal ranges reach -2147483648..2147483647, whose
+    // sum, span and rest-to-end distance overflow a 32-bit long.
+    const double lo = double(b.min), hi = double(b.max);
     if (shapeOf(action) == Shape::Centred) {
-        const double centre = (b.min + b.max) / 2.0, half = (b.max - b.min) / 2.0;
-        double n = clampd((raw - centre) / half, -1.0, 1.0);
+        const double centre = (lo + hi) / 2.0, half = (hi - lo) / 2.0;
+        double n = clampd((double(raw) - centre) / half, -1.0, 1.0);
         return b.inverted ? -n : n;
     }
-    const long full = b.travel > 0 ? b.max : b.min;
-    const double n = clampd(double(raw - b.rest) / double(full - b.rest), 0.0, 1.0);
+    const double full = b.travel > 0 ? hi : lo, rest = double(b.rest);
+    const double n = clampd((double(raw) - rest) / (full - rest), 0.0, 1.0);
     return b.inverted ? 1.0 - n : n;   // the player's explicit inversion, after the captured travel
 }
 
@@ -231,16 +241,19 @@ inline long denormalize(const std::string &action, const Binding &b, double n)
     if (b.kind == Kind::Button) return n >= 0.5 ? 1 : 0;
     if (b.kind == Kind::Hat) return n >= 0.5 ? b.angle : -1;
     double v;
+    const double lo = double(b.min), hi = double(b.max);   // widened first, as in normalize()
     if (shapeOf(action) == Shape::Centred) {
         n = clampd(b.inverted ? -n : n, -1.0, 1.0);
-        v = (b.min + b.max) / 2.0 + n * ((b.max - b.min) / 2.0);
+        v = (lo + hi) / 2.0 + n * ((hi - lo) / 2.0);
     } else {
-        const long full = b.travel > 0 ? b.max : b.min;
+        const double full = b.travel > 0 ? hi : lo, rest = double(b.rest);
         n = clampd(n, 0.0, 1.0);
-        v = b.rest + (b.inverted ? 1.0 - n : n) * double(full - b.rest);
+        v = rest + (b.inverted ? 1.0 - n : n) * (full - rest);
     }
-    long r = (long)std::lround(v);
-    return r < b.min ? b.min : r > b.max ? b.max : r;
+    if (v <= lo) return b.min;   // clamped in double, so the rounding below never leaves the range
+    if (v >= hi) return b.max;
+    const long long r = std::llround(v);
+    return r < b.min ? b.min : r > b.max ? b.max : (long)r;
 }
 
 // Rescale a raw sample between ranges (the binding's capture range and the range a game set on the device).
