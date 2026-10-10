@@ -13,6 +13,16 @@ $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $
 if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw 'force-layer checks failed' }
 'compiled dbce_ffb_layer.cpp'
 
+# The force fence for unattended control tests (dbce_fence.hpp, STD-033): a recording fake device, x64 and x86.
+foreach ($arch in 'x64', 'x86') {
+    $vv = Join-Path $vs ('VC\Auxiliary\Build\vcvars{0}.bat' -f $(if ($arch -eq 'x64') { '64' } else { '32' }))
+    $dir = Join-Path $build "fence-$arch"
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $fo = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 test_fence.cpp /Fo`"$dir\\`" /Fe`"$dir\test_fence.exe`" dinput8.lib dxguid.lib && `"$dir\test_fence.exe`"" 2>&1
+    $fo | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
+    if ($LASTEXITCODE) { $fo | Select-Object -Last 25; throw "fence checks failed ($arch)" }
+}
+
 # 32-bit consumers (DiRT 3): the layer and the panel/overlay compile for x86 too, where __stdcall argument counts matter.
 $vcvars32 = Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat'
 $b32 = Join-Path $build 'x86'
