@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+#nullable disable
 using System;
 using System.Runtime.InteropServices;
 
