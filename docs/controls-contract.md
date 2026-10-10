@@ -152,6 +152,18 @@ and a command file is honoured only when it is newer than the game process. Comm
 The mod logs each injection with the raw value it delivered. While an injection runs, everything else about the
 device is the real device. Injection never creates OS input, never focuses the game and never sends a force.
 
+## 6a. The force fence for these runs
+
+An unattended run that injects controls needs the wheel visible to the game, so the force mute that hides the wheel
+cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.hpp`, a closed wrapper.
+- The game never holds a real DirectInput or device object.
+- Effects are software sinks, and no force command, escape or output reaches a device.
+- Injection is delivered only into the standard joystick formats.
+- `test_fence.cpp` checks this against a recording fake device.
+- `native/dinput-proxy/tools/fence-live-probe.cpp` checks a built proxy on the real devices without the game.
+  - It is read only; build it under the game's exe name.
+  - First run: V-Rally 4 0.6.0, 2026-10-09 21:49. Every raw and action sample was delivered and ended as commanded.
+
 ## 7. Shared test vectors
 
 `native/controls/controls-vectors.txt` holds parse, reject, normalize and denormalize cases. The C++ header
