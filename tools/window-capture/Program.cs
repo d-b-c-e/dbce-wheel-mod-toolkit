@@ -12,16 +12,32 @@ using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 using WinRT;
+using System.Text;
+using System.Text.Json;
 
-if (args.Length < 2) { Console.Error.WriteLine("usage: dbce-window-capture <process-name|pid> <out.png> [--width N]"); return 2; }
-int width = args.Length > 3 && args[2] == "--width" && int.TryParse(args[3], out var w) ? w : 0;
+if (args.Length < 2) { Console.Error.WriteLine("usage: dbce-window-capture <process-name|pid> <out.png> [--width N] [--hwnd 0xHEX]\n       dbce-window-capture <process-name|pid> --list"); return 2; }
+int width=0; long? requested=null; bool listing=args[1]=="--list";
+for(int i=2;i<args.Length;i++)
+{
+    if(listing || i+1>=args.Length){Console.Error.WriteLine("invalid options");return 2;}
+    string option=args[i],value=args[++i];
+    if(option=="--width" && int.TryParse(value,out var size) && size>0) width=size;
+    else if(option=="--hwnd" && long.TryParse(value.StartsWith("0x",StringComparison.OrdinalIgnoreCase)?value[2..]:value,
+        value.StartsWith("0x",StringComparison.OrdinalIgnoreCase)?System.Globalization.NumberStyles.HexNumber:System.Globalization.NumberStyles.None,
+        System.Globalization.CultureInfo.InvariantCulture,out var handle) && handle>0) requested=handle;
+    else {Console.Error.WriteLine("invalid option: "+option);return 2;}
+}
 var process = int.TryParse(args[0], out var pid) ? Process.GetProcessById(pid)
     : Process.GetProcessesByName(args[0]).OrderByDescending(p => p.StartTime).FirstOrDefault();
 if (process == null) { Console.Error.WriteLine($"no process {args[0]}"); return 3; }
-// The largest visible top-level window of the process: games can own helper windows (for
-// example a mod loader's console) that become the "main window".
-var hwnd = Windows32.LargestWindow((uint)process.Id);
+// List the owned windows when separate-display rendering creates equal-sized
+// outputs. Largest-window selection alone may capture a side view without HUD.
+var windows=Windows32.List((uint)process.Id);
+if(listing){Console.WriteLine(JsonSerializer.Serialize(new{process=process.Id,startedUtc=process.StartTime.ToUniversalTime(),windows}));return 0;}
+var chosen=requested.HasValue?windows.SingleOrDefault(w=>w.Handle==requested.Value):windows.OrderByDescending(w=>w.Area).FirstOrDefault();
+var hwnd=chosen is null?IntPtr.Zero:new IntPtr(chosen.Handle);
 if (hwnd == IntPtr.Zero) { Console.Error.WriteLine($"no window for {args[0]}"); return 3; }
+if(process.HasExited || !Windows32.OwnedVisible(hwnd,(uint)process.Id)){Console.Error.WriteLine("window ownership changed");return 3;}
 
 var item = Capture.ItemForWindow(hwnd);
 var device = Capture.CreateDevice();
@@ -48,8 +64,9 @@ if (width > 0 && width < bitmap.PixelWidth)
 await encoder.FlushAsync();
 var bytes = new byte[stream.Size];
 using (var reader = new DataReader(stream.GetInputStreamAt(0))) { await reader.LoadAsync((uint)stream.Size); reader.ReadBytes(bytes); }
+if(process.HasExited || !Windows32.OwnedVisible(hwnd,(uint)process.Id)){Console.Error.WriteLine("window ownership changed during capture");return 3;}
 File.WriteAllBytes(args[1], bytes);
-Console.WriteLine($"{args[1]} ({bitmap.PixelWidth}x{bitmap.PixelHeight} window of {process.ProcessName} {process.Id})");
+Console.WriteLine($"{args[1]} ({bitmap.PixelWidth}x{bitmap.PixelHeight} window 0x{chosen!.Handle:X} at {chosen.Left},{chosen.Top} of {process.ProcessName} {process.Id})");
 return 0;
 
 static class Windows32
@@ -60,21 +77,30 @@ static class Windows32
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,StringBuilder text,int size);
+    [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h,StringBuilder text,int size);
 
-    public static IntPtr LargestWindow(uint pid)
+    public sealed record Window(long Handle,string Title,string Class,int Left,int Top,int Width,int Height) { public long Area=>(long)Width*Height; }
+    public static bool OwnedVisible(IntPtr hwnd,uint pid) {GetWindowThreadProcessId(hwnd,out var owner);return owner==pid && IsWindowVisible(hwnd);}
+
+    public static List<Window> List(uint pid)
     {
-        IntPtr best = IntPtr.Zero; long bestArea = 0;
+        var result=new List<Window>();
         EnumWindows((h, _) =>
         {
             GetWindowThreadProcessId(h, out var owner);
             if (owner == pid && IsWindowVisible(h) && GetWindowRect(h, out var r))
             {
-                long area = (long)(r.R - r.L) * (r.B - r.T);
-                if (area > bestArea) { bestArea = area; best = h; }
+                if(r.R>r.L && r.B>r.T)
+                {
+                    var title=new StringBuilder(1024);var name=new StringBuilder(256);
+                    GetWindowText(h,title,title.Capacity);GetClassName(h,name,name.Capacity);
+                    result.Add(new(h.ToInt64(),title.ToString(),name.ToString(),r.L,r.T,r.R-r.L,r.B-r.T));
+                }
             }
             return true;
         }, IntPtr.Zero);
-        return best;
+        return result;
     }
 }
 
