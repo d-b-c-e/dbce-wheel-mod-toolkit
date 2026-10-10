@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Dbce.Wheel.Input/ControlBinding.cs" Link="ControlBinding.cs" />
+    <None Include="../../native/controls/controls-vectors.txt" Link="controls-vectors.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
