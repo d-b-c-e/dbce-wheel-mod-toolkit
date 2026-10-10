@@ -71,4 +71,10 @@ foreach(int deliveredResult in new[]{-1,2}) {
 }
 var throws=new NativeTestInjectionClient(_=>throw new IOException("uncertain enable"),(x,r,n)=>1,(r,n)=>1,_=>1);
 Check(!throws.Arm() && throws.BlockAssignments,"throw after enable is sticky");
+int boundCalls=0;
+var bounded=new NativeTestInjectionClient(_=>1,(x,r,n)=>{boundCalls++;Reply(r,"ok");Check(x.Length==513,"512 printable bytes plus NUL");return 1;},(r,n)=>{Reply(r,"armed");return 1;},_=>0);
+Check(bounded.Arm(),"bounds client armed");
+string maximum="inject raw "+new string('x',512-11);
+Check(bounded.SubmitRaw(maximum,out _),"exact native length limit");
+foreach(var bad in new[]{maximum+"x",raw+"é",raw+"\u007f"})Check(!bounded.SubmitRaw(bad,out _) && boundCalls==1,"length/non-ASCII refused before native");
 Console.WriteLine($"PASS {checks} managed test-injection checks; fake delegates only, no module/device/game opened.");
