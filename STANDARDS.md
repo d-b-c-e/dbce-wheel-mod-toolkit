@@ -577,3 +577,28 @@ restore Steam's `remotecache.vdf`. The rule is:
 16. **The consumer's required set.** If the game requires certain actions, the writer refuses or names a plan that
     leaves one unbound. Example: DiRT 3 will not leave Controls until accelerate, brake, handbrake, steer left/right,
     instant replay and pause are bound (traced from its executable). Find the set in the consumer, not by menu trial.
+
+## STD-036 — Every profile binding reaches the game from its own device (multi-device parity)
+2026-10-10 · owner direction ("shouldn't the aim be to mod the game to support separate devices so we have parity?"),
+recorded by Claude · applies to: every game mod and Wheelkit control writer
+
+The rig profile binds each action to a device. The aim is that every game honours it: steering and pedals from the
+wheel, shifts and gears from the DS-8X, and any later handbrake or button box. A second device must not be a
+permanent "another device" gap.
+
+1. **Each mod reads every bound device.** The mod opens each device the profile names, by identity (STD-035 item 6,
+   one epoch per device), and takes each action from its own device.
+2. **Native games that read one device get the others merged in.** When the game itself reads only one device (Gravel,
+   Rush Rally 3, CannonBall's single SDL controller), the mod merges the second device's buttons into the wheel's
+   report, at button numbers the wheel does not use, or reads the second device itself.
+   - The writer binds those merged numbers and names the mapping in the plan.
+   - Collisions are checked on the merged numbers (STD-035 item 3).
+3. **A game's own second-device syntax counts only once proven in the consumer.** Gravel's shipped TH8A
+   `<product>_ButtonN` is an example: it is data files only until a launch shows the game reading it.
+4. **Until a game has this, the writer refuses what it cannot represent.** Example: CannonBall's Sequential gearbox
+   with the shifts on the DS-8X (STD-035 item 15). It never silently drops the shifter.
+
+Per-game state is tracked in `dbce-project-mgmt\CONTROLS-COVERAGE.md`. First candidates:
+- CannonBall: a second SDL device for its gear buttons;
+- the Gravel and Rush Rally 3 proxies: DS-8X buttons merged into the R12's report;
+- Slipstream and Horizon Chase Turbo: a device per binding instead of one button device.
