@@ -130,6 +130,34 @@ navUp = hat 0 0 dev={...} prod={...} name="MOZA R12 Base"
 `Schema` other than 1: the mod applies nothing and logs why. `Revision` is Wheelkit's profile content hash, echoed by
 the mod so a reader can tell which profile is applied. Keys are the action ids of section 1.
 
+## 5a. Switching profiles: store versus pending request
+
+An omitted action says nothing about its current game binding. Do not turn omission
+into an explicit empty/unbound value. The storage adapter must document which role
+its section serves:
+
+- **Canonical binding store**, such as V-Rally's Controls section: preserve omitted
+  or unsupported entries. V-Rally regenerates its Lua blocks from this section each
+  launch; deleting a usable entry would remove the generated binding. Report retained
+  entries as existing game configuration, not as applied from the new profile.
+- **Pending request**, such as F-Zero's Controls section or OutRun 2006's
+  WheelkitProfile section: remove obsolete known action requests when applying a new
+  revision. Keep the game's separate canonical binding values. Otherwise an old
+  request can overwrite a newer F6/launcher change under the new revision. Unknown
+  future fields remain preserved; unsupported schemas are refused.
+
+Test profile A, a direct change to the game's canonical store, then profile B that
+omits an action from A. Run the actual consumer and confirm B does not undo the
+canonical change. Test unsupported bindings the same way. F-Zero's production
+Wheelkit fixture and native consumer test cover this in Wheelkit `dcc14ff`.
+V-Rally's retained non-endpoint pedal rest remains a v1 consumer limitation; a
+retained line does not establish that the game normalized it correctly.
+
+Identity changes are different from omission: when a native slot moves to another
+device, its old numeric buttons may need clearing. The preview must expose those
+secondary changes; a staged-file diff alone is insufficient. Native startup
+application/readback and actual input observation remain separate evidence.
+
 ## 6. Evidence, and the test injection
 
 Three results, reported separately per action, never merged into one badge:
