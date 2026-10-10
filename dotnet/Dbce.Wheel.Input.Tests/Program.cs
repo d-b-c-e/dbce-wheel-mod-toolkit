@@ -37,6 +37,11 @@ Check(full.Normalize("steer", int.MaxValue) == 1 && full.Normalize("throttle", i
 Check(full.Denormalize("steer", 0) == -1 && full.Denormalize("throttle", 1) == int.MaxValue, "Wide inverse range");
 Check(!ControlBinding.TryParse("axis 0" + ids + " range=0..2147483648 rest=0 travel=+1", out _, out var reason) && reason == "bad-range", "Overflow refused");
 Check(!ControlBinding.TryParse("button 1" + ids + " name=\"injected\nsteer=\"", out _, out _), "Multiline refused");
+foreach (string lineBreak in new[] { "\r", "\n", "\r\n" })
+{
+    Check(!ControlBinding.TryParse("button 1" + ids + " name=\"before" + lineBreak + "after\"", out _, out var why) && why == "bad-name", "Line break in quoted name refused");
+    Check(!ControlBinding.TryParse("button 1" + lineBreak + ids, out _, out why) && why == "bad-name", "Line break between tokens refused");
+}
 foreach (double bad in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
 {
     bool refused = false;
