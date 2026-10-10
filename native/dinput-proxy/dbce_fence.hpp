@@ -30,6 +30,7 @@
 #include <string>
 #include <vector>
 #include "../controls/dbce_inject_table.hpp"
+#include "dbce_joyformat.hpp"
 
 #pragma comment(lib, "dxguid.lib")
 
@@ -143,6 +144,8 @@ struct FencedDevice final : I {
     I *real;
     volatile LONG refs = 1;
     std::string instance;   // "{...}" lowercase, from GetDeviceInfo
+    volatile LONG format = 0;   // 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 any other (injection is delivered only into 1 and 2)
+    bool formatWarned = false;
     FencedDevice(I *r, const std::string &inst) : real(r), instance(inst) {}
     static HRESULT refuse(const char *what) { static volatile LONG n; if (sample(n)) logf("fence: %s refused", what); return DIERR_UNSUPPORTED; }
 
@@ -179,7 +182,16 @@ struct FencedDevice final : I {
     {
         HRESULT hr = real->GetDeviceState(cb, data);
         auto *inj = settings().injections;
-        if (SUCCEEDED(hr) && inj && inj->any() && data && (cb == sizeof(DIJOYSTATE) || cb == sizeof(DIJOYSTATE2))) {
+        if (!SUCCEEDED(hr) || !inj || !inj->any() || !data) return hr;
+        const bool standard = (format == 1 && cb == sizeof(DIJOYSTATE)) || (format == 2 && cb == sizeof(DIJOYSTATE2));
+        if (!standard) {
+            if (!formatWarned && inj->pendingFor(instance)) {
+                formatWarned = true;
+                logf("inject: device %s reads with a data format that is not c_dfDIJoystick/2 (%lu bytes); not delivered", instance.c_str(), cb);
+            }
+            return hr;
+        }
+        {
             auto *s = (DIJOYSTATE *)data;
             dbce::controls::StateView v;
             v.axes = (long *)&s->lX;
@@ -200,7 +212,12 @@ struct FencedDevice final : I {
         return hr;
     }
     STDMETHODIMP GetDeviceData(DWORD n, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD f) override { return real->GetDeviceData(n, d, k, f); }
-    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT f) override { return real->SetDataFormat(f); }
+    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT f) override
+    {
+        HRESULT hr = real->SetDataFormat(f);
+        if (SUCCEEDED(hr)) InterlockedExchange(&format, standardFormat(f));
+        return hr;
+    }
     STDMETHODIMP SetEventNotification(HANDLE e) override { return real->SetEventNotification(e); }
     STDMETHODIMP SetCooperativeLevel(HWND w, DWORD f) override { return real->SetCooperativeLevel(w, f); }
     STDMETHODIMP GetObjectInfo(typename T::ObjInst o, DWORD obj, DWORD how) override { return real->GetObjectInfo(o, obj, how); }
@@ -241,7 +258,12 @@ struct FencedDevice final : I {
     STDMETHODIMP EnumEffectsInFile(typename T::Str, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { return refuse("EnumEffectsInFile"); }
     STDMETHODIMP WriteEffectToFile(typename T::Str, DWORD, LPDIFILEEFFECT, DWORD) override { return refuse("WriteEffectToFile"); }
     STDMETHODIMP BuildActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override { return real->BuildActionMap(f, u, fl); }
-    STDMETHODIMP SetActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override { return real->SetActionMap(f, u, fl); }
+    STDMETHODIMP SetActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override
+    {
+        HRESULT hr = real->SetActionMap(f, u, fl);
+        if (SUCCEEDED(hr)) InterlockedExchange(&format, 0);   // an action map sets its own data format
+        return hr;
+    }
     STDMETHODIMP GetImageInfo(typename T::Image h) override { return real->GetImageInfo(h); }
 };
 

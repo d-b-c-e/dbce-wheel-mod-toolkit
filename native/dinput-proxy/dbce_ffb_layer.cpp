@@ -4,6 +4,7 @@
 #include "dbce_ffb_gain.hpp"
 #include "../panel/dbce_panel.h"
 #include "../controls/dbce_inject_table.hpp"
+#include "dbce_joyformat.hpp"
 #include <dinput.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -23,7 +24,7 @@ void *g_wheelDev;
 
 // Test injection (STD-033): the devices the game created, by instance, and the raw samples running on them (the same
 // table and delivery as the fenced wrapper, dbce_fence.hpp).
-struct DevRec { void *dev; GUID instance; };
+struct DevRec { void *dev; GUID instance; int format; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
 DevRec g_devs[32];
 int g_devCount;
 dbce::controls::InjectionTable g_table;
@@ -53,7 +54,7 @@ bool diagOk() { return InterlockedIncrement(&g_diagLines) <= 2000; }   // bounde
 
 // ---- vtable patching, one original per (hook, table) -------------------------------------------------------
 enum Hook { H_CREATEDEV, H_SETPROP, H_ACQUIRE, H_GETSTATE, H_GETDATA, H_SETCOOP, H_CREATEEFF, H_SENDFF,
-            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_COUNT };
+            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_COUNT };
 struct Slot { void **vt; void *orig; };
 Slot g_slots[H_COUNT][8];
 // The answer for a table that was never recorded (should not happen): E_FAIL from a stub with the hook's own argument
@@ -66,7 +67,7 @@ HRESULT STDMETHODCALLTYPE unrecorded5(void *, void *, void *, void *, void *) { 
 void *unrecorded(Hook h)
 {
     static void *const byArgs[6] = {nullptr, (void *)&unrecorded1, (void *)&unrecorded2, (void *)&unrecorded3, (void *)&unrecorded4, (void *)&unrecorded5};
-    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1};   // self included, in Hook order
+    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2};   // self included, in Hook order
     return byArgs[args[h]];
 }
 void *orig(Hook h, void *self)
@@ -426,10 +427,16 @@ void applyInjections(void *self, DWORD cb, LPVOID data)
     const bool two = cb == sizeof(DIJOYSTATE2);
     if (!data || (!two && cb != sizeof(DIJOYSTATE))) return;
     std::string inst;
+    int format = 0;
     EnterCriticalSection(&g_cs);
-    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { inst = guidText(g_devs[i].instance); break; }
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { inst = guidText(g_devs[i].instance); format = g_devs[i].format; break; }
     LeaveCriticalSection(&g_cs);
     if (inst.empty()) return;
+    if (!((format == 1 && !two) || (format == 2 && two))) {   // a custom format: the fields are not the standard ones
+        static volatile LONG warned;
+        if (g_table.pendingFor(inst) && InterlockedIncrement(&warned) <= 3) dlog("inject: device %p reads with a data format that is not c_dfDIJoystick/2; not delivered", self);
+        return;
+    }
     auto s = (DIJOYSTATE *)data;
     dbce::controls::StateView v;
     v.axes = (long *)&s->lX;
@@ -470,6 +477,19 @@ HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
     return hr;
 }
 
+typedef HRESULT(STDMETHODCALLTYPE *SetFmtFn)(void *, LPCDIDATAFORMAT);
+HRESULT STDMETHODCALLTYPE hkSetFormat(void *self, LPCDIDATAFORMAT f)
+{
+    HRESULT hr = ((SetFmtFn)orig(H_SETFMT, self))(self, f);
+    if (SUCCEEDED(hr)) {   // test injection writes standard fields only into a standard format
+        const int k = dbce::fence::standardFormat(f);
+        EnterCriticalSection(&g_cs);
+        for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) g_devs[i].format = k;
+        LeaveCriticalSection(&g_cs);
+    }
+    return hr;
+}
+
 typedef HRESULT(STDMETHODCALLTYPE *CreateDevFn)(void *, REFGUID, void **, LPUNKNOWN);
 HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUNKNOWN unk)
 {
@@ -480,7 +500,7 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
         int slot = -1;
         for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == *out) slot = i;
         if (slot < 0 && g_devCount < 32) slot = g_devCount++;
-        if (slot >= 0) g_devs[slot] = {*out, g};
+        if (slot >= 0) g_devs[slot] = {*out, g, 0};
         LeaveCriticalSection(&g_cs);
     }
     return hr;
@@ -521,6 +541,7 @@ void HookDevice(void *dev)
     patch(H_ACQUIRE, dev, 7, (void *)&hkAcquire);
     patch(H_GETSTATE, dev, 9, (void *)&hkGetState);
     patch(H_GETDATA, dev, 10, (void *)&hkGetData);
+    patch(H_SETFMT, dev, 11, (void *)&hkSetFormat);
     patch(H_SETCOOP, dev, 13, (void *)&hkSetCoop);
     patch(H_CREATEEFF, dev, 18, (void *)&hkCreateEffect);
     patch(H_SENDFF, dev, 22, (void *)&hkSendFf);

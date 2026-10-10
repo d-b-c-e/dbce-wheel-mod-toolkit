@@ -246,9 +246,14 @@ inline long denormalize(const std::string &action, const Binding &b, double n)
 // Rescale a raw sample between ranges (the binding's capture range and the range a game set on the device).
 inline long rescale(long v, long fromMin, long fromMax, long toMin, long toMax)
 {
-    if (fromMax <= fromMin) return toMin;
-    double t = double(v - fromMin) / double(fromMax - fromMin);
-    return (long)std::lround(toMin + t * double(toMax - toMin));
+    // Every operand widened before subtracting (a LONG_MIN..LONG_MAX range must not overflow); rounded half away from
+    // zero, then clamped to the target range before the cast.
+    if (fromMax <= fromMin || toMax < toMin) return toMin;
+    const double t = (double(v) - double(fromMin)) / (double(fromMax) - double(fromMin));
+    const double r = std::round(double(toMin) + t * (double(toMax) - double(toMin)));
+    if (r <= double(toMin)) return toMin;
+    if (r >= double(toMax)) return toMax;
+    return (long)r;
 }
 
 // The product GUID's Data1 (PID << 16 | VID), as DirectInput games key their device tables. 0 when malformed.

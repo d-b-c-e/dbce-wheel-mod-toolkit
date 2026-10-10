@@ -20,6 +20,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     std::map<std::string, int> calls;
     LONG refs = 1;
     bool rangeFails = false;
+    LONG lo = -32768, hi = 32767;
     DWORD lastSetProp = 0;
     void hit(const char *m) { ++calls[m]; }
     int n(const char *m) { return calls.count(m) ? calls[m] : 0; }
@@ -33,7 +34,7 @@ struct FakeDevice final : IDirectInputDevice8A {
         hit("GetProperty");
         if ((const void *)&p == &DIPROP_RANGE) {
             if (rangeFails) return DIERR_OBJECTNOTFOUND;
-            ((LPDIPROPRANGE)h)->lMin = -32768; ((LPDIPROPRANGE)h)->lMax = 32767;
+            ((LPDIPROPRANGE)h)->lMin = lo; ((LPDIPROPRANGE)h)->lMax = hi;
         }
         return DI_OK;
     }
@@ -111,6 +112,14 @@ int main()
     settings().log = logLine;
     dbce::controls::InjectionTable table;
     settings().injections = &table;
+
+    // The rebuilt standard formats equal DirectInput's own (dinput8.lib), object for object; a swapped copy is not standard.
+    check(standardFormat(&c_dfDIJoystick) == 1 && standardFormat(&c_dfDIJoystick2) == 2, "the rebuilt c_dfDIJoystick and c_dfDIJoystick2 match the library's");
+    std::vector<DIOBJECTDATAFORMAT> swapped(c_dfDIJoystick2.rgodf, c_dfDIJoystick2.rgodf + c_dfDIJoystick2.dwNumObjs);
+    std::swap(swapped[0].dwOfs, swapped[1].dwOfs);
+    DIDATAFORMAT custom = c_dfDIJoystick2;
+    custom.rgodf = swapped.data();
+    check(standardFormat(&custom) == 0 && standardFormat(nullptr) == 0, "a same-size format with X and Y swapped is not standard");
 
     FakeInput fake;
     auto *di = new FencedDirectInput<IDirectInput8A>(&fake);
@@ -208,6 +217,7 @@ int main()
     check(s.lRx == 0, "another instance's injection does not touch this device");
     struct { DIJOYSTATE s; unsigned char guard[96]; } narrow;
     memset(&narrow, 0x5a, sizeof narrow);
+    dev->SetDataFormat(&c_dfDIJoystick);   // the 32-button format, read as DIJOYSTATE
     dev->GetDeviceState(sizeof narrow.s, &narrow.s);
     bool intact = true;
     for (unsigned char b : narrow.guard) intact &= b == 0x5a;
@@ -215,6 +225,7 @@ int main()
     check(inject(std::string("inject raw button 50 dev=") + kInstText + " value=1 ms=2000").empty(), "button 50 injection accepted");
     dev->GetDeviceState(sizeof narrow.s, &narrow.s);
     check(logged("button 50 on {000000a1-0000-0000-0000-000000000000} is outside the 32 buttons"), "a button the game's format lacks is reported");
+    dev->SetDataFormat(&c_dfDIJoystick2);
     check(logged("inject: axis 0 on {000000a1-0000-0000-0000-000000000000} = -32768"), "the delivery is logged with the value");
 
     // An unreadable range is never guessed.
@@ -223,6 +234,7 @@ int main()
     auto *di2w = new FencedDirectInput<IDirectInput8A>(&fake2);
     IDirectInputDevice8A *dev2 = nullptr;
     di2w->CreateDevice(kInst, &dev2, nullptr);
+    dev2->SetDataFormat(&c_dfDIJoystick2);
     dbce::controls::InjectionTable t2;
     settings().injections = &t2;
     dbce::controls::InjectCommand c; std::string why;
@@ -233,6 +245,47 @@ int main()
     check(s2.lX == 576 && logged("not delivered: the game's range for it is unreadable"), "unreadable range: not delivered, logged");
     dev2->Release(); di2w->Release();
     settings().injections = &table;
+
+    // A custom data format of the same size gets nothing; an action map clears the standard format too.
+    {
+        FakeInput fake3;
+        auto *di3 = new FencedDirectInput<IDirectInput8A>(&fake3);
+        IDirectInputDevice8A *dev3 = nullptr;
+        di3->CreateDevice(kInst, &dev3, nullptr);
+        dev3->SetDataFormat(&custom);
+        DIJOYSTATE2 s3{};
+        dev3->GetDeviceState(sizeof s3, &s3);
+        check(s3.lX == 576 && logged("reads with a data format that is not c_dfDIJoystick/2"), "custom format: not delivered, logged");
+        dev3->SetDataFormat(&c_dfDIJoystick2);
+        dev3->GetDeviceState(sizeof s3, &s3);
+        check(s3.lX == -32768, "standard format again: delivered");
+        dev3->SetActionMap(nullptr, nullptr, 0);
+        dev3->GetDeviceState(sizeof s3, &s3);
+        check(s3.lX == 576, "after SetActionMap: not delivered");
+        dev3->SetDataFormat(&c_dfDIJoystick);
+        DIJOYSTATE s1{};
+        dev3->GetDeviceState(sizeof s1, &s1);
+        check(s1.lX == -32768, "c_dfDIJoystick with DIJOYSTATE: delivered");
+        dev3->GetDeviceState(sizeof s3, &s3);
+        check(s3.lX == 576, "c_dfDIJoystick format but a DIJOYSTATE2-sized read: not delivered");
+        // The game sets a new range while an injection runs: the next read maps into it.
+        dev3->SetDataFormat(&c_dfDIJoystick2);
+        fake3.device.lo = 0; fake3.device.hi = 1000;
+        dev3->GetDeviceState(sizeof s3, &s3);
+        check(s3.lX == 0 && s3.lZ == 1000 && s3.lY == 500, "range changed mid-injection: mapped into the new range (" + std::to_string(s3.lY) + ")");
+        dev3->Release(); di3->Release();
+    }
+    // Expired injections for a device that is never read free their slots by time.
+    {
+        dbce::controls::InjectionTable t3;
+        dbce::controls::InjectCommand x; std::string w;
+        dbce::controls::parseInject("inject raw button 1 dev={000000c3-0000-0000-0000-000000000000} value=1 ms=50", nullptr, x, w);
+        bool filled = true;
+        for (int i = 0; i < 16; ++i) { x.binding.index = i; filled &= t3.add(x, 0).empty(); }
+        x.binding.index = 20;
+        check(filled && !t3.add(x, 10).empty(), "16 running injections: the 17th is refused");
+        check(t3.add(x, 1000).empty(), "after they expire, a new injection is accepted without any read");
+    }
 
     // Expiry.
     dbce::controls::InjectCommand shortOne;

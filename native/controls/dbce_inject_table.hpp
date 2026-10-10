@@ -32,6 +32,7 @@ public:
         if (c.binding.kind == Kind::Hat && (c.binding.index < 0 || c.binding.index > 3)) return "bad hat";
         if (c.binding.kind == Kind::None) return "bad kind";
         std::lock_guard<std::mutex> g(m_);
+        for (auto &i : items_) if (i.active && nowMs >= i.until) { i.active = false; active_.fetch_sub(1); }   // reclaimed by time, read or not
         Item *slot = nullptr;
         for (auto &i : items_) if (i.active && i.dev == c.binding.dev && i.kind == c.binding.kind && i.index == c.binding.index) slot = &i;
         if (!slot) for (auto &i : items_) if (!i.active) { slot = &i; break; }
@@ -44,6 +45,19 @@ public:
         return {};
     }
     bool any() const { return active_.load() > 0; }
+    // Is an injection running for this device instance (for a one-time "not delivered" note)?
+    bool pendingFor(const std::string &dev)
+    {
+        std::lock_guard<std::mutex> g(m_);
+        for (auto &i : items_) if (i.active && i.dev == dev) return true;
+        return false;
+    }
+    // Reclaim expired injections without a read (a device the game no longer reads frees its slots too).
+    void expire(uint64_t nowMs)
+    {
+        std::lock_guard<std::mutex> g(m_);
+        for (auto &i : items_) if (i.active && nowMs >= i.until) { i.active = false; active_.fetch_sub(1); }
+    }
 
     // Replace this read's samples for `dev`. `range(axis, min, max)` reads the range the game set on that axis; when
     // it cannot, that axis is not delivered (never guessed). Log lines (first delivery, refusal, end) go to `log`.
@@ -63,7 +77,8 @@ public:
             }
             if (i.kind == Kind::Axis) {
                 if (!s.axes) continue;
-                if (!i.ranged) { i.ranged = true; i.rangeOk = range(i.index, i.devMin, i.devMax) && i.devMax > i.devMin; }
+                // Read on every delivery: the game may set a new range while an injection runs.
+                i.rangeOk = range(i.index, i.devMin, i.devMax) && i.devMax > i.devMin;
                 if (!i.rangeOk) {
                     if (!i.announced) { i.announced = true; log.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " not delivered: the game's range for it is unreadable"); }
                     continue;
@@ -100,7 +115,7 @@ private:
         int index = -1, ms = 0;
         long value = 0, bindMin = 0, bindMax = 0, devMin = 0, devMax = 0;
         uint64_t until = 0;
-        bool announced = false, ranged = false, rangeOk = false;
+        bool announced = false, rangeOk = false;
     };
     std::mutex m_;
     std::vector<Item> items_;
