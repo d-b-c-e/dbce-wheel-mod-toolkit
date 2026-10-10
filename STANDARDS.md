@@ -458,3 +458,39 @@ all games and enhance automated testing so that we can validate applying a rig p
    Writing a file proves only the first. Pose or tape playback proves none of them.
 5. **Test injection** is development-only, gated by `inject.on` at game start plus a dev-channel file newer than the
    process. It feeds raw device samples **before** the game's binding resolution, and never creates OS input or forces.
+
+## STD-034 — A rig profile Apply is qualified by a closed loop, not by a file
+2026-10-10 · Claude, with Astra · applies to: every game with a profile-controls writer, and Wheelkit
+
+Proven 2026-10-10 on V-Rally 4, F-Zero, OutRun 2006 (Claude) and art of rally (Astra). Each run's `RESULT.md` is in
+`_archive\2026-10-10\`.
+
+1. **Production writer, frozen.** Wheelkit's `ConfigurationQualification` comes from a reviewed commit, built from a
+   git archive into the evidence folder.
+   - `prepare-live`'s preview must equal a dry run on a fixture copy of the installed files.
+   - Then `apply-live`. After the run: `verify-live`, or the game's runtime check, and `restore-live`.
+2. **Staged wrong bindings.** Before Prepare, the runner writes test-only wrong values for at least steering and
+   confirm, in every store the game reads (the request and the canonical keys). Only a working Apply, plus the game's
+   own consumer, can make the profile's objects work again. Never reset or remap the owner's bindings to get a pass.
+3. **Independent samples.** Raw commands come verbatim from `raw-workload` on the original saved profile. Never derive
+   them from the applied store; `inject action` cannot catch a wrong translation.
+4. **No force, latched for the process.** The test request itself latches "no force" for the whole process before any
+   other check, and force already started refuses the request. INI output interlocks are set as well, but they are
+   only a second guard. Examples: WheelFfb `EnableTestInjection`, F-Zero `fzero_output_latch.c`,
+   `DBCE_OUTRUN_SIGNAL_MUTE`.
+5. **Session-bound injection.**
+   - `inject.on` names a nonce and an expiry (at most an hour).
+   - Command files carry the nonce, are bounded in size and count, and are read once.
+   - Samples are dropped at expiry, on a failed read, on lost input and when the device closes.
+6. **Observe the game, not the injector.**
+   - Judge each sample from the game's own words (its input word, query result or car state), using fresh,
+     sequence-checked updates. An accepted command is not a pass.
+   - Name what the observer cannot see: no field, a digital threshold, the last returned query value.
+7. **Exact restore.**
+   - Take the lease and the idle gate.
+   - Before any write, snapshot every owner file outside the read-only assets.
+   - Afterwards, restore byte-exact, archive and remove new files, and record the counts.
+8. **Results stay apart** (STD-033 item 4):
+   - configured: Apply plus readback, or the game's own key check;
+   - observed: per sample, with the unobservable ones named;
+   - accepted: the owner.
