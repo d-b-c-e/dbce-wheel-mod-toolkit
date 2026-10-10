@@ -1,7 +1,9 @@
 // Live, game-less check of a proxy's force fence and test injection on the real devices (STD-033). Build it under the
 // game's exe name (the proxies act only in their game's exe), put it beside a copy of the proxy's dinput8.dll (and the
 // game's binding tables if the proxy writes them), set the proxy's ffb-fence.on and inject.on for the run only, then:
-//   <exe> <inject.txt path> [product id hex, default 0006346E = MOZA R12]
+//   <exe> <inject.txt path> <device instance GUID {...}>
+// The device is chosen by its instance GUID only (Astra, 2026-10-09): a product match could pick the wrong one of two
+// identical devices.
 // Read-only device use (non-exclusive, background, a hidden window of its own; no effect, property write or force call
 // of any kind). It prints what the game would read before, during and after raw and action injections.
 // First used 2026-10-09 21:49 on V-Rally 4 0.6.0: every sample delivered and ended as commanded.
@@ -41,9 +43,9 @@ static void inject(const std::string &line)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2) { printf("usage: %s <inject.txt path> [product id hex]\n", argv[0]); return 64; }
+    if (argc < 3) { printf("usage: %s <inject.txt path> <device instance GUID {...}>\n", argv[0]); return 64; }
     g_injectPath = argv[1];
-    const unsigned long product = argc > 2 ? strtoul(argv[2], nullptr, 16) : 0x0006346EUL;
+    const std::string wanted = argv[2];
     IDirectInput8A *di = nullptr;
     HRESULT hr = DirectInput8Create(GetModuleHandleA(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8A, (void **)&di, nullptr);
     printf("DirectInput8Create 0x%08lx\n", hr);
@@ -56,9 +58,9 @@ int main(int argc, char **argv)
     Dev wheelInfo{};
     for (auto &d : devs) {
         printf("device %s product %08lx %s\n", text(d.inst).c_str(), d.prod.Data1, d.name);
-        if (d.prod.Data1 == product && !wheel) { di->CreateDevice(d.inst, &wheel, nullptr); wheelInfo = d; }
+        if (_stricmp(text(d.inst).c_str(), wanted.c_str()) == 0 && !wheel) { di->CreateDevice(d.inst, &wheel, nullptr); wheelInfo = d; }
     }
-    if (!wheel) { printf("no device with product %08lx\n", product); return 2; }
+    if (!wheel) { printf("no attached device with instance %s\n", wanted.c_str()); return 2; }
     // A hidden top-level window of this process (never shown, never focused): DirectInput refuses the console's window.
     WNDCLASSA wc{}; wc.lpfnWndProc = DefWindowProcA; wc.hInstance = GetModuleHandleA(nullptr); wc.lpszClassName = "dbceProbe";
     RegisterClassA(&wc);

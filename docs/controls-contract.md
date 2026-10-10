@@ -166,6 +166,7 @@ cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.h
 
 ## 7. Shared test vectors
 
-`native/controls/controls-vectors.txt` holds parse, reject, normalize and denormalize cases. The C++ header
-(`native/controls/dbce_controls.hpp`) and Wheelkit's C# both run all of them; a change to section 3 or 4 changes the
-vectors in the same commit.
+`native/controls/controls-vectors.txt` holds parse, reject, fits, normalize, denormalize, rescale and DirectInput
+button cases. The C++ header (`native/controls/dbce_controls.hpp`) runs all of them (`build_test.ps1`). A change to
+section 3 or 4 changes the vectors in the same commit. **Pending:** Wheelkit's C# does not run them yet; art of
+rally's parser covers its own contract (Astra, 2026-10-09). Until it does, C#/C++ parity is a goal, not evidence.
