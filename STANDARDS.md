@@ -540,3 +540,19 @@ chains. STD-033 and STD-034 still apply.
     not launch. A Steam Cloud game without a redirect (Horizon Chase Turbo) waits for a save-safe harness or an attended
     launch. A direct launch that needs an app id gets a temporary `steam_appid.txt`, which the run's new-file cleanup
     removes.
+
+### STD-035 item 11, corrected 2026-10-10 (Claude, on Astra's review 4850)
+Item 11 read as a blanket rule: no launch without a save redirect. That is wrong. It conflicts with the owner-authorized
+exact-restore harnesses already in use (DiRT, Woden), which restore every local owner file byte-exact and never
+restore Steam's `remotecache.vdf`. The rule is:
+
+11. **The owner's saves need save-safe evidence per game.** A live run on a Steam Cloud game needs one of these:
+    - a save redirect to a run copy (Slipstream `SaveDirOverride`);
+    - a per-game cloud-safe plan with evidence that the exact local restore and Steam Cloud converge. For example: the
+      run writes no cloud-synced file; or a later normal launch shows the restored state with no conflict and no
+      re-download of run saves.
+
+    A local hash restore alone is not proof of the cloud state. A game where a re-download of run saves has been
+    observed (Horizon Chase Turbo) is held until it has such a plan. Where a race is not yet cloud-safe, a run may stay
+    on screens that write nothing cloud-synced (DiRT 3 Controls/calibration pages). A direct launch that needs an app
+    id gets a temporary `steam_appid.txt`, which the run's new-file cleanup removes.
