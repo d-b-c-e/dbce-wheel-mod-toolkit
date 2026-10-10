@@ -11,6 +11,14 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet test Dbce.Wheel.sln --configuration Release --nologo
+      - name: Managed developer injection client (fake delegates only)
+        shell: powershell
+        run: |
+          dotnet run --project tests/NativeTestInjection -c Release -f net8.0
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet build tests/NativeTestInjection -c Release -f net48
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./tests/NativeTestInjection/bin/Release/net48/NativeTestInjection.exe
       - name: MSVC profile conformance
         shell: cmd
         run: native\forcemodel\build_conformance.bat
