@@ -18,6 +18,7 @@
 //
 // Test injection (dbce_inject_table.hpp) is delivered in FencedDevice::GetDeviceState, keyed by the instance GUID that
 // DirectInput reports for the created device. Buffered GetDeviceData reads are forwarded without injection.
+// Pedal rest shaping (dbce_shape_state.hpp), when a proxy sets one, runs in the same place after injection.
 #pragma once
 #ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION 0x0800
@@ -31,6 +32,7 @@
 #include <vector>
 #include "../controls/dbce_inject_table.hpp"
 #include "dbce_joyformat.hpp"
+#include "dbce_shape_state.hpp"
 
 #pragma comment(lib, "dxguid.lib")
 
@@ -40,6 +42,7 @@ namespace dbce { namespace fence {
 struct Settings {
     void (*log)(const char *line) = nullptr;
     dbce::controls::InjectionTable *injections = nullptr;   // nullptr: no injection
+    const dbce::controls::ShapeTable *shapes = nullptr;     // nullptr: no pedal shaping (set once, complete, never freed)
 };
 inline Settings &settings() { static Settings s; return s; }
 
@@ -178,36 +181,47 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP Acquire() override { return real->Acquire(); }
     STDMETHODIMP Unacquire() override { return real->Unacquire(); }
-    STDMETHODIMP GetDeviceState(DWORD cb, LPVOID data) override
+    bool axisRange(int axis, long &mn, long &mx)
     {
-        HRESULT hr = real->GetDeviceState(cb, data);
-        auto *inj = settings().injections;
-        if (!SUCCEEDED(hr) || !inj || !inj->any() || !data) return hr;
+        static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
+        DIPROPRANGE r{};
+        r.diph.dwSize = sizeof r; r.diph.dwHeaderSize = sizeof r.diph; r.diph.dwObj = ofs[axis]; r.diph.dwHow = DIPH_BYOFFSET;
+        if (FAILED(real->GetProperty(DIPROP_RANGE, &r.diph))) return false;
+        mn = r.lMin; mx = r.lMax;
+        return true;
+    }
+    void inject(dbce::controls::InjectionTable &inj, DWORD cb, LPVOID data)
+    {
         const bool standard = (format == 1 && cb == sizeof(DIJOYSTATE)) || (format == 2 && cb == sizeof(DIJOYSTATE2));
         if (!standard) {
-            if (!formatWarned && inj->pendingFor(instance)) {
+            if (!formatWarned && inj.pendingFor(instance)) {
                 formatWarned = true;
                 logf("inject: device %s reads with a data format that is not c_dfDIJoystick/2 (%lu bytes); not delivered", instance.c_str(), cb);
             }
-            return hr;
+            return;
         }
-        {
-            auto *s = (DIJOYSTATE *)data;
-            dbce::controls::StateView v;
-            v.axes = (long *)&s->lX;
-            v.buttons = cb == sizeof(DIJOYSTATE2) ? ((DIJOYSTATE2 *)data)->rgbButtons : s->rgbButtons;
-            v.buttonCount = cb == sizeof(DIJOYSTATE2) ? 128 : 32;
-            v.povs = cb == sizeof(DIJOYSTATE2) ? (unsigned long *)((DIJOYSTATE2 *)data)->rgdwPOV : (unsigned long *)s->rgdwPOV;
-            std::vector<std::string> lines;
-            inj->apply(instance, v, GetTickCount64(), [this](int axis, long &mn, long &mx) {
-                static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
-                DIPROPRANGE r{};
-                r.diph.dwSize = sizeof r; r.diph.dwHeaderSize = sizeof r.diph; r.diph.dwObj = ofs[axis]; r.diph.dwHow = DIPH_BYOFFSET;
-                if (FAILED(real->GetProperty(DIPROP_RANGE, &r.diph))) return false;
-                mn = r.lMin; mx = r.lMax;
-                return true;
-            }, lines);
-            for (auto &l : lines) logf("%s", l.c_str());
+        auto *s = (DIJOYSTATE *)data;
+        dbce::controls::StateView v;
+        v.axes = (long *)&s->lX;
+        v.buttons = cb == sizeof(DIJOYSTATE2) ? ((DIJOYSTATE2 *)data)->rgbButtons : s->rgbButtons;
+        v.buttonCount = cb == sizeof(DIJOYSTATE2) ? 128 : 32;
+        v.povs = cb == sizeof(DIJOYSTATE2) ? (unsigned long *)((DIJOYSTATE2 *)data)->rgdwPOV : (unsigned long *)s->rgdwPOV;
+        std::vector<std::string> lines;
+        inj.apply(instance, v, GetTickCount64(), [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); }, lines);
+        for (auto &l : lines) logf("%s", l.c_str());
+    }
+    STDMETHODIMP GetDeviceState(DWORD cb, LPVOID data) override
+    {
+        HRESULT hr = real->GetDeviceState(cb, data);
+        if (!SUCCEEDED(hr) || !data) return hr;
+        auto *inj = settings().injections;
+        if (inj && inj->any()) inject(*inj, cb, data);
+        if (const auto *shapes = settings().shapes) {
+            auto r = dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); });
+            static volatile LONG n;
+            if (r.unavailable && sample(n))
+                logf("shape: device %s: %d pedal shape(s) unavailable (a non-standard read or an unreadable or non-increasing range); left as read",
+                     instance.c_str(), r.unavailable);
         }
         return hr;
     }

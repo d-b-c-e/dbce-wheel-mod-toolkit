@@ -73,6 +73,12 @@ public:
     }
     bool any() const { return !shapes_.empty(); }
     const std::vector<PedalShape> &shapes() const { return shapes_; }
+    int countFor(const std::string &instance) const
+    {
+        int n = 0;
+        for (auto &s : shapes_) n += s.instance == instance ? 1 : 0;
+        return n;
+    }
 
     // Shapes this device's axes in a just-read standard state (c_dfDIJoystick/2 only: the caller checks the format).
     // range(axis, min, max) reports the range the game set on the axis (DIPROP_RANGE). A range that cannot be read or is

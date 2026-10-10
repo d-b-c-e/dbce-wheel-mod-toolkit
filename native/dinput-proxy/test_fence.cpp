@@ -297,6 +297,56 @@ int main()
     dev->GetDeviceState(sizeof s, &s);
     check(s.lRz == 0 && logged("axis 5 on {000000a1-0000-0000-0000-000000000000} ended"), "short injection ended and logged");
 
+    // Pedal rest shaping (dbce_shape_state.hpp): after injection, by the reported instance, standard reads only.
+    {
+        dbce::controls::Binding brake;
+        std::string bw;
+        check(dbce::controls::parse(std::string("axis 5 dev=") + kInstText + " prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=1743 travel=+1", brake, bw), "shape binding parses");
+        dbce::controls::ShapeTable shapes;
+        check(shapes.add("brake", brake, bw), "brake shape added (" + bw + ")");
+        // (Earlier 2-second injections on axes 0-2, button 40 and the hat may still run; they apply to both reads.)
+        DIJOYSTATE2 plain{};
+        dev->GetDeviceState(sizeof plain, &plain);
+        check(plain.lRz == 0, "no shape table: the device's own axis 5 sample");
+        settings().shapes = &shapes;
+        DIJOYSTATE2 shaped{};
+        dev->GetDeviceState(sizeof shaped, &shaped);
+        check(shaped.lRz == dbce::controls::shapePedal("brake", brake, 0, -32768, 32767) && shaped.lRz < 0,
+              "the shaped axis maps through the game's range -32768..32767 (" + std::to_string(shaped.lRz) + ")");
+        DIJOYSTATE2 other = shaped;
+        other.lRz = plain.lRz;
+        check(memcmp(&other, &plain, sizeof plain) == 0, "every other field (axes, buttons, hats) is untouched");
+        // Injection first, then the shape: an injected raw rest reads released, an injected full end reads full.
+        check(inject(std::string("inject raw axis 5 dev=") + kInstText + " value=1743 ms=2000").empty(), "rest injection accepted");
+        dev->GetDeviceState(sizeof shaped, &shaped);
+        check(shaped.lRz == -32768, "injected rest, then shaped: released (" + std::to_string(shaped.lRz) + ")");
+        check(inject(std::string("inject raw axis 5 dev=") + kInstText + " value=65535 ms=2000").empty(), "full injection accepted");
+        dev->GetDeviceState(sizeof shaped, &shaped);
+        check(shaped.lRz == 32767, "injected full end, then shaped: full");
+        check(inject(std::string("inject raw axis 5 dev=") + kInstText + " value=33639 ms=2000").empty(), "half injection accepted");
+        dev->GetDeviceState(sizeof shaped, &shaped);
+        check(shaped.lRz >= -1 && shaped.lRz <= 0, "injected half travel, then shaped: the range's middle (" + std::to_string(shaped.lRz) + ", -0.5 rounded)");
+        // A required shape that cannot be applied is reported, and the axis is left as read.
+        FakeInput fake4;
+        fake4.device.rangeFails = true;
+        auto *di4 = new FencedDirectInput<IDirectInput8A>(&fake4);
+        IDirectInputDevice8A *dev4 = nullptr;
+        di4->CreateDevice(kInst, &dev4, nullptr);
+        dev4->SetDataFormat(&c_dfDIJoystick2);
+        DIJOYSTATE2 s4{};
+        dev4->GetDeviceState(sizeof s4, &s4);
+        check(s4.lRz == 0 && logged("pedal shape(s) unavailable"), "unreadable range: left as read, reported");
+        g_log.clear();
+        fake4.device.rangeFails = false;
+        dev4->SetDataFormat(&custom);
+        dev4->GetDeviceState(sizeof s4, &s4);
+        check(s4.lRz == 0 && logged("pedal shape(s) unavailable"), "a custom format: left as read, reported");
+        dev4->Release(); di4->Release();
+        settings().shapes = nullptr;
+        dev->GetDeviceState(sizeof shaped, &shaped);
+        check(shaped.lRz == dbce::controls::rescale(33639, 0, 65535, -32768, 32767), "no table: the injected sample unshaped (" + std::to_string(shaped.lRz) + ")");
+    }
+
     // Lifetime: releasing the wrapper releases the device once.
     const int before = f.n("Release");
     check(dev->Release() == 0 && f.n("Release") == before + 1, "the wrapper releases the device");

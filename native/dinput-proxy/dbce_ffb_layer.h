@@ -15,6 +15,8 @@
 #pragma once
 #include <windows.h>
 
+namespace dbce { namespace controls { class ShapeTable; } }   // controls/dbce_shape.hpp, for SetShapes
+
 namespace dbce { namespace ffb {
 
 struct Options {
@@ -51,6 +53,12 @@ void DrawPanelPage(bool advanced);
 // 2 = button (0-127; value 0 or nonzero), 3 = hat (0-3; value an angle or -1). Buffered GetDeviceData reads are not
 // covered. Returns false with a reason when off, unknown or full.
 void AllowInjection(bool on);
+
+// Pedal rest shaping (STD-033, controls/dbce_shape.hpp): from now on, GetDeviceState reads of each shaped axis (matched
+// by the instance GUID the device reports) return the sample the game's end-anchored pedal filter reads as the
+// contract's value, after any test injection. Once per process, before the game creates its devices; the table must be
+// complete and outlive the process's reads (never freed). Returns false for an empty table or a second call.
+bool SetShapes(const dbce::controls::ShapeTable *table);
 bool Inject(const GUID &instance, int kind, int index, long value, long bindMin, long bindMax, DWORD ms, char *why, size_t whyLen);
 bool ParseGuid(const char *text, GUID *out);   // "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}"
 

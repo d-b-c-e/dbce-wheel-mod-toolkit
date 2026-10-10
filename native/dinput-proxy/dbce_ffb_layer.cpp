@@ -5,6 +5,7 @@
 #include "../panel/dbce_panel.h"
 #include "../controls/dbce_inject_table.hpp"
 #include "dbce_joyformat.hpp"
+#include "dbce_shape_state.hpp"
 #include <dinput.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -24,11 +25,14 @@ void *g_wheelDev;
 
 // Test injection (STD-033): the devices the game created, by instance, and the raw samples running on them (the same
 // table and delivery as the fenced wrapper, dbce_fence.hpp).
-struct DevRec { void *dev; GUID instance; int format; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
+// instance: the GUID the game passed to CreateDevice (test injection); reported: the instance GUID the device itself
+// reports (GetDeviceInfo), which pedal shapes match, as the fence does.
+struct DevRec { void *dev; GUID instance; int format; GUID reported; bool reportedOk; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
 DevRec g_devs[32];
 int g_devCount;
 dbce::controls::InjectionTable g_table;
 volatile LONG g_injectOk;
+const dbce::controls::ShapeTable *volatile g_shapes;   // pedal rest shaping (SetShapes): set once, never freed
 std::string guidText(const GUID &g)
 {
     char b[40];
@@ -455,12 +459,35 @@ void applyInjections(void *self, DWORD cb, LPVOID data)
     }, lines);
     for (auto &l : lines) dlog("%s", l.c_str());
 }
+// Pedal rest shapes (SetShapes) on this device, after any injection: by the instance the device reports.
+void applyShapes(void *self, DWORD cb, LPVOID data, const dbce::controls::ShapeTable &shapes)
+{
+    std::string inst;
+    int format = 0;
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self && g_devs[i].reportedOk) { inst = guidText(g_devs[i].reported); format = g_devs[i].format; break; }
+    LeaveCriticalSection(&g_cs);
+    if (inst.empty()) return;
+    auto r = dbce::shape::applyToState(shapes, inst, format, cb, data, [self](int axis, long &mn, long &mx) {
+        static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
+        DIPROPRANGE rg{};
+        rg.diph.dwSize = sizeof rg; rg.diph.dwHeaderSize = sizeof rg.diph; rg.diph.dwObj = ofs[axis]; rg.diph.dwHow = DIPH_BYOFFSET;
+        void **vt = *(void ***)self;
+        if (FAILED(((GetPropFn)vt[5])(self, DIPROP_RANGE, &rg.diph))) return false;
+        mn = rg.lMin; mx = rg.lMax;
+        return true;
+    });
+    static volatile LONG warned;
+    if (r.unavailable && InterlockedIncrement(&warned) <= 20)
+        dlog("shape: device %s: %d pedal shape(s) unavailable (a non-standard read or an unreadable or non-increasing range); left as read", inst.c_str(), r.unavailable);
+}
 typedef HRESULT(STDMETHODCALLTYPE *GetStateFn)(void *, DWORD, LPVOID);
 HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
 {
     HRESULT hr = ((GetStateFn)orig(H_GETSTATE, self))(self, cb, data);
     if (SUCCEEDED(hr)) suppressForPanel(cb, data);
     if (SUCCEEDED(hr) && g_injectOk && g_table.any()) applyInjections(self, cb, data);
+    if (SUCCEEDED(hr) && data && g_shapes) applyShapes(self, cb, data, *g_shapes);
     if (SUCCEEDED(hr) && data && (cb == sizeof(DIJOYSTATE) || cb == sizeof(DIJOYSTATE2))) {   // the first five reads, then every 10 s
         static volatile LONG n;
         static ULONGLONG last;
@@ -496,11 +523,25 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
     HRESULT hr = ((CreateDevFn)orig(H_CREATEDEV, self))(self, g, out, unk);
     if (SUCCEEDED(hr) && out && *out) {
         HookDevice(*out);
+        // The instance the device reports (GetDeviceInfo, slot 15; A and W differ only in the strings after
+        // guidInstance, so a W-sized buffer is tried with the A size first, then the W size). Pedal shapes match it.
+        GUID reported{};
+        bool reportedOk = false;
+        if (g_shapes) {
+            DIDEVICEINSTANCEW info{};
+            typedef HRESULT(STDMETHODCALLTYPE *InfoFn)(void *, void *);
+            void **vt = *(void ***)*out;
+            info.dwSize = sizeof(DIDEVICEINSTANCEA);
+            HRESULT ih = ((InfoFn)vt[15])(*out, &info);
+            if (FAILED(ih)) { info.dwSize = sizeof(DIDEVICEINSTANCEW); ih = ((InfoFn)vt[15])(*out, &info); }
+            if (SUCCEEDED(ih)) { reported = info.guidInstance; reportedOk = true; }
+            else dlog("shape: CreateDevice: the device's own instance could not be read (0x%08lx); its pedal shapes will not apply", ih);
+        }
         EnterCriticalSection(&g_cs);   // the instance the game asked for, for test injection by instance
         int slot = -1;
         for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == *out) slot = i;
         if (slot < 0 && g_devCount < 32) slot = g_devCount++;
-        if (slot >= 0) g_devs[slot] = {*out, g, 0};
+        if (slot >= 0) g_devs[slot] = {*out, g, 0, reported, reportedOk};
         LeaveCriticalSection(&g_cs);
     }
     return hr;
@@ -545,6 +586,20 @@ void HookDevice(void *dev)
     patch(H_SETCOOP, dev, 13, (void *)&hkSetCoop);
     patch(H_CREATEEFF, dev, 18, (void *)&hkCreateEffect);
     patch(H_SENDFF, dev, 22, (void *)&hkSendFf);
+}
+
+bool SetShapes(const dbce::controls::ShapeTable *table)
+{
+    ensure();
+    if (!table || !table->any()) return false;
+    if (InterlockedCompareExchangePointer((PVOID volatile *)&g_shapes, (PVOID)table, nullptr) != nullptr) {
+        dlog("shape: a pedal shape table is already set for this process; the new one is ignored");
+        return false;
+    }
+    for (auto &s : table->shapes())
+        dlog("shape: %s axis %d (%s): rest %ld of %ld..%ld, travel %+d%s, shaped in GetDeviceState", s.instance.c_str(), s.axis, s.action.c_str(),
+             s.binding.rest, s.binding.min, s.binding.max, s.binding.travel, s.binding.inverted ? ", inverted" : "");
+    return true;
 }
 
 void AllowInjection(bool on)
