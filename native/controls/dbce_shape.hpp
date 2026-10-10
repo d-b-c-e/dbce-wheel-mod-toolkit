@@ -46,8 +46,14 @@ struct PedalShape {
     Binding binding;
 };
 
-// Built once (from the profile at game start) and then only read: publish it to the reading threads with a pointer
-// that is set once, never with a table that is still being filled.
+struct ShapeResult {
+    int shaped = 0;
+    int unavailable = 0;   // a shape this device needs whose game range could not be read or is not increasing: that
+                           // axis is left as read, and the caller must report it (never as a shaped/calibrated value)
+};
+
+// Built once per process (from the profile at game start), then only read. A hook publishes it by setting a pointer
+// once, after it is complete, and never replaces or frees it while the process can still read devices.
 class ShapeTable {
 public:
     // A pedal axis binding that needs a shape; anything else is refused with a reason (nothing added).
@@ -68,21 +74,21 @@ public:
     bool any() const { return !shapes_.empty(); }
     const std::vector<PedalShape> &shapes() const { return shapes_; }
 
-    // Shapes this device's axes in a just-read state. range(axis, min, max) reports the range the game set on the axis
-    // (DIPROP_RANGE); an axis whose range cannot be read is left as read. Returns how many axes were shaped.
+    // Shapes this device's axes in a just-read standard state (c_dfDIJoystick/2 only: the caller checks the format).
+    // range(axis, min, max) reports the range the game set on the axis (DIPROP_RANGE). A range that cannot be read or is
+    // not increasing is never assumed: that axis is left as read and counted unavailable.
     template <class Range>
-    int apply(const std::string &instance, StateView &v, Range range) const
+    ShapeResult apply(const std::string &instance, StateView &v, Range range) const
     {
-        if (!v.axes) return 0;
-        int n = 0;
+        ShapeResult r;
         for (auto &s : shapes_) {
             if (s.instance != instance) continue;
             long mn = 0, mx = 0;
-            if (!range(s.axis, mn, mx)) continue;
+            if (!v.axes || !range(s.axis, mn, mx) || mx <= mn) { ++r.unavailable; continue; }
             v.axes[s.axis] = shapePedal(s.action, s.binding, v.axes[s.axis], mn, mx);
-            ++n;
+            ++r.shaped;
         }
-        return n;
+        return r;
     }
 
 private:

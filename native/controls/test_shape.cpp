@@ -68,18 +68,62 @@ int main()
     check(!t.add("clutch", must("axis 5" + R12 + " range=0..65535 rest=1743 travel=+1"), why) && why.find("already shaped") != std::string::npos, "a second shape on one axis refused");
     check(!t.add("brake", must("axis 4" + R12 + " range=0..65535 rest=65535 travel=+1"), why) && why == "rest-at-full", "rest at the full end refused");
 
+    const std::string a1 = "{00000000-0000-0000-0000-0000000000a1}", b2 = "{00000000-0000-0000-0000-0000000000b2}";
     long axes[8] = {33265, 0, 0, 0, 0, 1743, 0, 0};
     StateView v;
     v.axes = axes;
     auto range = [](int, long &mn, long &mx) { mn = 0; mx = 65535; return true; };
-    check(t.apply("{00000000-0000-0000-0000-0000000000a1}", v, range) == 1 && axes[5] == 0 && axes[0] == 33265, "applied to the brake axis only");
+    ShapeResult r = t.apply(a1, v, range);
+    check(r.shaped == 1 && r.unavailable == 0 && axes[5] == 0 && axes[0] == 33265, "applied to the brake axis only");
     axes[5] = 1743;
-    check(t.apply("{00000000-0000-0000-0000-0000000000b2}", v, range) == 0 && axes[5] == 1743, "another device untouched");
+    r = t.apply(b2, v, range);
+    check(r.shaped == 0 && r.unavailable == 0 && axes[5] == 1743, "another device untouched");
+    r = t.apply("{00000000-0000-0000-0000-0000000000A1}", v, range);
+    check(r.shaped == 0 && axes[5] == 1743, "an instance spelled differently (not the stored lowercase form) is not matched");
+    // A required shape whose range cannot be read, or is not increasing, is reported unavailable and left as read.
     auto noRange = [](int, long &, long &) { return false; };
-    check(t.apply("{00000000-0000-0000-0000-0000000000a1}", v, noRange) == 0 && axes[5] == 1743, "unreadable range: left as read");
+    r = t.apply(a1, v, noRange);
+    check(r.shaped == 0 && r.unavailable == 1 && axes[5] == 1743, "unreadable range: unavailable, left as read");
+    auto flat = [](int, long &mn, long &mx) { mn = 100; mx = 100; return true; };
+    auto backwards = [](int, long &mn, long &mx) { mn = 65535; mx = 0; return true; };
+    check(t.apply(a1, v, flat).unavailable == 1 && t.apply(a1, v, backwards).unavailable == 1 && axes[5] == 1743, "flat or reversed range: unavailable");
     StateView none;
-    check(t.apply("{00000000-0000-0000-0000-0000000000a1}", none, range) == 0, "no axes: nothing");
+    check(t.apply(a1, none, range).unavailable == 1, "no axes: unavailable");
     check(!ShapeTable().any(), "an empty table");
+
+    // The same axis on two devices: each gets its own shape, applied only to its own device.
+    ShapeTable two;
+    const Binding otherBrake = must("axis 5 dev={00000000-0000-0000-0000-0000000000b2} prod={05310483-0000-0000-0000-504944564944} range=0..65535 rest=3000 travel=+1");
+    check(two.add("brake", brake, why) && two.add("clutch", otherBrake, why), "same axis index on two devices accepted");
+    long first[8] = {0, 0, 0, 0, 0, 1743, 0, 0}, second[8] = {0, 0, 0, 0, 0, 3000, 0, 0};
+    StateView v1, v2;
+    v1.axes = first; v2.axes = second;
+    check(two.apply(a1, v1, range).shaped == 1 && two.apply(b2, v2, range).shaped == 1 && first[5] == 0 && second[5] == 0, "each device's rest reads released");
+    first[5] = 3000;
+    two.apply(a1, v1, range);
+    check(first[5] == shapePedal("brake", brake, 3000, 0, 65535) && first[5] > 0, "the first device keeps its own rest (3000 is pressed there)");
+
+    // Both travel directions with and without the player's inversion, at rest, half and full (game range 0..65535).
+    struct Case { const char *text; long rest, half, full; long atRest, atHalf, atFull; };
+    const Case cases[] = {
+        {" range=0..65535 rest=1743 travel=+1", 1743, 33639, 65535, 0, 32768, 65535},
+        {" range=0..65535 rest=1743 travel=+1 inverted", 1743, 33639, 65535, 0, 32768, 65535},   // filter released at max
+        {" range=0..65535 rest=63792 travel=-1", 63792, 31896, 0, 65535, 32768, 0},
+        {" range=0..65535 rest=63792 travel=-1 inverted", 63792, 31896, 0, 65535, 32768, 0},    // filter released at min
+    };
+    for (const Case &c : cases) {
+        const Binding b = must("axis 4" + R12 + c.text);
+        const std::string name = std::string("travel/inversion") + c.text;
+        check(shapePedal("brake", b, c.rest, 0, 65535) == c.atRest, name + ": rest");
+        check(shapePedal("brake", b, c.half, 0, 65535) == c.atHalf, name + ": half");
+        check(shapePedal("brake", b, c.full, 0, 65535) == c.atFull, name + ": full");
+        // What the game's end-anchored filter then reads equals the contract's normalized value.
+        for (long raw : {c.rest, c.half, c.full}) {
+            const long shaped = shapePedal("brake", b, raw, 0, 65535);
+            const double filterReads = releasedAtMin(b) ? shaped / 65535.0 : (65535 - shaped) / 65535.0;
+            check(std::fabs(filterReads - normalize("brake", b, raw)) < 1e-4, name + ": filter reads the contract value at " + std::to_string(raw));
+        }
+    }
 
     std::cout << (g_failures ? "FAIL " : "PASS ") << g_checks << " shape checks (" << (sizeof(void *) * 8) << "-bit)\n";
     return g_failures ? 1 : 0;
