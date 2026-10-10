@@ -433,3 +433,28 @@ done until Wheelkit reads it right.
    - telemetry: `[Telemetry] Enabled/Port` or `Telemetry`/`TelemetryPort`.
 
    It never writes force on/off.
+
+## STD-033 — Rig profile controls reach the game, and a test proves it
+2026-10-09 · Claude, with Astra (Wheelkit) · applies to: every mod with a wheel, and Wheelkit
+
+Owner, 2026-10-09 20:52, after Apply left V-Rally 4 and Rush Rally 3 with a dead wheel: "implement control bindings across
+all games and enhance automated testing so that we can validate applying a rig profile in fact works".
+
+1. **One logical binding, many stores.** A profile action (Wheelkit's ids: `steer`, `throttle`, ... `gear8`) names one
+   DirectInput object on one device instance. The binding, its text form and its normalization are fixed in
+   [docs/controls-contract.md](docs/controls-contract.md). `native/controls/dbce_controls.hpp` implements them for native
+   mods. Wheelkit's C# and every other implementation run the same `native/controls/controls-vectors.txt`.
+2. **Each game keeps one store.** A per-game storage adapter writes the binding into the store the game and its F6 panel
+   already use (art of rally `Settings.xml`, V-Rally 4's Lua tables, DiRT action maps, ...). It never adds a second,
+   competing store. Native mods without a store of their own use the `[Controls]` section of their own INI
+   (`ini-controls-1`).
+3. **Identity:** runtime reads and injection match the device **instance** GUID only. The product GUID is evidence for
+   product-keyed native tables, never a silent fallback. Steering's captured travel is not an inversion; only
+   `inverted` is.
+4. **Three results, kept apart:**
+   - configured: the mod's `controls:` start line;
+   - input observed: injected raw samples move the game's own input or car state;
+   - owner accepted.
+   Writing a file proves only the first. Pose or tape playback proves none of them.
+5. **Test injection** is development-only, gated by `inject.on` at game start plus a dev-channel file newer than the
+   process. It feeds raw device samples **before** the game's binding resolution, and never creates OS input or forces.
