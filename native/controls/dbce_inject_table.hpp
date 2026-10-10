@@ -75,6 +75,17 @@ public:
     int apply(const std::string &dev, StateView &s, uint64_t nowMs, RangeFn range, std::vector<std::string> &log)
     {
         if (!any()) return 0;
+        // The ranges are read first, with the table unlocked: range() is a call into the device (COM), and anything that
+        // calls back from it on this thread - a driver, or a test - may add an injection to this table (Astra 3994).
+        bool want[8] = {}, readable[8] = {};
+        long mins[8] = {}, maxs[8] = {};
+        {
+            std::lock_guard<std::mutex> g(m_);
+            for (auto &i : items_)
+                if (i.active && i.dev == dev && i.kind == Kind::Axis && nowMs < i.until && i.index >= 0 && i.index < 8) want[i.index] = true;
+        }
+        // Read on every delivery: the game may set a new range while an injection runs.
+        for (int a = 0; a < 8; ++a) if (want[a] && s.axes) readable[a] = range(a, mins[a], maxs[a]) && maxs[a] > mins[a];
         int substituted = 0;
         std::lock_guard<std::mutex> g(m_);
         for (auto &i : items_) {
@@ -87,9 +98,10 @@ public:
                 continue;
             }
             if (i.kind == Kind::Axis) {
-                if (!s.axes) continue;
-                // Read on every delivery: the game may set a new range while an injection runs.
-                i.rangeOk = range(i.index, i.devMin, i.devMax) && i.devMax > i.devMin;
+                if (!s.axes || i.index < 0 || i.index > 7) continue;
+                if (!want[i.index]) continue;   // added during the range reads above: delivered from the next read
+                i.devMin = mins[i.index]; i.devMax = maxs[i.index];
+                i.rangeOk = readable[i.index];
                 if (!i.rangeOk) {
                     if (!i.announced) { i.announced = true; log.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " not delivered: the game's range for it is unreadable"); }
                     continue;

@@ -929,12 +929,16 @@ static InstanceName InstanceText(const GUID& g)
               g.Data4[2], g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7]);
     return r;
 }
-// st was just read successfully from dev for this slot: running samples for its instance replace their objects.
-static void DeliverInjections(int slot, LPDIRECTINPUTDEVICE8 dev, DIJOYSTATE2& st)
+// st was just read successfully from dev for this slot: running samples for its instance replace their objects. Only
+// the objects this caller gets back are offered (buttonCount buttons; the POVs only for ReadDeviceStateWithPov), so
+// LastReadInjected never reports a substitution the caller cannot see (Astra 3990).
+static void DeliverInjections(int slot, LPDIRECTINPUTDEVICE8 dev, DIJOYSTATE2& st, int buttonCount, bool povs)
 {
     if (g_forceState.load() != 2 || !g_injections.any()) return;
     dbce::controls::StateView v;
-    v.axes = (long*)&st.lX; v.buttons = st.rgbButtons; v.buttonCount = 128; v.povs = (unsigned long*)st.rgdwPOV;
+    v.axes = (long*)&st.lX;
+    v.buttons = buttonCount > 0 ? st.rgbButtons : nullptr; v.buttonCount = buttonCount > 128 ? 128 : buttonCount < 0 ? 0 : buttonCount;
+    v.povs = povs ? (unsigned long*)st.rgdwPOV : nullptr;
     std::vector<std::string> lines;
     const int n = g_injections.apply(InstanceText(g_read[slot].guid).text, v, GetTickCount64(), [dev](int axis, long& mn, long& mx) {
         static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
@@ -1027,7 +1031,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
         DropInjections(slot, "read failed");
         return 0;
     }
-    DeliverInjections(slot, dev, st);
+    DeliverInjections(slot, dev, st, buttons && buttonCount > 0 ? buttonCount : 0, false);   // this reader returns no POV
     axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
@@ -1072,7 +1076,7 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
         DropInjections(slot, "read failed");
         return 0;
     }
-    DeliverInjections(slot, dev, st);   // into the one snapshot, before it is copied out
+    DeliverInjections(slot, dev, st, buttonCount, true);   // into the one snapshot, before it is copied out
     axes[0] = st.lX;  axes[1] = st.lY;  axes[2] = st.lZ;
     axes[3] = st.lRx; axes[4] = st.lRy; axes[5] = st.lRz;
     axes[6] = st.rglSlider[0]; axes[7] = st.rglSlider[1];
@@ -1160,6 +1164,7 @@ __declspec(dllexport) int GetTestInjectionStatus(char* buf, int size)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     const bool armed = g_forceState.load() == 2;
+    if (armed) g_injections.expire(GetTickCount64());   // a sample that ran out with no read since is not running
     if (buf && size > 0) {
         if (armed)
             _snprintf_s(buf, (size_t)size, _TRUNCATE, "armed: no force; %s; %ld accepted, %ld reads carried an injected sample",
@@ -2194,6 +2199,7 @@ __declspec(dllexport) void FreeDirectInput(void)
         const int dropped = g_injections.clearFor("");
         if (dropped) Log("test injection: %d running sample(s) dropped (FreeDirectInput)", dropped);
     }
+    for (bool& b : g_slotInjected) b = false;
     RemoveExitGuards();
     g_stopThreads.store(true);
     // Stop torque before waiting, without releasing any worker-visible object.

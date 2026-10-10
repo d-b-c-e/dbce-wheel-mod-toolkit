@@ -16,6 +16,7 @@ struct FakeDevice : IDirectInputDevice8A {
     int reads = 0, creates = 0, commands = 0, acquires = 0, properties = 0;
     HRESULT readResult = S_OK;
     bool rangeFails = false;
+    void (*onRange)() = nullptr;   // called from inside GetProperty(DIPROP_RANGE): a same-thread callback, as a driver could
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override { return E_NOINTERFACE; }
     ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
     ULONG STDMETHODCALLTYPE Release() override { return 1; }
@@ -24,6 +25,7 @@ struct FakeDevice : IDirectInputDevice8A {
     HRESULT STDMETHODCALLTYPE GetProperty(REFGUID p, LPDIPROPHEADER h) override
     {
         if (&p != &DIPROP_RANGE || rangeFails) return DIERR_UNSUPPORTED;
+        if (onRange) onRange();
         ((LPDIPROPRANGE)h)->lMin = 0; ((LPDIPROPRANGE)h)->lMax = 65535;
         return S_OK;
     }
@@ -82,8 +84,9 @@ struct FakeInput : IDirectInput8A {
     HRESULT STDMETHODCALLTYPE ConfigureDevices(LPDICONFIGUREDEVICESCALLBACK, LPDICONFIGUREDEVICESPARAMSA, DWORD, LPVOID) override { return E_NOTIMPL; }
 };
 
-static const GUID kR12 = {0xd71b8350, 0x61b7, 0x11f1, {0x80, 0x01, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
-static const char* kR12Text = "{d71b8350-61b7-11f1-8001-444553540000}";
+// Synthetic fixture identity (not any real device instance).
+static const GUID kR12 = {0x000000a1, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
+static const char* kR12Text = "{000000a1-0000-0000-0000-000000000001}";
 static std::string TStatus() { char b[256]; GetTestInjectionStatus(b, sizeof b); return b; }
 static int TSubmit(const std::string& line, std::string* why = nullptr)
 {
@@ -113,7 +116,7 @@ static void forceExportsRefused(FakeInput& input, FakeDevice& ffb)
 {
     const int creates = input.creates.load();
     input.next = &ffb;
-    g_candidateCount = 1; g_candidates[0].guid = kR12; strcpy_s(g_candidates[0].name, "MOZA R12 Base");
+    g_candidateCount = 1; g_candidates[0].guid = kR12; strcpy_s(g_candidates[0].name, "Fixture wheel");
     CHECK(InitDirectInput(0) == 0);
     CHECK(OpenCandidate(0) == 0);   // the internal open (reacquire/self-heal paths) refuses too
     Aquire();
@@ -146,7 +149,7 @@ static int armed()
     forceExportsRefused(input, ffb);
 
     // Reads still work, through OpenReadDevice's own non-exclusive handle (no force device is open).
-    g_auxCount = 1; g_aux[0].guid = kR12; strcpy_s(g_aux[0].name, "MOZA R12 Base");
+    g_auxCount = 1; g_aux[0].guid = kR12; strcpy_s(g_aux[0].name, "Fixture wheel");
     input.next = &reader;
     for (int i = 0; i < 8; ++i) (&reader.state.lX)[i] = 1000 + i;
     for (auto& p : reader.state.rgdwPOV) p = (DWORD)-1;
@@ -201,6 +204,75 @@ static int armed()
     Sleep(80);
     r.pov_(0);
     CHECK(r.ok && r.buttons[20] == 0 && LastReadInjected(0) == 0);
+
+    // Caller extents (Astra 3990): only objects the caller actually gets back count as injected.
+    {
+        CHECK(TSubmit(TRaw("hat", 0, 9000, 2000, "9000")) == 1);
+        TRead legacyHat; legacyHat.legacy(0);
+        CHECK(legacyHat.ok && LastReadInjected(0) == 0);   // the legacy reader returns no POV
+        TRead withHat; withHat.pov_(0);
+        CHECK(withHat.ok && withHat.pov[0] == 9000 && LastReadInjected(0) == 1);   // matched positive
+        CHECK(g_injections.clearFor(kR12Text) >= 1);
+        CHECK(TSubmit(TRaw("button", 31, 1, 2000)) == 1);
+        int axes[8]; unsigned char four[4] = {};
+        int pov[4];
+        CHECK(ReadDeviceState(0, axes, four, 4) == 1 && LastReadInjected(0) == 0);   // button 31 is beyond the caller's 4
+        CHECK(ReadDeviceState(0, axes, nullptr, 0) == 1 && LastReadInjected(0) == 0);
+        CHECK(ReadDeviceStateWithPov(0, axes, 8, nullptr, 0, pov, 4) == 1 && LastReadInjected(0) == 0);
+        CHECK(TSubmit(TRaw("button", 2, 1, 2000)) == 1);
+        CHECK(ReadDeviceState(0, axes, four, 4) == 1 && four[2] == 1 && LastReadInjected(0) == 1);   // matched positive
+        CHECK(g_injections.clearFor(kR12Text) >= 1);
+    }
+    // No-read expiry: a sample that ran out with no read since is not reported as running.
+    CHECK(TSubmit(TRaw("button", 3, 1, 50)) == 1 && TStatus().find("samples running") != std::string::npos);
+    Sleep(80);
+    CHECK(TStatus().find("no sample running") != std::string::npos);
+    // FreeDirectInput clears the per-slot flag together with the running samples.
+    CHECK(TSubmit(TRaw("button", 3, 1, 2000)) == 1);
+    r.pov_(0);
+    CHECK(LastReadInjected(0) == 1);
+    FreeDirectInput();
+    CHECK(LastReadInjected(0) == 0 && !g_injections.any());
+    // Same-thread reentry (Astra 3994): the device's GetProperty submits an injection while a read is delivering. No
+    // crash; the new sample arrives with the next read.
+    {
+        static bool s_once;
+        s_once = true;
+        reader.onRange = [] {
+            if (!s_once) return;
+            s_once = false;
+            char w[64];
+            SubmitTestInjection("inject raw axis 2 dev={000000a1-0000-0000-0000-000000000001} value=65535 ms=2000", w, sizeof w);
+        };
+        CHECK(TSubmit(TRaw("axis", 5, 0, 2000)) == 1);
+        r.pov_(0);
+        CHECK(r.ok && r.axes[5] == 0 && r.axes[2] == 1002 && !s_once);   // the reentrant sample waits for the next read
+        reader.onRange = nullptr;
+        r.pov_(0);
+        CHECK(r.ok && r.axes[2] == 65535 && r.axes[5] == 0);
+        CHECK(g_injections.clearFor(kR12Text) == 2);
+    }
+    // The shared table alone: a range callback that adds to the same table on this thread does not deadlock.
+    {
+        dbce::controls::InjectionTable table;
+        dbce::controls::InjectCommand c;
+        std::string w;
+        CHECK(dbce::controls::parseInject(TRaw("axis", 1, 0, 2000), nullptr, c, w) && table.add(c, 1000).empty());
+        long ax[8] = {};
+        dbce::controls::StateView sv;
+        sv.axes = ax;
+        std::vector<std::string> lines;
+        int calls = 0;
+        auto range = [&](int, long& mn, long& mx) {
+            dbce::controls::InjectCommand c2;
+            std::string w2;
+            if (calls++ == 0 && dbce::controls::parseInject(TRaw("axis", 3, 65535, 2000), nullptr, c2, w2)) table.add(c2, 1001);
+            mn = 0; mx = 65535;
+            return true;
+        };
+        CHECK(table.apply(kR12Text, sv, 1001, range, lines) == 1 && ax[1] == 0 && ax[3] == 0);
+        CHECK(table.apply(kR12Text, sv, 1002, range, lines) == 2 && ax[3] == 65535);
+    }
 
     // Close drops everything; a reopened slot gets nothing old back.
     CHECK(TSubmit(TRaw("axis", 5, 65535, 5000)) == 1);
