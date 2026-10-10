@@ -16,16 +16,22 @@ static void logLine(const char *l) { g_log.push_back(l); }
 static int logged(const char *part) { int n = 0; for (auto &l : g_log) n += l.find(part) != std::string::npos ? 1 : 0; return n; }
 
 static int g_live;   // fake devices alive
+// Same-address reuse: while g_parkFrees is set, a deleted fake's block is parked and the next new FakeDevice gets it.
+static void *g_parked;
+static bool g_parkFrees;
 struct FakeDevice : IDirectInputDevice8A {
     LONG refs = 1;
     GUID inst;
     bool infoFails = false, rangeFails = false;
     LONG rz = 1743;   // the pedal's raw sample (the game's range is 0..65535 here)
+    void (*onFinalRelease)() = nullptr;   // runs after the object is gone, before Release returns
     explicit FakeDevice(const GUID &g) : inst(g) { ++g_live; }
+    static void *operator new(size_t n) { if (g_parked) { void *p = g_parked; g_parked = nullptr; return p; } return ::operator new(n); }
+    static void operator delete(void *p) { if (g_parkFrees) { g_parked = p; return; } ::operator delete(p); }
     virtual ~FakeDevice() { --g_live; }
     STDMETHODIMP QueryInterface(REFIID, LPVOID *o) override { if (o) *o = this; return S_OK; }
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)++refs; }
-    STDMETHODIMP_(ULONG) Release() override { LONG n = --refs; if (n == 0) delete this; return (ULONG)n; }
+    STDMETHODIMP_(ULONG) Release() override { LONG n = --refs; if (n == 0) { auto after = onFinalRelease; delete this; if (after) after(); } return (ULONG)n; }
     STDMETHODIMP GetCapabilities(LPDIDEVCAPS) override { return DI_OK; }
     STDMETHODIMP EnumObjects(LPDIENUMDEVICEOBJECTSCALLBACKA, LPVOID, DWORD) override { return DI_OK; }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override
@@ -197,6 +203,27 @@ int main()
     noRange->GetDeviceState(sizeof nr, &nr);
     check(nr.lRz == 1743 && logged("NOT corrected: the game's range for the axis is unreadable") == 1, "unreadable range: left as read, reported once");
     noRange->Release();
+
+    // A freed device's address handed to a new device before the layer's cleanup (here inside the final Release, as
+    // another thread could): the new record has another generation and stays tracked.
+    {
+        static IDirectInput8A *s_di;
+        static LPDIRECTINPUTDEVICE8A s_next;
+        s_di = di;
+        g_parkFrees = true;
+        fake.next = kWheel;
+        LPDIRECTINPUTDEVICE8A first = nullptr;
+        di->CreateDevice(kAskedFor, &first, nullptr);
+        void *address = first;
+        ((FakeDevice *)first)->onFinalRelease = [] { g_parkFrees = false; s_di->CreateDevice(kAskedFor, &s_next, nullptr); };
+        first->Release();
+        check(s_next == address, "the new device got the freed address");
+        s_next->SetDataFormat(&c_dfDIJoystick2);
+        DIJOYSTATE2 r{};
+        s_next->GetDeviceState(sizeof r, &r);
+        check(r.lRz == 0, "the new device at the same address is still tracked and shaped (" + std::to_string(r.lRz) + ")");
+        s_next->Release();
+    }
 
     dev->Release();
     check(g_live == 0, "every fake device was released (" + std::to_string(g_live) + " left)");

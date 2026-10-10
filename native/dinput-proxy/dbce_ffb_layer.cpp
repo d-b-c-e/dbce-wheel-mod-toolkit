@@ -27,9 +27,10 @@ void *g_wheelDev;
 // table and delivery as the fenced wrapper, dbce_fence.hpp).
 // instance: the GUID the game passed to CreateDevice (test injection); reported: the instance GUID the device itself
 // reports (GetDeviceInfo), which pedal shapes match, as the fence does.
-struct DevRec { void *dev; GUID instance; int format; GUID reported; bool reportedOk; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
+struct DevRec { void *dev; GUID instance; int format; GUID reported; bool reportedOk; unsigned gen; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
 DevRec g_devs[32];
 int g_devCount;
+unsigned g_devGen;   // each recorded CreateDevice gets a new generation (a freed address can come back as a new device)
 dbce::controls::InjectionTable g_table;
 volatile LONG g_injectOk;
 const dbce::controls::ShapeTable *volatile g_shapes;   // pedal rest shaping (SetShapes): set once, never freed
@@ -519,11 +520,17 @@ HRESULT STDMETHODCALLTYPE hkSetFormat(void *self, LPCDIDATAFORMAT f)
 typedef ULONG(STDMETHODCALLTYPE *DevReleaseFn)(void *);
 ULONG STDMETHODCALLTYPE hkDevRelease(void *self)
 {
+    // The record's generation before the real Release: if the object is freed and its address is handed to a new device
+    // (another thread, or inside this Release) before the cleanup below, that new record has another generation and stays.
+    unsigned gen = 0;
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { gen = g_devs[i].gen; break; }
+    LeaveCriticalSection(&g_cs);
     const ULONG n = ((DevReleaseFn)orig(H_D_RELEASE, self))(self);
-    if (n == 0) {
+    if (n == 0 && gen) {
         EnterCriticalSection(&g_cs);
         for (int i = 0; i < g_devCount; ++i)
-            if (g_devs[i].dev == self) { g_devs[i] = g_devs[--g_devCount]; break; }
+            if (g_devs[i].dev == self && g_devs[i].gen == gen) { g_devs[i] = g_devs[--g_devCount]; break; }
         LeaveCriticalSection(&g_cs);
     }
     return n;
@@ -556,7 +563,7 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
         int slot = -1;
         for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == *out) slot = i;
         if (slot < 0 && g_devCount < 32) slot = g_devCount++;
-        if (slot >= 0) g_devs[slot] = {*out, g, 0, reported, reportedOk};
+        if (slot >= 0) { if (++g_devGen == 0) ++g_devGen; g_devs[slot] = {*out, g, 0, reported, reportedOk, g_devGen}; }   // 0 is never a generation
         LeaveCriticalSection(&g_cs);
         if (slot < 0) {
             if (g_shapes && reportedOk && g_shapes->countFor(guidText(reported))) g_shapes->noteUnidentified();
