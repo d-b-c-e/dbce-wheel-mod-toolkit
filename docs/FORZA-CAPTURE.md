@@ -106,6 +106,14 @@ resolve their local imports. Without that fixture the fourteenth test skips.
 
 ## Automated checks
 
+October 11: supervised capture adds exclusive OS-selected ports, immediate-stop
+burst retention and bounded drain cases. `test_forza_capture` now has 14 tests;
+`test_forza_native` has four; the additional encoded-packet fixture test below
+skips unless its environment variable is supplied. Independent review repeated
+real 1/50/150-packet bursts without loss after sender close and caught a mutation
+which skipped draining. Larger bursts demonstrated real OS-buffer loss, which
+the collector alone cannot identify; per-game packet-tape comparison is needed.
+
 ```powershell
 python -m unittest discover -s tools/forza -p 'test_forza_*.py' -v
 ```
