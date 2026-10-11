@@ -4,6 +4,9 @@ python forza_capture.py --port 8001 --seconds 120 --output curb-run.jsonl
 Use a diagnostic/mirror port when SimHub already owns the normal port.
 Every accepted datagram retains its original bytes and all decoded fields.
 No game injection, replay transmission, or device access. Python stdlib only.
+Use --port 0 for an exclusively bound OS-selected port (reported in the flushed
+header). An optional fresh --stop-file lets an owning supervisor end normally;
+the duration and size limits still apply independently.
 """
 import argparse
 import base64
@@ -109,9 +112,13 @@ def main():
                         help="Explicit producer contract; native names do not authenticate the UDP sender")
     parser.add_argument("--source-exe", type=Path, help="Read-only executable hash for capture provenance")
     parser.add_argument("--source-build", help="Declared game build ID (not inferred from telemetry)")
+    parser.add_argument("--stop-file", type=Path,
+                        help="Fresh supervisor-owned path; its appearance ends capture with a footer")
     args = parser.parse_args()
-    if not 1 <= args.port <= 65535 or not 0 < args.seconds <= 3600 or not 1 <= args.max_mb <= 1024:
-        parser.error("Port 1..65535, seconds >0..3600, max-mb 1..1024 required")
+    if not 0 <= args.port <= 65535 or not 0 < args.seconds <= 3600 or not 1 <= args.max_mb <= 1024:
+        parser.error("Port 0..65535 (0 chooses an exclusive free port), seconds >0..3600, max-mb 1..1024 required")
+    if args.stop_file and (args.stop_file.exists() or args.stop_file.resolve() == args.output.resolve()):
+        parser.error("The stop file must be a fresh path distinct from the capture output")
     if args.profile == "fh6" and 5200 <= args.port <= 5300:
         parser.error("FH6 reserves ports 5200..5300 for its own outgoing socket; use another receiver port")
     identity = {"profile": args.profile, "declaredBuild": args.source_build}
@@ -127,15 +134,22 @@ def main():
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         sock.bind((args.bind, args.port))
+        bound_port = sock.getsockname()[1]
+        if args.profile == "fh6" and 5200 <= bound_port <= 5300:
+            parser.error("The OS-selected port is reserved by FH6; choose another receiver port")
         sock.settimeout(.25)
         with args.output.open("x", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps({"type": "header", "schema": "dbce/forza-wire-v1", "bind": args.bind,
-                                     "port": args.port, "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2,
+                                     "port": bound_port, "requestedPort": args.port,
+                                     "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2,
                                      "producer": identity}) + "\n")
             output.flush()  # lets unattended runners observe that the receiver is ready
             start = time.monotonic()
             try:
                 while time.monotonic() - start < args.seconds:
+                    if args.stop_file and args.stop_file.exists():
+                        summary["stopReason"] = "supervisor-stop"
+                        break
                     try:
                         data, peer = sock.recvfrom(65535)
                     except socket.timeout:

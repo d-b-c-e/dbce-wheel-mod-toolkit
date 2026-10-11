@@ -2,10 +2,74 @@ import base64
 import math
 import struct
 import unittest
+import json
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import tempfile
+import time
 from forza_capture import decode, packet_record
 
 
 class CaptureTests(unittest.TestCase):
+    def test_supervised_capture_binds_actual_port_and_closes_with_footer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output, stop = Path(folder) / "wire.jsonl", Path(folder) / "stop"
+            process = subprocess.Popen([sys.executable, str(Path(__file__).with_name("forza_capture.py")),
+                                        "--port", "0", "--seconds", "10", "--output", str(output),
+                                        "--stop-file", str(stop)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                deadline = time.monotonic() + 5
+                header = None
+                while time.monotonic() < deadline:
+                    if output.exists():
+                        text = output.read_text(encoding="utf-8")
+                        if "\n" in text:
+                            header = json.loads(text.splitlines()[0])
+                            break
+                    if process.poll() is not None:
+                        self.fail("Receiver exited before binding")
+                    time.sleep(.01)
+                self.assertIsNotNone(header)
+                self.assertGreater(header["port"], 0)
+                self.assertEqual(0, header["requestedPort"])
+                packet = bytearray(324)
+                struct.pack_into("<iIf", packet, 0, 1, 1234, 9000)
+                packet[323] = 0x52
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+                    sender.sendto(packet, ("127.0.0.1", header["port"]))
+                # The file's data rows are buffered. Receive timeout bounds this
+                # interval; ending after it tests the normal supervisor stop.
+                time.sleep(.1)
+                stop.write_text("owned stop", encoding="utf-8")
+                stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(0, process.returncode, stderr)
+                rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+                self.assertEqual("supervisor-stop", rows[-1]["stopReason"])
+                self.assertEqual(1, rows[-1]["packets"])
+                self.assertEqual(bytes(packet), base64.b64decode(rows[1]["rawBase64"]))
+                self.assertEqual(1234, rows[1]["fields"]["TimestampMs"])
+                self.assertEqual(0, json.loads(stdout)["invalid"])
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as again:
+                    again.bind(("127.0.0.1", header["port"]))
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate(timeout=5)
+
+    def test_stale_or_self_stop_file_refuses_without_capture(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output, stop = Path(folder) / "wire.jsonl", Path(folder) / "stop"
+            stop.write_text("old", encoding="utf-8")
+            for flag in (stop, output):
+                result = subprocess.run([sys.executable, str(Path(__file__).with_name("forza_capture.py")),
+                                         "--port", "0", "--seconds", "1", "--output", str(output),
+                                         "--stop-file", str(flag)], capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("fresh path distinct", result.stderr)
+                self.assertFalse(output.exists())
+
     def test_all_layouts_and_exact_dash_offset(self):
         for size in (232, 311, 324):
             with self.subTest(size=size):
