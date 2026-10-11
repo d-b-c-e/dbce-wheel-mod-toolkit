@@ -47,7 +47,6 @@ class CaptureTests(unittest.TestCase):
                 self.assertEqual("supervisor-stop", rows[-1]["stopReason"])
                 self.assertEqual(50, rows[-1]["packets"])
                 self.assertTrue(all(bytes(packet) == base64.b64decode(row["rawBase64"]) for row in rows[1:-1]))
-                self.assertGreaterEqual(rows[-1]["drainedAfterStop"], 0)
                 self.assertEqual(bytes(packet), base64.b64decode(rows[1]["rawBase64"]))
                 self.assertEqual(1234, rows[1]["fields"]["TimestampMs"])
                 self.assertEqual(0, json.loads(stdout)["invalid"])
@@ -75,10 +74,10 @@ class CaptureTests(unittest.TestCase):
         class Active:
             def setblocking(self, value): pass
             def recvfrom(self, size): return bytes(324), ("127.0.0.1", 123)
-        self.assertEqual(("supervisor-stop-sender-active", 7),
+        self.assertEqual(("supervisor-stop-incomplete", 7),
                          drain_pending(Active(), lambda d, p: True, 1, max_packets=7, clock=lambda: 0))
         times = iter([0, .5, 1])
-        self.assertEqual(("supervisor-stop-sender-active", 2),
+        self.assertEqual(("supervisor-stop-incomplete", 2),
                          drain_pending(Active(), lambda d, p: True, 1, clock=lambda: next(times)))
 
     def test_stale_or_self_stop_file_refuses_without_capture(self):

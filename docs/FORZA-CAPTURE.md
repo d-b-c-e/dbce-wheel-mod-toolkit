@@ -21,6 +21,24 @@ corner order is FL/FR/RL/RR. Return code is nonzero for no packets or bad packet
 A duration/size stop only describes this receiver; it does not prove a whole race
 was captured. A packet's mod marker is not proof of which game produced it.
 
+For supervised tests, `--port 0` reserves an OS-selected port exclusively. Read
+the flushed header's `port` before configuring or launching the sender;
+`requestedPort` retains 0. Do not guess the selected port or temporarily bind
+and release one. FH6's reserved range is checked again after the actual bind.
+
+An optional `--stop-file <fresh-path>` permits a clean supervised close. Only
+the owning supervisor creates that path, after closing the sender. Existing
+stop paths and a path equal to the capture output are refused. The collector
+drains the receive queue without blocking, retaining the same bytes/decoding
+as the normal receive loop. `drainedAfterStop` counts retained drain packets.
+An empty queue yields `supervisor-stop`. A one-second, remaining-duration or
+4,096-datagram drain bound yields `supervisor-stop-incomplete` and exit 1; it
+does not establish that a sender is still active. `size-limit` retains its
+existing exit behavior but does not prove an empty queue. Qualification callers
+must require the exact normal stop, good packet accounting and sender evidence.
+UDP can lose packets before stop; compare every received packet against the
+producer's original packet tape to establish completeness for that run.
+
 ## Native Horizon 4, 5 and 6
 
 Explicit native profiles preserve source labels separately from toolkit markers:

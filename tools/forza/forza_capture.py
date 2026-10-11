@@ -116,7 +116,7 @@ def drain_pending(sock, record, deadline, max_packets=4096, clock=time.monotonic
         if not record(data, peer):
             return "size-limit", drained
         drained += 1
-    return "supervisor-stop-sender-active", drained
+    return "supervisor-stop-incomplete", drained
 
 
 def main():
@@ -204,7 +204,7 @@ def main():
             output.write(json.dumps(summary, allow_nan=False) + "\n")
     print(json.dumps({k: v for k, v in summary.items() if k != "ranges"}))
     return 0 if (summary["packets"] > 0 and summary["invalid"] == 0
-                 and summary["stopReason"] != "supervisor-stop-sender-active") else 1
+                 and summary["stopReason"] != "supervisor-stop-incomplete") else 1
 
 
 if __name__ == "__main__":
