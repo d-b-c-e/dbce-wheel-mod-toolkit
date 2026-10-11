@@ -10,6 +10,8 @@ sender has closed. Stop drains queued datagrams until the socket is empty, with
 a one-second / 4096-datagram bound; hitting either bound is an incomplete stop.
 This proves an empty receive queue at stop, not that UDP never lost a packet.
 The duration and size limits still apply independently.
+Use --profile raw for another UDP protocol: identical receiver lifecycle and
+original bytes, dbce/udp-wire-v1 header, no decoding or semantic qualification.
 """
 import argparse
 import base64
@@ -88,6 +90,8 @@ def decode(data, profile="toolkit"):
 def packet_record(data, elapsed, profile="toolkit"):
     result = {"type": "packet", "seconds": elapsed, "length": len(data),
               "rawBase64": base64.b64encode(data).decode("ascii")}
+    if profile == "raw":
+        return result  # A game-specific evaluator must validate these bytes.
     try:
         result["fields"] = decode(data, profile)
     except ValueError as error:
@@ -126,7 +130,7 @@ def main():
     parser.add_argument("--seconds", type=float, default=120)
     parser.add_argument("--max-mb", type=int, default=256)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--profile", choices=PROFILES, default="toolkit",
+    parser.add_argument("--profile", choices=(*PROFILES, "raw"), default="toolkit",
                         help="Explicit producer contract; native names do not authenticate the UDP sender")
     parser.add_argument("--source-exe", type=Path, help="Read-only executable hash for capture provenance")
     parser.add_argument("--source-build", help="Declared game build ID (not inferred from telemetry)")
@@ -157,7 +161,7 @@ def main():
             parser.error("The OS-selected port is reserved by FH6; choose another receiver port")
         sock.settimeout(.25)
         with args.output.open("x", encoding="utf-8", newline="\n") as output:
-            output.write(json.dumps({"type": "header", "schema": "dbce/forza-wire-v1", "bind": args.bind,
+            output.write(json.dumps({"type": "header", "schema": "dbce/udp-wire-v1" if args.profile == "raw" else "dbce/forza-wire-v1", "bind": args.bind,
                                      "port": bound_port, "requestedPort": args.port,
                                      "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2,
                                      "producer": identity}) + "\n")
@@ -173,6 +177,8 @@ def main():
                 summary["packets"] += 1
                 if "error" in row:
                     summary["invalid"] += 1
+                    return True
+                if args.profile == "raw":
                     return True
                 fields = row["fields"]
                 if fields["IsRaceOn"] == 1:

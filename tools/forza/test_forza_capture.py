@@ -13,6 +13,51 @@ from forza_capture import decode, packet_record, drain_pending
 
 
 class CaptureTests(unittest.TestCase):
+    def test_raw_capture_keeps_arbitrary_bytes_without_inventing_decoded_fields(self):
+        for packet in (b'', b'not json', b'\xff\x00', b'x' * 60000):
+            row = packet_record(packet, 1.25, 'raw')
+            self.assertEqual({'type', 'seconds', 'length', 'rawBase64'}, set(row))
+            self.assertEqual(packet, base64.b64decode(row['rawBase64']))
+        # Raw mode does not weaken the strict Forza decoder.
+        with self.assertRaises(ValueError):
+            decode(b'not json', 'raw')
+
+    def test_raw_receiver_actual_socket_bytes_and_exclusive_ownership(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output, stop = Path(folder) / 'wire.jsonl', Path(folder) / 'stop'
+            process = subprocess.Popen([sys.executable, str(Path(__file__).with_name('forza_capture.py')),
+                '--profile', 'raw', '--port', '0', '--seconds', '10', '--output', str(output), '--stop-file', str(stop)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                deadline = time.monotonic() + 5
+                header = None
+                while time.monotonic() < deadline:
+                    if output.exists() and '\n' in output.read_text(encoding='utf-8'):
+                        header = json.loads(output.read_text(encoding='utf-8').splitlines()[0])
+                        break
+                    if process.poll() is not None: self.fail('raw receiver exited before readiness')
+                    time.sleep(.01)
+                self.assertIsNotNone(header)
+                self.assertEqual('dbce/udp-wire-v1', header['schema'])
+                self.assertEqual('raw', header['producer']['profile'])
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rival:
+                    with self.assertRaises(OSError): rival.bind(('127.0.0.1', header['port']))
+                packets = [b'{"schema":"example.v1","value":0.5}', b'\xff\x00', b'x' * 60000]
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+                    for packet in packets: sender.sendto(packet, ('127.0.0.1', header['port']))
+                stop.write_text('sender closed', encoding='utf-8')
+                stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(0, process.returncode, stderr)
+                rows = [json.loads(line) for line in output.read_text(encoding='utf-8').splitlines()]
+                self.assertEqual(packets, [base64.b64decode(row['rawBase64']) for row in rows[1:-1]])
+                self.assertTrue(all('fields' not in row and 'error' not in row for row in rows[1:-1]))
+                self.assertEqual(('supervisor-stop', 3, 0), (rows[-1]['stopReason'], rows[-1]['packets'], rows[-1]['invalid']))
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as again: again.bind(('127.0.0.1', header['port']))
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate(timeout=5)
+
     def test_supervised_capture_binds_actual_port_and_closes_with_footer(self):
         with tempfile.TemporaryDirectory() as folder:
             output, stop = Path(folder) / "wire.jsonl", Path(folder) / "stop"
