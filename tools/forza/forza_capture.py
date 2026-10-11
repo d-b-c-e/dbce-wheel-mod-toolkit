@@ -155,6 +155,12 @@ def main():
         # Exclusive ownership: do not silently compete with SimHub or another test.
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        # Detailed protocols can be tens of KB per packet. Request headroom for
+        # scheduler stalls; the OS may cap it, so retain the actual accepted size.
+        receive_buffer_requested = 4 * 1024**2 if args.profile == "raw" else None
+        if receive_buffer_requested is not None:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, receive_buffer_requested)
+        receive_buffer_actual = sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         sock.bind((args.bind, args.port))
         bound_port = sock.getsockname()[1]
         if args.profile == "fh6" and 5200 <= bound_port <= 5300:
@@ -163,6 +169,7 @@ def main():
         with args.output.open("x", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps({"type": "header", "schema": "dbce/udp-wire-v1" if args.profile == "raw" else "dbce/forza-wire-v1", "bind": args.bind,
                                      "port": bound_port, "requestedPort": args.port,
+                                     "receiveBufferRequested": receive_buffer_requested, "receiveBufferActual": receive_buffer_actual,
                                      "durationLimit": args.seconds, "byteLimit": args.max_mb * 1024**2,
                                      "producer": identity}) + "\n")
             output.flush()  # lets unattended runners observe that the receiver is ready

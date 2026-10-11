@@ -40,6 +40,8 @@ class CaptureTests(unittest.TestCase):
                 self.assertIsNotNone(header)
                 self.assertEqual('dbce/udp-wire-v1', header['schema'])
                 self.assertEqual('raw', header['producer']['profile'])
+                self.assertEqual(4 * 1024**2, header['receiveBufferRequested'])
+                self.assertGreater(header['receiveBufferActual'], 0)
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rival:
                     with self.assertRaises(OSError): rival.bind(('127.0.0.1', header['port']))
                 packets = [b'{"schema":"example.v1","value":0.5}', b'\xff\x00', b'x' * 60000]
@@ -79,6 +81,8 @@ class CaptureTests(unittest.TestCase):
                 self.assertIsNotNone(header)
                 self.assertGreater(header["port"], 0)
                 self.assertEqual(0, header["requestedPort"])
+                self.assertIsNone(header["receiveBufferRequested"])
+                self.assertGreater(header["receiveBufferActual"], 0)
                 packet = bytearray(324)
                 struct.pack_into("<iIf", packet, 0, 1, 1234, 9000)
                 packet[323] = 0x52
