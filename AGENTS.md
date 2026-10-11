@@ -1,6 +1,13 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
-**FFB reference (owner, 2026-10-06):** Art of Rally is the fixed gold standard
+**October 11 FFB reference update:** STD-031 supersedes the old level below.
+Art source `8bc94b1` and `profiles/normalization/art-of-rally-50-v2.json` make
+new default steering 50 match legacy30 by setting the reference to 11500/0.6 N.
+Independent effects and explicit saved tunes are unchanged. Original-input
+paired trials pass; installation/runtime adoption and feel remain pending.
+Do not pair the v2 label with v1 output CSVs. See docs/FFB-NORMALIZATION.md.
+
+**Historical FFB reference (owner, 2026-10-06):** Art of Rally is the fixed gold standard
 at Strength 50 (STD-021). Use `profiles/normalization/art-of-rally-50-v1.json`
 with the exact source/defaults/per-effect requests. Tune other games at their
 50 setting; do not retune Art or substitute other displayed strengths. Original

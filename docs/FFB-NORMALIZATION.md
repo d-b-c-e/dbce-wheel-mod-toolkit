@@ -1,5 +1,28 @@
 # Cross-game force normalization
 
+**October 11: owner-requested reference v2 is source/offline qualified.**
+[`art-of-rally-50-v2.json`](../profiles/normalization/art-of-rally-50-v2.json)
+pins Art `8bc94b1`: new default reference 11500/0.6 N, gain at50 =1, smoothing
+0.2. New50 reproduces old30 before clamp/filter. Independent crash/landing/shift
+requests are unchanged. The owner wants this baseline finalized before DRIVE's
+shared-shim integration, normalization and private release, then OutRun decomp.
+
+Two original Art cases were first replay-verified, then evaluated separately at
+legacy30/reference11500 and new50/reference19166.666015625: 11,921 rows, maximum
+request difference 1e-7, at most one nominal native unit out of10,000. Source
+files remain unchanged; neither case needed invented initial filter history.
+This is an offline steering equivalence, not installed behavior or physical
+acceptance. Build and production settings/recorder access checks pass.
+
+Saved explicit references are preserved. Updating the DLL alone does not adopt
+v2 on an existing install. Record the actual settings and explicitly adopt the
+new reference/Strength50 under the normal backup procedure. Package, muted live
+verification and attended feel remain. The quick comparison wrapper currently
+uses v1; a v2 comparison must use the newly recomputed original-input corpus.
+Never relabel or multiply clipped v1 outputs. Historical evidence below stays
+attached to v1. Evidence: hub `artifacts/art-reference-v2-20261011`, Art
+`docs/reviews/2026-10-11-ffb-reference-v2.md`.
+
 **Art of Rally is the gold standard** (owner direction October 6; STD-021 refines
 STD-003). Hold Art's reference tuning fixed. At Strength 50 in both games, tune
 other games' comparable steering, crashes, landings and other available effects
@@ -53,7 +76,7 @@ for the October7 evening drive. Clipping/headroom and force transitions matter
 independently of histogram strength. See
 [the centering case](../knowledge/IRACING-CENTERING-CALIBRATION-2026-10-07.md).
 
-## What 50 means in the Art reference
+## What 50 means in the historical v1 Art reference
 
 Steering Strength 50 gives gain 1, reference 11,500 N and smoothing 0.2. Art's
 landing, crash and shift strengths are separate from steering Strength, so the

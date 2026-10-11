@@ -59,6 +59,10 @@ none of these contracts or the force-source fingerprint.
 ## Checks and rollout
 
 Calibrate the game's reference rather than adding another steering multiplier.
+Art's STD-031 source candidate follows this rule: reference11500/0.6 N at new50
+matches old30/reference11500, with the same gain Strength/50. Original-input
+paired trials pass; explicit saved references remain and require deliberate
+adoption. See [the v2 reference](FFB-NORMALIZATION.md).
 For example, the iRacing owner requested old80 become new50 on October8: with
 the same `Strength / 50` gain, changing the load reference ratio from .80 to .50
 gives the same pre-clamp steering (`1.6 / .8 = 1 / .5`). Record that reference per
