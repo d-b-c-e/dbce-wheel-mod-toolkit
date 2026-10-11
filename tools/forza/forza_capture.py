@@ -5,8 +5,11 @@ Use a diagnostic/mirror port when SimHub already owns the normal port.
 Every accepted datagram retains its original bytes and all decoded fields.
 No game injection, replay transmission, or device access. Python stdlib only.
 Use --port 0 for an exclusively bound OS-selected port (reported in the flushed
-header). An optional fresh --stop-file lets an owning supervisor end normally;
-the duration and size limits still apply independently.
+header). Only the owning supervisor creates the fresh --stop-file, after the
+sender has closed. Stop drains queued datagrams until the socket is empty, with
+a one-second / 4096-datagram bound; hitting either bound is an incomplete stop.
+This proves an empty receive queue at stop, not that UDP never lost a packet.
+The duration and size limits still apply independently.
 """
 import argparse
 import base64
@@ -101,6 +104,21 @@ def packet_record(data, elapsed, profile="toolkit"):
     return result
 
 
+def drain_pending(sock, record, deadline, max_packets=4096, clock=time.monotonic):
+    """Retain queued datagrams with the normal writer; never wait for a sender."""
+    sock.setblocking(False)
+    drained = 0
+    while drained < max_packets and clock() < deadline:
+        try:
+            data, peer = sock.recvfrom(65535)
+        except BlockingIOError:
+            return "supervisor-stop", drained
+        if not record(data, peer):
+            return "size-limit", drained
+        drained += 1
+    return "supervisor-stop-sender-active", drained
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8001)
@@ -128,7 +146,7 @@ def main():
         identity["executableName"] = args.source_exe.name
     args.output.parent.mkdir(parents=True, exist_ok=True)
     summary = {"type": "footer", "packets": 0, "invalid": 0, "driving": 0, "curb": 0, "rumble": 0,
-               "ranges": {}, "stopReason": "duration"}
+               "ranges": {}, "stopReason": "duration", "drainedAfterStop": 0}
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         # Exclusive ownership: do not silently compete with SimHub or another test.
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
@@ -145,41 +163,48 @@ def main():
                                      "producer": identity}) + "\n")
             output.flush()  # lets unattended runners observe that the receiver is ready
             start = time.monotonic()
+            def record_datagram(data, peer):
+                row = packet_record(data, time.monotonic() - start, args.profile)
+                row["sender"] = {"address": peer[0], "port": peer[1]}
+                text = json.dumps(row, allow_nan=False, separators=(",", ":")) + "\n"
+                if output.tell() + len(text) > args.max_mb * 1024**2 - 16384:
+                    return False
+                output.write(text)
+                summary["packets"] += 1
+                if "error" in row:
+                    summary["invalid"] += 1
+                    return True
+                fields = row["fields"]
+                if fields["IsRaceOn"] == 1:
+                    summary["driving"] += 1
+                    summary["curb"] += any(fields["WheelOnRumbleStrip." + c] > 0 for c in CORNERS)
+                    summary["rumble"] += any(fields["SurfaceRumble." + c] > 0 for c in CORNERS)
+                    for key, value in fields.items():
+                        limits = summary["ranges"].setdefault(key, [value, value])
+                        limits[0] = min(limits[0], value)
+                        limits[1] = max(limits[1], value)
+                return True
+
             try:
                 while time.monotonic() - start < args.seconds:
                     if args.stop_file and args.stop_file.exists():
-                        summary["stopReason"] = "supervisor-stop"
+                        summary["stopReason"], summary["drainedAfterStop"] = drain_pending(
+                            sock, record_datagram, min(start + args.seconds, time.monotonic() + 1))
                         break
                     try:
                         data, peer = sock.recvfrom(65535)
                     except socket.timeout:
                         continue
-                    row = packet_record(data, time.monotonic() - start, args.profile)
-                    row["sender"] = {"address": peer[0], "port": peer[1]}
-                    text = json.dumps(row, allow_nan=False, separators=(",", ":")) + "\n"
-                    if output.tell() + len(text) > args.max_mb * 1024**2 - 16384:
+                    if not record_datagram(data, peer):
                         summary["stopReason"] = "size-limit"
                         break
-                    output.write(text)
-                    summary["packets"] += 1
-                    if "error" in row:
-                        summary["invalid"] += 1
-                        continue
-                    fields = row["fields"]
-                    if fields["IsRaceOn"] == 1:
-                        summary["driving"] += 1
-                        summary["curb"] += any(fields["WheelOnRumbleStrip." + c] > 0 for c in CORNERS)
-                        summary["rumble"] += any(fields["SurfaceRumble." + c] > 0 for c in CORNERS)
-                        for key, value in fields.items():
-                            limits = summary["ranges"].setdefault(key, [value, value])
-                            limits[0] = min(limits[0], value)
-                            limits[1] = max(limits[1], value)
             except KeyboardInterrupt:
                 summary["stopReason"] = "user"
             summary["elapsedSeconds"] = time.monotonic() - start
             output.write(json.dumps(summary, allow_nan=False) + "\n")
     print(json.dumps({k: v for k, v in summary.items() if k != "ranges"}))
-    return 0 if summary["packets"] > 0 and summary["invalid"] == 0 else 1
+    return 0 if (summary["packets"] > 0 and summary["invalid"] == 0
+                 and summary["stopReason"] != "supervisor-stop-sender-active") else 1
 
 
 if __name__ == "__main__":

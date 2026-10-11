@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from forza_capture import decode, packet_record
+from forza_capture import decode, packet_record, drain_pending
 
 
 class CaptureTests(unittest.TestCase):
@@ -38,16 +38,16 @@ class CaptureTests(unittest.TestCase):
                 struct.pack_into("<iIf", packet, 0, 1, 1234, 9000)
                 packet[323] = 0x52
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
-                    sender.sendto(packet, ("127.0.0.1", header["port"]))
-                # The file's data rows are buffered. Receive timeout bounds this
-                # interval; ending after it tests the normal supervisor stop.
-                time.sleep(.1)
+                    for _ in range(50):
+                        sender.sendto(packet, ("127.0.0.1", header["port"]))
                 stop.write_text("owned stop", encoding="utf-8")
                 stdout, stderr = process.communicate(timeout=5)
                 self.assertEqual(0, process.returncode, stderr)
                 rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
                 self.assertEqual("supervisor-stop", rows[-1]["stopReason"])
-                self.assertEqual(1, rows[-1]["packets"])
+                self.assertEqual(50, rows[-1]["packets"])
+                self.assertTrue(all(bytes(packet) == base64.b64decode(row["rawBase64"]) for row in rows[1:-1]))
+                self.assertGreaterEqual(rows[-1]["drainedAfterStop"], 0)
                 self.assertEqual(bytes(packet), base64.b64decode(rows[1]["rawBase64"]))
                 self.assertEqual(1234, rows[1]["fields"]["TimestampMs"])
                 self.assertEqual(0, json.loads(stdout)["invalid"])
@@ -57,6 +57,29 @@ class CaptureTests(unittest.TestCase):
                 if process.poll() is None:
                     process.kill()
                     process.communicate(timeout=5)
+
+    def test_drain_retains_every_queued_packet_and_preserves_write_limit(self):
+        class Queue:
+            def __init__(self): self.remaining = 50
+            def setblocking(self, value): self.blocking = value
+            def recvfrom(self, size):
+                if self.remaining == 0: raise BlockingIOError()
+                self.remaining -= 1
+                return bytes(324), ("127.0.0.1", 123)
+        sock, rows = Queue(), []
+        reason, count = drain_pending(sock, lambda d, p: rows.append(packet_record(d, 0)) is None, 1, clock=lambda: 0)
+        self.assertEqual(("supervisor-stop", 50, 50, False), (reason, count, len(rows), sock.blocking))
+        self.assertEqual(("size-limit", 0), drain_pending(Queue(), lambda d, p: False, 1, clock=lambda: 0))
+
+    def test_active_sender_drain_is_bounded_by_count_and_time(self):
+        class Active:
+            def setblocking(self, value): pass
+            def recvfrom(self, size): return bytes(324), ("127.0.0.1", 123)
+        self.assertEqual(("supervisor-stop-sender-active", 7),
+                         drain_pending(Active(), lambda d, p: True, 1, max_packets=7, clock=lambda: 0))
+        times = iter([0, .5, 1])
+        self.assertEqual(("supervisor-stop-sender-active", 2),
+                         drain_pending(Active(), lambda d, p: True, 1, clock=lambda: next(times)))
 
     def test_stale_or_self_stop_file_refuses_without_capture(self):
         with tempfile.TemporaryDirectory() as folder:
