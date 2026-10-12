@@ -48,6 +48,7 @@
 #include <mutex>
 #include "burst_effect.h"
 #include "constant_burst.h"
+#include "include/read_snapshot.h"
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -116,6 +117,8 @@ static LPDIRECTINPUTDEVICE8 g_auxDevice = nullptr;
 
 static LPDIRECTINPUT8       g_di      = nullptr;
 static LPDIRECTINPUTDEVICE8 g_device  = nullptr;
+// Distinguishes a recreated same-GUID handle even if COM reuses its address.
+static std::atomic<uint64_t> g_ffbReadGeneration{1};
 static LPDIRECTINPUTEFFECT  g_effect  = nullptr;
 static HWND                 g_hwnd    = nullptr;
 static bool                 g_logging = false;
@@ -487,6 +490,7 @@ static int OpenCandidate(int idx)
         Log("  could not open the device");
         return 0;
     }
+    ++g_ffbReadGeneration;
     g_activeGuid = g_candidates[idx].guid;
     g_activeAxes = g_candidates[idx].axes; g_activeButtons = g_candidates[idx].buttons;
     strncpy_s(g_activeName, sizeof(g_activeName), g_candidates[idx].name, _TRUNCATE);
@@ -857,6 +861,7 @@ static const int kMaxReadSlots = 8;
 struct ReadSlot { LPDIRECTINPUTDEVICE8 dev; bool isWheel; GUID guid; char name[MAX_PATH]; };
 static ReadSlot g_read[kMaxReadSlots];
 static int      g_readCount = 0;
+#include "read_snapshot_state.h"
 
 static void SetFullRange(LPDIRECTINPUTDEVICE8 dev)
 {
@@ -878,6 +883,7 @@ __declspec(dllexport) int OpenReadDevice(int index)
     if (index < 0 || index >= g_auxCount) { Log("OpenReadDevice(%d): out of range (%d devices)", index, g_auxCount); return -1; }
     if (g_readCount >= kMaxReadSlots) { Log("OpenReadDevice(%d): no free slot", index); return -1; }
     ReadSlot& s = g_read[g_readCount];
+    InvalidateReadSnapshot(g_readCount);
     s.dev = nullptr; s.isWheel = false; s.guid = g_aux[index].guid;
     strncpy_s(s.name, sizeof(s.name), g_aux[index].name, _TRUNCATE);
     if (g_device && IsEqualGUID(g_aux[index].guid, g_activeGuid)) {
@@ -921,6 +927,7 @@ __declspec(dllexport) int ReadDeviceState(int slot, int* axes, unsigned char* bu
     if (FAILED(hr) && !s.isWheel) { dev->Acquire(); dev->Poll(); }
     hr = dev->GetDeviceState(sizeof(st), &st);
     if (FAILED(hr)) {
+        InvalidateReadSnapshot(slot); // a failed read ends a snapshot generation, as on the snapshot branch
         // The wheel's acquisition is the force-feedback path's business.
         if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
         return 0;
@@ -962,6 +969,7 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
     if (FAILED(hr) && !s.isWheel) { dev->Acquire(); dev->Poll(); }
     hr = dev->GetDeviceState(sizeof(st), &st); // Exactly one coherent snapshot.
     if (FAILED(hr)) {
+        InvalidateReadSnapshot(slot);
         // Never reacquire the shared FFB handle: its effect lifecycle owns it.
         if (!s.isWheel && (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)) dev->Acquire();
         return 0;
@@ -979,10 +987,13 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
     return 1;
 }
 
+#include "read_snapshot_impl.h"
+
 __declspec(dllexport) void CloseReadDevices(void)
 {
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     for (int i = 0; i < g_readCount; ++i) {
+        InvalidateReadSnapshot(i);
         if (g_read[i].dev) { g_read[i].dev->Unacquire(); g_read[i].dev->Release(); g_read[i].dev = nullptr; }
     }
     if (g_readCount) Log("CloseReadDevices(): %d slot(s) released", g_readCount);

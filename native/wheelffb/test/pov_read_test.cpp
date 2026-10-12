@@ -269,4 +269,5 @@ int main() {
     CloseCandidate();assert(!g_device && good.releases==1);
     g_di=nullptr;
     puts("PASS production legacy 160-button/coherent POV and FFB acquire/recovery/open routes with fake COM; no hardware opened");
+    return 0; // read_snapshot_test includes this file with main renamed
 }

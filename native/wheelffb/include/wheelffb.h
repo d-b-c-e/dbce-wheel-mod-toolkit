@@ -74,6 +74,7 @@
 
 #include <windows.h>
 #include <string.h>
+#include "read_snapshot.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,7 +129,10 @@ extern "C" {
     X(int,  UpdateConditionEffect,  (int slot, int coefficient, int saturation, int deadband, int offset)) \
     X(void, ReleaseConditionEffects,(void)) \
     X(void, SetStrictDeviceSelection,(int enabled)) \
-    X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount))
+    X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount)) \
+    X(int, GetReadDeviceInfoV1, (int slot, WheelReadDeviceInfoV1* out)) \
+    X(int, ReadDeviceSnapshotV1, (int slot, WheelReadSnapshotV1* out)) \
+    X(int, GetReadDevicePathV1, (int slot, uint64_t expectedGeneration, uint16_t* path, int capacity))
 
 #define WHEELFFB_TYPEDEF(ret, name, args) typedef ret (__cdecl *WheelFfb_##name##_t) args;
 WHEELFFB_API_LIST(WHEELFFB_TYPEDEF)

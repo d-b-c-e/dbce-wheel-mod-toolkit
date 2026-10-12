@@ -54,3 +54,6 @@ EXPORTS
     PlayConstantBurst
     StopConstantBurst
     ReleaseConstantBursts
+    GetReadDeviceInfoV1
+    ReadDeviceSnapshotV1
+    GetReadDevicePathV1
