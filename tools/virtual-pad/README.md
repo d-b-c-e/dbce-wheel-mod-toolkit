@@ -69,3 +69,28 @@ earlier menu-button reports; input acceptance by a game remains a separate check
 ```powershell
 dotnet run --project tools/virtual-pad/tests/Neutral.Tests.csproj -c Release
 ```
+
+## October 12 DualShock 4 target (opt-in)
+
+`--target ds4` runs a virtual DualShock 4 instead of the Xbox 360 controller. The default stays `x360`, unchanged. The
+OutRun decomp's shim reads devices through DirectInput in the background, non-exclusive. A held ViGEm Xbox 360
+target's commands reached XInput but did not reach such a reader: every sample stayed neutral (hub
+`artifacts/outrun-shim-pad-input-20261012`, C1b). A DualShock 4 is a plain HID gamepad.
+
+The same commands map by position (`Ds4Mapping.cs`):
+
+| Command word | DualShock 4 |
+|---|---|
+| A / B / X / Y | Cross / Circle / Square / Triangle |
+| Start / Back | Options / Share |
+| LB / RB, LS / RS | L1 / R1, L3 / R3 |
+| Guide | PS |
+| Up / Down / Left / Right | the d-pad hat; opposite words cancel |
+| sticks | 0..255 with 128 at rest, Y inverted |
+| triggers | L2 / R2, 0..255, with their digital bits |
+
+A DualShock 4 has no XInput readback. Startup submits a neutral report and logs "neutral report submitted; no XInput
+readback for a DualShock 4". Callers admit the device by their own neutral read.
+
+`dotnet run --project tools/virtual-pad/tests/Ds4.Tests.csproj -c Release` checks the mapping without ViGEm or a
+device.

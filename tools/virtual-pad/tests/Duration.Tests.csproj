@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
-  <ItemGroup><Compile Include="../CommandDuration.cs" Link="CommandDuration.cs" /><Compile Remove="NeutralTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../CommandDuration.cs" Link="CommandDuration.cs" /><Compile Remove="NeutralTests.cs" /><Compile Remove="Ds4Tests.cs" /></ItemGroup>
 </Project>
