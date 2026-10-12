@@ -86,9 +86,19 @@ Scope a physics watchdog to each **requested pose interval**. Arm it when the
 interval is requested, refresh only on an eligible real physics callback, and
 disarm after verification. Menu/pause time does not count; missing first or
 subsequent callbacks still time out. Render polling must not refresh it. DRIVE
-`c05299f` tests this correction; the third cold run is pending. The original
-recording remains unchanged. Failure journals include actual loop, time scale,
-input and camera state at semantic boundaries.
+`c05299f` tests this correction. Cold03 stopped during supervisor startup and
+was recovered normally; cold04 then verified all 3,064 original poses across
+the native pause/resume (maximum position error 0.123 mm), with normal exit and
+complete restoration. The original recording remains unchanged. Failure
+journals include actual loop, time scale, input and camera state at boundaries.
+
+DRIVE identity.2 (`8ade46b`) also passed an unlatched real R12/DS-8X join and
+controller-disable check during a 6,001-pose replay. The final fixture catches
+a lifecycle trap: a failed stage-end Restore must enqueue its retained
+obligation into the active retry path too. Otherwise returning on-stage leaves
+the disabled, identity-hidden controller unable to rejoin, even after its
+setter recovers. Recovery requires the original flag, fresh exact join and one
+unclean drain frame; a successful fixture is not an unplug/replug hardware test.
 
 ## Match the claim to the test
 
