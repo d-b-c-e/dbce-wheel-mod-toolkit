@@ -147,6 +147,25 @@ consumer ownership, terminal cleanup, the single-frame loser case and concurrent
 stop/callback accounting. Synthetic checks cover black, white, centre-only white,
 RGB coefficients, channel thresholds, padding/plane offsets, boundary widths,
 bounded sampling and first/last/crossing retention/disposal. It opens no graphics,
-game, window or device. Build and 126 checks pass. Metrics-mode WGC pixel interop,
-throughput and real transition qualification remain pending a coordinated capture;
-the existing single/list/burst modes were not rerun live in this source-only task.
+game, window or device. Build and 126 checks pass.
+
+## First live metrics check (2026-10-12)
+
+DRIVE Rally `0.2.3-rc.4` on its existing 7680x1440 borderless window exercised
+the production WGC pixel interop and representative encoding with tool source
+`bda5a84` (DLL SHA-256
+`81b1c8030c1adf1620a0be9d898cf831ec80113c303aa80c29c925fd4534e8c5`).
+Twenty seconds produced 425 metric rows, three representative PNGs, 740 delivered
+frames and 315 observed skips (312 queue-full, one late, two discarded on stop).
+There were 119 timestamp gaps above 50 ms, maximum 1,149.9878 ms. The actual
+images confirm the first white startup frame, subsequent black sides around the
+loading screen, and the final driving view. This qualifies the metrics path and
+its accounting, **not continuous frame coverage or absence of transition flashes**.
+Full-width GPU readback remains expensive; use this tool as bounded diagnostic
+sampling, not a frame-rate benchmark.
+
+An earlier capture correctly failed when Unity changed from its decorated
+startup window to the saved borderless span, retaining one metric row. The second
+observer waited for the existing final window rectangle; it did not resize it.
+Both independent product replays passed and restored owner state. Private hub
+evidence: `artifacts/drive-full-session-20261011/rc4-menu-metrics-01` and `-02`.
