@@ -12,6 +12,10 @@ device, process launch, input injection or network dependency is present.
   drains the final tail before a completion seal can be created.
 - `ArtifactSeal` hashes completed files and validates required streams, sizes,
   relative paths and hashes before playback. It rejects reparse-point payloads.
+  `CompleteNamed` / `VerifyNamed` support separate completion phases, for example
+  `recording-complete.tsv` while a game remains open. Existing `Complete` / `Verify`
+  retain `complete.tsv` and the same format. A seal is a digest of files, not evidence
+  of process exit or successful playback; the consumer validates those separately.
 - `SignalStatistics` reports per-sample RMS, signed range, absolute nearest-rank
   percentiles and optional normalized saturation. Missing channels stay missing.
 - `TrajectoryTape` records a bounded single-stage pose stream with explicit game

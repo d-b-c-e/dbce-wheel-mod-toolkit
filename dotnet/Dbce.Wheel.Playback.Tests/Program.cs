@@ -103,8 +103,20 @@ try
     File.WriteAllText(Path.Combine(root, "metadata"), "fixture");
     ArtifactSeal.Complete(root, new[] { "rows", "metadata" });
     ArtifactSeal.Verify(root, "rows", "metadata"); assertions++;
+    var processSeal = File.ReadAllBytes(Path.Combine(root, "complete.tsv"));
+    ArtifactSeal.CompleteNamed(root, "recording-complete.tsv", new[] { "rows", "metadata" });
+    ArtifactSeal.VerifyNamed(root, "recording-complete.tsv", "rows", "metadata"); assertions++;
+    Check(processSeal.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "complete.tsv"))), "Independent recording seal leaves the process seal unchanged");
+    Reject(() => ArtifactSeal.CompleteNamed(root, "recording-complete.tsv", new[] { "rows" }), "Cannot replace a named completion seal");
+    foreach (var invalidSeal in new[] { "../escape", "nested/seal", "C:/escape", "", "seal:stream", "seal\\escape" })
+    {
+        Reject(() => ArtifactSeal.CompleteNamed(root, invalidSeal, new[] { "rows" }), "Reject invalid named seal before writes");
+        Reject(() => ArtifactSeal.VerifyNamed(root, invalidSeal, "rows"), "Reject invalid named seal before reads");
+    }
+    Reject(() => ArtifactSeal.VerifyNamed(root, "recording-complete.tsv", "missing"), "Named seal checks required streams");
     Reject(() => ArtifactSeal.Verify(root, "missing"), "Required streams must be sealed");
     File.AppendAllText(Path.Combine(root, "rows"), "extra");
+    Reject(() => ArtifactSeal.VerifyNamed(root, "recording-complete.tsv"), "Named seal rejects changed payload");
     Reject(() => ArtifactSeal.Verify(root), "Changed or truncated payload fails verification");
     File.WriteAllText(Path.Combine(root, "complete.tsv"), "dbce-playback-seal-v1\n../escape\t0\thash\n");
     Reject(() => ArtifactSeal.Verify(root), "Reject traversal before opening referenced file");

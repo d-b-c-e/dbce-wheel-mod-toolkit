@@ -16,7 +16,13 @@ namespace Dbce.Wheel.Playback
                 return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
         }
         public static void Complete(string directory, string[] files)
+            => CompleteNamed(directory, "complete.tsv", files);
+
+        /// <summary>Seal one independently completed phase without replacing another phase's seal.
+        /// The caller still owns admission: a file digest does not establish process exit or playback success.</summary>
+        public static void CompleteNamed(string directory, string sealName, string[] files)
         {
+            CheckSealName(sealName);
             var text = new StringBuilder("dbce-playback-seal-v1\n");
             foreach (var file in files.OrderBy(n => n, StringComparer.Ordinal))
             {
@@ -24,14 +30,18 @@ namespace Dbce.Wheel.Playback
                 var path = SafePath(directory, file);
                 text.Append(file).Append('\t').Append(new FileInfo(path).Length).Append('\t').Append(Hash(path)).Append('\n');
             }
-            string temp = Path.Combine(directory, "complete.tsv.tmp");
+            string temp = Path.Combine(directory, sealName + ".tmp");
             using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write))
             using (var writer = new StreamWriter(stream, new UTF8Encoding(false))) writer.Write(text);
-            File.Move(temp, Path.Combine(directory, "complete.tsv"));
+            File.Move(temp, Path.Combine(directory, sealName));
         }
         public static void Verify(string directory, params string[] required)
+            => VerifyNamed(directory, "complete.tsv", required);
+
+        public static void VerifyNamed(string directory, string sealName, params string[] required)
         {
-            var lines = File.ReadAllLines(Path.Combine(directory, "complete.tsv"));
+            CheckSealName(sealName);
+            var lines = File.ReadAllLines(SafePath(directory, sealName));
             if (lines.Length < 2 || lines[0] != "dbce-playback-seal-v1") throw new InvalidDataException("Unknown or empty completion seal");
             var names = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var line in lines.Skip(1))
@@ -45,6 +55,11 @@ namespace Dbce.Wheel.Playback
                     throw new InvalidDataException("Capture changed or truncated: " + p[0]);
             }
             foreach (var file in required) if (!names.Contains(file)) throw new InvalidDataException("Unsealed required stream: " + file);
+        }
+        private static void CheckSealName(string name)
+        {
+            CheckName(name);
+            if (name.IndexOf('/') >= 0) throw new InvalidDataException("Completion seal must be a file in the capture directory");
         }
         private static void CheckName(string name)
         {
