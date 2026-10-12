@@ -531,6 +531,16 @@ visible. Do not silently discard an unsaved recording at exit. Preserve useful
 metadata: game/mod/toolkit versions, settings, bindings, signal availability and
 provenance, sample phase/timing, force calculation and delivery results.
 
+Player-operated recording also needs feedback **outside the settings panel**:
+a persistent, high-contrast **REC + elapsed time** while recording, **Saving…**
+while finalization is pending, and a brief **Recording saved** confirmation only
+after successful completion. Show limits and failures distinctly; do not report
+a successful save from the stop-key press alone. Keep the indicator on the centre
+display in triple layouts and visible with the panel closed. A supervised stage
+recording/playback banner remains distinct from an ordinary signal capture.
+Verify start and stop with rendered frames as well as recorder-state tests.
+[DRIVE release review, owner report 2026-10-11; iRacing REC placement 2026-10-07]
+
 Missing data is **Unavailable**, distinct from a measured zero. Label derived
 or estimated channels. Field count is not a quality claim. Each consumer states
 which channels were actually checked and how. Camera ownership and the reason

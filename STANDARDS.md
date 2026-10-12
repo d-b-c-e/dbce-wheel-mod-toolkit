@@ -132,6 +132,13 @@ units. Preserve saved display and owner settings. Keep complete sealed reference
 outside disposable worktrees and verify them before cleanup. Automated diagnostic
 controls must be labelled separately from owner driving; both record real physics.
 
+October 11 recording-visibility clarification: a player-operated capture must
+show its state with the settings panel closed: persistent REC and elapsed time,
+Saving while pending, then a truthful saved, limit or failed result. Keep the
+indicator on the centre display for triples. An F6-only status is insufficient.
+This does not make an ordinary signal capture a replayable stage session; label
+the modes distinctly. See UX-07 in `docs/CONSUMER-UX.md`.
+
 References: accepted Art 0.4.0 session 5, iRacing's two accepted cold launches and
 Woden's accepted Kenya reference; DRIVE session-8 adds a separately labelled
 diagnostic capture/cold playback/Stop, including sealed presentation values.
