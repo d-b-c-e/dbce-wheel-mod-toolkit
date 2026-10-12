@@ -7,6 +7,11 @@ Arcade Wheel and Woden Rally Edge Wheel were becoming harder to use consistently
 It specifies the intended experience; it does **not** certify existing releases.
 The toolkit does not yet provide a shared UI or calibration library.
 
+The [October 11 Wheelkit/DRIVE review](ux-audits/2026-10-11-wheelkit-drive-review.md) records owner screenshot
+feedback and a proposed common settings/binding UX pilot. It identifies semantic widget, status and button-number
+drift, and distinguishes existing host seams from the shared contract still to implement. It is a reviewed plan,
+not a new installed UI or a replacement of the Simple/Advanced behavior below.
+
 The subsequent [RC14 owner-test findings](ux-audits/2026-09-22-art-rc14-commands-handoff.md)
 extend compact command sizing across the panel and define **UX-03-H**, a scoped
 release barrier for programmatic transitions from the overlay to native menus.
