@@ -14,6 +14,22 @@ $hash = (Get-FileHash -LiteralPath $path).Hash
 $modified = [IO.File]::GetLastWriteTimeUtc($path)
 Assert-StageRigLease -Path $path -Token $first.token
 if ((Get-FileHash $path).Hash -ne $hash -or [IO.File]::GetLastWriteTimeUtc($path) -ne $modified) { throw 'Borrowing changed or renewed owner lease' }
+# Reproduce a concurrent supervisor/child assertion with a real held read handle.
+# The old FileShare.None assertion throws sharing violation here on Windows.
+$observer = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+try {
+    Assert-StageRigLease -Path $path -Token $first.token
+    $refused=$false
+    try { Assert-StageRigLease -Path $path -Token 'wrong concurrent token' } catch { $refused=$true }
+    if (!$refused) { throw 'Concurrent assertion ignored token mismatch' }
+    $refused=$false
+    try { Enter-StageRigLease -Path $path -Owner 'fixture second' -Purpose 'read held' | Out-Null } catch [IO.IOException] { $refused=$true }
+    if (!$refused) { throw 'Acquisition ignored an active reader' }
+    $refused=$false
+    try { Exit-StageRigLease $first | Out-Null } catch [IO.IOException] { $refused=$true }
+    if (!$refused) { throw 'Cleanup ignored an active reader' }
+} finally { $observer.Dispose() }
+if ((Get-FileHash $path).Hash -ne $hash -or [IO.File]::GetLastWriteTimeUtc($path) -ne $modified) { throw 'Concurrent checks changed or renewed owner lease' }
 $refused=$false
 try { Assert-StageRigLease -Path $path -Token 'wrong token' } catch { $refused=$true }
 if (!$refused -or (Get-FileHash $path).Hash -ne $hash) { throw 'Wrong borrowed token accepted or changed owner' }
@@ -50,3 +66,4 @@ $last = Enter-StageRigLease -Path $path -Owner 'fixture final' -Purpose 'cleanup
 if (!(Exit-StageRigLease $last) -or (Exit-StageRigLease $last)) { throw 'Final release was not idempotent' }
 Write-Host "PASS acquisition, fresh refusal, exact release, replacement preservation, expiry evidence, fresh-empty refusal, file lock and repeated release. Evidence: $Results"
 Write-Host 'PASS borrowed ownership: missing/wrong/replaced/expired refusal and exact token/timestamp preservation.'
+Write-Host 'PASS concurrent read-only assertions; token mismatch and exclusive acquisition/cleanup remain refused.'

@@ -13,7 +13,9 @@ function Assert-StageRigLease {
     # A coordinated child operation borrows the exact caller-owned token. It
     # must not rewrite, renew or release the parent's lease. Missing/stale/
     # replaced ownership is a refusal, never an instruction to acquire another.
-    $stream = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)
+    # Several coordinated observers may assert the same token concurrently.
+    # Share only reads; acquisition/replacement/cleanup still require exclusivity.
+    $stream = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
         if ($stream.Length -gt 8192) { throw 'Oversized rig lease; inspect it before continuing' }
         $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true, 1024, $true)
