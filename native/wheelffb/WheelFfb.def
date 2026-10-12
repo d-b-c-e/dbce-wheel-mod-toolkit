@@ -65,3 +65,4 @@ EXPORTS
     SubmitTestInjection
     GetTestInjectionStatus
     LastReadInjected
+    GetReadSlotCaps

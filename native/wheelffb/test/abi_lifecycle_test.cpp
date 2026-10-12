@@ -15,7 +15,7 @@ int wmain(int argc, wchar_t** argv) {
 #define RESOLVE(ret,name,args) api.name=(WheelFfb_##name##_t)GetProcAddress(api.module,#name); if(!api.name) {std::fprintf(stderr,"missing %s\n",#name); return 4;} ++exports;
         WHEELFFB_API_LIST(RESOLVE)
 #undef RESOLVE
-        if (exports!=59 || api.GetWheelFfbVersion()!=1000) return 5;   // 55 + the four test-injection exports (optional; found by name)
+        if (exports!=60 || api.GetWheelFfbVersion()!=1100) return 5;   // 55 + the four test-injection exports + GetReadSlotCaps (optional; found by name)
         (void)api.GetLastHResult();
         api.FreeDirectInput(); // Empty cleanup remains idempotent.
         api.SetHoldTimeoutMs(1); // Starts the production worker, with no device.
@@ -28,6 +28,6 @@ int wmain(int argc, wchar_t** argv) {
         api.FreeDirectInput();
         if(!FreeLibrary(api.module)) return 6;
     }
-    std::puts("PASS: actual DLL 59-export cdecl resolution/version, empty cleanup, worker stop/restart and 32 unload cycles; no enumeration, InitDirectInput or force calls");
+    std::puts("PASS: actual DLL 60-export cdecl resolution/version, empty cleanup, worker stop/restart and 32 unload cycles; no enumeration, InitDirectInput or force calls");
     return 0;
 }

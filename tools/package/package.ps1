@@ -74,6 +74,12 @@ foreach ($arch in @('x64','x86')) {
  if ($LASTEXITCODE -ne 0) { throw "POV snapshot checks failed: $arch" }
 }
 
+Write-Host "== read slot caps fake devices (no hardware) ==" -ForegroundColor Cyan
+foreach ($arch in @('x64','x86')) {
+ & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_read_slot_caps_test.bat') $arch | Out-Host
+ if ($LASTEXITCODE -ne 0) { throw "read slot caps checks failed: $arch" }
+}
+
 Write-Host "== external sessions, fake platform and COM driver only ==" -ForegroundColor Cyan
 foreach ($arch in @('x64','x86')) {
  & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_external_session_test.bat') $arch | Out-Host

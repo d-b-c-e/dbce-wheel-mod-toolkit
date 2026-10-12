@@ -182,7 +182,8 @@ Source version 0.12.0 adds transactional sync, exact-module binding, strict GUID
 selection, input-slot identity preservation, panic recovery, AxleForceCurve
 compatibility v1, finite force-state recovery and structured consumer diagnostics.
 Read docs/STATE.md and docs/CONSUMER-EXPERIENCE.md before making adoption claims.
-The native component is now **0.10.0 with 55 exports** on master (merged
+The native component is now **0.11.0 with 60 exports** on master (2026-10-12: GetReadSlotCaps for
+the OutRun input shim's WheelFfb bridge; before it 0.10.0 plus the test-injection exports, merged
 2026-10-04: opt-in force tracing, shaped sine bursts, finite constant impacts,
 POV snapshots, actuator rearm on every open, persistent-effect invalidation on
 reacquire, opt-in external sessions, attended comparison tool). Package and
@@ -203,6 +204,7 @@ dotnet test Dbce.Wheel.sln                     # managed regression suite
 .\native\wheelffb\build.ps1                   # x64 + export/header check
 .\native\wheelffb\build.bat x86               # 32-bit games
 .\native\wheelffb\test\build_pov_read_test.bat # fake COM devices, no hardware acquisition
+.\native\wheelffb\test\build_read_slot_caps_test.bat # GetReadSlotCaps on fake COM devices (x64|x86)
 .\native\wheelffb\test\build_burst_test.bat     # then burst_test.exe --pre-init-worker; watchdog/lock regressions
 .\native\wheelffb\test\build_constant_burst_test.bat; build_logging_test.bat; build_external_session_test.bat
 .\native\wheelffb\test\build_constant_recovery_test.bat # then constant_recovery_test.exe loss|recreate|recreate-reject|boundaries|cancel

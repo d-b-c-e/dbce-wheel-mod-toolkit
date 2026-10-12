@@ -1,3 +1,14 @@
+## Unreleased master - 2026-10-12 (native 0.11.0, read slot caps)
+
+- Native 0.11.0: one additive export, GetReadSlotCaps(slot, ReadSlotCapsV1*), for the
+  input shim's WheelFfb bridge (OutRun decomp, INPUT-SHIM.md section 6: WheelFfb stays the
+  one owner of the wheel and the shim reads through its slot). It reads back from the
+  slot's own handle (for the wheel, the shared FFB handle) what the shim's DirectInput
+  provider reads from a handle of its own: instance and product GUIDs, the interface path
+  as UTF-8, axes by DIJOYSTATE2 offset with DIPROP_RANGE readback, buttons and POVs by
+  offset. Same slot rules as the reads; no acquire, no property set. Fake COM test
+  (build_read_slot_caps_test.bat, x64 and x86); no hardware.
+
 ## Unreleased master - 2026-10-04 (native 0.10.0, 55 exports)
 
 - Merged the actuator-rearm, external-session and attended-comparison branches

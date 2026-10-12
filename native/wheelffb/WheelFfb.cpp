@@ -49,6 +49,7 @@
 #include "burst_effect.h"
 #include "constant_burst.h"
 #include "../controls/dbce_inject_table.hpp"   // test injection (STD-033 section 6): C++17
+#include "include/read_slot_caps.h"   // GetReadSlotCaps (native 0.11.0)
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -61,7 +62,7 @@
 static const int  kForceMax = DI_FFNOMINALMAX;   // 10000
 static const char kLogEnv[]     = "DBCE_FFB_LOG";
 static const char kLogPathEnv[] = "DBCE_FFB_LOG_PATH";
-static const int  kVersion      = 1000;           // 0.10.0 experimental external sessions
+static const int  kVersion      = 1100;           // 0.11.0 read slot caps (0.10.0 experimental external sessions)
 static const ULONGLONG kRampMs  = 250;            // ramp-in after an effect is recreated
 
 static std::atomic<HRESULT> g_lastHr{S_OK};
@@ -1088,6 +1089,60 @@ __declspec(dllexport) int ReadDeviceStateWithPov(int slot, int* axes, int axisCo
         pov[i] = LOWORD(angle) == 0xFFFF || angle > 35999 ? -1 : (int)angle;
     }
     externalResult.valid=true; return 1;
+}
+
+// Native 0.11.0: what a read slot's handle has, read back from that handle (wheelffb.h, ReadSlotCapsV1). Same slot
+// rule as the reads; no acquire, no property set.
+__declspec(dllexport) int GetReadSlotCaps(int slot, ReadSlotCapsV1* caps)
+{
+    std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
+    ExternalDeviceGuard externalDevice;
+    if (!caps || caps->cbSize != sizeof(ReadSlotCapsV1)) return 0;
+    memset(caps, 0, sizeof(*caps));
+    caps->cbSize = sizeof(*caps);
+    if (!externalDevice.allowed || slot < 0 || slot >= g_readCount) return 0;
+    ReadSlot& s = g_read[slot];
+    if (s.isWheel && (!g_device || !IsEqualGUID(s.guid, g_activeGuid))) return 0;
+    LPDIRECTINPUTDEVICE8 dev = s.isWheel ? g_device : s.dev;
+    if (!dev) return 0;
+    DIDEVICEINSTANCE di = {};
+    di.dwSize = sizeof(di);
+    if (FAILED(dev->GetDeviceInfo(&di))) return 0;
+    memcpy(caps->instanceGuid, &di.guidInstance, 16);
+    memcpy(caps->productGuid, &di.guidProduct, 16);
+    auto has = [dev](DWORD offset) {
+        DIDEVICEOBJECTINSTANCE oi = {};
+        oi.dwSize = sizeof(oi);
+        return SUCCEEDED(dev->GetObjectInfo(&oi, offset, DIPH_BYOFFSET));
+    };
+    static const DWORD axes[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
+    for (int a = 0; a < 8; ++a) {
+        if (!has(axes[a])) continue;
+        caps->axisPresent[a] = 1;
+        DIPROPRANGE r = {};
+        r.diph.dwSize = sizeof(r); r.diph.dwHeaderSize = sizeof(r.diph); r.diph.dwObj = axes[a]; r.diph.dwHow = DIPH_BYOFFSET;
+        if (SUCCEEDED(dev->GetProperty(DIPROP_RANGE, &r.diph)) && r.lMax > r.lMin) {
+            caps->rangeOk[a] = 1; caps->rangeMin[a] = r.lMin; caps->rangeMax[a] = r.lMax;
+        }
+    }
+    for (int b = 0; b < 128; ++b) caps->buttonPresent[b] = has(DIJOFS_BUTTON(b)) ? 1 : 0;
+    for (int p = 0; p < 4; ++p) caps->povPresent[p] = has(DIJOFS_POV(p)) ? 1 : 0;
+    DIPROPGUIDANDPATH path = {};
+    path.diph.dwSize = sizeof(path); path.diph.dwHeaderSize = sizeof(path.diph); path.diph.dwHow = DIPH_DEVICE;
+    if (SUCCEEDED(dev->GetProperty(DIPROP_GUIDANDPATH, &path.diph))) {
+        int length = 0;
+        while (length < MAX_PATH && path.wszPath[length]) ++length;
+        if (length > 0 && length < MAX_PATH) {
+            const int bytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.wszPath, length, nullptr, 0, nullptr, nullptr);
+            if (bytes > 0 && bytes < (int)sizeof(caps->interfacePath) &&
+                WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.wszPath, length, caps->interfacePath, bytes, nullptr, nullptr) == bytes)
+                caps->interfacePath[bytes] = 0;
+            else
+                memset(caps->interfacePath, 0, sizeof(caps->interfacePath));
+        }
+    }
+    caps->version = 1;
+    return 1;
 }
 
 __declspec(dllexport) void CloseReadDevices(void)
