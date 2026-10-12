@@ -6,5 +6,6 @@
   <ItemGroup>
     <Compile Include="../window-capture/CaptureOptions.cs" Link="CaptureOptions.cs" />
     <Compile Include="../window-capture/FrameInbox.cs" Link="FrameInbox.cs" />
+    <Compile Include="../window-capture/PixelMetrics.cs" Link="PixelMetrics.cs" />
   </ItemGroup>
 </Project>

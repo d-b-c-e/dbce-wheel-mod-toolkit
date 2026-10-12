@@ -28,6 +28,7 @@ internal static class CaptureRun
         string output = Path.GetFullPath(options.Output);
         if (options.Burst) Windows32.FreshFolder(output);
         var frames = new List<SavedFrame>();
+        using var metrics = options.Metrics ? new CaptureMetrics(options) : null;
         var clock = Stopwatch.StartNew(); var startedUtc = DateTime.UtcNow;
         string endReason = "failed", error = "";
         using var inbox = new FrameInbox<CapturedFrame>(options.Burst ? 2 : 1);
@@ -80,7 +81,7 @@ internal static class CaptureRun
             {
                 session.StartCapture();
                 double lastFrameAt = 0;
-                while (frames.Count < options.MaxFrames && clock.Elapsed.TotalSeconds < options.Duration)
+                while ((metrics == null ? frames.Count < options.MaxFrames : metrics.Count < CaptureMetrics.MaxRows) && clock.Elapsed.TotalSeconds < options.Duration)
                 {
                     VerifyTarget();
                     if (inbox.Failure is { } failed) throw new IOException(failed);
@@ -94,8 +95,14 @@ internal static class CaptureRun
                     if (captured.Frame.ContentSize.Width != captureSize.Width || captured.Frame.ContentSize.Height != captureSize.Height)
                         throw new IOException("Capture size changed; start a new burst for the new window size.");
                     long timestamp = captured.Frame.SystemRelativeTime.Ticks;
-                    using var bitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(captured.Frame.Surface, BitmapAlphaMode.Ignore);
+                    var copied = await SoftwareBitmap.CreateCopyFromSurfaceAsync(captured.Frame.Surface, BitmapAlphaMode.Ignore);
                     captured.Dispose(); // Release the WGC surface before slower PNG encoding.
+                    if (metrics != null)
+                    {
+                        metrics.Observe(copied, timestamp, captured.ArrivedUtc, captured.ArrivalElapsedSeconds);
+                        continue;
+                    }
+                    using var bitmap = copied;
                     using var stream = new InMemoryRandomAccessStream();
                     var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
                     encoder.SetSoftwareBitmap(bitmap);
@@ -119,8 +126,9 @@ internal static class CaptureRun
                 }
                 VerifyTarget();
                 if (inbox.Failure is { } finalFailure) throw new IOException(finalFailure);
-                if (frames.Count == 0) throw new IOException("No frame saved within the capture duration.");
-                endReason = frames.Count == options.MaxFrames ? "frame-limit" : "duration";
+                if ((metrics?.Count ?? frames.Count) == 0) throw new IOException("No frame processed within the capture duration.");
+                endReason = metrics != null ? metrics.Count == CaptureMetrics.MaxRows ? "metric-row-limit" : "duration"
+                    : frames.Count == options.MaxFrames ? "frame-limit" : "duration";
             }
             finally
             {
@@ -133,11 +141,30 @@ internal static class CaptureRun
             if (inbox.Failure is { } shutdownFailure) throw new IOException(shutdownFailure);
             }
             finally { StopCapture(); }
+            // Metrics never wait for PNG encoding while the WGC session is live.
+            if (metrics != null) await metrics.SaveImages(output, frames, VerifyTarget);
         }
         catch (Exception e) { endReason = "failed"; error = e.Message; Console.Error.WriteLine(error); }
         finally { inbox.Stop(); }
         var counts = inbox.Counts;
-        if (options.Burst)
+        if (metrics != null)
+        {
+            metrics.WriteRows(output);
+            var manifest = new { schema = "dbce.window-metrics@1", process = pid, processStartedUtc = processStart, window = chosen,
+                startedUtc, endedUtc = DateTime.UtcNow, requestedDurationSeconds = options.Duration, maxMetricRows = CaptureMetrics.MaxRows,
+                status = error.Length == 0 ? "complete" : "failed", endReason, error, processed = metrics.Count, counts,
+                skippedObservedFrames = counts.Received - metrics.Count, captureServiceDroppedFrames = (long?)null,
+                timestampGapThresholdMs = CaptureMetrics.GapMilliseconds, timestampGaps = metrics.TimestampGaps,
+                nonIncreasingTimestamps = metrics.NonIncreasingTimestamps, maximumTimestampGapMs = metrics.MaximumGapMilliseconds,
+                sampleColumnsPerThird = PixelMetrics.Columns, sampleRows = PixelMetrics.Rows, whiteChannelCode = PixelMetrics.WhiteCode,
+                sideWhiteFractionThreshold = options.WhiteFraction, sideThresholdCrossings = metrics.SideThresholdCrossings,
+                representativeRetention = metrics.Retention,
+                pngDisabled = options.NoPng, maxPngFrames = options.MaxFrames, saved = frames.Count, metricsFile = "metrics.jsonl", frames,
+                coverage = "Processed delivered frames only; queue losses are counted, Windows pre-delivery losses are unknown. Timestamp gaps are observations, not inferred dropped-frame counts. Spatial samples can miss small bright regions. No claim of flash-free intervals." };
+            using var file = new FileStream(Path.Combine(output, "capture.json"), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            JsonSerializer.Serialize(file, manifest, new JsonSerializerOptions { WriteIndented = true });
+        }
+        else if (options.Burst)
         {
             var manifest = new { schema = "dbce.window-burst@1", process = pid, processStartedUtc = processStart, window = chosen,
                 startedUtc, endedUtc = DateTime.UtcNow, requestedDurationSeconds = options.Duration, maxFrames = options.MaxFrames,
@@ -149,7 +176,7 @@ internal static class CaptureRun
         }
         if (!options.Burst && frames.Count == 1)
             Console.WriteLine($"{options.Output} ({frames[0].SourceWidth}x{frames[0].SourceHeight} window 0x{chosen.Handle:X} at {chosen.Left},{chosen.Top} of {process.ProcessName} {pid})");
-        else Console.WriteLine($"{output}: {frames.Count} saved; {counts.Received - frames.Count} observed frames skipped; {endReason}");
+        else Console.WriteLine($"{output}: {frames.Count} saved; {(metrics == null ? "" : metrics.Count + " measured; ")}{counts.Received - (metrics?.Count ?? frames.Count)} observed frames skipped; {endReason}");
         return error.Length == 0 ? 0 : 4;
     }
     private static Process? FindProcess(string name)
