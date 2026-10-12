@@ -47,8 +47,11 @@ if (target == "ds4")
     ds4.Connect();
     try
     {
-        ds4.ResetReport(); ds4.SubmitReport();
-        Log($"connected virtual DualShock 4 controller (command slot {slot}, neutral report submitted; no XInput readback for a DualShock 4); watching {cmdPath}; idle exit after {idleMinutes} min");
+        // As for the Xbox 360 target (NeutralStartup): the driver keeps its initial report while a submit equals its cached
+        // one, so the sticks start off centre (C1c run1: 33029 / 32512 / 32256 of 0..65535) until a report changes. One
+        // unit on LX, then the full neutral report. No button or trigger is touched.
+        ds4.SetAxisValue(DualShock4Axis.LeftThumbX, 129); Thread.Sleep(10); ds4.ResetReport(); ds4.SubmitReport();
+        Log($"connected virtual DualShock 4 controller (command slot {slot}, neutral report submitted after a one-unit change; no XInput readback for a DualShock 4); watching {cmdPath}; idle exit after {idleMinutes} min");
     }
     catch
     {
