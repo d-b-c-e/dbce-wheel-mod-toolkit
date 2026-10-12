@@ -19,16 +19,34 @@ namespace Dbce.Wheel.Playback
         private readonly TrajectoryTape tape;
         private readonly ITrajectoryTarget target;
         private bool acquired, closed;
+        private int requestedEnd;
         public int Applied { get; private set; }
+        /// <summary>Number of applied poses subsequently verified by Read, not merely written.</summary>
+        public int Verified { get; private set; }
         public double MaximumPositionError { get; private set; }
         public double MaximumRotationErrorDegrees { get; private set; }
         public bool Passed { get; private set; }
         public TrajectoryPlayer(TrajectoryTape tape, ITrajectoryTarget target) { this.tape = tape; this.target = target; }
-        public bool Step()
+        public bool Step() => StepUntil(tape.Frames.Length);
+
+        /// <summary>
+        /// Applies at most one frame before exclusiveEnd, verifying the previous command first.
+        /// False at an interior boundary means its last pose has been verified; ownership remains held.
+        /// Resume with a larger end. Calls at the same boundary recheck the held pose without advancing.
+        /// Only the complete tape's verified final pose sets Passed and releases ownership.
+        /// Ends must be positive, within the tape and nondecreasing. Failure closes the player.
+        /// The host calls this on subsequent physics callbacks, never immediately after Apply to declare success.
+        /// </summary>
+        public bool StepUntil(int exclusiveEnd)
         {
             if (closed) throw new InvalidOperationException("Playback is closed");
             try
             {
+                if (exclusiveEnd < 1 || exclusiveEnd > tape.Frames.Length)
+                    throw new ArgumentOutOfRangeException(nameof(exclusiveEnd));
+                if (exclusiveEnd < requestedEnd)
+                    throw new ArgumentException("Trajectory interval ends cannot move backwards", nameof(exclusiveEnd));
+                requestedEnd = exclusiveEnd;
                 if (!acquired) { acquired = true; target.Acquire(); }
                 if (Applied > 0)
                 {
@@ -40,9 +58,11 @@ namespace Dbce.Wheel.Playback
                     MaximumPositionError = Math.Max(MaximumPositionError, error);
                     MaximumRotationErrorDegrees = Math.Max(MaximumRotationErrorDegrees, angle);
                     if (error > .02 || angle > .2) throw new InvalidDataException("Trajectory ownership lost: " + error + " m / " + angle + " deg");
+                    Verified = Applied;
                 }
                 // Verify the final pose on its next tick too; writing it alone is not success.
                 if (Applied == tape.Frames.Length) { Passed = true; Dispose(); return false; }
+                if (Applied == exclusiveEnd) return false;
                 target.Apply(tape.Frames[Applied++]); return true;
             }
             catch { Dispose(); throw; }

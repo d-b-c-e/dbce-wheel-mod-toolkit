@@ -1,4 +1,4 @@
-# Playback core 0.2.1
+# Playback core 0.3.0
 
 `Dbce.Wheel.Playback` is a separate development component targeting netstandard2.0.
 It does not change or republish the native FFB/telemetry release. No Unity, loader,
@@ -20,6 +20,17 @@ device, process launch, input injection or network dependency is present.
 - `TrajectoryPlayer` owns the adapter through acquire/apply/release and checks
   position and rotation on the following tick, including the final pose. Any
   competing transform writer fails playback and restores the original flags.
+  Additive `StepUntil(exclusiveEnd)` stops before the next interval without releasing
+  ownership. Its `false` return at an interior boundary requires the last applied
+  pose to have passed the subsequent callback's position/rotation check. `Verified`
+  counts those checked poses separately from `Applied`. Repeated calls at the same
+  boundary recheck the held pose; resuming with a larger end also checks it before
+  applying another pose, so drift during a native pause cannot be concealed.
+  Ends must be positive, within the tape and nondecreasing; invalid calls close the
+  player, releasing any held target. Only the full tape end sets `Passed` and releases
+  normally. Existing `Step()` still runs to the tape end with its final next-tick check.
+  Native pause/menu timing, eligibility, output suppression and timeout policy remain
+  in each game adapter. An interval return is not proof of a native pause or finish.
 - `StageSession` shares arming, capture, playback, completion and timeout behavior.
   It keeps original signals alongside poses through game-specific callbacks.
   `FileSessionControl` provides expiring, identified local commands and status.
@@ -48,6 +59,12 @@ recording retained the requested force, effect arguments and telemetry before
 muting. Native acceptance is not measured torque.
 
 Run `dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release`.
+The same device-free interval/drift fixtures can read an existing sealed original:
+`dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release -- --trajectory <directory> --pause-at <exclusive-index>`.
+They use a fake target; passing them does not qualify runtime native pause behavior.
+October 11 candidate: the original DRIVE native-01 tape (3,064 poses, boundary 2,446)
+passes 2,555 assertions including injected position and rotation drift after pause.
+No consumer pin or installation changes follow automatically from this source check.
 Consumers vendor the DLL with source commit, version and SHA-256; this component
 is not part of the existing whole-toolkit package pin.
 

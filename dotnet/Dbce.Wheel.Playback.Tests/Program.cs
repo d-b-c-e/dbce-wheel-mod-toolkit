@@ -3,6 +3,60 @@ using Dbce.Wheel.Playback;
 int assertions = 0;
 void Check(bool ok, string message) { assertions++; if (!ok) throw new Exception(message); }
 void Reject(Action action, string message) { try { action(); } catch (Exception ex) when (ex is IOException || ex is InvalidDataException) { assertions++; return; } throw new Exception(message); }
+void RejectCall<T>(Action action, string message) where T : Exception { try { action(); } catch (T) { assertions++; return; } throw new Exception(message); }
+void CheckIntervals(TrajectoryTape tape, int boundary)
+{
+    Check(boundary > 0 && boundary < tape.Frames.Length, "Fixture has an interior interval boundary");
+    var target = new FixtureTarget();
+    using (var player = new TrajectoryPlayer(tape, target))
+    {
+        for (int i = 0; i < boundary; i++) Check(player.StepUntil(boundary), "Exactly one pose applied per callback before boundary");
+        Check(player.Applied == boundary && player.Verified == boundary - 1 && !player.Passed, "Writing interval endpoint alone cannot finish it");
+        Check(!player.StepUntil(boundary) && player.Verified == boundary, "Endpoint verified on next callback");
+        Check(target.Applies == boundary && target.Acquires == 1 && target.Releases == 0 && !player.Passed, "Boundary neither applies next pose nor releases ownership");
+        int reads = target.Reads;
+        Check(!player.StepUntil(boundary) && target.Reads == reads + 1 && target.Applies == boundary, "Paused boundary may be reverified without advancing");
+        Check(player.Step() && player.Applied == boundary + 1 && target.Acquires == 1, "Legacy Step resumes held interval without reacquiring");
+        while (player.Step()) { }
+        Check(player.Passed && player.Verified == tape.Frames.Length && target.Applies == tape.Frames.Length && target.Releases == 1,
+            "Mixed interval and legacy stepping verifies entire tape and releases once");
+        RejectCall<InvalidOperationException>(() => player.StepUntil(tape.Frames.Length), "Completed player cannot step again");
+        RejectCall<InvalidOperationException>(() => player.Step(), "Completed legacy Step remains closed");
+    }
+    foreach (bool rotation in new[] { false, true })
+    {
+        target = new FixtureTarget();
+        using var player = new TrajectoryPlayer(tape, target);
+        while (player.StepUntil(boundary)) { }
+        if (rotation)
+        {
+            // Orthogonal unit quaternion relative to the actual held pose, including an original recording.
+            var q = (float[])target.Current.Values.Clone();
+            target.Current.Values[3] = -q[4]; target.Current.Values[4] = q[3];
+            target.Current.Values[5] = -q[6]; target.Current.Values[6] = q[5];
+        }
+        else target.Current.Values[0] += 1;
+        Reject(() => player.StepUntil(tape.Frames.Length), "Pause drift is refused on resume before another pose overwrites it");
+        Check(!player.Passed && player.Applied == boundary && target.Applies == boundary && target.Releases == 1,
+            "Pause mismatch releases once without consuming next interval");
+    }
+    target = new FixtureTarget();
+    using (var player = new TrajectoryPlayer(tape, target))
+    {
+        for (int i = 0; i < boundary; i++) player.StepUntil(boundary);
+        target.Current.Values[0] += 1;
+        Reject(() => player.StepUntil(boundary), "Wrong last-applied pose cannot acknowledge the boundary");
+        Check(player.Verified == boundary - 1 && target.Releases == 1, "Failed boundary never increments verification");
+    }
+    target = new FixtureTarget();
+    using (var player = new TrajectoryPlayer(tape, target))
+    {
+        while (player.StepUntil(boundary)) { }
+        player.Dispose();
+        Check(!player.Passed && target.Releases == 1, "Intentional stop while paused releases without claiming full playback");
+        RejectCall<InvalidOperationException>(() => player.StepUntil(tape.Frames.Length), "Disposed interval cannot resume");
+    }
+}
 int restored = 0;
 try
 {
@@ -68,6 +122,22 @@ try
         writer.Complete();
     }
     var tape = TrajectoryTape.Read(trajectoryRoot);
+    CheckIntervals(tape, 2);
+    foreach (int end in new[] { -1, 0, tape.Frames.Length + 1 })
+    {
+        var invalidTarget = new FixtureTarget();
+        using var invalidPlayer = new TrajectoryPlayer(tape, invalidTarget);
+        RejectCall<ArgumentOutOfRangeException>(() => invalidPlayer.StepUntil(end), "Invalid bounds refused");
+        Check(invalidTarget.Acquires == 0 && invalidTarget.Applies == 0, "Invalid initial bounds cannot acquire target");
+        RejectCall<InvalidOperationException>(() => invalidPlayer.Step(), "Invalid call is terminal");
+    }
+    var backwardsTarget = new FixtureTarget();
+    using (var backwards = new TrajectoryPlayer(tape, backwardsTarget))
+    {
+        backwards.StepUntil(2);
+        RejectCall<ArgumentException>(() => backwards.StepUntil(1), "Declared end cannot move backwards even before it is reached");
+        Check(backwardsTarget.Applies == 1 && backwardsTarget.Releases == 1 && !backwards.Passed, "Out-of-order interval aborts ownership");
+    }
     tape.ValidateTarget("fixture", new string('a', 64), "track|car", .02); assertions++;
     Reject(() => tape.ValidateTarget("fixture", new string('a', 64), "wrong-car", .02), "Scenario mismatch refused before ownership");
     Reject(() => tape.ValidateTarget("fixture", new string('a', 64), "track|car", .01), "Different physics timestep refused");
@@ -77,7 +147,7 @@ try
     using (var player = new TrajectoryPlayer(tape, target))
     {
         Check(player.Step() && player.Step() && player.Step() && !player.Passed, "Last pose must actually be observed on next tick");
-        Check(!player.Step() && player.Passed && target.Releases == 1 && player.Applied == 3, "Complete trajectory releases ownership once");
+        Check(!player.Step() && player.Passed && target.Releases == 1 && player.Applied == 3 && player.Verified == 3, "Complete trajectory releases ownership once");
     }
     Check(target.Releases == 1, "Release is idempotent");
     target = new FixtureTarget();
@@ -201,15 +271,23 @@ try
     }
 }
 finally { Directory.Delete(stageRoot, true); }
+if (args.Length > 0)
+{
+    if (args.Length != 4 || args[0] != "--trajectory" || args[2] != "--pause-at" || !int.TryParse(args[3], out int boundary))
+        throw new ArgumentException("Expected --trajectory <sealed-directory> --pause-at <exclusive-index>");
+    var original = TrajectoryTape.Read(args[1]);
+    CheckIntervals(original, boundary);
+    Console.WriteLine($"Original sealed trajectory: {original.Frames.Length} poses, interval boundary {boundary}; fake-target checks only");
+}
 Console.WriteLine($"Playback core passed {assertions} assertions");
 
 class FixtureTarget : ITrajectoryTarget
 {
     public TrajectoryFrame Current = new();
-    public int Releases;
-    public void Acquire() { }
-    public void Apply(TrajectoryFrame frame) => Current = new TrajectoryFrame { Time = frame.Time, Values = (float[])frame.Values.Clone() };
-    public TrajectoryFrame Read() => Current;
+    public int Releases, Acquires, Applies, Reads;
+    public void Acquire() => Acquires++;
+    public void Apply(TrajectoryFrame frame) { Applies++; Current = new TrajectoryFrame { Time = frame.Time, Values = (float[])frame.Values.Clone() }; }
+    public TrajectoryFrame Read() { Reads++; return Current; }
     public void Release() => Releases++;
 }
 sealed class FixtureStage : FixtureTarget, IStageAdapter
