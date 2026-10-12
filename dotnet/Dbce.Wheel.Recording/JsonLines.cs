@@ -30,15 +30,24 @@ namespace Dbce.Wheel.Recording
             }
         }
 
-        internal static SessionRecord Decode(byte[] bytes)
+        internal static SessionRecord Decode(byte[] bytes) => new Decoder().Decode(bytes);
+
+        // One reader owns its serializer. Reusing its contract state avoids repeating
+        // setup for every sample without sharing mutable serializer state across files.
+        internal sealed class Decoder
         {
-            // Reject ill-formed UTF-8 instead of silently replacing bytes in channel names.
-            JsonSyntax.Validate(StrictUtf8.GetString(bytes));
-            using (var reader = JsonReaderWriterFactory.CreateJsonReader(bytes, XmlDictionaryReaderQuotas.Max))
+            private readonly DataContractJsonSerializer serializer = Serializer();
+
+            internal SessionRecord Decode(byte[] bytes)
             {
-                var record = (SessionRecord)Serializer().ReadObject(reader);
-                if (reader.MoveToContent() != XmlNodeType.None) throw new SerializationException("Trailing JSON content.");
-                return record;
+                // Reject ill-formed UTF-8 instead of silently replacing bytes in channel names.
+                JsonSyntax.Validate(StrictUtf8.GetString(bytes));
+                using (var reader = JsonReaderWriterFactory.CreateJsonReader(bytes, XmlDictionaryReaderQuotas.Max))
+                {
+                    var record = (SessionRecord)serializer.ReadObject(reader);
+                    if (reader.MoveToContent() != XmlNodeType.None) throw new SerializationException("Trailing JSON content.");
+                    return record;
+                }
             }
         }
     }

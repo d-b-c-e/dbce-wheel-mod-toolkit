@@ -85,6 +85,116 @@ namespace Dbce.Wheel.Recording.Tests
             Assert.Contains("2026-09-12T18:00:00.1234567Z", json);
         }
 
+        private void WriteHeaderFrame(List<SessionRecord> rows, byte[] header, bool crlf)
+        {
+            using var stream = File.Create(PathFor());
+            byte[] ending = Encoding.UTF8.GetBytes(crlf ? "\r\n" : "\n");
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Footer != null) rows[i].Footer.Counts.DataBytesWritten = stream.Position;
+                byte[] bytes = i == 0 ? header : JsonLines.Encode(rows[i]);
+                stream.Write(bytes); stream.Write(ending);
+            }
+        }
+
+        [Theory]
+        [InlineData(16382, false)]
+        [InlineData(16383, false)]
+        [InlineData(16384, false)]
+        [InlineData(16385, false)]
+        [InlineData(16382, true)]
+        [InlineData(16383, true)] // CR and LF fall in different blocks.
+        [InlineData(16384, true)]
+        [InlineData(49155, true)]
+        [InlineData(1048576, false)]
+        [InlineData(1048575, true)] // The size bound includes CR, but excludes LF.
+        public void BlockBoundariesPreserveRecordsAndExactFooterBytes(int contentLength, bool crlf)
+        {
+            var rows = Fixture();
+            byte[] json = JsonLines.Encode(rows[0]);
+            byte[] padded = Enumerable.Repeat((byte)' ', contentLength).ToArray();
+            Array.Copy(json, padded, json.Length);
+            WriteHeaderFrame(rows, padded, crlf);
+            var decoded = SessionReader.Read(PathFor()).ToList();
+            Assert.Equal(rows.Count, decoded.Count);
+            Assert.Equal(rows[0].Metadata.Properties, decoded[0].Metadata.Properties);
+            Assert.Equal(rows[3].Sample.Channels, decoded[3].Sample.Channels);
+            Assert.Equal(rows.Last().Footer.Counts.DataBytesWritten, decoded.Last().Footer.Counts.DataBytesWritten);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Utf8SpanningBlocksIsDecodedStrictly(bool corrupt)
+        {
+            var rows = Fixture();
+            byte[] json = JsonLines.Encode(rows[0]);
+            int accented = Array.IndexOf(json, (byte)0xc3); // ó in Aragón.
+            Assert.True(accented >= 0);
+            int padding = 16383 - accented;
+            var header = Enumerable.Repeat((byte)' ', padding).Concat(json).ToArray();
+            if (corrupt) header[16384] = 0xff;
+            WriteHeaderFrame(rows, header, true);
+            if (corrupt)
+            {
+                var error = Assert.Throws<SessionReadException>(() => SessionReader.Read(PathFor()).ToList());
+                Assert.Equal(SessionReadError.InvalidJson, error.Error);
+                Assert.Equal(1, error.LineNumber);
+            }
+            else Assert.Equal(rows[0].Metadata.Properties, SessionReader.Read(PathFor()).First().Metadata.Properties);
+        }
+
+        [Theory]
+        [InlineData(1048576, false, SessionReadError.TruncatedLine)]
+        [InlineData(1048577, false, SessionReadError.RecordTooLarge)]
+        [InlineData(1048577, true, SessionReadError.RecordTooLarge)]
+        public void PartialAndOversizedBlockLinesKeepTheirDistinctErrors(int length, bool terminated, SessionReadError expected)
+        {
+            File.WriteAllText(PathFor(), new string(' ', length) + (terminated ? "\n" : ""), new UTF8Encoding(false));
+            var error = Assert.Throws<SessionReadException>(() => SessionReader.Read(PathFor()).ToList());
+            Assert.Equal(expected, error.Error);
+            Assert.Equal(1, error.LineNumber);
+        }
+
+        [Fact]
+        public void TrailingBlankLineAfterFooterIsStillRefusedAcrossBlockBoundary()
+        {
+            var rows = Fixture();
+            byte[] header = JsonLines.Encode(rows[0]);
+            WriteHeaderFrame(rows, header.Concat(Enumerable.Repeat((byte)' ', 32768)).ToArray(), true);
+            File.AppendAllText(PathFor(), "\n");
+            var yielded = new List<SessionRecord>();
+            var error = Assert.Throws<SessionReadException>(() =>
+            {
+                foreach (var row in SessionReader.Read(PathFor())) yielded.Add(row);
+            });
+            Assert.Equal(SessionReadError.InvalidFooter, error.Error);
+            Assert.Equal(6, error.LineNumber);
+            Assert.DoesNotContain(yielded, row => row.Footer != null);
+        }
+
+        [Fact]
+        public void InterleavedEnumerationsAndReturnedDictionariesStayIndependent()
+        {
+            Fixture();
+            var recording = SessionReader.Read(PathFor());
+            using var first = recording.GetEnumerator();
+            using var second = recording.GetEnumerator();
+            Assert.True(first.MoveNext()); Assert.True(second.MoveNext());
+            first.Current.Metadata.Properties["scenario"] = "changed by caller";
+            Assert.Equal("Aragón\nFree Play", second.Current.Metadata.Properties["scenario"]);
+            Assert.True(first.MoveNext()); Assert.True(second.MoveNext());
+            var retained = first.Current.Sample;
+            retained.Channels["steer"] = 0.9;
+            Assert.Equal(0.25, second.Current.Sample.Channels["steer"]);
+            Assert.True(first.MoveNext()); Assert.True(first.MoveNext());
+            Assert.Equal(-0.5, first.Current.Sample.Channels["steer"]);
+            Assert.Equal(0.9, retained.Channels["steer"]);
+            while (second.MoveNext()) { }
+            while (first.MoveNext()) { }
+            Assert.True(SessionReader.Read(PathFor()).Last().Footer.Completed);
+        }
+
         [Theory]
         [InlineData("fr-FR")]
         [InlineData("tr-TR")]

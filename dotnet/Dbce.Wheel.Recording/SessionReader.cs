@@ -21,20 +21,22 @@ namespace Dbce.Wheel.Recording
         /// A footer is only yielded after checking that it is the final line.</summary>
         public static IEnumerable<SessionRecord> Read(string path)
         {
-            using (var stream = new BufferedStream(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), 16384))
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
+                var input = new LineReader(stream);
+                var decoder = new JsonLines.Decoder();
                 long line = 0, bytesBeforeFooter = 0, sampleCount = 0, markerCount = 0;
                 double lastTime = 0, lastSampleTime = -1;
                 bool headerSeen = false;
                 SessionRecord footer = null;
                 while (true)
                 {
-                    byte[] bytes = ReadLine(stream, line + 1, out int byteCount);
+                    byte[] bytes = input.Read(line + 1, out int byteCount);
                     if (bytes == null) break;
                     line++;
                     if (footer != null) throw Error(SessionReadError.InvalidFooter, line, "Data follows the footer.");
                     SessionRecord record;
-                    try { record = JsonLines.Decode(bytes); }
+                    try { record = decoder.Decode(bytes); }
                     catch (Exception error) when (error is System.Runtime.Serialization.SerializationException || error is System.Xml.XmlException ||
                         error is ArgumentException || error is FormatException || error is OverflowException)
                     { throw new SessionReadException(SessionReadError.InvalidJson, line, "Malformed JSON record.", error); }
@@ -102,29 +104,69 @@ namespace Dbce.Wheel.Recording
                 throw Error(SessionReadError.InvalidFooter, line, "Drop counters disagree with rejection reasons.");
         }
 
-        private static byte[] ReadLine(Stream stream, long line, out int byteCount)
+        // Read in blocks rather than making two virtual calls per byte (ReadByte and
+        // WriteByte). A long signal recording can contain hundreds of millions of
+        // bytes. All framing, byte accounting and JSON validation stay unchanged.
+        private sealed class LineReader
         {
-            byteCount = 0;
-            using (var buffer = new MemoryStream())
+            private readonly Stream stream;
+            private readonly byte[] block = new byte[16384];
+            private int position, available;
+
+            internal LineReader(Stream stream) { this.stream = stream; }
+
+            internal byte[] Read(long line, out int byteCount)
             {
-                while (true)
+                byteCount = 0;
+                MemoryStream partial = null;
+                try
                 {
-                    int value = stream.ReadByte();
-                    if (value == -1)
+                    while (true)
                     {
-                        if (byteCount == 0) return null;
-                        throw Error(SessionReadError.TruncatedLine, line, "Unterminated JSONL line; recording may have been interrupted.");
+                        if (position == available)
+                        {
+                            available = stream.Read(block, 0, block.Length);
+                            position = 0;
+                            if (available == 0)
+                            {
+                                if (byteCount == 0) return null;
+                                throw Error(SessionReadError.TruncatedLine, line, "Unterminated JSONL line; recording may have been interrupted.");
+                            }
+                        }
+
+                        int newline = Array.IndexOf(block, (byte)'\n', position, available - position);
+                        int length = (newline < 0 ? available : newline) - position;
+                        if (byteCount + length > JsonLines.MaxLineBytes)
+                            throw Error(SessionReadError.RecordTooLarge, line, "JSONL record exceeds the 1 MiB schema limit.");
+
+                        if (newline >= 0 && partial == null)
+                        {
+                            // Most records fit in the current block: one exact-sized
+                            // allocation, without a MemoryStream or a second copy.
+                            int contentLength = length;
+                            if (contentLength > 0 && block[position + contentLength - 1] == '\r') contentLength--;
+                            var bytes = new byte[contentLength];
+                            Buffer.BlockCopy(block, position, bytes, 0, contentLength);
+                            byteCount = length + 1;
+                            position = newline + 1;
+                            return bytes;
+                        }
+
+                        if (partial == null) partial = new MemoryStream();
+                        partial.Write(block, position, length);
+                        byteCount += length;
+                        position += length;
+                        if (newline >= 0)
+                        {
+                            byteCount++; position++;
+                            // A CR may be the last byte of the previous block.
+                            if (partial.Length > 0 && partial.GetBuffer()[partial.Length - 1] == '\r')
+                                partial.SetLength(partial.Length - 1);
+                            return partial.ToArray();
+                        }
                     }
-                    byteCount++;
-                    if (value == '\n')
-                    {
-                        byte[] bytes = buffer.ToArray();
-                        if (bytes.Length > 0 && bytes[bytes.Length - 1] == '\r') Array.Resize(ref bytes, bytes.Length - 1);
-                        return bytes;
-                    }
-                    if (buffer.Length >= JsonLines.MaxLineBytes) throw Error(SessionReadError.RecordTooLarge, line, "JSONL record exceeds the 1 MiB schema limit.");
-                    buffer.WriteByte((byte)value);
                 }
+                finally { partial?.Dispose(); }
             }
         }
 
