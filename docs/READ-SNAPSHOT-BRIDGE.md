@@ -22,6 +22,49 @@ would have to repin onto the diverged native line (`DD301314`).
 - **Version and exports:** `GetWheelFfbVersion` stays 901. The export count goes from
   48 to 51 (`abi_lifecycle_test`).
 
+### Review evidence (romi 32682)
+
+**Function audit.** `native/wheelffb/test/audit_against_baseline.py` compares every
+top-level function in `WheelFfb.cpp` with `c8ec2ee`.
+- 86 of 91 functions are byte-identical.
+- The other five each gain one line:
+  - `OpenCandidate`: `++g_ffbReadGeneration`
+  - `OpenReadDevice`: invalidates the slot
+  - `ReadDeviceState`: invalidates the slot on a failed read
+  - `ReadDeviceStateWithPov`: invalidates the slot on a failed read
+  - `CloseReadDevices`: invalidates every slot
+- All 32 force, init, send, hold and effect entry points are identical. That covers
+  `InitDirectInput`, `Aquire`, `SetDeviceForcesXY`, `Start/StopEffect`, `SetAutoCenter`,
+  `FreeDirectInput`, `PanicStop`, `ZeroForces`, `InstallExitGuards`, `SetHoldTimeoutMs`, the
+  periodic, constant-burst and condition families, device selection, `GetWheelFfbVersion`,
+  `AcquireFfbDevice` and `CloseCandidate`.
+
+**Struct sizes.** `WheelReadDeviceInfoV1` is 144 bytes and `WheelReadSnapshotV1` is 232
+(`static_assert`). The test pins the generation, range, axes and POV offsets. Art's managed
+`ShimBridge` uses the same 144/232.
+
+**Mixed-reader fixtures** in `read_snapshot_test`. Slot 0 borrows the FFB handle and slot 1
+is a separate nonexclusive reader.
+- Generations are per slot.
+- A recreated FFB handle ends only the borrowed slot.
+- A failed snapshot, `ReadDeviceStateWithPov` or `ReadDeviceState` read ends only its own slot.
+- Close and reopen at the same addresses, with no read in between, yields new generations.
+- A real `OpenCandidate` reopen at the same address and GUID refuses the old qualification.
+
+**Mutants.** These are killed:
+- the generation bump removed;
+- the `WithPov` failure invalidation removed;
+- the `ReadDeviceState` failure invalidation removed;
+- the open and close invalidations removed together.
+
+The open and close invalidations are each sufficient for the close-and-reopen case, so
+removing only one of them is an equivalent mutant.
+
+**Tests and binary.** The x64 suite matches `c8ec2ee` test for test, apart from the ABI
+line (51 exports) and this test. The vendored build of `bbbf6e3`'s native source is
+`44E46799945438BC07DF738472602DB1E3ECC04C3F77CAD5B12FCACF49C69272`, version 901, 51 exports.
+Later commits change only tests and docs.
+
 The original candidate notes follow.
 
 Based on toolkit `25195af1d839aec5bfadb29a819de49ad76be6b1`, isolated branch

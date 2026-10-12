@@ -118,6 +118,64 @@ int main() {
     invalid=info();invalid.abi=2;assert(GetReadDeviceInfoV1(0,&invalid)==WHEEL_READ_BAD_ARGUMENT);
     assert(GetReadDeviceInfoV1(0,nullptr)==WHEEL_READ_BAD_ARGUMENT && ReadDeviceSnapshotV1(0,nullptr)==WHEEL_READ_BAD_ARGUMENT);
     data=sample();assert(ReadDeviceSnapshotV1(-1,&data)==WHEEL_READ_UNQUALIFIED && !data.valid);
+    // Mixed readers (romi 32682). Slot 0 borrows the FFB handle; slot 1 is a separate nonexclusive reader.
+    // Generations are per slot. A recreated FFB handle ends only the borrowed slot. A failed snapshot or
+    // legacy read ends only its own slot. Closing ends every slot, and a reopen never reuses a generation.
+    CloseReadDevices();
+    SnapshotDevice pedals;pedals.instance.Data1=7;pedals.product.Data1=8;
+    g_auxCount=2;g_aux[0].guid=wheel.instance;g_aux[1].guid=pedals.instance;input.candidate=&pedals;
+    const int creates=input.creates;
+    assert(OpenReadDevice(0)==0 && OpenReadDevice(1)==1 && input.creates==creates+1);
+    auto wheelInfo=info(),pedalInfo=info();
+    assert(GetReadDeviceInfoV1(0,&wheelInfo)==WHEEL_READ_OK && wheelInfo.flags==1);
+    assert(GetReadDeviceInfoV1(1,&pedalInfo)==WHEEL_READ_OK && pedalInfo.flags==0 && pedalInfo.generation!=wheelInfo.generation);
+    assert(!memcmp(pedalInfo.instance,&pedals.instance,16) && !memcmp(pedalInfo.product,&pedals.product,16));
+    pedals.state.lY=12345;data=sample();
+    assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_OK && data.valid && data.generation==pedalInfo.generation && data.axes[1]==12345);
+    ++g_ffbReadGeneration; // the FFB handle was recreated
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_UNQUALIFIED);
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_OK && data.valid && data.generation==pedalInfo.generation);
+    pedals.readResult=E_FAIL;data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_OK && !data.valid);pedals.readResult=S_OK;
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_UNQUALIFIED);
+    wheelInfo=info();assert(GetReadDeviceInfoV1(0,&wheelInfo)==WHEEL_READ_OK);
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_OK && data.valid);
+    pedalInfo=info();assert(GetReadDeviceInfoV1(1,&pedalInfo)==WHEEL_READ_OK);
+    int axes[8];unsigned char buttons[16];int pov[4];
+    pedals.readResult=E_FAIL;assert(ReadDeviceStateWithPov(1,axes,8,buttons,16,pov,4)==0);pedals.readResult=S_OK;
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_UNQUALIFIED);
+    pedalInfo=info();assert(GetReadDeviceInfoV1(1,&pedalInfo)==WHEEL_READ_OK);
+    pedals.readResult=E_FAIL;assert(ReadDeviceState(1,axes,buttons,16)==0);pedals.readResult=S_OK;
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_UNQUALIFIED);
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_OK && data.valid);
+    pedalInfo=info();assert(GetReadDeviceInfoV1(1,&pedalInfo)==WHEEL_READ_OK);
+    const auto oldWheel=wheelInfo.generation,oldPedal=pedalInfo.generation;
+    // Reopen the same devices at the same addresses with no read in between: only the close/open
+    // invalidation can refuse the old qualification (a refused read would also invalidate it).
+    CloseReadDevices();
+    assert(OpenReadDevice(0)==0 && OpenReadDevice(1)==1);
+    wheelInfo=info();pedalInfo=info();
+    assert(GetReadDeviceInfoV1(0,&wheelInfo)==WHEEL_READ_OK && GetReadDeviceInfoV1(1,&pedalInfo)==WHEEL_READ_OK);
+    assert(wheelInfo.generation>oldWheel && pedalInfo.generation>oldPedal && wheelInfo.generation!=pedalInfo.generation);
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_OK && data.valid && data.generation==pedalInfo.generation);
+    CloseReadDevices();
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_UNQUALIFIED);
+    data=sample();assert(ReadDeviceSnapshotV1(1,&data)==WHEEL_READ_UNQUALIFIED);
+    assert(wheel.acquires==0 && wheel.forceCreates==0 && pedals.forceCreates==0);
+    // The production FFB reopen (OpenCandidate) starts a new handle generation. A borrowed slot qualified on
+    // the previous handle is refused even at the same address and GUID, with no read in between.
+    g_device=nullptr;g_hwnd=(HWND)1;input.candidate=&wheel;
+    g_candidates[0].guid=wheel.instance;g_candidates[0].axes=1;strcpy_s(g_candidates[0].name,"Fake wheel");
+    assert(OpenCandidate(0) && g_device==&wheel && IsEqualGUID(g_activeGuid,wheel.instance));
+    g_auxCount=1;g_aux[0].guid=wheel.instance;assert(OpenReadDevice(0)==0);
+    wheelInfo=info();assert(GetReadDeviceInfoV1(0,&wheelInfo)==WHEEL_READ_OK);
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_OK && data.valid);
+    const auto handleGeneration=g_ffbReadGeneration.load();
+    CloseCandidate();assert(!g_device);
+    assert(OpenCandidate(0) && g_device==&wheel && g_ffbReadGeneration.load()==handleGeneration+1);
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_UNQUALIFIED);
+    wheelInfo=info();assert(GetReadDeviceInfoV1(0,&wheelInfo)==WHEEL_READ_OK);
+    data=sample();assert(ReadDeviceSnapshotV1(0,&data)==WHEEL_READ_OK && data.valid && data.generation==wheelInfo.generation);
+    CloseReadDevices();CloseCandidate();
     g_di=nullptr;g_device=nullptr;g_auxCount=0;
-    std::puts("PASS: snapshot ABI, sparse objects/ranges, actual identity, one read, generations, failures, reentry and zero device/force acquisition");
+    std::puts("PASS: snapshot ABI, sparse objects/ranges, actual identity, one read, generations, failures, reentry, mixed borrowed/separate readers and zero device/force acquisition");
 }
