@@ -18,6 +18,16 @@ foreach (var bad in new[] { double.NaN })
     try { Ds4Mapping.Trigger(bad); } catch (FormatException) { t = true; }
     Check(s && t, "NaN refused");
 }
+// The stick pair: both bytes before any set; an invalid Y (or X) sets nothing at all (a fake setter records calls).
+var sets = new List<(byte, byte)>();
+Ds4Mapping.Stick(1, 0, (x, y) => sets.Add((x, y)));
+Check(sets.Count == 1 && sets[0] == (255, 128), "valid pair set once, X right and Y at rest");
+foreach (var (x, y) in new[] { (1.0, double.NaN), (double.NaN, 0.0), (double.NaN, double.NaN) })
+{
+    sets.Clear(); bool refused = false;
+    try { Ds4Mapping.Stick(x, y, (a, b) => sets.Add((a, b))); } catch (FormatException) { refused = true; }
+    Check(refused && sets.Count == 0, $"invalid pair ({x}, {y}) refused with no set");
+}
 // Buttons: the Xbox words by position, case-insensitive; the d-pad words are the hat; nothing else.
 var want = new Dictionary<string, string> { ["A"] = "Cross", ["B"] = "Circle", ["X"] = "Square", ["Y"] = "Triangle", ["Start"] = "Options",
     ["Back"] = "Share", ["LB"] = "ShoulderLeft", ["RB"] = "ShoulderRight", ["LS"] = "ThumbLeft", ["RS"] = "ThumbRight" };

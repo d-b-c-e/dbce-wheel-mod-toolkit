@@ -84,11 +84,11 @@ if (target == "ds4")
         else if (name.Equals("Guide", StringComparison.OrdinalIgnoreCase)) ds4.SetButtonState(DualShock4SpecialButton.Ps, down);
         else ds4.SetButtonState(Ds4Button(Ds4Mapping.Buttons[name]), down);
     };
-    setStick = (left, x, y) =>
+    setStick = (left, x, y) => Ds4Mapping.Stick(x, y, (bx, by) =>
     {
-        ds4.SetAxisValue(left ? DualShock4Axis.LeftThumbX : DualShock4Axis.RightThumbX, Ds4Mapping.Stick(x, false));
-        ds4.SetAxisValue(left ? DualShock4Axis.LeftThumbY : DualShock4Axis.RightThumbY, Ds4Mapping.Stick(y, true));
-    };
+        ds4.SetAxisValue(left ? DualShock4Axis.LeftThumbX : DualShock4Axis.RightThumbX, bx);
+        ds4.SetAxisValue(left ? DualShock4Axis.LeftThumbY : DualShock4Axis.RightThumbY, by);
+    });
     setTrigger = (left, v) =>
     {
         byte b = Ds4Mapping.Trigger(v);

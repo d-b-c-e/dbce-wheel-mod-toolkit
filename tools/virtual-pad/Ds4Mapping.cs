@@ -11,6 +11,12 @@ internal static class Ds4Mapping
         double v = Math.Clamp(value, -1, 1);
         return (byte)Math.Clamp(Math.Round(128 + (vertical ? -v : v) * 127), 1, 255);
     }
+    // Both axes computed and validated before either is set (sana 41924): an invalid Y never leaves X moved.
+    internal static void Stick(double x, double y, Action<byte, byte> set)
+    {
+        byte bx = Stick(x, false), by = Stick(y, true);
+        set(bx, by);
+    }
     internal static byte Trigger(double value)
     {
         if (double.IsNaN(value)) throw new FormatException("trigger value is not a number");
