@@ -4,6 +4,10 @@ verification limits; not a cross-device tune recommendation.
 
 # Knowledge base — index and migration tracker
 
+[Shim device identity and complete native actions](SHIM-IDENTITY-AND-NATIVE-ACTIONS-2026-10-11.md)
+[DRIVE Rally and Art of Rally, 2026-10-11]: DirectInput versus RawInput identity,
+owned-handle joins, latched-test limits, and replaying the full Resume callback.
+
 [Original native producer capture](ORIGINAL-PRODUCER-CAPTURE-2026-10-08.md)
 [OutRun 2006 and CannonBall, 2026-10-08]: source-matched stateful replay,
 observed mute results, strict completion, speed units and normalization limits.
