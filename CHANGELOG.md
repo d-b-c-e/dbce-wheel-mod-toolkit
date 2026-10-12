@@ -1,5 +1,11 @@
 ## Unreleased master - 2026-10-12 (native 0.11.0, read slot caps)
 
+- Panel: Config::displayText, the mod's own words for the display in the STD-023 frame-rate
+  readout and log line (for example a planar span: "Surround span, one wide view"). When set it
+  replaces the triples on/off suffix, so a single wide view is never called triples; triplesOn and
+  every other consumer are unchanged. The line is FormatFrameLine in dbce_frame_stats.hpp
+  (snprintf, never overrun), tested by test_frame_stats.cpp (19 checks).
+
 - Native 0.11.0: one additive export, GetReadSlotCaps(slot, ReadSlotCapsV1*), for the
   input shim's WheelFfb bridge (OutRun decomp, INPUT-SHIM.md section 6: WheelFfb stays the
   one owner of the wheel and the shim reads through its slot). It reads back from the
