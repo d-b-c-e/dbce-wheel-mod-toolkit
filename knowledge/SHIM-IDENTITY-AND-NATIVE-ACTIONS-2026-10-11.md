@@ -39,6 +39,30 @@ reading the existing handle. Publish all metadata and paths atomically before
 publishing samples. Optional-export absence refuses the experiment; fixed ABI
 layouts and the accepted force producer remain unchanged.
 
+### Disabled controllers can hide their public identity
+
+The first DRIVE live identity run (`identity.1`, `live-01`) joined both physical
+devices, then lost the join immediately after disabling their Rewired controllers.
+The shipped RawInput extension deliberately returns empty path/product/handle
+properties when its controller is disabled. The original fake extension kept
+returning them; its passing test therefore missed the real backend contract.
+
+Capture the exact live path/product join **before** disabling. While disabled,
+retain that identity only as an explicit owned witness: same controller object,
+extension object, persistent GUID, connected state and connection-event epoch,
+plus the same owned native handle's metadata/generation/path. A disconnect and
+reconnect within one render frame must invalidate it too. An unrelated or
+externally disabled controller cannot borrow this witness. Exposed partial or
+contradictory identity still fails; do not hide it behind the cache. Invalidate
+native-clean status before restoring and making a fresh enabled join.
+
+Keep raw diagnostic fields empty when that is what the backend returned, and
+label the separately retained identity's provenance. After restoring flags,
+require a fresh live path/product join. Fixtures must model disabled getters,
+object/extension replacement and connection events. Art's source candidate
+`9f90df9` implements this bounded probe contract; DRIVE's matching correction
+is in progress. Neither is live-qualified by this note.
+
 ## Native event acceptance is not complete UI behavior
 
 The first DRIVE full-session cold replay reproduced its menu/car/region choices
@@ -53,9 +77,18 @@ to make the test pass. Do not execute arbitrary method names supplied by tapes.
 Keep correlated click/event rows as one action, and refuse ambiguous targets.
 
 DRIVE's corrected candidate `1135426` requires the observed Resume button and
-invokes that same native callback. Its second cold proof is pending as of this
-note. The original failed recording remains unchanged. Failure journals now
-include actual loop, time scale, input and camera state at semantic boundaries.
+invokes that same native callback. The second cold run confirmed timeScale=1,
+input and camera readiness after the recorded 35.9-second pause. It then exposed
+a separate watchdog bug: the last physics callback timestamp still included
+paused time, so playback failed before the first resumed callback could run.
+
+Scope a physics watchdog to each **requested pose interval**. Arm it when the
+interval is requested, refresh only on an eligible real physics callback, and
+disarm after verification. Menu/pause time does not count; missing first or
+subsequent callbacks still time out. Render polling must not refresh it. DRIVE
+`c05299f` tests this correction; the third cold run is pending. The original
+recording remains unchanged. Failure journals include actual loop, time scale,
+input and camera state at semantic boundaries.
 
 ## Match the claim to the test
 
