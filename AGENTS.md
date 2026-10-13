@@ -87,15 +87,17 @@ The founding survey and rationale: `docs/PROPOSAL.md` (2026-09-03).
 | `profiles/` | `force-profiles.ini` — **the tunes, as data.** Deployed beside the game and read at runtime, so a feel can be swapped without a build. Versions are immutable; add one rather than editing one. |
 | `dotnet/Dbce.Wheel.Telemetry/` | `netstandard2.0`. Forza "Data Out" 232/311/324 encoders, `TelemetryFrame` (the car-state seam), idle keeper, RPM synthesis. Tests alongside. |
 | `dotnet/Dbce.Wheel.Ffb/` | `netstandard2.0`. Cdecl delegates bound to the exact native module (Mono-compatible APIs and CoreCLR), force-shaping chain, `ForceModel`, device selection, diagnostics. |
+| `dotnet/Dbce.Wheel.Shim/` | `net6.0`. Managed ABI 2 loading, action/frame contract and exact Controls section/Core-hash checks for IL2CPP consumers. Consumer receipt, device isolation and game hooks stay in game repos. Fixtures alongside. |
 | `tools/powershell/` | `DbceWheel.psm1` — registry Steam discovery, DirectInput enumeration (with the two COM marshalling workarounds), CRLF-safe INI editing — and its test suite. |
 | `tools/` | `Sync-Toolkit.ps1` (consumers vendor with this), `ffbprobe/` (scripted constant force against a real base), `forza/` (probe and synth), `dev/` (unattended-test helpers), `package/package.ps1`. |
 | `knowledge/` | The knowledge base. Every page names the repo and date each item came from. `knowledge/README.md` is the index; `knowledge/games/` holds the per-consumer case files. |
 | `docs/adr/` | Architecture decisions. Start with ADR-0001 (FFB output backends). |
 
-**No shared input/calibration library yet** — `dotnet/Dbce.Wheel.Input/` is a
-`.gitkeep` directory. `templates/` contains README and working-notes starting
-points, not compilable projects or shared UI. The native input reader and its
-managed binding exist separately; see [POV input](docs/POV-INPUT.md).
+**No general input/calibration assembly yet** — `dotnet/Dbce.Wheel.Input/`
+contains vendorable binding and input source but no project. The managed Shim
+project is an ABI bridge, not a game adapter or calibration UI. `templates/`
+contains README and working-notes starting points, not compilable projects or
+shared UI. See [POV input](docs/POV-INPUT.md).
 
 ## Runtime matrix — the reason the core is native
 

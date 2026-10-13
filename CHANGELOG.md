@@ -1,5 +1,8 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- dotnet/Dbce.Wheel.Shim: engine-neutral .NET 6 ABI-2 export loader, exact Controls-section/Core-hash checks,
+  canonical 31-action/frame decoding and fake/header-linked fixtures. The consumer supplies the DLL hash and owns
+  receipt, game, isolation and thread admission. No game repin or runtime qualification.
 - native/shim: the DBCE-authored shared input shim (Core, DirectInput provider, host, and the dbce_shim C ABI 2)
   moved here from outrun2-decomp 24dc0f80 with its tests and design docs. Blob ids match the source;
   native/controls and native/session are used in place. build_test.ps1 builds dbce_shim.dll (clang-cl, static

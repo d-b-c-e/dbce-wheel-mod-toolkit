@@ -102,8 +102,9 @@ Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
 
 **Here:** device → forces (`native/wheelffb`), frame → telemetry
 (`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
-(`dotnet/Dbce.Wheel.Ffb`), planned shared input kit
-(`dotnet/Dbce.Wheel.Input`, currently empty), the dinput8 proxy scaffold (`native/dinput-proxy`),
+(`dotnet/Dbce.Wheel.Ffb`), vendorable binding source
+(`dotnet/Dbce.Wheel.Input`), managed ABI-2 shim bridge
+(`dotnet/Dbce.Wheel.Shim`), the dinput8 proxy scaffold (`native/dinput-proxy`),
 tooling (`tools/`), knowledge (`knowledge/`), and documentation starting points
 in `templates/` (not compilable scaffolds or a shared UI).
 
