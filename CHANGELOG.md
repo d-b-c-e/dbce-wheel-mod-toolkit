@@ -1,5 +1,11 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- shared/session/FullSessionTimeline.cs: DRIVE's data-only full-session timeline, capture and package naming
+  (dbce-mods-drive-rally 9f1b85e DriveRally.Core/FullSessionTimeline.cs) as vendorable source, with the schema
+  supplied by each game (`Validate(schema)`, `new FullSessionCapture(schema, build, adapter)`). Field names, enum
+  numbers and rules are DRIVE's, so its JSON stays the same; netstandard2.0-safe. No JSON, filesystem or engine
+  calls. Woden's ordinary first-stage package (S1) is the first consumer; DRIVE keeps its own copy until its next
+  release. tests/FullSession checks the rules; tests/FullSession/Compat compiles it for netstandard2.0.
 - native/shim host: `ProviderHost(..., controls_reads = 1)` and `journal_identity(..., controls_reads = 1)` pass the
   consumer's controls schema to Core's read_profile (STD-037 item 4). The default and the DLL ABI stay at 1. The
   OutRun decomp's 9a runtime proof found its Core refusing a Schema 2 profile the host had parsed at 1.

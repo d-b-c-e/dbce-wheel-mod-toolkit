@@ -70,7 +70,9 @@ menuTape.Validate(Schema);
 Refuses(() => menuTape.Validate(Schema, forPlayback: true), "playback without a sealed stage");
 
 // The stage reference must match the poses and stay inside the package.
-Refuses(() => capture.Stop(120, 14, Artifact(120)), "a second Stop");
+checks++;
+try { capture.Stop(120, 14, Artifact(120)); throw new Exception("accepted: a second Stop"); }
+catch (InvalidOperationException) { /* one Stop per capture */ }
 foreach (string bad in new[] { "../source.stage", "/source.stage", "a\\b", "c:stage", "stage/", "stage/./x", "stage." })
 {
     var copy = tape.Copy(); copy.Stage!.Directory = bad;
