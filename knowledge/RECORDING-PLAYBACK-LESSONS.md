@@ -808,3 +808,40 @@ Evidence: portfolio hub `artifacts/art-shim-pad-input-20261012/run-01`,
 `diag-01` and `diag-02`. The last diagnostic initially retained its state because
 the startup close failed; its later recovery receipt separately verifies
 restoration. Do not relabel that as an uninterrupted normal-exit pass.
+
+## Ordinary capture needs a status channel that works while files are open
+
+[iRacing ordinary recorder and Woden port review, 2026-10-13]
+
+The iRacing boot supervisor reported no progress even though normal shutdown
+produced 239 ordered, sealed observations. Two offline reproductions explained
+its unreliable oracle: `File.ReadAllText` could not share the writable BepInEx
+log, and a raw substring search for `ordinary/phase` missed the actual JSON
+encoding `ordinary\/phase`. The recording writer also buffers rows. A final
+valid recording is not proof that a live progress poll worked; retain the failed
+supervisor result alongside the separately verified recording result.
+
+Use an explicit request-correlated machine status for acknowledgment and Stop.
+For a live log or status reader on Windows, open a `FileStream` with
+`FileShare.ReadWrite | FileShare.Delete`. Decode complete JSON records if JSONL
+is inspected; do not search wire encodings as unescaped text or assume file
+length is a recorder heartbeat. Reject an oversized trailing partial record
+rather than silently accumulating unbounded data. In PowerShell, avoid `$pid`
+for a parsed child identity: variable names are case-insensitive and `$PID` is
+read-only. Execute the real status reader in its fixture, not just its parser.
+
+The producer must cooperate too. The new ordinary-control fixture exposed
+Windows refusing `File.Move(temporary, status, overwrite: true)` while a reader
+held the existing status file, even with delete sharing. Follow the existing
+toolkit implementation in `dotnet/Dbce.Wheel.Playback/FileSessionControl.cs`:
+write a sibling temporary file, use `File.Replace(temporary, status, null)` when
+status exists, and `File.Move` for the first publication. Advance the published
+signature only after replacement succeeds. Exercise the production publisher
+while a real shared reader remains open. Woden's newly ported ordinary control
+had also diverged from that existing pattern; the source similarity is a review
+finding, not evidence of a failed Woden game run.
+
+Evidence: portfolio hub `artifacts/iracing-ordinary-20261013/ADJUDICATION.md`,
+`oracle-proof.json`, and the `contract-886ec85` focused-test failure. The earlier
+capture remains analysis-only (`replayReady=false`); none of these checks proves
+ordinary gameplay replay, physical wheel output, or a rendered race.
