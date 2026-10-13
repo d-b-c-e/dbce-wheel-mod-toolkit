@@ -29,4 +29,8 @@ its muted-force and run fences. This library does not arm those developer modes.
 The tests compare the action names and constants with the canonical native
 headers, check the 128-byte argument layout and 296-byte frame offsets, exercise
 profile byte/hash handling and changed-export refusals, and prove a bad DLL pin
-is rejected before loading. They do not open a device or qualify a game adapter.
+is rejected before loading. After a Release build, run
+`dotnet/Dbce.Wheel.Shim.Tests/Smoke-Load.ps1 -DllPath <reviewed x64 DLL> -Sha256 <reviewed pin>`
+to validate the actual exports and static action-name pointers through this
+loader. The smoke calls `Load` only; it does not open a device or qualify a game
+adapter.
