@@ -23,7 +23,7 @@ namespace Dbce.Wheel.Input
         /// refused Schema 2 section. So this helper checks the schema itself, against <paramref name="reads"/>, the highest
         /// schema the caller's readers all apply (1 by default; 2 only when Core and the input reader also opt in).
         /// Returns null with <see cref="UnsupportedSchema"/> when the section has no Schema line, a malformed one, or one
-        /// outside 1..reads (the last Schema line wins, as in Core). Otherwise returns the single steer line's binding,
+        /// outside 1..reads (the last Schema line wins, as parseSection reads it; Core already refuses a repeated key). Otherwise returns the single steer line's binding,
         /// parsed in that schema (Device, Product, Name, and at schema 2 its Cal), or null with <see cref="NoSteering"/>
         /// when the bytes are not UTF-8, there is no steer line or more than one, or the value does not parse, does not fit
         /// steer, or names no device. A missing identity never fails the caller's input. Product policy is the consumer's:
@@ -59,7 +59,7 @@ namespace Dbce.Wheel.Input
                 int eq = line.IndexOf('=');
                 if (eq < 0) continue;
                 string key = line.Substring(0, eq).Trim();
-                if (key == "Schema") { schemaText = line.Substring(eq + 1).Trim(); continue; }   // the last one wins, as in Core
+                if (key == "Schema") { schemaText = line.Substring(eq + 1).Trim(); continue; }   // the last one wins, as parseSection (Core refuses a repeated key)
                 if (key != "steer") continue;
                 count++;
                 value = line.Substring(eq + 1).Trim();

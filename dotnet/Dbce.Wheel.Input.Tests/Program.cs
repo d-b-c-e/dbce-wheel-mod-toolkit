@@ -76,6 +76,15 @@ Check(calSteer.Normalize("steer", 999) == -1 && calSteer.Normalize("steer", 0) =
       calSteer.Normalize("steer", 64001) == 1 && calSteer.Denormalize("steer", 1) == 64000 && calPedal.Normalize("throttle", 65535) == 0,
       "Calibrated saturation beyond the measured endpoints");
 Check(Parse("axis 0" + ids + " range=0..65535 rest=33265 travel=+1 cal=1000..33265..64000").Cal == null, "Schema 1 ignores cal");
+foreach (var (action, text) in new[] { ("steer", "axis 0" + ids + " range=0..65535 rest=33265 travel=+1 cal=1200..60000"),
+                                       ("throttle", "axis 2" + ids + " range=0..65535 rest=0 travel=+1 cal=1000..33265..64000") })
+{
+    var unfitted = Parse(text, 2);
+    bool threw = false, threwBack = false;
+    try { unfitted.Normalize(action, 30000); } catch (ArgumentException) { threw = true; }
+    try { unfitted.Denormalize(action, 0.5); } catch (ArgumentException) { threwBack = true; }
+    Check(unfitted.Fits(action) == "bad-calibration" && threw && threwBack, "Unfitted cal refused explicitly: " + action);
+}
 Check(!ControlBinding.HatPressed(0,-1) && !ControlBinding.HatPressed(0,36000),"Invalid target angle");
 
 // ShimSteering: the force wheel identity only from bytes Core accepted exactly; never a second grammar.
@@ -147,7 +156,7 @@ foreach (var (name, head, reads) in new[] {
     Check(ShimSteering.FromAccepted(bytes, Report(bytes), out var why, reads) == null && why == ShimSteering.UnsupportedSchema, "Unsupported schema: " + name);
 }
 var lastWins = SchemaSection("2", "Schema = 1\r\nsteer=" + steerAxis + "\r\n");
-Check(ShimSteering.FromAccepted(lastWins, Report(lastWins), out _)?.Device == Guid.Parse(wheel), "The last Schema line wins, as in Core");
+Check(ShimSteering.FromAccepted(lastWins, Report(lastWins), out _)?.Device == Guid.Parse(wheel), "The last Schema line wins, as parseSection (Core itself refuses a repeated key)");
 var notUtf8 = new byte[] { 0x5b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x5d, 0x0a, 0xff, 0xfe, 0x0a };
 Check(ShimSteering.FromAccepted(notUtf8, Report(notUtf8), out var utf8Why) == null && utf8Why == ShimSteering.NoSteering,
     "Accepted bytes that are not UTF-8 give no identity, never an exception");

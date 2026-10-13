@@ -622,9 +622,15 @@ to: the controls contract (STD-033), every reader and writer of a `[Controls]` s
 3. **Validity is a fraction of the declared span**, never a device-specific count: a side >= S/128, a sweep >= S/8.
    An invalid calibration is reported and not applied.
 4. **Opt in end to end.** The parsers read `cal=` only when the caller asks for schema 2. A consumer advertises
-   `ini-controls-2` only when every reader of its section opts in: the input reader, Core's profile reader and the
-   force-target helper (`ShimSteering.FromAccepted(..., reads: 2)`). Otherwise input could work while a stale reader
-   loses the force target or the calibration. Core's `ok=1` means the bytes parsed, not that the section applied, so
+   `ini-controls-2` only when every reader of its section opts in:
+   - the input reader;
+   - Core's profile reader;
+   - the force-target helper (`ShimSteering.FromAccepted(..., reads: 2)`);
+   - proxy pedal shaping (`dbce_shape.hpp`, now `cal`-aware);
+   - every adapter that writes the game's native configuration from the binding (V-Rally's filter choice, art of rally's
+     Settings.xml).
+   Otherwise input could work while a stale reader loses the force target or the calibration, or writes the
+   uncalibrated span. Core's `ok=1` means the bytes parsed, not that the section applied, so
    the helper checks the Schema against its own `reads` and gives no target for one it does not read.
 5. **Writers follow the consumer's capability.** Schema 2 goes only to an `ini-controls-2` consumer. A schema-1 consumer
    gets its schema-1 text, and the receipt states that the calibration was not transferred.

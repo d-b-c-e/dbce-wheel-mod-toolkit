@@ -98,6 +98,10 @@ Without `cal=`, a schema-2 binding normalizes exactly as section 3.
   (two points on steer, three on a pedal) is the same.
 - In the text, `cal=` is two or three `int`s joined by `..`; anything else is `bad-cal`. On a button or hat it is
   `axis-only`.
+- A caller that normalizes without checking `fits()` first still gets an explicit refusal for a `cal` that does not
+  fit, never a read through the schema-1 fields:
+  - C++ `normalize` returns neutral (0: steer centered, pedal released), and `denormalize` returns the binding's `rest`;
+  - C# `Normalize` and `Denormalize` throw, as for any binding that does not fit.
 
 **Normalization with `cal`:**
 - steer: `n = (v - centre) / (hi - centre)` for `v >= centre`, else `(v - centre) / (centre - lo)`, then
@@ -132,7 +136,12 @@ Without `cal=`, a schema-2 binding normalizes exactly as section 3.
 - **A consumer advertises `ini-controls-2` only when every reader of its section opts in:**
   - the input reader;
   - Core's profile reader (`native/shim/shim/parse.cpp`), which stays at `reads` 1 until a consumer needs 2;
-  - the force-target helper.
+  - the force-target helper;
+  - a proxy's pedal shaping. `dbce_shape.hpp` is `cal`-aware: `needsShape` and `releasedAtMin` take the measured released
+    and full when `cal` is present, and the shape is needed unless they are exactly the device's ends;
+  - any adapter that writes the game's native configuration from the binding (V-Rally 4's `vr_controls.hpp` filter
+    choice, art of rally's `Settings.xml`). Each must take its direction and ends from `cal` with the same rule, or it
+    writes the uncalibrated span while the input path calibrates.
 - **Writers** (Wheelkit) emit schema 2 only to a consumer that advertises `ini-controls-2`. A schema-1 consumer gets its
   schema-1 text, with `cal` dropped, and the receipt says "calibration: not transferred (the consumer reads schema
   1)". Existing profiles, receipts and `calibrated` flags are never rewritten in place.

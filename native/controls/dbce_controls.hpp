@@ -258,7 +258,10 @@ inline double clampd(double v, double lo, double hi) { return v < lo ? lo : v > 
 inline bool diButtonDown(long byte) { return (byte & 0x80) != 0; }
 
 // Raw sample (axes: in the binding's range; buttons: the shared boolean, 1 down; hats: the POV value) -> normalized:
-// steer -1..1 (right positive), pedal 0..1, digital 0 or 1. Assumes fits(action, b) == "".
+// steer -1..1 (right positive), pedal 0..1, digital 0 or 1. Assumes fits(action, b) == "". A schema-2 `cal` that does not
+// fit the action (calibrationFits) is refused explicitly: the value is neutral (0: steer centred, pedal released), never
+// read through out-of-range points nor through the schema-1 fields (mufa 62480 F2, sana 62527). The managed twin throws
+// unless Fits is "".
 inline double normalize(const std::string &action, const Binding &b, long raw)
 {
     if (b.kind == Kind::Button) return raw != 0 ? 1.0 : 0.0;
@@ -271,9 +274,11 @@ inline double normalize(const std::string &action, const Binding &b, long raw)
     // Every operand widened to double before adding or subtracting: legal ranges reach -2147483648..2147483647, whose
     // sum, span and rest-to-end distance overflow a 32-bit long.
     const double lo = double(b.min), hi = double(b.max);
+    const bool cal = !b.cal.empty();
+    if (cal && !calibrationFits(shapeOf(action), b)) return 0.0;   // refused: neutral
     if (shapeOf(action) == Shape::Centred) {
         double n;
-        if (!b.cal.empty()) {   // schema 2: two-sided around the measured centre, saturating beyond the measured locks
+        if (cal) {   // schema 2: two-sided around the measured centre, saturating beyond the measured locks
             const double l = double(b.cal[0]), c = double(b.cal[1]), h = double(b.cal[2]), v = double(raw);
             n = clampd(v >= c ? (v - c) / (h - c) : (v - c) / (c - l), -1.0, 1.0);
         } else {
@@ -283,7 +288,7 @@ inline double normalize(const std::string &action, const Binding &b, long raw)
         return b.inverted ? -n : n;
     }
     // Schema 2 `cal`: released and full are measured (their order gives the direction); otherwise rest and the travel end.
-    const double full = !b.cal.empty() ? double(b.cal[1]) : b.travel > 0 ? hi : lo, rest = !b.cal.empty() ? double(b.cal[0]) : double(b.rest);
+    const double full = cal ? double(b.cal[1]) : b.travel > 0 ? hi : lo, rest = cal ? double(b.cal[0]) : double(b.rest);
     const double n = clampd((double(raw) - rest) / (full - rest), 0.0, 1.0);
     return b.inverted ? 1.0 - n : n;   // the player's explicit inversion, once, after the captured travel or calibration
 }
@@ -296,14 +301,16 @@ inline long denormalize(const std::string &action, const Binding &b, double n)
     if (b.kind == Kind::Hat) return n >= 0.5 ? b.angle : -1;
     double v;
     const double lo = double(b.min), hi = double(b.max);   // widened first, as in normalize()
+    const bool cal = !b.cal.empty();
+    if (cal && !calibrationFits(shapeOf(action), b)) return b.rest;   // refused, as in normalize(): the binding at rest
     if (shapeOf(action) == Shape::Centred) {
         n = clampd(b.inverted ? -n : n, -1.0, 1.0);
-        if (!b.cal.empty()) {   // inverse within the measured locks (a raw beyond them normalized to +-1 maps to the lock)
+        if (cal) {   // inverse within the measured locks (a raw beyond them normalized to +-1 maps to the lock)
             const double l = double(b.cal[0]), c = double(b.cal[1]), h = double(b.cal[2]);
             v = n >= 0 ? c + n * (h - c) : c + n * (c - l);
         } else v = (lo + hi) / 2.0 + n * ((hi - lo) / 2.0);
     } else {
-        const double full = !b.cal.empty() ? double(b.cal[1]) : b.travel > 0 ? hi : lo, rest = !b.cal.empty() ? double(b.cal[0]) : double(b.rest);
+        const double full = cal ? double(b.cal[1]) : b.travel > 0 ? hi : lo, rest = cal ? double(b.cal[0]) : double(b.rest);
         n = clampd(n, 0.0, 1.0);
         v = rest + (b.inverted ? 1.0 - n : n) * (full - rest);
     }

@@ -15,15 +15,26 @@
 
 namespace dbce { namespace controls {
 
-// The end the game's pedal filter reads as released: the minimum when the captured travel rises from it and the player
-// did not invert the pedal, else the maximum. V-Rally's adapter picks its filter by the same rule (vr_controls.hpp).
-inline bool releasedAtMin(const Binding &b) { return (b.travel > 0) != b.inverted; }
+// Does the pedal rise from its minimum? Schema 2 `cal=released..full` gives the direction (full above released); without
+// it, the captured travel does. A native-config writer that picks the game's filter from this (V-Rally's vr_controls.hpp
+// uses the travel rule today) must use the same cal-aware rule before its consumer advertises ini-controls-2 (STD-037).
+inline bool risesFromMin(const Binding &b) { return b.cal.size() == 2 ? b.cal[1] > b.cal[0] : b.travel > 0; }
 
-// A pedal needs a shape when its rest is not the end its travel starts from: only then does the game's end-anchored
-// filter differ from the contract (with the rest at that end, shapePedal() is the identity).
+// The end the game's pedal filter reads as released: the minimum when the pedal rises from it and the player did not
+// invert the pedal, else the maximum. V-Rally's adapter picks its filter by the same rule (vr_controls.hpp).
+inline bool releasedAtMin(const Binding &b) { return risesFromMin(b) != b.inverted; }
+
+// A pedal needs a shape when the game's end-anchored filter differs from the contract (otherwise shapePedal() is the
+// identity). Schema 1: when its rest is not the end its travel starts from. Schema 2 `cal`: unless the measured released
+// and full are exactly the device's two ends (a calibration that stops short of an end needs the shape).
 inline bool needsShape(const std::string &action, const Binding &b)
 {
-    return b.kind == Kind::Axis && shapeOf(action) == Shape::Pedal && b.rest != (b.travel > 0 ? b.min : b.max);
+    if (b.kind != Kind::Axis || shapeOf(action) != Shape::Pedal) return false;
+    if (b.cal.size() == 2) {
+        const bool rises = risesFromMin(b);
+        return b.cal[0] != (rises ? b.min : b.max) || b.cal[1] != (rises ? b.max : b.min);
+    }
+    return b.rest != (b.travel > 0 ? b.min : b.max);
 }
 
 // A sample in the range the game set on the axis (gmin..gmax) -> the sample the game's filter reads as the contract's
