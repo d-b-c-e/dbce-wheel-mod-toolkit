@@ -6,6 +6,7 @@ void Check(bool good, string reason) { checks++; if (!good) throw new Exception(
 MonitorRect M(int x, int y, int w, int h, bool primary = false) => new(x, y, w, h, primary);
 MonitorRect Left = M(-2560, 0, 2560, 1440), Center = M(0, 0, 2560, 1440, true), Right = M(2560, 0, 2560, 1440);
 MonitorRect Diagnostic = M(314, -1080, 1920, 1080);
+SpanTargetChecks.Run(Check);
 
 void Separate(string label, IEnumerable<MonitorRect> monitors)
 {

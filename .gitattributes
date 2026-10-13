@@ -7,3 +7,4 @@ shared/ui/SessionStatusPresentation.cs text eol=lf
 shared/ui/unity/SessionStatusHud.cs text eol=lf
 shared/display/RacingRow.cs text eol=lf
 shared/display/WindowsMonitors.cs text eol=lf
+shared/display/SpanTarget.cs text eol=lf

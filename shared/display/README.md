@@ -29,3 +29,10 @@ Consumers copy the files byte-identically (`git rev-parse <commit>:shared/displa
 blob), keep the MIT header and record the toolkit commit. Do not copy the geometry into a second implementation.
 `tests/RacingRow` checks the rules, including the rig's actual layout and a read-only print of the live displays;
 `tests/RacingRow/Compat` compiles both files for netstandard2.0.
+
+`SpanTarget.cs` is the optional shared cached decision for consumers that check the span every frame. It preserves
+the saved span opt-out and triple-mode gate, selects only a `Separate` row, and reports a changed reason for logging.
+The injected observation and monotonic clock make it engine independent. Observations, including failures, are
+cached for two seconds; a failed refresh drops the old span. Window creation, size application and placement remain
+in the game adapter. Extracted without behavior changes from Woden `a58f8d9`; the frozen Woden package still contains
+its original equivalent class. DRIVE adopts this toolkit source rather than another private copy.
