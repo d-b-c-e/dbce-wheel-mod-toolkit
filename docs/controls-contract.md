@@ -295,10 +295,13 @@ that game's capability, and the observed state is reported per pedal (corrected,
 button cases. A change to section 3 or 4 changes the vectors in the same commit. Two implementations run every
 vector:
 
-| Implementation | Runner | Result (2026-10-10, 131 vectors) |
-|---|---|---|
-| C++ `native/controls/dbce_controls.hpp` (vendored by the native mods) | `native/controls/build_test.ps1`, MSVC x64 and x86 | 255 checks pass |
-| C# `dotnet/Dbce.Wheel.Input/ControlBinding.cs` (Astra, fae8138; vendored by Wheelkit) | `dotnet run --project dotnet/Dbce.Wheel.Input.Tests` | 139 checks pass |
+| Implementation | Runner | Result (2026-10-10, 131 vectors) | Result (2026-10-13, schema 2: 207 vectors) |
+|---|---|---|---|
+| C++ `native/controls/dbce_controls.hpp` (vendored by the native mods) | `native/controls/build_test.ps1`, MSVC x64 and x86 | 255 checks pass | 415 checks pass on x64 and x86, plus 86 shape checks; native/shim (Core, provider, ABI: 182 / 106 / 131) unchanged and passing |
+| C# `dotnet/Dbce.Wheel.Input/ControlBinding.cs` (Astra, fae8138; vendored by Wheelkit) | `dotnet run --project dotnet/Dbce.Wheel.Input.Tests` | 139 checks pass | 288255 checks pass (the exhaustive in-domain round trips and the hat sweep) |
+
+The schema-2 run (hub `artifacts/toolkit-controls-schema2-20261013/run-104514`) is the isolated branch
+`nene/controls-schema2-cal`. Wheelkit still pins its own copy and vectors (`65c686d`, 131 cases) until it vendors schema 2.
 
 - **6b4e25a** added the 32-bit limits: every integer is a DirectInput LONG, and the old header failed 16 checks on
   x86 (steering reversed at INT32 ranges).
