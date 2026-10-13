@@ -42,6 +42,19 @@ function Get-StageProcessDisposition {
     return 'Owned'
 }
 
+# Pure evidence construction. The caller retains the Process/Handle while alive and
+# supplies its observed ExitCode; a close request or absent process is not exit 0.
+function New-StageGameExitEvidence {
+    [CmdletBinding()]
+    param([bool]$CloseMainWindowRequested, [bool]$Exited,
+        [AllowNull()][object]$ExitCode, [int]$ProcessId)
+    if ($null -ne $ExitCode -and $ExitCode -isnot [int]) { throw 'Game exit code must be a numeric Int32 or null.' }
+    if (!$Exited -and $null -ne $ExitCode) { throw 'A running game cannot have an observed exit code.' }
+    $pass = $Exited -and $null -ne $ExitCode -and $ExitCode -eq 0
+    [pscustomobject]@{ schema=1; closeMainWindowRequested=$CloseMainWindowRequested;
+        exited=$Exited; exitCode=$ExitCode; shutdownPass=$pass; processId=$ProcessId }
+}
+
 function Complete-StageSession {
     [CmdletBinding()]
     param(

@@ -53,6 +53,24 @@ try {
     Assert ((Get-StageProcessDisposition @() 42 $ticks 'C:\fixture\game.exe') -eq 'Closed') 'Empty snapshot not closed'
     Remove-Item Function:Get-Process
 
+    # A sent window-close message, disappearance or null-to-int coercion must
+    # never manufacture a clean exit. Keep route evidence separate from this.
+    $exit = New-StageGameExitEvidence -CloseMainWindowRequested $true -Exited $true -ExitCode 0 -ProcessId 42
+    Assert ($exit.shutdownPass -and $exit.exitCode -ceq 0 -and $exit.processId -eq 42) 'Observed clean exit rejected'
+    $exit = New-StageGameExitEvidence -CloseMainWindowRequested $false -Exited $true -ExitCode 0 -ProcessId 42
+    Assert $exit.shutdownPass 'Self-closed game with observed exit 0 rejected'
+    foreach ($code in @(-1073741819,1,$null)) {
+        $exit = New-StageGameExitEvidence -CloseMainWindowRequested $true -Exited $true -ExitCode $code -ProcessId 42
+        Assert (!$exit.shutdownPass -and $exit.exitCode -ceq $code) 'Crash or unknown exit was replaced by success'
+    }
+    $exit = New-StageGameExitEvidence -CloseMainWindowRequested $true -Exited $false -ExitCode $null -ProcessId 42
+    Assert (!$exit.shutdownPass -and $null -eq $exit.exitCode) 'Close request for running game passed'
+    foreach ($case in @(@($false,0),@($true,'0'),@($true,$false),@($true,[double]0))) {
+        $refused=$false
+        try { New-StageGameExitEvidence -Exited $case[0] -ExitCode $case[1] -ProcessId 42 | Out-Null } catch { $refused=$true }
+        Assert $refused 'Contradictory or implicitly converted exit evidence accepted'
+    }
+
     $owner=Join-Path $scratch 'owner.cfg'
     $original=[Text.UTF8Encoding]::new($true).GetBytes("[Triple]`r`nMode = Auto`r`n")
     function Run-CleanupFixture([string]$mode,[string]$failure='') {

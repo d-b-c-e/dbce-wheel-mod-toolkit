@@ -571,7 +571,13 @@ or automatic-wheel live check is implied.
   code even if it already closed before cleanup, and record unknown separately
   from zero. Require the expected clean exit code for a whole-run pass; keep
   valid input/route results and exact restoration as separate evidence. The
-  October 13 iRacing diagnostic proved stock player joining but exited with
+  pure `New-StageGameExitEvidence` helper records these separate fields and
+  accepts only an observed Int32 exit code of zero for `shutdownPass`; null,
+  strings and booleans cannot be coerced into success. It does not observe or
+  close a process. Retain the process handle while alive and pass the actual
+  nullable observation from the runner. Adapters adopt it with their next
+  reviewed runner update; existing vendor pins do not change automatically.
+  The October 13 iRacing diagnostic proved stock player joining but exited with
   `0xC0000005`; its first runner incorrectly printed PASS because it checked
   only process closure. Its corrected `-SelfTest` rejects a crash code, an
   unobserved code and a still-running process without discarding the input proof.
