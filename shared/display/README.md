@@ -36,3 +36,9 @@ The injected observation and monotonic clock make it engine independent. Observa
 cached for two seconds; a failed refresh drops the old span. Window creation, size application and placement remain
 in the game adapter. Extracted without behavior changes from Woden `a58f8d9`; the frozen Woden package still contains
 its original equivalent class. DRIVE adopts this toolkit source rather than another private copy.
+
+Extraction validation, 2026-10-13: source review confirmed the Woden decision logic is unchanged. The combined
+selector/cache harness passed 159 assertions and read the active four-display rig as the expected 7680x1440 row at
+(-2560,0); the netstandard2.0 compatibility build passed without warnings. Consumer window placement and rendering
+still require consumer evidence. A transient failed query is cached too: a one-shot startup caller may keep its
+normal window if it runs during that failure interval, rather than using an old or invented span.
