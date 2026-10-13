@@ -1,5 +1,10 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- native/shim host: `ProviderHost(..., controls_reads = 1)` and `journal_identity(..., controls_reads = 1)` pass the
+  consumer's controls schema to Core's read_profile (STD-037 item 4). The default and the DLL ABI stay at 1. The
+  OutRun decomp's 9a runtime proof found its Core refusing a Schema 2 profile the host had parsed at 1.
+  test_provider_host (new) constructs the host over fake DirectInput: at reads 2, ordinary and latched raw values
+  follow the calibration law; at the default the section applies nothing. test_shim_abi: the DLL refuses Schema 2.
 - dotnet/Dbce.Wheel.Shim: engine-neutral .NET 6 ABI-2 export loader, exact Controls-section/Core-hash checks,
   canonical 31-action/frame decoding and fake/header-linked fixtures. The consumer supplies the DLL hash and owns
   receipt, game, isolation and thread admission. No game repin or runtime qualification.

@@ -21,6 +21,9 @@ The script builds and runs the targets the decomp's CMake defines:
 - `dbce_shim.dll`;
 - `test_shim`: Core against the scripted provider;
 - `test_dinput_provider`: the provider against a fake DirectInput;
+- `test_provider_host`: the in-process host (`host/provider_host.hpp`) as a consumer constructs it, with a fake
+  DirectInput: a Schema 2 profile at `controls_reads` 2 (ordinary and latched values Core applies) and its refusal at
+  the default;
 - `test_shim_abi`: the C ABI, including the DLL's exports, with a fake DirectInput.
 
 No game or real device is used. Output goes to `build/x64-<crt>/` (ignored), with `build-receipt.json`: the DLL's
@@ -28,7 +31,7 @@ SHA-256, its runtime imports, the compiler and the toolkit commit.
 
 Requirements: Visual Studio 2022 with the C++ Clang tools (`VC\Tools\Llvm\x64\bin\clang-cl.exe`). Flags follow the
 decomp's Release configuration:
-- `/std:c++17 /W4 /EHsc /O2`, with `/WX` on the DLL and ABI test;
+- `/std:c++17 /W4 /EHsc /O2`, with `/WX` on the DLL, the host test and the ABI test;
 - `NOMINMAX WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS`;
 - links `dinput8 dxguid bcrypt`.
 

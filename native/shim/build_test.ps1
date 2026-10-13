@@ -34,7 +34,8 @@ $dll = Join-Path $dir 'dbce_shim.dll'
 Invoke-Step 'dbce_shim' "`"$clang`" $common /WX $win $inc /LD $dllSources /Fo{obj} /Fe`"$dll`" /link $libs"
 Invoke-Step 'test_shim' "`"$clang`" $common $inc tests\test_shim.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_shim.exe`" && `"$dir\test_shim.exe`""
 Invoke-Step 'test_dinput_provider' "`"$clang`" $common $win $inc tests\test_dinput_provider.cpp shim\dinput_provider.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_dinput_provider.exe`" /link dinput8.lib dxguid.lib && `"$dir\test_dinput_provider.exe`""
-Invoke-Step 'test_shim_abi' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
+Invoke-Step 'test_provider_host' "`"$clang`" $common /WX $win $inc tests\test_provider_host.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp /Fo{obj} /Fe`"$dir\test_provider_host.exe`" /link $libs && `"$dir\test_provider_host.exe`""
+Invoke-Step 'test_shim_abi'"`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
 
 # What the DLL needs at run time, and its identity.
 $dump = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /dependents `"$dll`"" 2>&1

@@ -135,8 +135,11 @@ Without `cal=`, a schema-2 binding normalizes exactly as section 3.
     `cal`.
 - **A consumer advertises `ini-controls-2` only when every reader of its section opts in:**
   - the input reader;
-  - Core's profile reader: `read_profile(bytes, reads = 1)` (`native/shim/shim/parse.cpp`). The DLL ABI
-    (`dbce_shim.cpp`) and every existing caller keep 1; a consumer that links Core in process calls it with 2;
+  - Core's profile reader: `read_profile(bytes, reads = 1)` (`native/shim/shim/parse.cpp`), and the in-process host
+    that calls it for Core: `ProviderHost(..., controls_reads = 1)` and `journal_identity(..., controls_reads = 1)`
+    (`native/shim/host/`). The DLL ABI (`dbce_shim.cpp`) and every existing caller keep 1; a consumer that links Core
+    in process passes 2 to each of them. A host left at 1 refuses the section although the consumer's own readers apply
+    it (calibration 9a run1); `test_provider_host` checks the values Core applies through the host;
   - the force-target helper;
   - a proxy's pedal shaping. `dbce_shape.hpp` is `cal`-aware: `needsShape` and `releasedAtMin` take the measured released
     and full when `cal` is present, and the shape is needed unless they are exactly the device's ends;

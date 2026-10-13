@@ -640,3 +640,7 @@ to: the controls contract (STD-033), every reader and writer of a `[Controls]` s
    endpoints, and saturation separately.
 7. **No calibrate control before it works.** The capture (contract section 3b) uses the binding's already-selected
    device and axis. It appears only when the capture, the schema-2 writer and a supported consumer all work together.
+
+*Item 4 clarified 2026-10-13 (calibration 9a run1, sana 65017): Core's profile reader includes the in-process host
+that parses the profile for Core, `ProviderHost(..., controls_reads)` and `journal_identity(..., controls_reads)` in
+`native/shim/host/`. A consumer passes its reads to both; the DLL ABI keeps 1.*
