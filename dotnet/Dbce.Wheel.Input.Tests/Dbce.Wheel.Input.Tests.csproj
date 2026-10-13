@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Dbce.Wheel.Input/ControlBinding.cs" Link="ControlBinding.cs" />
+    <Compile Include="../Dbce.Wheel.Input/ShimSteering.cs" Link="ShimSteering.cs" />
     <None Include="../../native/controls/controls-vectors.txt" Link="controls-vectors.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
