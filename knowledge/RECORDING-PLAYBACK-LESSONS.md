@@ -855,6 +855,18 @@ Evidence: portfolio hub `artifacts/iracing-ordinary-20261013/ADJUDICATION.md`,
 capture remains analysis-only (`replayReady=false`); none of these checks proves
 ordinary gameplay replay, physical wheel output, or a rendered race.
 
+The October 13 copied-game Request/Stop test also failed before recorder
+acknowledgment when its launch wrapper called `File.Replace(temp, target, $null)`.
+PowerShell bound the .NET string argument to an empty backup path, producing
+"The path is empty". Use the established same-volume
+`[IO.File]::Move(temp, target, $true)` publication pattern on PowerShell 7 and
+exercise that exact call on disposable files; parsing the script alone cannot
+catch this binding behavior. The PID-only launch record survived, so the runner
+closed its identified test child and restored owner state. This was a wrapper
+failure, not a mod-recorder failure. Evidence:
+`artifacts/iracing-ordinary-20261013/stop-run-20261013T200810Z-d1114f31`
+in the portfolio hub, especially `companion.stderr.log` and `restore.txt`.
+
 ## Saved is a verified result, not just a stopped writer
 
 [iRacing ordinary companion and Wheelkit, 2026-10-13]
