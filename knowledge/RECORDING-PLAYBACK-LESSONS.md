@@ -830,6 +830,15 @@ rather than silently accumulating unbounded data. In PowerShell, avoid `$pid`
 for a parsed child identity: variable names are case-insensitive and `$PID` is
 read-only. Execute the real status reader in its fixture, not just its parser.
 
+Also exercise the installed PowerShell entry point with its optional arguments
+omitted. An unbound `[guid]$RequestId` is not `[guid]::Empty`; initialize it
+explicitly when the script uses that value to mean "generate a new request."
+The iRacing installer fixture caught this on `-Check`, before any game launch.
+Keep calculated array entries parenthesized or on separate lines: expressions
+such as `@('id=' + $id, 'utc=' + $utc, 'pid=4242')` can become one concatenated
+string instead of three lines. The real companion correctly rejected that
+malformed fixture. Repair the fixture, not the protocol's validation.
+
 The producer must cooperate too. The new ordinary-control fixture exposed
 Windows refusing `File.Move(temporary, status, overwrite: true)` while a reader
 held the existing status file, even with delete sharing. Follow the existing
