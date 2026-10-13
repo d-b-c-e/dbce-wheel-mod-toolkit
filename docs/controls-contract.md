@@ -1,4 +1,8 @@
-# Controls contract (STD-033), schema 1
+# Controls contract (STD-033), schemas 1 and 2
+
+Schema 2 (STD-037, section 3a) adds one optional axis attribute, `cal=`, the measured endpoints. A reader applies it only
+when it opts in, and a writer emits it only to a consumer that advertises `ini-controls-2`. Everything else, and every
+schema-1 section, reads exactly as schema 1.
 
 How a rig profile's control bindings reach a game, and how a test proves the game uses them. Two layers, kept apart:
 
@@ -45,7 +49,8 @@ A binding names one DirectInput object on one device instance:
 | rest | axis only: the raw value at rest when captured |
 | travel | axis only: `+1` or `-1`, the sign of (value - rest) when the control was moved during capture |
 | inverted | axis only, optional: the player's explicit inversion (Wheelkit `Inverted`) |
-| calibrated | optional: Wheelkit's `Calibrated` flag, carried through |
+| calibrated | optional: Wheelkit's `Calibrated` flag, carried through. It changes no value, in either schema. |
+| cal | schema 2 only, axis only, optional: the measured endpoints, raw in `range` (section 3a) |
 | name | optional: the device's display name, for logs and panels only; never used to match |
 
 ## 3. Normalization (identical in every implementation)
@@ -77,6 +82,67 @@ Both directions compute in double (or 64-bit) from the first operation. Any lega
 2147483647, and the sum `min + max`, the span `max - min` and the distance `full - rest` of such a range overflow a
 32-bit integer (C++ `long` on Windows). The shared vectors include those limits.
 
+## 3a. Schema 2: measured endpoints (`cal=`)
+
+A schema-2 axis binding may carry `cal=`, measured by a calibration capture (section 3b), raw in the binding's `range`:
+- steer: `cal=<lo>..<centre>..<hi>`;
+- pedals: `cal=<released>..<full>`.
+Without `cal=`, a schema-2 binding normalizes exactly as section 3.
+
+**Validity** is a fraction of the declared span `S = max - min`, so a short range scales instead of being refused. At
+0..65535 the bounds are 512 and 8192 counts, as the OutRun PC mod's calibration.
+- Every point lies in `range`.
+- Steer: `lo < centre < hi`, `centre - lo >= S/128`, `hi - centre >= S/128` and `hi - lo >= S/8`.
+- Pedal: `|full - released| >= S/8`.
+- Otherwise the binding does not fit (`bad-calibration`): it is reported and not applied. A `cal` of the wrong shape
+  (two points on steer, three on a pedal) is the same.
+- In the text, `cal=` is two or three `int`s joined by `..`; anything else is `bad-cal`. On a button or hat it is
+  `axis-only`.
+
+**Normalization with `cal`:**
+- steer: `n = (v - centre) / (hi - centre)` for `v >= centre`, else `(v - centre) / (centre - lo)`, then
+  `clamp(n, -1, 1)`. This is two-sided, so an off-centre rest is the zero.
+- pedal: `n = clamp((v - released) / (full - released), 0, 1)`. The order of the two points gives the direction;
+  `rest` and `travel` are not consulted, and writers keep them consistent: rest = released, travel = the sign of
+  full - released.
+- `inverted` then applies once, last: steer `-n`, pedal `1 - n`. An importer never encodes an inversion in the
+  endpoints. Released is always the measured released value.
+
+**Denormalization** inverts this inside the measured endpoints only:
+- steer: `v = centre + n * (hi - centre)` for `n >= 0`, else `centre + n * (centre - lo)`;
+- pedal: `v = released + n' * (full - released)`.
+- The same rounding and range clamp as section 3 apply.
+- A raw value beyond an endpoint normalizes to the saturated value (-1, 1, 0 or 1), whose inverse is the endpoint, not
+  that raw value. The vectors therefore test the inverse inside the endpoints and the saturation separately.
+
+**Readers and versions:**
+- `parse(text, b, why, schema)` and `ControlBinding.TryParse(text, out b, out why, schema)` read `cal=` only for
+  schema 2. For schema 1 it is an ignored attribute (section 4), so every existing call is unchanged.
+- `parseSection(lines, reads)`: `reads` 1, the default, refuses `Schema = 2` with "Schema 2 is not supported (this
+  mod reads 1)" and applies nothing. `reads` 2 applies schema 1 and 2 sections, and in a schema-1 section `cal=`
+  stays ignored.
+- `ShimSteering.FromAccepted` parses the steer line in its section's own schema, so a schema-2 consumer keeps its force
+  target and its `cal`.
+- **A consumer advertises `ini-controls-2` only when every reader of its section opts in:**
+  - the input reader;
+  - Core's profile reader (`native/shim/shim/parse.cpp`), which stays at `reads` 1 until a consumer needs 2;
+  - the force-target helper.
+- **Writers** (Wheelkit) emit schema 2 only to a consumer that advertises `ini-controls-2`. A schema-1 consumer gets its
+  schema-1 text, with `cal` dropped, and the receipt says "calibration: not transferred (the consumer reads schema
+  1)". Existing profiles, receipts and `calibrated` flags are never rewritten in place.
+
+## 3b. Calibration capture (planned, not built)
+
+A calibration belongs to an existing binding. The capture reads the already-selected device and axis; it never asks
+the player to rebind the action.
+1. Hold the control at rest (steer: centered) and snapshot it.
+2. Sweep it fully (steer: both locks). The low and high are accumulated.
+3. Show lo / centre / hi, the validity result, and a live value from the shared normalization.
+4. Save writes the profile's calibration fields; Clear removes them.
+
+No calibrate control is shown anywhere until the capture (producer), the schema-2 writer and a supported consumer all
+work.
+
 ## 4. Text form (one line per binding)
 
 Used by the `[Controls]` INI storage adapter, in mod logs, and in the shared test vectors.
@@ -88,20 +154,21 @@ index     = 1*3DIGIT
 angle     = 1*5DIGIT                                 ; hat only, 0-35999
 attribute = "dev=" guid / "prod=" guid
           / "range=" int ".." int / "rest=" int / "travel=" ("+1" / "-1")
+          / "cal=" int ".." int [".." int]               ; schema 2 only (section 3a)
           / "inverted" / "calibrated" / "name=" quoted
 int       = ["-"] 1*10DIGIT                          ; -2147483648-2147483647 (DirectInput LONG), else invalid
 guid      = "{" 8HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 12HEXDIG "}"
 quoted    = DQUOTE *(%x20-21 / %x23-5B / %x5D-7E / "\" DQUOTE / "\\") DQUOTE
 ```
 
-- Writers emit attributes in exactly this order: `dev prod range rest travel inverted calibrated name`, single spaces,
+- Writers emit attributes in exactly this order: `dev prod range rest travel cal inverted calibrated name`, single spaces,
   GUIDs in lowercase. The same binding then always has the same bytes. Readers accept any order and GUIDs in either
   case.
 - Required: `dev` and `prod` for every kind; `range`, `rest` and `travel` for axes. `angle` only for hats. A missing
   required field, a value out of range, a duplicate attribute or an unknown kind makes the binding **invalid**: it is
   reported and not applied. It is never guessed.
 - Readers ignore unknown `key=value` attributes (no spaces in them) for forward compatibility; schema-1 writers never
-  emit any.
+  emit any. A schema-1 reading ignores `cal=` this way.
 - An empty value means "explicitly unbound". A missing key means the profile says nothing about that action.
 
 Example (the owner's steering, 2026-10-09):
@@ -127,7 +194,8 @@ shiftUp = button 9 dev={...} prod={...} name="DS-8X Shifter"
 navUp = hat 0 0 dev={...} prod={...} name="MOZA R12 Base"
 ```
 
-`Schema` other than 1: the mod applies nothing and logs why. `Revision` is Wheelkit's profile content hash, echoed by
+`Schema` other than 1 (or, for a mod that advertises `ini-controls-2`, other than 1 or 2): the mod applies nothing and
+logs why. `Revision` is Wheelkit's profile content hash, echoed by
 the mod so a reader can tell which profile is applied. Keys are the action ids of section 1.
 
 ## 5a. Switching profiles: store versus pending request

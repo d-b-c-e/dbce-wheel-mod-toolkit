@@ -1,4 +1,5 @@
-// STD-033 schema 1. Vendorable source; no devices, OS input, file I/O or force calls.
+// STD-033 schemas 1 and 2 (schema 2: the `cal=` axis attribute, read only when the caller passes schema 2; by default
+// everything reads exactly as schema 1). Vendorable source; no devices, OS input, file I/O or force calls.
 // Run the native/controls/controls-vectors.txt cases in every consuming implementation.
 #nullable enable
 using System;
@@ -23,7 +24,10 @@ namespace Dbce.Wheel.Input
         public int Rest { get; private set; }
         public int Travel { get; private set; }
         public bool Inverted { get; private set; }
+        /// <summary>Carried metadata only (Wheelkit's flag); it changes no value.</summary>
         public bool Calibrated { get; private set; }
+        /// <summary>Schema 2 `cal=`, raw in the range: steer {lo, centre, hi}, pedal {released, full}; null when absent.</summary>
+        public IReadOnlyList<int>? Cal { get; private set; }
         public string Name { get; private set; } = "";
         private ControlBinding() { }
 
@@ -57,7 +61,9 @@ namespace Dbce.Wheel.Input
             return value.Length == 38 && Guid.TryParseExact(value, "B", out guid);
         }
 
-        public static bool TryParse(string text, out ControlBinding? binding, out string reason)
+        /// <param name="schema">1 (default): `cal=` is an ignored attribute. 2: it is read (two or three integers joined by
+        /// ".."; reason bad-cal otherwise); its shape is checked by <see cref="Fits"/>.</param>
+        public static bool TryParse(string text, out ControlBinding? binding, out string reason, int schema = 1)
         {
             binding = null;
             var b = new ControlBinding();
@@ -120,9 +126,22 @@ namespace Dbce.Wheel.Input
                 int eq = token.IndexOf('=');
                 string key = eq < 0 ? token : token.Substring(0, eq);
                 string value = eq < 0 ? "" : token.Substring(eq + 1);
-                if (key == "inverted" && eq < 0 || key == "calibrated" && eq < 0 ||
+                bool cal = key == "cal" && eq > 0 && schema >= 2;
+                if (key == "inverted" && eq < 0 || key == "calibrated" && eq < 0 || cal ||
                     key == "dev" || key == "prod" || key == "range" || key == "rest" || key == "travel" || token.StartsWith("name=\"", StringComparison.Ordinal))
                     if (!seen.Add(key)) { reason = "duplicate"; return false; }
+                if (cal)
+                {
+                    var points = new List<int>();
+                    foreach (string part in value.Split(new[] { ".." }, StringSplitOptions.None))
+                    {
+                        if (!Integer(part, out int point)) { reason = "bad-cal"; return false; }
+                        points.Add(point);
+                    }
+                    if (points.Count != 2 && points.Count != 3) { reason = "bad-cal"; return false; }
+                    b.Cal = points.AsReadOnly();
+                    continue;
+                }
                 if (token.StartsWith("name=\"", StringComparison.Ordinal)) { b.Name = token.Substring(6); continue; }
                 if (token == "inverted") { b.Inverted = true; continue; }
                 if (token == "calibrated") { b.Calibrated = true; continue; }
@@ -147,7 +166,7 @@ namespace Dbce.Wheel.Input
                         if (value != "+1" && value != "-1") { reason = "bad-travel"; return false; }
                         b.Travel = value == "+1" ? 1 : -1;
                         break;
-                    // Unknown key=value attributes are intentionally ignored by schema 1.
+                    // Unknown key=value attributes (and `cal=` in schema 1) are intentionally ignored.
                 }
             }
             if (!seen.Contains("dev")) { reason = "missing-dev"; return false; }
@@ -158,19 +177,39 @@ namespace Dbce.Wheel.Input
                     if (!seen.Contains(key)) { reason = "missing-" + key; return false; }
                 if (b.Rest < b.Minimum || b.Rest > b.Maximum) { reason = "bad-rest"; return false; }
             }
-            else if (seen.Contains("range") || seen.Contains("rest") || seen.Contains("travel") || b.Inverted)
+            else if (seen.Contains("range") || seen.Contains("rest") || seen.Contains("travel") || b.Inverted || b.Cal != null)
             { reason = "axis-only"; return false; }
             binding = b; reason = ""; return true;
+        }
+
+        // Schema 2: `cal` has the action's shape and is measured, as a fraction of S = max - min (512 and 8192 counts at
+        // 0..65535). Steer: min <= lo < centre < hi <= max, each side >= S/128, the sweep >= S/8. Pedal: both points in
+        // range, |full - released| >= S/8.
+        bool CalibrationFits(ControlShape shape)
+        {
+            if (Cal == null) return true;
+            double span = (double)Maximum - Minimum;
+            foreach (int p in Cal) if (p < Minimum || p > Maximum) return false;
+            if (shape == ControlShape.Centred)
+            {
+                if (Cal.Count != 3) return false;
+                double l = Cal[0], c = Cal[1], h = Cal[2];
+                return l < c && c < h && (c - l) * 128 >= span && (h - c) * 128 >= span && (h - l) * 8 >= span;
+            }
+            return Cal.Count == 2 && Math.Abs((double)Cal[1] - Cal[0]) * 8 >= span;
         }
 
         public string Fits(string action)
         {
             switch (ShapeOf(action))
             {
-                case ControlShape.Centred: return Kind == ControlKind.Axis ? "" : "wrong-kind";
+                case ControlShape.Centred:
+                    if (Kind != ControlKind.Axis) return "wrong-kind";
+                    return CalibrationFits(ControlShape.Centred) ? "" : "bad-calibration";
                 case ControlShape.Pedal:
                     if (Kind == ControlKind.Button) return "";
                     if (Kind != ControlKind.Axis) return "wrong-kind";
+                    if (!CalibrationFits(ControlShape.Pedal)) return "bad-calibration";
                     return (Travel > 0 ? Maximum : Minimum) == Rest ? "rest-at-full" : "";
                 case ControlShape.Digital: return Kind == ControlKind.Button || Kind == ControlKind.Hat ? "" : "wrong-kind";
                 default: return "unknown-action";
@@ -193,12 +232,19 @@ namespace Dbce.Wheel.Input
                 return HatPressed(raw, Angle) ? 1 : 0;
             if (ShapeOf(action) == ControlShape.Centred)
             {
-                double n = Clamp((raw - ((double)Minimum + Maximum) / 2) / (((double)Maximum - Minimum) / 2), -1, 1);
+                double n;
+                if (Cal != null)   // schema 2: two-sided around the measured centre, saturating beyond the measured locks
+                {
+                    double l = Cal[0], c = Cal[1], h = Cal[2];
+                    n = Clamp(raw >= c ? (raw - c) / (h - c) : (raw - c) / (c - l), -1, 1);
+                }
+                else n = Clamp((raw - ((double)Minimum + Maximum) / 2) / (((double)Maximum - Minimum) / 2), -1, 1);
                 return Inverted ? -n : n;
             }
-            double full = Travel > 0 ? Maximum : Minimum;
-            double pedal = Clamp(((double)raw - Rest) / (full - Rest), 0, 1);
-            return Inverted ? 1 - pedal : pedal;
+            // Schema 2 `cal`: released and full are measured (their order gives the direction); otherwise rest and the travel end.
+            double full = Cal != null ? Cal[1] : Travel > 0 ? Maximum : Minimum, released = Cal != null ? Cal[0] : Rest;
+            double pedal = Clamp(((double)raw - released) / (full - released), 0, 1);
+            return Inverted ? 1 - pedal : pedal;   // the player's explicit inversion, once
         }
         public int Denormalize(string action, double n)
         {
@@ -208,11 +254,20 @@ namespace Dbce.Wheel.Input
             if (Kind == ControlKind.Hat) return n >= .5 ? Angle : -1;
             double v;
             if (ShapeOf(action) == ControlShape.Centred)
-                v = ((double)Minimum + Maximum) / 2 + Clamp(Inverted ? -n : n, -1, 1) * (((double)Maximum - Minimum) / 2);
+            {
+                double s = Clamp(Inverted ? -n : n, -1, 1);
+                if (Cal != null)   // inverse within the measured locks (a raw beyond them normalized to +-1 maps to the lock)
+                {
+                    double l = Cal[0], c = Cal[1], h = Cal[2];
+                    v = s >= 0 ? c + s * (h - c) : c + s * (c - l);
+                }
+                else v = ((double)Minimum + Maximum) / 2 + s * (((double)Maximum - Minimum) / 2);
+            }
             else
             {
                 n = Clamp(n, 0, 1);
-                v = Rest + (Inverted ? 1 - n : n) * ((double)(Travel > 0 ? Maximum : Minimum) - Rest);
+                double full = Cal != null ? Cal[1] : Travel > 0 ? Maximum : Minimum, released = Cal != null ? Cal[0] : Rest;
+                v = released + (Inverted ? 1 - n : n) * (full - released);
             }
             return (int)Clamp(Math.Round(v, MidpointRounding.AwayFromZero), Minimum, Maximum);
         }
@@ -232,6 +287,11 @@ namespace Dbce.Wheel.Input
             {
                 s.Append(" range=").Append(N(Minimum)).Append("..").Append(N(Maximum)).Append(" rest=").Append(N(Rest))
                     .Append(Travel > 0 ? " travel=+1" : " travel=-1");
+                if (Cal != null)
+                {
+                    s.Append(" cal=");
+                    for (int i = 0; i < Cal.Count; i++) s.Append(i == 0 ? "" : "..").Append(N(Cal[i]));
+                }
                 if (Inverted) s.Append(" inverted");
             }
             if (Calibrated) s.Append(" calibrated");

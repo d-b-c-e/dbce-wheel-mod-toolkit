@@ -5,9 +5,9 @@ int checks = 0;
 void Check(bool ok, string description) { checks++; if (!ok) throw new Exception(description); }
 double D(string n) => double.Parse(n, CultureInfo.InvariantCulture);
 int I(string n) => int.Parse(n, CultureInfo.InvariantCulture);
-ControlBinding Parse(string text)
+ControlBinding Parse(string text, int schema = 1)
 {
-    if (!ControlBinding.TryParse(text, out var b, out var why)) throw new Exception(why + ": " + text);
+    if (!ControlBinding.TryParse(text, out var b, out var why, schema)) throw new Exception(why + ": " + text);
     return b!;
 }
 int vectors = 0;
@@ -18,13 +18,16 @@ foreach (string line in File.ReadLines(Path.Combine(AppContext.BaseDirectory, "c
     vectors++;
     string[] p = line.Split('|').Select(s => s.Trim()).ToArray();
     string description = "Vector " + vectors + ": " + line;
-    switch (p[0])
+    // "parse2", "norm2", ...: the same operation reading the binding as schema 2.
+    int schema = p[0].Length > 1 && p[0].EndsWith("2", StringComparison.Ordinal) ? 2 : 1;
+    string op = schema == 2 ? p[0].Substring(0, p[0].Length - 1) : p[0];
+    switch (op)
     {
-        case "parse": Check(Parse(p[1]).ToString() == p[2], description); break;
-        case "reject": Check(!ControlBinding.TryParse(p[1], out var b, out var why) && b == null && why == p[2], description); break;
-        case "fits": Check(Parse(p[2]).Fits(p[1]) == (p[3] == "ok" ? "" : p[3]), description); break;
-        case "norm": Check(Math.Abs(Parse(p[2]).Normalize(p[1], I(p[3])) - D(p[4])) <= 1e-6, description); break;
-        case "denorm": Check(Parse(p[2]).Denormalize(p[1], D(p[3])) == I(p[4]), description); break;
+        case "parse": Check(Parse(p[1], schema).ToString() == p[2] && Parse(Parse(p[1], schema).ToString(), schema).ToString() == p[2], description); break;
+        case "reject": Check(!ControlBinding.TryParse(p[1], out var b, out var why, schema) && b == null && why == p[2], description); break;
+        case "fits": Check(Parse(p[2], schema).Fits(p[1]) == (p[3] == "ok" ? "" : p[3]), description); break;
+        case "norm": Check(Math.Abs(Parse(p[2], schema).Normalize(p[1], I(p[3])) - D(p[4])) <= 1e-6, description); break;
+        case "denorm": Check(Parse(p[2], schema).Denormalize(p[1], D(p[3])) == I(p[4]), description); break;
         case "rescale": Check(ControlBinding.Rescale(I(p[1]), I(p[2]), I(p[3]), I(p[4]), I(p[5])) == I(p[6]), description); break;
         case "dibutton": Check(ControlBinding.DirectInputButtonDown(I(p[1])) == (p[2] == "1"), description); break;
         default: throw new Exception("Unknown vector type: " + line);
@@ -59,6 +62,20 @@ foreach(int angle in new[]{0,4500,9000,13500,18000,22500,27000,31500})
     }
 }
 foreach(int raw in new[]{-1,65535,0x1234ffff}) Check(!ControlBinding.HatPressed(raw,0),"Neutral hat");
+
+// Schema 2 `cal`: the inverse is exact inside the measured endpoints; beyond them the value saturates at the endpoint.
+var calSteer = Parse("axis 0" + ids + " range=0..65535 rest=33265 travel=+1 cal=1000..33265..64000", 2);
+var calPedal = Parse("axis 2" + ids + " range=0..65535 rest=1200 travel=+1 cal=1200..60000 inverted", 2);
+var calReversed = Parse("axis 5" + ids + " range=-32768..32767 rest=30000 travel=-1 cal=30000..-31000", 2);
+bool exact = true;
+for (int v = 1000; v <= 64000; v++) exact &= calSteer.Denormalize("steer", calSteer.Normalize("steer", v)) == v;
+for (int v = 1200; v <= 60000; v++) exact &= calPedal.Denormalize("throttle", calPedal.Normalize("throttle", v)) == v;
+for (int v = -31000; v <= 30000; v++) exact &= calReversed.Denormalize("brake", calReversed.Normalize("brake", v)) == v;
+Check(exact, "Calibrated inverse exact inside the measured endpoints");
+Check(calSteer.Normalize("steer", 999) == -1 && calSteer.Normalize("steer", 0) == -1 && calSteer.Denormalize("steer", -1) == 1000 &&
+      calSteer.Normalize("steer", 64001) == 1 && calSteer.Denormalize("steer", 1) == 64000 && calPedal.Normalize("throttle", 65535) == 0,
+      "Calibrated saturation beyond the measured endpoints");
+Check(Parse("axis 0" + ids + " range=0..65535 rest=33265 travel=+1 cal=1000..33265..64000").Cal == null, "Schema 1 ignores cal");
 Check(!ControlBinding.HatPressed(0,-1) && !ControlBinding.HatPressed(0,36000),"Invalid target angle");
 
 // ShimSteering: the force wheel identity only from bytes Core accepted exactly; never a second grammar.
@@ -97,6 +114,19 @@ foreach (var (name, body) in new[] {
 }
 var commented = Section("; steer=button 1 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944}\r\nsteer=" + steerAxis + "\r\n");
 Check(ShimSteering.FromAccepted(commented, Report(commented), out _)?.Device == Guid.Parse(wheel), "Comment lines are not steer lines");
+// A schema-2 section keeps its force target and its calibration; a schema-1 section with the same text ignores `cal`.
+const string calSteerAxis = steerAxis + " cal=1000..32768..64000";
+byte[] SchemaSection(string schema, string body) => System.Text.Encoding.UTF8.GetBytes("[Controls]\r\nSchema = " + schema + "\r\n" + body);
+var schema2 = SchemaSection("2", "steer=" + calSteerAxis + "\r\n");
+var calTarget = ShimSteering.FromAccepted(schema2, Report(schema2), out var calWhy);
+Check(calTarget != null && calTarget.Device == Guid.Parse(wheel) && calTarget.Cal != null && calTarget.Cal.Count == 3 && calTarget.Cal[1] == 32768 &&
+      Math.Abs(calTarget.Normalize("steer", 16884) + 0.5) < 1e-12 && calWhy == "", "Schema 2: the force target and its cal");
+var schema1 = SchemaSection("1", "steer=" + calSteerAxis + "\r\n");
+var plainTarget = ShimSteering.FromAccepted(schema1, Report(schema1), out _);
+Check(plainTarget != null && plainTarget.Device == Guid.Parse(wheel) && plainTarget.Cal == null, "Schema 1: the force target, cal ignored");
+var badCal = SchemaSection("2", "steer=" + steerAxis + " cal=0..300..65535\r\n");
+Check(ShimSteering.FromAccepted(badCal, Report(badCal), out var badWhy) == null && badWhy == ShimSteering.NoSteering,
+      "Schema 2 with an invalid calibration: no identity (Core reports it invalid too)");
 var notUtf8 = new byte[] { 0x5b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x5d, 0x0a, 0xff, 0xfe, 0x0a };
 Check(ShimSteering.FromAccepted(notUtf8, Report(notUtf8), out var utf8Why) == null && utf8Why == ShimSteering.NoSteering,
     "Accepted bytes that are not UTF-8 give no identity, never an exception");

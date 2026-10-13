@@ -609,3 +609,27 @@ Per-game state is tracked in `dbce-project-mgmt\CONTROLS-COVERAGE.md`. First can
 - CannonBall: a second SDL device for its gear buttons;
 - the Gravel and Rush Rally 3 proxies: DS-8X buttons merged into the R12's report;
 - Slipstream and Horizon Chase Turbo: a device per binding instead of one button device.
+
+## STD-037 — Measured axis endpoints are controls schema 2, opted into end to end
+2026-10-13 · sana 61674 / 61812 (design accepted for an isolated implementation), recorded by Claude (nene) · applies
+to: the controls contract (STD-033), every reader and writer of a `[Controls]` section, and Wheelkit
+
+1. **Schema 2 adds one optional axis attribute, `cal=`, the measured endpoints**, raw in the binding's range: steer
+   `lo..centre..hi`, pedals `released..full`. Its law is `docs/controls-contract.md` section 3a: two-sided steering
+   around the measured centre; pedals from released to full; `inverted` applied once, last.
+2. **Nothing existing is reinterpreted.** `calibrated` stays carried metadata that changes no value. Schema-1 sections,
+   profiles and receipts read exactly as before and are never rewritten in place.
+3. **Validity is a fraction of the declared span**, never a device-specific count: a side >= S/128, a sweep >= S/8.
+   An invalid calibration is reported and not applied.
+4. **Opt in end to end.** The parsers read `cal=` only when the caller asks for schema 2. A consumer advertises
+   `ini-controls-2` only when every reader of its section opts in: the input reader, Core's profile reader and the
+   force-target helper (`ShimSteering`). Otherwise input could work while a stale reader loses the force target or the
+   calibration.
+5. **Writers follow the consumer's capability.** Schema 2 goes only to an `ini-controls-2` consumer. A schema-1 consumer
+   gets its schema-1 text, and the receipt states that the calibration was not transferred.
+6. **One canonical implementation per language**, in the toolkit (`native/controls/dbce_controls.hpp`,
+   `dotnet/Dbce.Wheel.Input/ControlBinding.cs`), vendored and pinned by consumers, never re-parsed in a copy. Both run
+   `native/controls/controls-vectors.txt`, including the schema-2 vectors. The inverse is tested inside the measured
+   endpoints, and saturation separately.
+7. **No calibrate control before it works.** The capture (contract section 3b) uses the binding's already-selected
+   device and axis. It appears only when the capture, the schema-2 writer and a supported consumer all work together.
