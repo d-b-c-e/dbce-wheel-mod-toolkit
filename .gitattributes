@@ -1,3 +1,7 @@
 # Versioned normalization references are hash-pinned; preserve exact bytes.
 profiles/normalization/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 tools/calibration/*.cs -text
+
+# Source-vendored session UI hashes must survive Windows checkouts.
+shared/ui/SessionStatusPresentation.cs text eol=lf
+shared/ui/unity/SessionStatusHud.cs text eol=lf

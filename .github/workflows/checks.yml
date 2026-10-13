@@ -11,6 +11,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet test Dbce.Wheel.sln --configuration Release --nologo
+      - name: Shared recording status and center-display layout
+        run: dotnet run --project tests/SessionStatus -c Release
       - name: Managed developer injection client (fake delegates only)
         shell: powershell
         run: |
