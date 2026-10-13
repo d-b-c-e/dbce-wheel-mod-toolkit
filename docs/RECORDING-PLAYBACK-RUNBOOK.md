@@ -566,6 +566,15 @@ or automatic-wheel live check is implied.
   retains the lease if the game remains/identity is unknown or recovery fails.
   It never stops a game or sends input. Do not turn a route pass into a whole-run
   pass if shutdown, watchdog or restoration failed.
+  A successful `CloseMainWindow()` means the close request was sent, not that
+  shutdown succeeded. Preserve the launched process object, observe its exit
+  code even if it already closed before cleanup, and record unknown separately
+  from zero. Require the expected clean exit code for a whole-run pass; keep
+  valid input/route results and exact restoration as separate evidence. The
+  October 13 iRacing diagnostic proved stock player joining but exited with
+  `0xC0000005`; its first runner incorrectly printed PASS because it checked
+  only process closure. Its corrected `-SelfTest` rejects a crash code, an
+  unobserved code and a still-running process without discarding the input proof.
 - Shared lessons and this runbook are indexed from toolkit AGENTS.md, CLAUDE.md,
   STATE.md and knowledge/README.md. Update the evidence/status after each new
   adapter's live qualification; keep failures, source identity and limits visible.
