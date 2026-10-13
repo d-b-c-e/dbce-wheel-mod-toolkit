@@ -8,6 +8,9 @@ Check(!recording.Text.Contains("muted"), "ordinary recording does not claim mute
 Check(SessionStatusPresentation.Describe(SessionDisplayState.Recording, 65, true).Text.Contains("Outputs muted"), "muted recording labeled");
 Check(!SessionStatusPresentation.Describe(SessionDisplayState.Saving, 65).Text.Contains("saved"), "stop is not completion");
 Check(SessionStatusPresentation.Describe(SessionDisplayState.Saved, 65).Text.StartsWith("Recording saved"), "sealed completion");
+var limited = SessionStatusPresentation.Describe(SessionDisplayState.Limited, 65);
+Check(limited.Tone == SessionDisplayTone.Problem, "limit stop is visibly incomplete");
+Check(limited.Text.Contains("Partial recording") && !limited.Text.Contains("Recording saved"), "a limit must not claim complete success");
 foreach (var state in new[] { SessionDisplayState.Incomplete, SessionDisplayState.StartFailed })
 {
     var line = SessionStatusPresentation.Describe(state, 65);

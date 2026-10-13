@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Dbce.Wheel.Ui
 {
-    public enum SessionDisplayState { Off, Recording, Saving, Saved, Incomplete, StartFailed, Playback, PlaybackEnded, PlaybackFailed }
+    public enum SessionDisplayState { Off, Recording, Saving, Saved, Incomplete, StartFailed, Playback, PlaybackEnded, PlaybackFailed, Limited }
     public enum SessionDisplayTone { Recording, Busy, Success, Problem, Playback }
 
     public sealed class SessionStatusLine
@@ -32,6 +32,8 @@ namespace Dbce.Wheel.Ui
                     return new SessionStatusLine("Saving recording  " + clock + "  |  Keep the game open", SessionDisplayTone.Busy);
                 case SessionDisplayState.Saved:
                     return new SessionStatusLine("Recording saved  |  You can keep playing", SessionDisplayTone.Success);
+                case SessionDisplayState.Limited:
+                    return new SessionStatusLine("Recording limit reached  |  Partial recording; check the recording log", SessionDisplayTone.Problem);
                 case SessionDisplayState.Incomplete:
                     return new SessionStatusLine("Recording incomplete  |  Files retained; check the recording log", SessionDisplayTone.Problem);
                 case SessionDisplayState.StartFailed:

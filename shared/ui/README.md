@@ -21,9 +21,13 @@ Native/WPF adapters use the same state contract with their own renderer.
 Game adapters provide real lifecycle state, output mute state and elapsed time,
 and route F11 to their existing stop path. **Saved means the full artifact seal
 succeeded**, not a key press or signal footer. An error never displays Saved.
+`Limited` is a distinct warning for a time/size/row-limited partial capture;
+retained or sealed partial data does not turn that outcome into Saved.
 Render through an always-visible hook, outside the F6/settings window. The
 component does not start/stop a recorder, write config, enable forces or register
 global input. Public builds that exclude internal recording omit the adapter.
+The host controls OnGUI ordering; setting and restoring GUI.depth inside the
+renderer does not establish ordering between MonoBehaviour callbacks.
 
 Shared acceptance: an ordinary recording shows REC + timer + stop hint through
 title, menus, loading, driving and pause; on triples it stays on the center
