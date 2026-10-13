@@ -1,6 +1,6 @@
 # dbce_shim.dll: the shared input shim for managed game adapters
 
-The reviewed Core and DInputProvider (`windows/shim`) and ProviderHost (`windows/host`), behind the
+The reviewed Core and DInputProvider (`../shim`) and ProviderHost (`../host`), behind the
 experimental C ABI in `dbce_shim.h` (ABI 2, not a stable-ABI promise; Astra 16982/17050). The first consumer is the
 #DRIVE Rally mod (C#, loaded like the toolkit's `WheelFfb.dll`). OutRunDesktop links the same sources directly.
 
@@ -17,8 +17,42 @@ experimental C ABI in `dbce_shim.h` (ABI 2, not a stable-ABI promise; Astra 1698
   The next seams are latched test sessions (the existing control worker and journal) and the shared recorder (the
   frame producer with game channels from the adapter).
 
-Build: the `dbce_shim` target in `windows/CMakeLists.txt` (with the Xbox/PC configure, `-DOR2_XBOX=ON`). Test:
-`test_shim_abi` (CTest `shim_abi`) runs the ABI over fake COM and checks the built DLL's exports.
+Build and test from the toolkit root with `pwsh native/shim/build_test.ps1`.
+`test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports.
+
+## Opening is asynchronous: tick before admitting input
+
+Successful `dbce_shim_open` or `dbce_shim_open2` creates the host; it does **not** mean a
+device is open or that its identity has been adopted. The worker opens devices, then a
+`dbce_shim_tick` on the owning input thread adopts those handles into Core. Reading
+`dbce_shim_device_reports` only reads the current snapshot. Waiting and polling reports
+without ticking cannot complete this handoff.
+
+A game adapter's startup sequence is:
+
+1. Open on its input thread, verify Core's profile result, and enter an opening state.
+2. On each input update, call `dbce_shim_tick` on that same thread and check its result.
+   Keep game-facing shim output neutral while opening, including any virtual-pad
+   output; do not block the game thread waiting for the device worker.
+3. Read device reports **after** the tick. Validate the required owned devices and their
+   current identities, complete the consumer's isolation checks, then admit input.
+   An opened device still does not make every action Live: honor Core's action statuses
+   and neutral/rearm rules. An empty interface path is still unavailable identity.
+4. Bound opening with a consumer-defined deadline. Stop on the owning thread on timeout,
+   native failure or a changed game/input context; report the specific reason. Keep the
+   window, profile and game-state checks active throughout opening, not just at Open.
+
+An unopened initial report is expected, not proof that a connected wheel is absent.
+This affected iRacing's immediate post-Open ownership check (2026-10-13); the correction
+belongs in ordinary startup as well as diagnostics. The contract is the same for both
+Open calls; test injection must remain a separate, explicitly gated capability.
+
+Existing source fixtures demonstrate the sequence without hardware:
+`native/shim/tests/test_dinput_provider.cpp::test_path_epochs` publishes a worker-opened handle and
+checks that only the next Core tick adopts its path;
+`native/shim/tests/test_shim_abi.cpp::test_lifecycle` observes an empty initial report, ticks until
+ordinary input is Live, then observes the owned device. These fixtures establish the
+native contract, not a consumer's in-game qualification.
 
 ## Device report interface identity
 
