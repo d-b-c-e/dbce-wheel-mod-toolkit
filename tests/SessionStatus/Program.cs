@@ -7,6 +7,12 @@ Check(recording.Text.Contains("REC  01:05") && recording.Text.Contains("F11 to s
 Check(!recording.Text.Contains("muted"), "ordinary recording does not claim muted output");
 Check(SessionStatusPresentation.Describe(SessionDisplayState.Recording, 65, true).Text.Contains("Outputs muted"), "muted recording labeled");
 Check(!SessionStatusPresentation.Describe(SessionDisplayState.Saving, 65).Text.Contains("saved"), "stop is not completion");
+Check(SessionStatusPresentation.Describe(SessionDisplayState.DataWritten, 65).Text.Contains("Finalization pending") &&
+    !SessionStatusPresentation.Describe(SessionDisplayState.DataWritten, 65).Text.Contains("saved"), "source data is not a sealed package");
+Check(SessionStatusPresentation.Describe(SessionDisplayState.Recording, 65, recordingStopHint: "F6 > Telemetry > Stop recording")
+    .Text.Contains("F6 > Telemetry > Stop recording") &&
+    !SessionStatusPresentation.Describe(SessionDisplayState.Recording, 65, recordingStopHint: "F6 > Telemetry > Stop recording")
+    .Text.Contains("stop and save"), "host-specific stop hint avoids promising package save");
 Check(SessionStatusPresentation.Describe(SessionDisplayState.Saved, 65).Text.StartsWith("Recording saved"), "sealed completion");
 var limited = SessionStatusPresentation.Describe(SessionDisplayState.Limited, 65);
 Check(limited.Tone == SessionDisplayTone.Problem, "limit stop is visibly incomplete");

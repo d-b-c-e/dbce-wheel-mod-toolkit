@@ -32,6 +32,9 @@ and show only a stop action that the host actually supports. **Saved means the f
 succeeded**, not a key press or signal footer. An error never displays Saved.
 `Limited` is a distinct warning for a time/size/row-limited partial capture;
 retained or sealed partial data does not turn that outcome into Saved.
+`DataWritten` means a source was closed but a host-specific companion or case
+finalizer has not yet established a complete package. Hosts with a separate
+finalizer can replace the active stop hint without changing other consumers.
 Render through an always-visible hook, outside the F6/settings window. The
 component does not start/stop a recorder, write config, enable forces or register
 global input. Public builds that exclude internal recording omit the adapter.

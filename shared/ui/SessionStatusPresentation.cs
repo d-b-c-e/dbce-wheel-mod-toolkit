@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Dbce.Wheel.Ui
 {
-    public enum SessionDisplayState { Off, Recording, Saving, Saved, Incomplete, StartFailed, Playback, PlaybackEnded, PlaybackFailed, Limited }
+    public enum SessionDisplayState { Off, Recording, Saving, DataWritten, Saved, Incomplete, StartFailed, Playback, PlaybackEnded, PlaybackFailed, Limited }
     public enum SessionDisplayTone { Recording, Busy, Success, Problem, Playback }
 
     public sealed class SessionStatusLine
@@ -19,17 +19,19 @@ namespace Dbce.Wheel.Ui
     public static class SessionStatusPresentation
     {
         public static SessionStatusLine Describe(SessionDisplayState state, double elapsedSeconds,
-            bool outputsMuted = false, string stopKey = "F11", string takeoverKey = "F12")
+            bool outputsMuted = false, string stopKey = "F11", string takeoverKey = "F12", string recordingStopHint = null)
         {
             string clock = Clock(elapsedSeconds);
             switch (state)
             {
                 case SessionDisplayState.Off: return null;
                 case SessionDisplayState.Recording:
-                    return new SessionStatusLine("REC  " + clock + "  |  " + stopKey + " to stop and save" +
+                    return new SessionStatusLine("REC  " + clock + "  |  " + (recordingStopHint ?? stopKey + " to stop and save") +
                         (outputsMuted ? "  |  Outputs muted" : ""), SessionDisplayTone.Recording);
                 case SessionDisplayState.Saving:
                     return new SessionStatusLine("Saving recording  " + clock + "  |  Keep the game open", SessionDisplayTone.Busy);
+                case SessionDisplayState.DataWritten:
+                    return new SessionStatusLine("Recording data written  |  Finalization pending", SessionDisplayTone.Busy);
                 case SessionDisplayState.Saved:
                     return new SessionStatusLine("Recording saved  |  You can keep playing", SessionDisplayTone.Success);
                 case SessionDisplayState.Limited:
