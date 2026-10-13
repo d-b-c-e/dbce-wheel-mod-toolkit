@@ -105,7 +105,7 @@ getter(N+1): one new read. A fixture with separate menu and axis sources misses 
 Cleanup must retain the owned pad reference if removal fails, retry independently
 of native shutdown, and keep native bindings quarantined until removal is verified.
 Before refreshing native routing, clear its deferred-restoration quarantine; if
-refresh throws, restore the pending state. Otherwise a apparently successful
+refresh throws, restore the pending state. Otherwise an apparently successful
 refresh may take its early exit and leave the native controls disabled.
 
 The cited candidate passed focused fixtures and a clean plugin build. Runtime
