@@ -63,6 +63,48 @@ object/extension replacement and connection events. Art's source candidate
 `9f90df9` implements this bounded probe contract; DRIVE's matching correction
 is in progress. Neither is live-qualified by this note.
 
+## Follow-steering FFB must follow the active input route
+
+[Art of Rally `1d845d8`, Woden `3e8b3ae`, iRacing `fb6c9a9` review,
+2026-10-13]. Migrating controls to the shared profile does not automatically
+migrate the force-device selector. All three consumers had a path that still
+read the old game-specific Steering binding. With legacy wheel A and shared
+wheel B, a selector can silently choose A even though shared input uses B.
+Checking that A exists and supports FFB does not detect this mistake.
+
+Resolve the input lifecycle before selecting a force device:
+
+| Input route | Follow-steering target |
+| --- | --- |
+| Native selected | Existing native Steering association. |
+| Shared requested, still opening | None; report that the shared profile is pending. |
+| Shared owns input | The steering GUID from the exact Core-accepted profile, or none with a useful reason. |
+| Shared stopped | No force until restart; do not revive the legacy binding. A retained shared identity may describe the target while the force gate stays closed. |
+| Shared actually refused before ownership | Native association only once native input restoration is complete. |
+| Explicit FFB device selected | Keep the explicit exact GUID; ordinary force eligibility and strict inventory checks still apply. |
+
+An adapter's single `refused` boolean may also mean stopped; inspect its actual
+lifecycle rather than treating that flag as permission to fall back. Establish
+the requested route before the first force preparation, including menu ticks.
+Do not rewrite the user's saved bindings or force preference to fix selection.
+
+Prefer Core's pure per-action profile report when the pinned ABI provides it.
+Art's additive `dbce_shim_profile_action_info` path needs no device open. Older
+pins must validate the exact Core-accepted bytes before using a managed parser;
+use the shared grammar, check axis/device identity, and freeze the result for
+the launch. A file reread after opening must not silently select another wheel.
+Do not repin a native library merely to copy another consumer's version label.
+
+The small regression fixture is legacy A versus shared B: pending and stopped
+never open A; ownership chooses B; actual restored refusal permits A; Explicit
+A remains explicit. Include missing/ambiguous/non-FFB B and a mutated profile.
+Test the production selector and force controller, and make removal of the
+pending gate fail the fixture. Woden's source patch passed its focused suites
+and both pending/refusal mutants. Art rc.20 is installed; iRacing's correction
+is in progress. These facts do not establish physical force, or that opening
+an exclusive FFB handle preserves a live shim reader; report that runtime
+coexistence check separately.
+
 ## Native event acceptance is not complete UI behavior
 
 The first DRIVE full-session cold replay reproduced its menu/car/region choices

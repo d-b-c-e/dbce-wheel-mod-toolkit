@@ -51,8 +51,12 @@ launcher can host it. Telemetry proves the sampler before FFB depends on it.
   arcade board; the `ForceModel` presets otherwise. **Not raw aligning torque.**
 - Turn the input validators and the 5 Hz trace on; drive; read the trace for
   sign-by-speed-band and liveness before judging feel.
-- Strength is the only dial. Fade below 12 km/h. Low-speed "no centre" is the
-  model, not the hardware.
+- Use the shared [steering/effect strength contract](../docs/FFB-STRENGTH-CONTROLS.md)
+  and current versioned reference. Steering strength and crash/effect strengths
+  are independent. Keep the model's low-speed fade explicit.
+- With shared controls, make Follow Steering use the active profile's exact
+  wheel, including pending, refusal and stop states. See the
+  [selection contract and A/B fixture](SHIM-IDENTITY-AND-NATIVE-ACTIONS-2026-10-11.md#follow-steering-ffb-must-follow-the-active-input-route).
 
 ## 6. Input
 
