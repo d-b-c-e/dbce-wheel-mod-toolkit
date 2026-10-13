@@ -51,3 +51,40 @@ sticky failure/assignment guard, acceptance versus delivery, native refusal,
 invalid return values, exceptions, unterminated and malformed UTF-8 responses,
 command bounds and invalid slot checks. These do not qualify the native no-force
 implementation or an installed consumer.
+
+## The no-force build (internal test deployments only)
+
+Arming at runtime only protects what happens after the arm call. A consumer that
+loads WheelFfb.dll and opens force before the harness arms (Woden's ordinary
+companion, October 13) gets force. For automation, use the no-force build
+instead: `native/wheelffb/build.ps1 -NoForce [-Arch x86]` compiles the same
+source with `WHEELFFB_NO_FORCE_BUILD` into `build\noforce[\x86]\WheelFfb.dll`.
+
+- The no-force latch is constant-initialized, so it holds from process load,
+  with no call at all. Every force export refuses before touching a device, an
+  effect or a hook, and InstallExitGuards and the hold watchdog stay off.
+- Reads and test injection work from the first call. EnableTestInjection(1)
+  returns 1 (already armed), so this client's Arm succeeds unchanged.
+- The exports and version are the product's. GetTestInjectionStatus reads
+  `armed: no force (no-force build); ...` from the first call, which identifies
+  the running module. The file carries the string
+  `DBCE-WHEELFFB-NO-FORCE-TEST-BUILD`. The link is deterministic (`/Brepro`), and
+  `WheelFfb.noforce.provenance.json` beside the DLL records its SHA-256, the
+  commit, a dirty flag, the toolchain and flags, and the SHA-256 of every source
+  it was compiled from.
+- It is for internal, hash-pinned, temporary test deployments that put the
+  product back afterwards, such as a test package that a runner installs and
+  then restores. It is never a release, a product pin or a lasting install.
+  build.ps1 refuses `-CopyTo` with `-NoForce`, so the runner that owns the
+  deployment copies it itself. A product build fails if it ever carries the
+  marker.
+
+Qualify it with `native/wheelffb/test/Test-NoForceBuild.ps1 [-Arch x86]`. That
+runs both builds, checks that their export names are identical, runs the
+fake-device injection scenarios plus the no-force harness, and makes the actual
+DLL's first calls through `wheelffb.h`.
+
+Recorded follow-up, not changed here: in the product build's runtime test mode,
+InstallExitGuards still subclasses the game window after arming, although the
+header says armed mode touches no hook. It installs no force, since PanicStop
+and ZeroForces find no device. The no-force build refuses it.

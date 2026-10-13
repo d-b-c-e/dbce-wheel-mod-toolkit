@@ -389,13 +389,30 @@ static void ReleaseEffect()
 // Process lifetime, both non-zero states final: 0 nothing yet; 1 a force path was used (an exclusive open, an effect, an
 // external session - attempted, even if it failed), so the test mode can never arm; 2 the no-force test mode
 // (EnableTestInjection), so every force path is refused before it touches a device, an effect or a hook.
+//
+// WHEELFFB_NO_FORCE_BUILD (build.bat noforce) is an internal test build: the latch starts at 2, constant-initialized,
+// so it holds from process load with no call at all, and the window guard and hold watchdog stay off too. Same
+// exports. For hash-pinned temporary test deployments only, never a release or a product pin. The marker string
+// identifies the file, GetTestInjectionStatus the running module.
+#ifdef WHEELFFB_NO_FORCE_BUILD
+static std::atomic<int> g_forceState{2};
+#define WHEELFFB_NO_FORCE_SUFFIX " (no-force build)"
+extern "C" const char WheelFfbNoForceBuildMarker[] = "DBCE-WHEELFFB-NO-FORCE-TEST-BUILD (internal test deployments only; never a release or product pin)";
+#if defined(_M_IX86)
+#pragma comment(linker, "/include:_WheelFfbNoForceBuildMarker")
+#else
+#pragma comment(linker, "/include:WheelFfbNoForceBuildMarker")
+#endif
+#else
 static std::atomic<int> g_forceState{0};
+#define WHEELFFB_NO_FORCE_SUFFIX ""
+#endif
 // Every force-capable entry calls this first. Returns false (and logs) in the no-force test mode.
 static bool ForceGate(const char* what)
 {
     int expected = 0;
     if (g_forceState.compare_exchange_strong(expected, 1) || expected == 1) return true;
-    Log("%s refused: the no-force test mode is latched for this process (EnableTestInjection)", what);
+    Log("%s refused: the no-force test mode is latched for this process (EnableTestInjection)" WHEELFFB_NO_FORCE_SUFFIX, what);
     g_lastHr.store(E_ACCESSDENIED);
     return false;
 }
@@ -1222,7 +1239,7 @@ __declspec(dllexport) int GetTestInjectionStatus(char* buf, int size)
     if (armed) g_injections.expire(GetTickCount64());   // a sample that ran out with no read since is not running
     if (buf && size > 0) {
         if (armed)
-            _snprintf_s(buf, (size_t)size, _TRUNCATE, "armed: no force; %s; %ld accepted, %ld reads carried an injected sample",
+            _snprintf_s(buf, (size_t)size, _TRUNCATE, "armed: no force" WHEELFFB_NO_FORCE_SUFFIX "; %s; %ld accepted, %ld reads carried an injected sample",
                         g_injections.any() ? "samples running" : "no sample running", g_injAccepted, g_injReads);
         else if (g_testRefusal[0]) _snprintf_s(buf, (size_t)size, _TRUNCATE, "refused: %s", g_testRefusal);
         else _snprintf_s(buf, (size_t)size, _TRUNCATE, "off");
@@ -2111,6 +2128,12 @@ static LRESULT CALLBACK GuardWndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 // a P/Invoke from the game's main thread is.
 __declspec(dllexport) int InstallExitGuards(void)
 {
+#ifdef WHEELFFB_NO_FORCE_BUILD
+    // Nothing to guard: no force path can open. Leave the game's window alone. (The runtime test mode still subclasses
+    // it; that is a recorded follow-up, kept out of this build-only change.)
+    Log("InstallExitGuards refused: no window guard in the no-force build");
+    return 0;
+#endif
     if(g_externalMode.load())return ExternalOwnerValid()?1:0;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return ExternalOwnerValid()?1:0;
@@ -2163,6 +2186,11 @@ static DWORD WINAPI HoldWatchdog(LPVOID)
 
 __declspec(dllexport) void SetHoldTimeoutMs(int ms)
 {
+#ifdef WHEELFFB_NO_FORCE_BUILD
+    // The hold watchdog only ever zeroes a force; with none possible, start no thread.
+    Log("SetHoldTimeoutMs(%d) ignored: no hold watchdog in the no-force build", ms);
+    return;
+#endif
     if(g_externalMode.load())return;
     std::lock_guard<std::recursive_mutex> apiGuard(g_apiMutex);
     if(g_externalMode.load())return;

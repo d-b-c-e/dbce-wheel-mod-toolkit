@@ -347,10 +347,68 @@ static int race()
     return 0;
 }
 
+#ifdef WHEELFFB_NO_FORCE_BUILD
+// The internal no-force build: latched from process load with no EnableTestInjection call. Every force export refuses
+// with the fakes untouched, the window guard and hold watchdog stay off, and reads and injection work at once. The
+// only window is a message-only one this test creates and destroys, to show its procedure is left alone.
+static int noForceBuild()
+{
+    CHECK(g_forceState.load() == 2);   // before any export has run
+    CHECK(TStatus().find("armed: no force (no-force build); ") == 0);
+    CHECK(std::string(WheelFfbNoForceBuildMarker).find("DBCE-WHEELFFB-NO-FORCE-TEST-BUILD") == 0);
+    FakeInput input; FakeDevice ffb, reader;
+    g_di = &input;
+    forceExportsRefused(input, ffb);
+
+    HWND w = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
+    CHECK(w != nullptr);
+    const LONG_PTR proc = GetWindowLongPtrW(w, GWLP_WNDPROC);
+    g_hwnd = w;
+    CHECK(InstallExitGuards() == 0 && g_guardOrigProc == nullptr && GetWindowLongPtrW(w, GWLP_WNDPROC) == proc);
+    g_hwnd = nullptr;
+    DestroyWindow(w);
+    SetHoldTimeoutMs(100);
+    CHECK(g_holdThread == nullptr);
+
+    // Already armed: 1 is accepted, other flags are refused, and the state never moves.
+    CHECK(EnableTestInjection(1) == 1 && EnableTestInjection(0) == 0 && EnableTestInjection(2) == 0 && g_forceState.load() == 2);
+
+    g_auxCount = 1; g_aux[0].guid = kR12; strcpy_s(g_aux[0].name, "Fixture wheel");
+    input.next = &reader;
+    for (int i = 0; i < 8; ++i) (&reader.state.lX)[i] = 1000 + i;
+    for (auto& p : reader.state.rgdwPOV) p = (DWORD)-1;
+    CHECK(OpenReadDevice(0) == 0 && !g_read[0].isWheel && g_read[0].dev == &reader);
+    TRead r;
+    r.pov_(0);
+    CHECK(r.ok && r.axes[5] == 1005 && LastReadInjected(0) == 0);
+    CHECK(TSubmit(TRaw("axis", 5, 65535, 2000)) == 1 && TSubmit(TRaw("button", 31, 1, 2000)) == 1);
+    r.pov_(0);
+    CHECK(r.ok && r.axes[5] == 65535 && r.buttons[31] == 1 && LastReadInjected(0) == 1);
+    TRead legacy;
+    legacy.legacy(0);
+    CHECK(legacy.ok && legacy.axes[5] == 65535 && LastReadInjected(0) == 1);
+    CHECK(ffb.creates == 0 && ffb.commands == 0 && ffb.acquires == 0 && ffb.properties == 0);
+
+    FreeDirectInput();
+    CloseReadDevices();
+    CHECK(g_forceState.load() == 2 && TStatus().find("armed: no force (no-force build)") == 0);
+    g_di = &input;
+    forceExportsRefused(input, ffb);
+    g_di = nullptr;
+    std::printf("PASS noforcebuild: %d checks (latched from load, no force touched, no guard or watchdog, reads and injection live)\n", g_checks);
+    return 0;
+}
+#endif
+
 int main(int argc, char** argv)
 {
     SetEnvironmentVariableA("DBCE_FFB_LOG", "0");
     const std::string s = argc > 1 ? argv[1] : "";
+#ifdef WHEELFFB_NO_FORCE_BUILD
+    if (s == "noforcebuild") return noForceBuild();
+    std::fprintf(stderr, "built with WHEELFFB_NO_FORCE_BUILD: only noforcebuild runs here\n");
+    return 2;
+#endif
     if (s == "armed") return armed();
     if (s == "forcefirst") return forceFirst();
     if (s == "effectfirst") return effectFirst();

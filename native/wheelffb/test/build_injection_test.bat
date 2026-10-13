@@ -28,4 +28,13 @@ for /l %%i in (1,1,10) do (
   .\%OUT%\injection_test.exe race
   if errorlevel 1 exit /b 1
 )
+
+REM The same harness compiled as the internal no-force build (WHEELFFB_NO_FORCE_BUILD): latched from process load.
+if not exist "%OUT%\noforce" mkdir "%OUT%\noforce"
+cl.exe /nologo /std:c++17 /O2 /W4 /EHsc /DWHEELFFB_NO_FORCE_BUILD /Fo"%OUT%\noforce\\" /Fe"%OUT%\noforce\injection_test_noforce.exe" injection_test.cpp /link user32.lib dinput8.lib dxguid.lib ole32.lib
+if errorlevel 1 exit /b 1
+.\%OUT%\noforce\injection_test_noforce.exe noforcebuild
+if errorlevel 1 exit /b 1
+.\%OUT%\noforce\injection_test_noforce.exe armed
+if not errorlevel 2 ( echo FAIL: the no-force harness ran a production scenario & exit /b 1 )
 exit /b 0
