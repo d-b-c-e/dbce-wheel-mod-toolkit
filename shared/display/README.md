@@ -4,8 +4,13 @@
 display alone. `WindowsMonitors.cs` reads those rectangles (`EnumDisplayMonitors` + `GetMonitorInfoW`); it is kept
 apart so the policy stays pure and testable anywhere. Neither file changes a display setting, profile or window.
 
-The policy (owner rig, 2026-10-13: three 2560x1440 displays at x = -2560, 0, 2560 and a 1920x1080 diagnostic
-display at (314, -1080)):
+Three racing screens plus a dashboard or other auxiliary display is a common sim-racing setup, not a one-off: the
+owner's rig (2026-10-13) has three 2560x1440 displays at x = -2560, 0, 2560 and a 1920x1080 display at (314, -1080),
+which is the fixture. The selector reports the observed racing row only. It is distinct from auxiliary screens and
+from any profile geometry a consumer has stored, and a consumer never rewrites a saved rig choice from it
+automatically.
+
+The policy:
 
 - **Surround** (the mods' existing wide-primary path). A primary at least 2.9:1 wide is used as one surface: the row
   is the primary alone, and no side display is ever added to it. This is a shape test, not proof that the driver has
