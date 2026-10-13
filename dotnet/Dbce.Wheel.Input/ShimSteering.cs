@@ -18,11 +18,12 @@ namespace Dbce.Wheel.Input
         /// <summary>
         /// Throws <see cref="InvalidDataException"/> unless Core's profile report (dbce_shim_profile_info) says ok=1 for
         /// exactly these bytes: its sha256 equals the SHA-256 of <paramref name="section"/> (any case), with no repeated
-        /// field. Then returns the steering device's instance GUID from the single steer line, or null with
+        /// field. Then returns the single steer line's parsed binding (Device, Product, Name, ...), or null with
         /// <paramref name="reason"/> when the bytes are not UTF-8, there is no steer line or more than one, or the value
         /// does not parse, does not fit steer, or names no device. A missing identity never fails the caller's input.
+        /// Product policy is the consumer's: an empty product GUID is returned as written.
         /// </summary>
-        public static Guid? FromAccepted(byte[] section, string coreInfo, out string reason)
+        public static ControlBinding? FromAccepted(byte[] section, string coreInfo, out string reason)
         {
             if (section == null) throw new ArgumentNullException(nameof(section));
             if (coreInfo == null) throw new ArgumentNullException(nameof(coreInfo));
@@ -58,7 +59,7 @@ namespace Dbce.Wheel.Input
                 binding.Fits("steer") != "" || binding.Device == Guid.Empty)
             { reason = NoSteering; return null; }
             reason = "";
-            return binding.Device;
+            return binding;
         }
     }
 }

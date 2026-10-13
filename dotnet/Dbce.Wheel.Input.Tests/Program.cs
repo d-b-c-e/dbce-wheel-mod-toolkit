@@ -68,8 +68,17 @@ byte[] Section(string body) => System.Text.Encoding.UTF8.GetBytes("[Controls]\r\
 string Report(byte[] bytes, string ok = "1") => "ok=" + ok + "\nprofile=Rig\ntransmission=Sequential\nsha256=" +
     Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant() + "\n";
 var accepted = Section("steer=" + steerAxis + "\r\nthrottle=axis 2 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=0 travel=+1\r\n");
-Check(ShimSteering.FromAccepted(accepted, Report(accepted), out var steeringWhy) == Guid.Parse(wheel) && steeringWhy == "",
+Check(ShimSteering.FromAccepted(accepted, Report(accepted), out var steeringWhy)?.Device == Guid.Parse(wheel) && steeringWhy == "",
     "Core-accepted exact bytes give the steer device");
+var named = Section("steer=" + steerAxis + " name=\"MOZA R12 \\\"Base\\\"\"\r\n");
+var steerBinding = ShimSteering.FromAccepted(named, Report(named), out _);
+Check(steerBinding != null && steerBinding.Device == Guid.Parse(wheel) && steerBinding.Product == Guid.Parse("0006346e-0000-0000-0000-504944564944") &&
+    steerBinding.Name == "MOZA R12 \"Base\"" && steerBinding.Kind == ControlKind.Axis && steerBinding.Index == 0,
+    "The parsed steer binding: device, product and display name as ControlBinding reads them");
+var noProduct = Section("steer=axis 0 dev={" + wheel + "} prod={00000000-0000-0000-0000-000000000000} range=0..65535 rest=32768 travel=+1\r\n");
+var emptyProduct = ShimSteering.FromAccepted(noProduct, Report(noProduct), out var noProductWhy);
+Check(emptyProduct != null && emptyProduct.Device == Guid.Parse(wheel) && emptyProduct.Product == Guid.Empty && noProductWhy == "",
+    "An empty product GUID is returned as written; product policy belongs to the consumer");
 foreach (var (name, report) in new[] {
     ("hash of other bytes", Report(Section("steer=" + steerAxis + "\r\n"))), ("not accepted", Report(accepted, "0")),
     ("no hash", "ok=1\n"), ("repeated field", Report(accepted) + "ok=1\n") })
@@ -87,7 +96,7 @@ foreach (var (name, body) in new[] {
     Check(ShimSteering.FromAccepted(bytes, Report(bytes), out var why) == null && why == ShimSteering.NoSteering, "No steering identity: " + name);
 }
 var commented = Section("; steer=button 1 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944}\r\nsteer=" + steerAxis + "\r\n");
-Check(ShimSteering.FromAccepted(commented, Report(commented), out _) == Guid.Parse(wheel), "Comment lines are not steer lines");
+Check(ShimSteering.FromAccepted(commented, Report(commented), out _)?.Device == Guid.Parse(wheel), "Comment lines are not steer lines");
 var notUtf8 = new byte[] { 0x5b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x5d, 0x0a, 0xff, 0xfe, 0x0a };
 Check(ShimSteering.FromAccepted(notUtf8, Report(notUtf8), out var utf8Why) == null && utf8Why == ShimSteering.NoSteering,
     "Accepted bytes that are not UTF-8 give no identity, never an exception");
