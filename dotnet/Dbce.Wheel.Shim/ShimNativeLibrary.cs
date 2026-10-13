@@ -73,7 +73,8 @@ public sealed class ShimNativeLibrary
         using (var stream = File.OpenRead(path))
         {
             if (stream.Length > 64 * 1024 * 1024) throw new InvalidDataException("Shim DLL exceeds 64 MiB.");
-            string actual = Convert.ToHexString(SHA256.HashData(stream));
+            using var sha256 = SHA256.Create();
+            string actual = Convert.ToHexString(sha256.ComputeHash(stream));
             if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Shim DLL differs from the consumer's reviewed pin.");
         }
