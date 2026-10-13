@@ -854,3 +854,49 @@ Evidence: portfolio hub `artifacts/iracing-ordinary-20261013/ADJUDICATION.md`,
 `oracle-proof.json`, and the `contract-886ec85` focused-test failure. The earlier
 capture remains analysis-only (`replayReady=false`); none of these checks proves
 ordinary gameplay replay, physical wheel output, or a rendered race.
+
+## Saved is a verified result, not just a stopped writer
+
+[iRacing ordinary companion and Wheelkit, 2026-10-13]
+
+An inactive producer with `Completed` status means the writer finished. The
+library and live UI must wait for the companion's request-bound finalization
+result before saying Saved. That result follows seal verification, the strict
+recording reader, completion counters, ordered observations and installed-build
+identity checks. Publish it atomically and never overwrite an earlier result.
+Keep failed verification visible while the exact game process remains open;
+retain process supervision and the shared lease until that process exits.
+Successful Stop does not require closing the game. Repeated UI polls must not
+turn an already verified Saved state back into Verifying.
+
+Verify the seal before interpreting a sealed completion envelope. The first
+iRacing negative fixture appended invalid JSON, so parsing failed before the
+integrity check. A second issue was the test guessing the verifier's error text:
+the toolkit reports "Capture changed or truncated", not necessarily "hash".
+Use a stable companion error prefix and a JSON-valid byte change to prove the
+seal check itself refuses the capture. Test the actual installed companion on
+both a valid sealed recording and a changed one, with distinct request IDs and
+the real one-shot request-consumption lifecycle.
+
+Evidence: iRacing source `de17980`, Wheelkit `471ee2c`, and hub
+`artifacts/iracing-ordinary-20261013/contract-886ec85/installer-finalization5.log`
+(225 checks). These ordinary iRacing observations remain analysis-only.
+
+## Qualify a private package delta without repeating an unchanged full matrix
+
+[iRacing private ordinary-recorder package, 2026-10-13]
+
+Separate source/contract tests, exact-artifact checks and runtime checks. After
+the changed production companion passes its real installed-script fixtures,
+verify the new ZIP/stage hashes and source identity, then exercise its admission
+and receipt in one disposable installation before the targeted game test.
+Re-running every existing installer migration and rollback case with a much
+larger real payload can spend the rig slot copying and hashing the same files.
+That repeat is warranted by an affected installer path, unresolved failure or a
+required final-release check; it is not automatic for every private runtime
+candidate. An interrupted redundant batch stays incomplete in the evidence.
+
+For repack.13, the focused source fixture passed 225 checks and exact archive
+readback passed 308 hashes. Those are separate results, not a claim that an
+interrupted full real-payload installer matrix passed. Preserve the actual
+completed disposable cases and qualify only the remaining changed behavior.
