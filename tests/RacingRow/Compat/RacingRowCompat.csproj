@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compile-only proof that the vendored source stays within netstandard2.0, the oldest consumer target. -->
+  <PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><LangVersion>latest</LangVersion><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
+    <Compile Include="../../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
+  </ItemGroup>
+</Project>
