@@ -77,3 +77,39 @@ cache by path, evict on throw. Register the mod's own keys as
 - The game ignores OS `SendInput` (Raw Input drops device-less events);
   inject with `StateEvent.From(keyboard, out evt)` at state offset 24 and
   `InputSystem.QueueEvent`.
+
+## Shared-input startup before a primary player exists
+
+[dbce-mods-iracing-arcade, 2026-10-13, source `fb6c9a9`]
+
+The stock LoginScene joins an unpaired gamepad through
+`PlayerInputManager.JoinPlayersWhenButtonIsPressed`. Waiting for an existing
+primary player before publishing any wheel menu input creates a startup cycle:
+the input needed to create the player never reaches the game. The adapter can
+open one neutral, unpaired menu pad first, while leaving gameplay axes unowned.
+Verify the game's actual join mode, prefab/actions, device eligibility and focus;
+do not assume every Unity game uses this route. Preserve stock keyboard input.
+
+Use a released-then-pressed physical menu action, not an automatically generated
+join press. Losing an action's live status revokes its release proof. Unity can
+pair the device and deliver the same event to newly enabled actions in one
+update; do not publish another press during handoff. Neutralize the pad, verify
+the exact primary user/action asset, and then admit the axis source.
+
+Cache the native read at the shared source boundary for the entire engine frame,
+including failed reads. Caching only inside axis getters is insufficient: menu
+bootstrap may already have read the provider before admitting it to those getters.
+The regression sequence is menu tick(N), admission, getter(N): one native read;
+getter(N+1): one new read. A fixture with separate menu and axis sources misses it.
+
+Cleanup must retain the owned pad reference if removal fails, retry independently
+of native shutdown, and keep native bindings quarantined until removal is verified.
+Before refreshing native routing, clear its deferred-restoration quarantine; if
+refresh throws, restore the pending state. Otherwise a apparently successful
+refresh may take its early exit and leave the native controls disabled.
+
+The cited candidate passed focused fixtures and a clean plugin build. Runtime
+joining and physical wheel input are still unverified. An in-process diagnostic
+keyboard event can test stock keyboard joining and adapter handoff; it does not
+qualify wheel-button forwarding. Keep this separate from latched/injected shared
+frames, which the ordinary input route deliberately refuses.
