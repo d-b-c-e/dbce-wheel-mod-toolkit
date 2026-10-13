@@ -748,3 +748,63 @@ Lua-only stage prepared but not installed or run. The candidate remains a
 Even valid nonzero coordinates require evidence of body/component, simulation
 writer, scale and camera state before playback. Consumer detail:
 `docs/reviews/2026-10-07-race-body-observation.md`.
+
+## Qualify the production input path, including the reader being replaced
+
+[outrun2-decomp Windows shim, 2026-10-12; adfcb4d]
+
+Automatic and Sequential virtual-pad recordings replayed exactly, but their pad
+buttons matched the game's own native bindings. That concealed a second input
+path: the tested exclusion helper had no caller in the production WGI reader.
+Remapping native Pause and Shift Up buttons to H-pattern gates exposed unwanted
+pauses and upshifts. Exact playback of a recording alone did not prove that
+recording used only the shim's intended mappings.
+
+Test a binding that conflicts with the native action, then observe the consumed
+game input as well as the shim request. After production exclusion was wired,
+the same H-pattern case delivered all 106 commands, completed 15 gate selections
+with no retries or movement after release, and replayed 7,589 input rows and
+5,841 poses bit-identically on the 25 compared channels. The exclusion log also
+identified the test pad being omitted from the game's reader. This is virtual
+device evidence, not physical shifter or force acceptance. The implementation
+excludes by product, so do not describe it as instance-specific isolation.
+
+Evidence: portfolio hub `artifacts/outrun-shim-pad-input-20261012/`, including
+the preserved failed C1h run and `c1h-adfcb4d-run1`. The pause guard has fixture
+coverage; the successful rerun never paused, so it did not exercise that guard
+in game. Keep these claims separate instead of repeating the whole test matrix.
+
+## Exercise recorder startup wiring and observe only the current launch's log
+
+[dbce-mods-art-of-rally, 2026-10-12; recorder 8989f63 -> 1775bc5, runner 695599a]
+
+Adding shared-input capture introduced a readiness delegate whose backing
+consumer fields were initialized only by the older native-capture path. The
+new policy's unit tests passed, but its first production tick threw a null
+reference. A diagnostic placed after that tick also never ran. Bind readiness
+for every policy that waits for it and exercise the production binding helper
+with a stub consumer, including readiness transitions and missing members.
+Keep diagnostic observation independent of the path it is meant to diagnose;
+retain the exception stack rather than only its message.
+
+The supervisor also filtered out `[Warning]` before a terminal refusal, so it
+waited for the full timeout. Fixing that filter exposed another flaw: on the
+next launch it consumed the previous game's refusal from an old log and tried
+to close the new process during startup. Preserve the old log, then move it
+aside before launching, or use an equivalent verified per-launch boundary.
+Restore prior bytes through the existing snapshot mechanism. Test a stale
+terminal line followed by a clean new launch, not only the parser in isolation.
+
+After those observations, two real Rewired inventories showed that the virtual
+DS4 used a specialized internal driver with no RawInput extension; the R12,
+stalk and DS-8X had RawInput paths. This explains a distinct identity refusal,
+not a remaining recorder fault. Do not substitute display names, VID/PID alone,
+or an unrelated backend's inventory for the exact interface identity required
+by an adapter. Investigate the actual shipped backend and version before
+changing the matching rule. At this checkpoint the DS4 adapter is research,
+not a qualified runtime fix.
+
+Evidence: portfolio hub `artifacts/art-shim-pad-input-20261012/run-01`,
+`diag-01` and `diag-02`. The last diagnostic initially retained its state because
+the startup close failed; its later recovery receipt separately verifies
+restoration. Do not relabel that as an uninterrupted normal-exit pass.
