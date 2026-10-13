@@ -176,8 +176,8 @@ int main()
         check(needsShape("throttle", shortFull) && releasedAtMin(shortFull), "cal stopping short of the end needs a shape");
         check(shapePedal("throttle", shortFull, 60000, 0, 65535) == 65535 && shapePedal("throttle", shortFull, 0, 0, 65535) == 0 &&
               shapePedal("throttle", shortFull, 30000, 0, 65535) == 32768, "cal 0..60000: full at the measured full, half between");
-        ShapeTable t2; std::string w;
-        check(t2.add("throttle", shortFull, w), "the table takes it (" + w + ")");
+        ShapeTable t2; std::string addWhy;
+        check(t2.add("throttle", shortFull, addWhy), "the table takes it (" + addWhy + ")");
         // cal exactly the device ends: the identity, refused as no shape needed.
         const Binding ends = must2("axis 2" + R12 + " range=0..65535 rest=0 travel=+1 cal=0..65535");
         check(!needsShape("throttle", ends), "cal at both device ends: no shape");
@@ -198,19 +198,19 @@ int main()
     // F2: a parsed-but-unfitted cal is refused explicitly, never indexed past its points nor read as schema 1: neutral
     // (normalize 0) and the binding's rest (denormalize), for every value.
     {
-        Binding two, three, outside; std::string why;
-        check(parse("axis 0" + R12 + " range=0..65535 rest=33265 travel=+1 cal=1200..60000", two, why, 2) && fits("steer", two) == "bad-calibration",
+        Binding unfitTwo, unfitThree, unfitNarrow; std::string calWhy;
+        check(parse("axis 0" + R12 + " range=0..65535 rest=33265 travel=+1 cal=1200..60000", unfitTwo, calWhy, 2) && fits("steer", unfitTwo) == "bad-calibration",
               "a 2-point cal on steer parses and does not fit");
-        check(parse("axis 2" + R12 + " range=0..65535 rest=0 travel=+1 cal=1000..33265..64000", three, why, 2) && fits("throttle", three) == "bad-calibration",
+        check(parse("axis 2" + R12 + " range=0..65535 rest=0 travel=+1 cal=1000..33265..64000", unfitThree, calWhy, 2) && fits("throttle", unfitThree) == "bad-calibration",
               "a 3-point cal on a pedal parses and does not fit");
-        check(parse("axis 0" + R12 + " range=0..65535 rest=33265 travel=+1 cal=0..300..65535", outside, why, 2) && fits("steer", outside) == "bad-calibration",
+        check(parse("axis 0" + R12 + " range=0..65535 rest=33265 travel=+1 cal=0..300..65535", unfitNarrow, calWhy, 2) && fits("steer", unfitNarrow) == "bad-calibration",
               "a too-narrow steer cal parses and does not fit");
         bool neutral = true;
         for (long raw : {0L, 1200L, 33265L, 49151L, 65535L}) {
-            neutral = neutral && normalize("steer", two, raw) == 0.0 && normalize("throttle", three, raw) == 0.0 && normalize("steer", outside, raw) == 0.0;
+            neutral = neutral && normalize("steer", unfitTwo, raw) == 0.0 && normalize("throttle", unfitThree, raw) == 0.0 && normalize("steer", unfitNarrow, raw) == 0.0;
         }
         for (double n : {-1.0, -0.5, 0.0, 0.5, 1.0})
-            neutral = neutral && denormalize("steer", two, n) == 33265 && denormalize("throttle", three, n) == 0 && denormalize("steer", outside, n) == 33265;
+            neutral = neutral && denormalize("steer", unfitTwo, n) == 33265 && denormalize("throttle", unfitThree, n) == 0 && denormalize("steer", unfitNarrow, n) == 33265;
         check(neutral, "unfitted cal: neutral normalize and the rest on denormalize, for every value");
     }
 
