@@ -1,3 +1,11 @@
+## Unreleased master - 2026-10-13 (shared input shim source)
+
+- native/shim: the DBCE-authored shared input shim (Core, DirectInput provider, host, and the dbce_shim C ABI 2)
+  moved here from outrun2-decomp 24dc0f80 with its tests and design docs. Blob ids match the source;
+  native/controls and native/session are used in place. build_test.ps1 builds dbce_shim.dll (clang-cl, static
+  CRT; the ABI passes no allocation across) and runs test_shim, test_dinput_provider and test_shim_abi on fakes.
+  No consumer repinned: DRIVE and Woden still ship 9B8A036F, Art its bridge variant 7DDC9621 (PROVENANCE.md).
+
 ## Unreleased master - 2026-10-12 (native 0.11.0, read slot caps)
 
 - Panel: Config::displayText, the mod's own words for the display in the STD-023 frame-rate
