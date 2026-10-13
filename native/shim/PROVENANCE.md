@@ -1,7 +1,9 @@
 # Provenance: shared input shim
 
-Moved from `d-b-c-e/outrun2-decomp`, commit `24dc0f8a` (branch `codex/outrun-wheel-parity`, the OutRun integration
-line; parent `9c31d66`). The copy is exact as git stores it: each file's blob id below equals the source repository's,
+Moved from `d-b-c-e/outrun2-decomp`, commit `24dc0f803e6bf111798ff7b74d6c99428cf3400e` (branch `codex/outrun-wheel-parity`,
+the OutRun integration line; parent `9c31d666949d836cb6a2a23b98c3e39b2e045b38`). The move commit's message abbreviates
+it wrongly as `24dc0f8a`; it is `24dc0f80`. That branch was local when this was copied: push it before anyone relies on
+the id remotely. The copy is exact as git stores it: each file's blob id below equals the source repository's,
 and it is checked after staging. Line endings follow both repositories' `core.autocrlf` normalization. The directory
 layout mirrors the source `windows/` folders, so the decomp can vendor this tree back as a plain copy.
 
@@ -11,8 +13,9 @@ layout mirrors the source `windows/` folders, so the decomp can vendor this tree
   author (`r4dius`, remote `upstream`) has 2 commits in that repository and none under `windows/`.
 - No file carries a third-party license header. `shim/sha256.hpp` is written from FIPS 180-4: only the standard's
   constants are shared.
-- The files are published under this toolkit's existing MIT license (repository `LICENSE`, (c) 2026 d-b-c-e), by the
-  owner's direction relayed in sana 50288.
+- These files are applied under this toolkit's existing project terms (the repository's MIT `LICENSE`, (c) 2026
+  d-b-c-e), as part of the authorized shared-library work. No separate owner statement licenses these files
+  individually.
 - No decomp, game or runtime source, header or asset is included. The DLL's include closure stays inside these folders
   plus the toolkit's own `native/controls` and `native/session`.
 - `native/controls` and `native/session` are the files the decomp had vendored from this toolkit: they are
@@ -22,9 +25,9 @@ layout mirrors the source `windows/` folders, so the decomp can vendor this tree
 
 | variant | source | DLL SHA-256 | consumers | notes |
 |---|---|---|---|---|
-| direct provider | `codex/shim-device-path` `f49cfc55` | `9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8` | DRIVE (rc.12 and later), the Woden private pilot | The consumers pin this hash, ABI 2 and 31 actions. |
-| copied-provider bridge | `codex/art-shim-bridge` `574bb882` | `7DDC962132819EDAE76EF84CE6509F1936B8C38177A36D498B8ABBCFDCFFBCAF` | Art (installed) | Shares Art's existing native reader. Its additions from base `a9e16010`: `bridge_provider.{hpp,cpp}`, `shim_dll/dbce_shim_bridge.h`, bridge exports in `dbce_shim.cpp`, and core/provider changes (`d46096c`, `1e88feb`, `574bb88`; tests `test_shim_bridge.cpp`). **Not included here**: merging them is a reviewed follow-up. |
-| integration line (this copy) | `24dc0f8a` | built by `build_test.ps1` (see its receipt) | none yet | A superset of the direct provider inside the DLL closure: an optional `front` provider in `provider_host.hpp` (default off; used by OutRun's WheelFfb bridge), read accessors in `frame_recorder.hpp`, and the absent-device rescan in `core.cpp`/`shim.hpp`. `dinput_provider.*` and `shim_dll/*` match `f49cfc55`. |
+| direct provider | `codex/shim-device-path` `f49cfc559f065b778967a7c94068a75df538ec69` | `9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8` | DRIVE (rc.12 and later), the Woden private pilot | The consumers pin this hash, ABI 2 and 31 actions. |
+| copied-provider bridge | `codex/art-shim-bridge` `574bb8827098779257bd08a89038c787403d15b0` | `7DDC962132819EDAE76EF84CE6509F1936B8C38177A36D498B8ABBCFDCFFBCAF` | Art (installed) | Shares Art's existing native reader. Its additions from base `a9e16010e4d8909b71d1090a8266551ce74acb14`: `bridge_provider.{hpp,cpp}`, `shim_dll/dbce_shim_bridge.h`, bridge exports in `dbce_shim.cpp`, and core/provider changes (`d46096c`, `1e88feb`, `574bb88`; tests `test_shim_bridge.cpp`). **Not included here**: merging them is a reviewed follow-up. |
+| integration line (this copy) | `24dc0f803e6bf111798ff7b74d6c99428cf3400e` | built by `build_test.ps1` (see its receipt) | none yet | A superset of the direct provider inside the DLL closure: an optional `front` provider in `provider_host.hpp` (default off; used by OutRun's WheelFfb bridge), read accessors in `frame_recorder.hpp`, and the absent-device rescan in `core.cpp`/`shim.hpp`. `dinput_provider.*` and `shim_dll/*` match `f49cfc55`. |
 
 No consumer is repinned by this move. Adoption, a repin or the bridge merge each need their own review.
 

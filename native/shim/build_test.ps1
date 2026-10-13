@@ -37,13 +37,21 @@ Invoke-Step 'test_dinput_provider' "`"$clang`" $common $win $inc tests\test_dinp
 Invoke-Step 'test_shim_abi' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
 
 # What the DLL needs at run time, and its identity.
-$deps = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /dependents `"$dll`"" 2>&1 | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
-$crtDlls = @($deps | Where-Object { $_ -match '^(VCRUNTIME|MSVCP|api-ms-win-crt-)' })
+$dump = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /dependents `"$dll`"" 2>&1
+if ($LASTEXITCODE) { $dump | Select-Object -Last 10; throw "dumpbin failed (exit $LASTEXITCODE): the imports were not inspected" }
+$deps = @($dump | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() })
+# An empty or partial listing proves nothing: the imports this DLL must have are the check's own evidence.
+$missing = @('KERNEL32.dll', 'DINPUT8.dll', 'bcrypt.dll' | Where-Object { $deps -notcontains $_ })
+if ($missing.Count) { throw "the import listing lacks expected Windows imports ($($missing -join ', ')): got '$($deps -join ', ')'" }
+$crtDlls = @($deps | Where-Object { $_ -match '^(VCRUNTIME|MSVCP|api-ms-win-crt-|ucrtbase)' })
 if ($Crt -eq 'MT' -and $crtDlls.Count) { throw "a static-CRT build imports the C runtime: $($crtDlls -join ', ')" }
+# The linked sources: this folder plus the toolkit's own controls and session headers.
+$sourceDirs = $here, (Join-Path $here '..\controls'), (Join-Path $here '..\session')
+$dirty = @(foreach ($d in $sourceDirs) { git -C $here status --porcelain -- (Resolve-Path $d).Path })
 $receipt = [ordered]@{
     dll = 'dbce_shim.dll'; sha256 = (Get-FileHash -LiteralPath $dll).Hash; crt = $Crt; dependents = @($deps)
     compiler = ((& $clang --version) | Select-Object -First 1); toolkitCommit = (git -C $here rev-parse HEAD)
-    sourceChanged = [bool](git -C $here status --porcelain -- .)
+    sources = 'native/shim, native/controls, native/session'; sourceChanged = [bool]$dirty.Count; changedFiles = $dirty
 }
 $receipt | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $dir 'build-receipt.json')
 "dbce_shim.dll ($Crt) $($receipt.sha256); imports: $($deps -join ', ')"
