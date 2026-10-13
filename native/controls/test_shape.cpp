@@ -192,6 +192,17 @@ int main()
             const double filterReads = releasedAtMin(reversed) ? shaped / 65535.0 : (65535 - shaped) / 65535.0;
             check(std::fabs(filterReads - normalize("brake", reversed, raw)) < 1e-4, "reversed cal: filter reads the contract value at " + std::to_string(raw));
         }
+        // Single inversion pinned by test (mufa 62652): rising and reversed cal, each plain and inverted, the game's
+        // end-anchored filter reads exactly the contract value.
+        for (const char *text : {" range=0..65535 rest=0 travel=+1 cal=0..60000", " range=0..65535 rest=0 travel=+1 cal=0..60000 inverted",
+                                 " range=0..65535 rest=65535 travel=+1 cal=64000..2000", " range=0..65535 rest=65535 travel=+1 cal=64000..2000 inverted"}) {
+            const Binding pedal = must2("axis 5" + R12 + text);
+            for (long raw : {0L, 2000L, 30000L, 33000L, 60000L, 64000L, 65535L}) {
+                const long shaped = shapePedal("brake", pedal, raw, 0, 65535);
+                const double filterReads = releasedAtMin(pedal) ? shaped / 65535.0 : (65535 - shaped) / 65535.0;
+                check(std::fabs(filterReads - normalize("brake", pedal, raw)) < 1e-4, std::string("cal") + text + ": filter reads the contract value at " + std::to_string(raw));
+            }
+        }
         // Read as schema 1, the same text keeps its old rule (cal ignored).
         check(!needsShape("throttle", must("axis 2" + R12 + " range=0..65535 rest=0 travel=+1 cal=0..60000")), "schema 1 ignores cal");
     }
