@@ -81,7 +81,7 @@ Check(!ControlBinding.HatPressed(0,-1) && !ControlBinding.HatPressed(0,36000),"I
 // ShimSteering: the force wheel identity only from bytes Core accepted exactly; never a second grammar.
 const string wheel = "00000000-0000-0000-0000-0000000000a1";
 const string steerAxis = "axis 0 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=32768 travel=+1";
-byte[] Section(string body) => System.Text.Encoding.UTF8.GetBytes("[Controls]\r\nschema=1\r\n" + body);
+byte[] Section(string body) => System.Text.Encoding.UTF8.GetBytes("[Controls]\r\nSchema = 1\r\n" + body);
 string Report(byte[] bytes, string ok = "1") => "ok=" + ok + "\nprofile=Rig\ntransmission=Sequential\nsha256=" +
     Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant() + "\n";
 var accepted = Section("steer=" + steerAxis + "\r\nthrottle=axis 2 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=0 travel=+1\r\n");
@@ -114,19 +114,40 @@ foreach (var (name, body) in new[] {
 }
 var commented = Section("; steer=button 1 dev={" + wheel + "} prod={0006346e-0000-0000-0000-504944564944}\r\nsteer=" + steerAxis + "\r\n");
 Check(ShimSteering.FromAccepted(commented, Report(commented), out _)?.Device == Guid.Parse(wheel), "Comment lines are not steer lines");
-// A schema-2 section keeps its force target and its calibration; a schema-1 section with the same text ignores `cal`.
+// The schema is the helper's own check: Core at schema 1 reports ok=1 for a Schema 2 section it refuses (native
+// test_shim.cpp asserts it), which is exactly Report() below. By default (reads 1) that gives no force target.
 const string calSteerAxis = steerAxis + " cal=1000..32768..64000";
 byte[] SchemaSection(string schema, string body) => System.Text.Encoding.UTF8.GetBytes("[Controls]\r\nSchema = " + schema + "\r\n" + body);
 var schema2 = SchemaSection("2", "steer=" + calSteerAxis + "\r\n");
-var calTarget = ShimSteering.FromAccepted(schema2, Report(schema2), out var calWhy);
+// Core's exact report for that section (dbce_shim.cpp: ok, error = the structural error only, profile, revision,
+// transmission, sha256): a schema refusal is not in it.
+string coreRefusal = "ok=1\nerror=\nprofile=\nrevision=\ntransmission=\nsha256=" +
+    Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(schema2)).ToLowerInvariant() + "\n";
+Check(ShimSteering.FromAccepted(schema2, coreRefusal, out var refusedWhy) == null && refusedWhy == ShimSteering.UnsupportedSchema,
+      "Schema 2 with the default reads 1 (Core's real ok=1 report for the section it refused): no target");
+var calTarget = ShimSteering.FromAccepted(schema2, Report(schema2), out var calWhy, reads: 2);
 Check(calTarget != null && calTarget.Device == Guid.Parse(wheel) && calTarget.Cal != null && calTarget.Cal.Count == 3 && calTarget.Cal[1] == 32768 &&
-      Math.Abs(calTarget.Normalize("steer", 16884) + 0.5) < 1e-12 && calWhy == "", "Schema 2: the force target and its cal");
+      Math.Abs(calTarget.Normalize("steer", 16884) + 0.5) < 1e-12 && calWhy == "", "Schema 2 with reads 2: the force target and its cal");
 var schema1 = SchemaSection("1", "steer=" + calSteerAxis + "\r\n");
-var plainTarget = ShimSteering.FromAccepted(schema1, Report(schema1), out _);
-Check(plainTarget != null && plainTarget.Device == Guid.Parse(wheel) && plainTarget.Cal == null, "Schema 1: the force target, cal ignored");
+foreach (int reads in new[] { 1, 2 })
+{
+    var plainTarget = ShimSteering.FromAccepted(schema1, Report(schema1), out var plainWhy, reads);
+    Check(plainTarget != null && plainTarget.Device == Guid.Parse(wheel) && plainTarget.Cal == null && plainWhy == "",
+          "Schema 1 (reads " + reads + "): the force target, cal ignored");
+}
 var badCal = SchemaSection("2", "steer=" + steerAxis + " cal=0..300..65535\r\n");
-Check(ShimSteering.FromAccepted(badCal, Report(badCal), out var badWhy) == null && badWhy == ShimSteering.NoSteering,
+Check(ShimSteering.FromAccepted(badCal, Report(badCal), out var badWhy, reads: 2) == null && badWhy == ShimSteering.NoSteering,
       "Schema 2 with an invalid calibration: no identity (Core reports it invalid too)");
+foreach (var (name, head, reads) in new[] {
+    ("no Schema line", "[Controls]\r\n", 2), ("lowercase key", "[Controls]\r\nschema=1\r\n", 2), ("malformed", "[Controls]\r\nSchema = two\r\n", 2),
+    ("signed", "[Controls]\r\nSchema = +1\r\n", 2), ("zero", "[Controls]\r\nSchema = 0\r\n", 2), ("above reads 2", "[Controls]\r\nSchema = 3\r\n", 2),
+    ("last line wins: 2 at reads 1", "[Controls]\r\nSchema = 1\r\nSchema = 2\r\n", 1) })
+{
+    var bytes = System.Text.Encoding.UTF8.GetBytes(head + "steer=" + steerAxis + "\r\n");
+    Check(ShimSteering.FromAccepted(bytes, Report(bytes), out var why, reads) == null && why == ShimSteering.UnsupportedSchema, "Unsupported schema: " + name);
+}
+var lastWins = SchemaSection("2", "Schema = 1\r\nsteer=" + steerAxis + "\r\n");
+Check(ShimSteering.FromAccepted(lastWins, Report(lastWins), out _)?.Device == Guid.Parse(wheel), "The last Schema line wins, as in Core");
 var notUtf8 = new byte[] { 0x5b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x5d, 0x0a, 0xff, 0xfe, 0x0a };
 Check(ShimSteering.FromAccepted(notUtf8, Report(notUtf8), out var utf8Why) == null && utf8Why == ShimSteering.NoSteering,
     "Accepted bytes that are not UTF-8 give no identity, never an exception");

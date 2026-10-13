@@ -205,7 +205,9 @@ int main(int argc, char **argv)
             Binding b; std::string why;
             parse("axis 2 " + r12 + " range=0..65535 rest=" + std::to_string(k.lo) + " travel=" + (k.hi > k.lo ? "+1" : "-1") + " cal=" +
                   std::to_string(k.lo) + ".." + std::to_string(k.hi), b, why, 2);
-            const WheelInput::Calibration c{true, float(std::min(k.lo, k.hi)), 0.0f, float(std::max(k.lo, k.hi))};
+            // The PC mod's Valid requires min <= center <= max even for pedals; its capture stores (low + high) / 2 there.
+            const float pmin = float(std::min(k.lo, k.hi)), pmax = float(std::max(k.lo, k.hi));
+            const WheelInput::Calibration c{true, pmin, (pmin + pmax) / 2.0f, pmax};
             if (k.hi > k.lo) validSame = validSame && (fits("throttle", b).empty() == WheelInput::Valid(c, false));
             if (!fits("throttle", b).empty() || k.hi < k.lo) continue;   // the PC mod has no reversed pedal: its min is released
             for (long v = 0; v <= 65535; v += 97)

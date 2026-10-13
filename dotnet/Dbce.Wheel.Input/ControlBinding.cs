@@ -46,7 +46,8 @@ namespace Dbce.Wheel.Input
                 default: return ControlShape.Unknown;
             }
         }
-        static bool Integer(string value, out int number)
+        // dbce_controls.hpp detail::integer: an optional '-', 1..10 digits, within Int32. ShimSteering reads Schema with it.
+        internal static bool Integer(string value, out int number)
         {
             number = 0;
             if (value.Length == 0 || value.Length > 11) return false;
@@ -209,7 +210,8 @@ namespace Dbce.Wheel.Input
                 case ControlShape.Pedal:
                     if (Kind == ControlKind.Button) return "";
                     if (Kind != ControlKind.Axis) return "wrong-kind";
-                    if (!CalibrationFits(ControlShape.Pedal)) return "bad-calibration";
+                    // A valid `cal` alone decides (its released and full replace rest and the travel end, which it never reads).
+                    if (Cal != null) return CalibrationFits(ControlShape.Pedal) ? "" : "bad-calibration";
                     return (Travel > 0 ? Maximum : Minimum) == Rest ? "rest-at-full" : "";
                 case ControlShape.Digital: return Kind == ControlKind.Button || Kind == ControlKind.Hat ? "" : "wrong-kind";
                 default: return "unknown-action";

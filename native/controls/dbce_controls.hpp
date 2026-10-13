@@ -243,7 +243,8 @@ inline std::string fits(const std::string &action, const Binding &b)
     case Shape::Pedal:
         if (b.kind == Kind::Button) return "";
         if (b.kind != Kind::Axis) return "wrong-kind";
-        if (!b.cal.empty() && !calibrationFits(Shape::Pedal, b)) return "bad-calibration";
+        // A valid `cal` alone decides (its released and full replace rest and the travel end, which it never reads).
+        if (!b.cal.empty()) return calibrationFits(Shape::Pedal, b) ? "" : "bad-calibration";
         return (b.travel > 0 ? b.max : b.min) == b.rest ? "rest-at-full" : "";
     case Shape::Digital: return (b.kind == Kind::Button || b.kind == Kind::Hat) ? "" : "wrong-kind";
     }

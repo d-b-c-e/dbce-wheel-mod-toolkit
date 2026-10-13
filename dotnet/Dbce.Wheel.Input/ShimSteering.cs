@@ -14,17 +14,22 @@ namespace Dbce.Wheel.Input
     public static class ShimSteering
     {
         public const string NoSteering = "The shared controls profile has no usable steering binding. Check it and restart.";
+        public const string UnsupportedSchema = "The shared controls profile's Schema is missing or not one this mod reads. Check it and restart.";
 
         /// <summary>
         /// Throws <see cref="InvalidDataException"/> unless Core's profile report (dbce_shim_profile_info) says ok=1 for
         /// exactly these bytes: its sha256 equals the SHA-256 of <paramref name="section"/> (any case), with no repeated
-        /// field. Then returns the single steer line's parsed binding (Device, Product, Name, and in a schema-2 section its
-        /// Cal), or null with
-        /// <paramref name="reason"/> when the bytes are not UTF-8, there is no steer line or more than one, or the value
-        /// does not parse, does not fit steer, or names no device. A missing identity never fails the caller's input.
-        /// Product policy is the consumer's: an empty product GUID is returned as written.
+        /// field. Core's ok=1 says the bytes parsed, not that the section applied: a reader at schema 1 reports ok=1 for a
+        /// refused Schema 2 section. So this helper checks the schema itself, against <paramref name="reads"/>, the highest
+        /// schema the caller's readers all apply (1 by default; 2 only when Core and the input reader also opt in).
+        /// Returns null with <see cref="UnsupportedSchema"/> when the section has no Schema line, a malformed one, or one
+        /// outside 1..reads (the last Schema line wins, as in Core). Otherwise returns the single steer line's binding,
+        /// parsed in that schema (Device, Product, Name, and at schema 2 its Cal), or null with <see cref="NoSteering"/>
+        /// when the bytes are not UTF-8, there is no steer line or more than one, or the value does not parse, does not fit
+        /// steer, or names no device. A missing identity never fails the caller's input. Product policy is the consumer's:
+        /// an empty product GUID is returned as written.
         /// </summary>
-        public static ControlBinding? FromAccepted(byte[] section, string coreInfo, out string reason)
+        public static ControlBinding? FromAccepted(byte[] section, string coreInfo, out string reason, int reads = 1)
         {
             if (section == null) throw new ArgumentNullException(nameof(section));
             if (coreInfo == null) throw new ArgumentNullException(nameof(coreInfo));
@@ -45,8 +50,8 @@ namespace Dbce.Wheel.Input
             string text;
             try { text = new UTF8Encoding(false, true).GetString(section); }
             catch (DecoderFallbackException) { reason = NoSteering; return null; }
-            string? value = null;
-            int count = 0, schema = 1;
+            string? value = null, schemaText = null;
+            int count = 0;
             foreach (string raw in text.Split('\n'))
             {
                 string line = raw.Trim();
@@ -54,18 +59,15 @@ namespace Dbce.Wheel.Input
                 int eq = line.IndexOf('=');
                 if (eq < 0) continue;
                 string key = line.Substring(0, eq).Trim();
-                // The steer line reads in the section's own schema (Core accepted it, so it is one Core reads): a schema-2
-                // section keeps its force target and its `cal`. The last Schema line wins, as in Core's reader.
-                if (key == "Schema")
-                {
-                    schema = int.TryParse(line.Substring(eq + 1).Trim(), System.Globalization.NumberStyles.AllowLeadingSign,
-                        System.Globalization.CultureInfo.InvariantCulture, out int s) && s == 2 ? 2 : 1;
-                    continue;
-                }
+                if (key == "Schema") { schemaText = line.Substring(eq + 1).Trim(); continue; }   // the last one wins, as in Core
                 if (key != "steer") continue;
                 count++;
                 value = line.Substring(eq + 1).Trim();
             }
+            // Core's integer rule (dbce_controls.hpp detail::integer); a schema the caller's readers do not all apply gives
+            // no target, even though Core reported ok=1 for the bytes.
+            if (schemaText == null || !ControlBinding.Integer(schemaText, out int schema) || schema < 1 || schema > (reads >= 2 ? 2 : 1))
+            { reason = UnsupportedSchema; return null; }
             if (count != 1 || value == null || !ControlBinding.TryParse(value, out var binding, out _, schema) || binding == null ||
                 binding.Fits("steer") != "" || binding.Device == Guid.Empty)
             { reason = NoSteering; return null; }

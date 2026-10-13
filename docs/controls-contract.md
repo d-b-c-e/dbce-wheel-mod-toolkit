@@ -102,9 +102,10 @@ Without `cal=`, a schema-2 binding normalizes exactly as section 3.
 **Normalization with `cal`:**
 - steer: `n = (v - centre) / (hi - centre)` for `v >= centre`, else `(v - centre) / (centre - lo)`, then
   `clamp(n, -1, 1)`. This is two-sided, so an off-centre rest is the zero.
-- pedal: `n = clamp((v - released) / (full - released), 0, 1)`. The order of the two points gives the direction;
-  `rest` and `travel` are not consulted, and writers keep them consistent: rest = released, travel = the sign of
-  full - released.
+- pedal: `n = clamp((v - released) / (full - released), 0, 1)`. The order of the two points gives the direction.
+  `rest` and `travel` are not consulted, and a valid `cal` alone decides the fit: the schema-1 `rest-at-full` rule
+  does not apply. Writers still keep them consistent (rest = released, travel = the sign of full - released), so a
+  reader that drops `cal` reads sensible schema-1 values.
 - `inverted` then applies once, last: steer `-n`, pedal `1 - n`. An importer never encodes an inversion in the
   endpoints. Released is always the measured released value.
 
@@ -121,8 +122,13 @@ Without `cal=`, a schema-2 binding normalizes exactly as section 3.
 - `parseSection(lines, reads)`: `reads` 1, the default, refuses `Schema = 2` with "Schema 2 is not supported (this
   mod reads 1)" and applies nothing. `reads` 2 applies schema 1 and 2 sections, and in a schema-1 section `cal=`
   stays ignored.
-- `ShimSteering.FromAccepted` parses the steer line in its section's own schema, so a schema-2 consumer keeps its force
-  target and its `cal`.
+- `ShimSteering.FromAccepted(section, coreInfo, out why, reads)` checks the section's Schema itself:
+  - Core's `ok=1` says the bytes parsed, not that the section applied. A reader at schema 1 reports `ok=1` for a
+    Schema 2 section it refuses.
+  - A Schema line that is missing, malformed, or outside 1..`reads` gives no target (`UnsupportedSchema`). `reads` is 1
+    by default.
+  - Otherwise the steer line is parsed in that schema, so a consumer passing `reads: 2` keeps its force target and its
+    `cal`.
 - **A consumer advertises `ini-controls-2` only when every reader of its section opts in:**
   - the input reader;
   - Core's profile reader (`native/shim/shim/parse.cpp`), which stays at `reads` 1 until a consumer needs 2;

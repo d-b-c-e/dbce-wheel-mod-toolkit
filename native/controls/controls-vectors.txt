@@ -204,6 +204,14 @@ norm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={00063
 norm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=1200 travel=+1 cal=1200..60000 inverted | 1200 | 1
 norm2 | brake | axis 5 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=64000 travel=-1 cal=64000..2000 | 2000 | 1
 norm2 | brake | axis 5 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=64000 travel=-1 cal=64000..2000 | 33000 | 0.5
+# A valid cal alone decides a pedal's fit: its rest and travel (here rest at the full end) are not read; schema 1
+# reading the same text keeps its rest-at-full rule.
+fits2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | ok
+fits | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | rest-at-full
+norm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | 2000 | 1
+norm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | 33000 | 0.5
+norm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | 64000 | 0
+denorm2 | throttle | axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=65535 travel=+1 cal=64000..2000 | 0.5 | 33000
 # Saturation beyond the measured endpoints (no inverse: the raw value is not recoverable there).
 norm2 | steer | axis 0 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=33265 travel=+1 cal=1000..33265..64000 | 65535 | 1
 norm2 | steer | axis 0 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=33265 travel=+1 cal=1000..33265..64000 | 0 | -1
