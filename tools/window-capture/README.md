@@ -9,6 +9,7 @@ session. No desktop capture, focus changes or injected input. Build with
 dbce-window-capture <pid> --list
 dbce-window-capture <pid> centre.png --hwnd 0x12345 --width 1280
 dbce-window-capture <pid> fresh-burst-folder --hwnd 0x12345 --duration 10 --max-frames 300 --width 1920
+dbce-window-capture <pid> fresh-hud-folder --hwnd 0x12345 --duration 3 --crop 4610,1000,415,330
 ```
 
 Listing returns JSON with process start time and each visible top-level window's
@@ -39,6 +40,17 @@ most 300 metadata records. Queue overflow discards the newest delivered frame
 and disposes it immediately. Stop/deadline/failure disposes queued frames; late
 callback frames are disposed too. Single-frame mode uses the same ownership
 rules, fixing the old unconsumed `TrySetResult` frame leak.
+
+`--crop X,Y,WIDTH,HEIGHT` is an opt-in native-pixel PNG crop for a single frame
+or burst. Coordinates refer to the original WGC frame, not desktop coordinates.
+The rectangle must fit every captured frame; a size change still refuses the
+burst. Crop cannot be combined with `--width` resizing or `--metrics`, and does
+not change the queue or full-window defaults. WIC applies the bounds during PNG
+encoding, after the full source surface has been copied. A burst's frame manifest
+retains `SourceWidth`/`SourceHeight`, output `Width`/`Height`, original source
+timestamp and SHA-256, and adds `Crop` with its source X/Y/width/height only for
+cropped PNGs. This can reduce PNG cost; it does not avoid the full WGC surface
+copy or guarantee a particular sampling cadence.
 
 `frame-0001.png` etc. and `capture.json` form the result. The manifest contains:
 
@@ -140,14 +152,16 @@ dotnet build tools/window-capture -c Release -warnaserror
 dotnet run --project tools/window-capture-tests -c Release
 ```
 
-The executable harness source-links the option parser, bounded inbox, pixel math
+The executable harness source-links the option parser, production PNG encoder,
+bounded inbox, pixel math
 and representative ownership. It
 checks limit refusal, legacy single/list arguments, overflow disposal, exact
 consumer ownership, terminal cleanup, the single-frame loser case and concurrent
 stop/callback accounting. Synthetic checks cover black, white, centre-only white,
 RGB coefficients, channel thresholds, padding/plane offsets, boundary widths,
-bounded sampling and first/last/crossing retention/disposal. It opens no graphics,
-game, window or device. Build and 126 checks pass.
+bounded sampling, an actual encoded-pixel crop, and first/last/crossing
+retention/disposal. It opens no game, window or device. The encoded-pixel check
+uses an in-memory WIC bitmap only.
 
 ## First live metrics check (2026-10-12)
 

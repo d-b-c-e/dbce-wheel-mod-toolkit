@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.Imaging;
-using Windows.Storage.Streams;
 
 internal static class CaptureRun
 {
@@ -36,6 +36,7 @@ internal static class CaptureRun
         {
             var item = Capture.ItemForWindow(hwnd);
             var captureSize = item.Size;
+            options.Crop?.RequireFits(captureSize.Width, captureSize.Height);
             using var device = Capture.CreateDevice();
             using var pool = Direct3D11CaptureFramePool.CreateFreeThreaded(device, DirectXPixelFormat.B8G8R8A8UIntNormalized, options.Burst ? 4 : 2, captureSize);
             var session = pool.CreateCaptureSession(item);
@@ -103,26 +104,16 @@ internal static class CaptureRun
                         continue;
                     }
                     using var bitmap = copied;
-                    using var stream = new InMemoryRandomAccessStream();
-                    var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
-                    encoder.SetSoftwareBitmap(bitmap);
-                    int width = bitmap.PixelWidth, height = bitmap.PixelHeight;
-                    if (options.Width > 0 && options.Width < width)
-                    {
-                        height = Math.Max(1, (int)(height * (long)options.Width / width)); width = options.Width;
-                        encoder.BitmapTransform.ScaledWidth = (uint)width; encoder.BitmapTransform.ScaledHeight = (uint)height;
-                        encoder.BitmapTransform.InterpolationMode = BitmapInterpolationMode.Fant;
-                    }
-                    await encoder.FlushAsync();
-                    var bytes = new byte[stream.Size];
-                    using (var reader = new DataReader(stream.GetInputStreamAt(0))) { await reader.LoadAsync((uint)stream.Size); reader.ReadBytes(bytes); }
+                    var encoded = await CaptureEncoding.Png(bitmap, options.Width, options.Crop);
+                    var bytes = encoded.Bytes;
                     VerifyTarget(); // Required immediately before every image save.
                     if (inbox.Failure is { } ended) throw new IOException(ended);
                     string file = options.Burst ? $"frame-{frames.Count + 1:D4}.png" : Path.GetFileName(output);
                     using (var destination = new FileStream(options.Burst ? Path.Combine(output, file) : output,
                         options.Burst ? FileMode.CreateNew : FileMode.Create, FileAccess.Write, FileShare.None)) destination.Write(bytes);
                     frames.Add(new(file, timestamp, captured.ArrivedUtc, captured.ArrivalElapsedSeconds, DateTime.UtcNow,
-                        bitmap.PixelWidth, bitmap.PixelHeight, width, height, Convert.ToHexString(SHA256.HashData(bytes))));
+                        bitmap.PixelWidth, bitmap.PixelHeight, encoded.Width, encoded.Height, Convert.ToHexString(SHA256.HashData(bytes)))
+                        { Crop = options.Crop });
                 }
                 VerifyTarget();
                 if (inbox.Failure is { } finalFailure) throw new IOException(finalFailure);
@@ -197,4 +188,8 @@ internal sealed class CapturedFrame(Direct3D11CaptureFrame frame, DateTime arriv
     public void Dispose() => Interlocked.Exchange(ref _frame, null)?.Dispose();
 }
 internal sealed record SavedFrame(string File, long SystemRelativeTimeTicks, DateTime ArrivedUtc, double ArrivalElapsedSeconds,
-    DateTime SavedUtc, int SourceWidth, int SourceHeight, int Width, int Height, string Sha256);
+    DateTime SavedUtc, int SourceWidth, int SourceHeight, int Width, int Height, string Sha256)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CaptureCrop? Crop { get; init; }
+}

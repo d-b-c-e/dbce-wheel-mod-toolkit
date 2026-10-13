@@ -1,8 +1,12 @@
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
+
 int checks = 0;
 void Check(bool passed, string message) { checks++; if (!passed) throw new Exception(message); }
 void Refuses(string[] args) { bool failed = false; try { CaptureOptions.Parse(args); } catch (ArgumentException) { failed = true; } Check(failed, "invalid options accepted: " + string.Join(" ", args)); }
 var single = CaptureOptions.Parse(["42", "one.png", "--width", "1280", "--hwnd", "0x1234"]);
-Check(!single.Burst && single.MaxFrames == 1 && single.Width == 1280 && single.Window == 0x1234, "single-frame selection changed");
+Check(!single.Burst && single.MaxFrames == 1 && single.Width == 1280 && single.Window == 0x1234 && single.Crop == null,
+    "single-frame selection changed");
 Check(CaptureOptions.Parse(["game", "--list"]).List, "metadata listing preserved");
 var burst = CaptureOptions.Parse(["42", "fresh", "--duration", "30", "--max-frames", "300"]);
 Check(burst.Burst && burst.Duration == 30 && burst.MaxFrames == 300, "upper bounds refused");
@@ -20,6 +24,53 @@ Check(CaptureOptions.Parse(["42", "fresh", "--no-png", "--metrics", "--max-frame
 Refuses(["42", "fresh", "--no-png"]); Refuses(["42", "fresh", "--white-fraction", ".1"]);
 Refuses(["42", "fresh", "--metrics", "--metrics"]); Refuses(["42", "fresh", "--metrics", "--max-frames", "1"]);
 foreach (string bad in new[] { "0", "-1", "1.01", "NaN", "Infinity" }) Refuses(["42", "fresh", "--metrics", "--white-fraction", bad]);
+var crop = CaptureOptions.Parse(["42", "fresh", "--duration", "3", "--crop", "1,1,3,2"]);
+Check(crop.Crop == new CaptureCrop(1, 1, 3, 2) && crop.Width == 0, "native crop options changed");
+foreach (string bad in new[] { "", "1,2,3", "1,2,3,4,5", "-1,0,3,2", "+1,0,3,2", "0,0,0,2", "0,0,3,0", "0, 0,3,2", "0,0,2147483648,2" })
+    Refuses(["42", "fresh", "--duration", "3", "--crop", bad]);
+Refuses(["42", "fresh", "--crop", "0,0,1,1", "--width", "100"]);
+Refuses(["42", "fresh", "--width", "100", "--crop", "0,0,1,1"]);
+Refuses(["42", "fresh", "--metrics", "--crop", "0,0,1,1"]);
+Refuses(["42", "fresh", "--crop"]);
+Refuses(["42", "fresh", "--crop", "0,0,1,1", "--crop", "1,1,1,1"]);
+bool cropRefused = false;
+try { new CaptureCrop(3, 2, 3, 2).RequireFits(5, 4); } catch (ArgumentException) { cropRefused = true; }
+Check(cropRefused, "out-of-frame native crop admitted");
+new CaptureCrop(4, 3, 1, 1).RequireFits(5, 4);
+
+// Exercise the production WIC encoder bounds with known native pixels, then decode the actual PNG.
+const int fixtureWidth = 5, fixtureHeight = 4;
+var fixturePixels = new byte[fixtureWidth * fixtureHeight * 4];
+for (int y = 0; y < fixtureHeight; y++) for (int x = 0; x < fixtureWidth; x++)
+{
+    int at = (y * fixtureWidth + x) * 4;
+    fixturePixels[at] = (byte)(x + 10); fixturePixels[at + 1] = (byte)(y + 30);
+    fixturePixels[at + 2] = (byte)(x + y + 50); fixturePixels[at + 3] = 255;
+}
+using var sourceStream = new InMemoryRandomAccessStream();
+var sourceEncoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, sourceStream);
+sourceEncoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Straight, fixtureWidth, fixtureHeight, 96, 96, fixturePixels);
+await sourceEncoder.FlushAsync(); sourceStream.Seek(0);
+var sourceDecoder = await BitmapDecoder.CreateAsync(sourceStream);
+using var sourceBitmap = await sourceDecoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Straight);
+bool encoderRefused = false;
+try { await CaptureEncoding.Png(sourceBitmap, 0, new CaptureCrop(3, 2, 3, 2)); }
+catch (ArgumentException) { encoderRefused = true; }
+Check(encoderRefused, "production encoder admitted an out-of-frame crop");
+var croppedPng = await CaptureEncoding.Png(sourceBitmap, 0, crop.Crop);
+Check(croppedPng.Width == 3 && croppedPng.Height == 2, "encoded crop dimensions changed");
+using var croppedStream = new InMemoryRandomAccessStream();
+using (var writer = new DataWriter(croppedStream)) { writer.WriteBytes(croppedPng.Bytes); await writer.StoreAsync(); writer.DetachStream(); }
+croppedStream.Seek(0);
+var cropDecoder = await BitmapDecoder.CreateAsync(croppedStream);
+Check(cropDecoder.PixelWidth == 3 && cropDecoder.PixelHeight == 2, "PNG dimensions differ from crop");
+var decoded = (await cropDecoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Straight,
+    new BitmapTransform(), ExifOrientationMode.IgnoreExifOrientation, ColorManagementMode.DoNotColorManage)).DetachPixelData();
+for (int y = 0; y < 2; y++) for (int x = 0; x < 3; x++)
+{
+    int sourceAt = ((y + 1) * fixtureWidth + x + 1) * 4, croppedAt = (y * 3 + x) * 4;
+    Check(fixturePixels.AsSpan(sourceAt, 4).SequenceEqual(decoded.AsSpan(croppedAt, 4)), "encoded crop pixel differs from source pixel");
+}
 
 foreach (int width in new[] { 1, 2, 3, 4, 5, 7, 255, 256, 257, 7681 })
 {
