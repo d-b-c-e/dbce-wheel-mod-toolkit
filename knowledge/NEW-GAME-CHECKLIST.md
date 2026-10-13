@@ -74,6 +74,11 @@ Bonnet and bumper views into the game's own cycle; Cinemachine vcam at high
 priority if the game uses Cinemachine; hand back the instant the game directs.
 Numpad tuning that writes back to config.
 
+When moving canvases onto a camera for a centered triple-screen HUD, check
+[world-space precision and canvas depth](UNITY-CANVAS-PRECISION.md). A stable
+camera can still leave static text jittering when a tiny canvas is far from
+the origin; qualify the presentation change independently of driving controls.
+
 ## 8. Panel, settings, docs
 
 Same section vocabulary as the other mods. Device dropdowns with capabilities.
