@@ -1,7 +1,11 @@
 // dbce_shim (windows/shim_dll) through its C ABI over fake COM devices: layout, open refusals, ticks into the frame,
 // the owner thread, bounded text, capability, the P21 stop and the spent handle. With a path argument it also loads the
 // built DLL and checks its exports (no open: that would create a real DirectInput). No device, game or force.
+// Built for x86 (DBCE_SHIM_ORDINARY_ONLY) it runs the ordinary cases and the x86 refusals instead of the latched and
+// capture cases, which are x64-only.
 #include "dbce_shim_internal.hpp"
+#include "dbce_shim_bridge.h"
+#include "ordinary_only.hpp"
 #include "dinput_provider.hpp"
 #include "shim_fake_com.hpp"
 #include <cstring>
@@ -40,7 +44,11 @@ std::string read_text(const std::filesystem::path& p) { std::ifstream f(p, std::
 
 void test_layout() {
     check(dbce_shim_abi_version() == 2 && dbce_shim_frame_size() == 296 && sizeof(dbce_shim_frame) == 296, "ABI version and frame size");
+#if DBCE_SHIM_ORDINARY_ONLY
+    check(dbce_shim_open_args_size() == 80 && sizeof(dbce_shim_open_args) == 80, "open arguments size (x86: 4-byte pointers)");
+#else
     check(dbce_shim_open_args_size() == 128 && sizeof(dbce_shim_open_args) == 128, "open arguments size");
+#endif
     check(std::strcmp(dbce_shim_action_name(0), "steer") == 0 && std::strcmp(dbce_shim_action_name(30), "gear8") == 0, "action names");
     check(!dbce_shim_action_name(-1) && !dbce_shim_action_name(31), "out-of-range action names are null");
 }
@@ -179,16 +187,49 @@ void test_schema2_refused() {
     check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK && std::string(stopped) == "resolved", "the refused open stops resolved");
 }
 
-std::vector<std::string> sample_lines(const std::filesystem::path& source) {
-    std::vector<std::string> rows; std::istringstream in(read_text(source)); std::string line;
-    while (std::getline(in, line)) if (line.find("\"kind\":\"sample\"") != std::string::npos) rows.push_back(line);
-    return rows;
-}
 dbce_shim_open_args args_for(const std::wstring& folder, uint32_t flags) {
     static std::wstring held; held = folder;
     dbce_shim_open_args a{}; a.struct_size = sizeof a; a.flags = flags; a.folder = held.c_str(); a.nonce = "abinonce1";
     a.profile = Profile.data(); a.profile_len = int32_t(Profile.size()); a.adapter_version = "abi test adapter";
     return a;
+}
+
+#if DBCE_SHIM_ORDINARY_ONLY
+// x86: open2 (any flags) and the bridge open refuse with the reason and release what they were given; an ordinary
+// handle opens, ticks and stops as on x64, while record and the bridge calls refuse it.
+void test_x86_refusals() {
+    const auto dir = scratch() / "x86"; std::filesystem::create_directories(dir);
+    char why[256] = {}; void* h = nullptr; std::size_t slot = 0;
+    for (uint32_t flags : {0u, uint32_t(DBCE_SHIM_LATCHED), uint32_t(DBCE_SHIM_CAPTURE), uint32_t(DBCE_SHIM_LATCHED | DBCE_SHIM_CAPTURE)}) {
+        auto a = args_for(dir.wstring(), flags); auto* in = wheel_input(slot); h = &slot; why[0] = 0;
+        check(dbce_shim_open2_with_input(in, &a, &h, why, 256) == DBCE_SHIM_REFUSED && !h && in->refs == 0 &&
+              std::string(why).find("x86 build") != std::string::npos, "open2 refuses on x86 (flags " + std::to_string(flags) + ") and releases its DirectInput");
+    }
+    h = &slot;
+    check(dbce_shim_open2(nullptr, &h, why, 256) == DBCE_SHIM_REFUSED && !h && std::string(why).find("x64-only") != std::string::npos,
+          "the exported open2 refuses before creating any DirectInput");
+    auto a = args_for(dir.wstring(), 0); h = &slot;
+    check(dbce_shim_bridge_open(&a, &h, why, 256) == DBCE_SHIM_REFUSED && !h && std::string(why).find("copied-input bridge") != std::string::npos,
+          "the bridge open refuses on x86");
+    auto* in = wheel_input(slot);
+    check(dbce_shim_open_with_input(in, dir.wstring().c_str(), "x86nonce1", Profile.data(), int32_t(Profile.size()), nullptr, nullptr, &h, why, 256) == DBCE_SHIM_OK && h,
+          std::string("x86 ordinary open: ") + why);
+    dbce_shim_frame f{}; f.struct_size = sizeof f;
+    check(dbce_shim_tick(h, &f) == DBCE_SHIM_OK && f.abi == DBCE_SHIM_ABI && !f.latched, "x86 ordinary tick");
+    const double v[1] = {1};
+    check(dbce_shim_record(h, f.seq, v, 1) == DBCE_SHIM_REFUSED, "record refuses on x86");
+    check(dbce_shim_bridge_tick(h, nullptr, 0, &f) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_bridge_devices(h, nullptr, 0) == DBCE_SHIM_BAD_ARGUMENT,
+          "an ordinary handle refuses the bridge calls");
+    char stopped[512] = {};
+    check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK && std::string(stopped) == "resolved", "the x86 ordinary stop resolves");
+    check(dbce_shim_record(h, f.seq, v, 1) == DBCE_SHIM_STOPPED, "a spent handle reports stopped, not refused");
+    check(in->counters.force_calls == 0 && in->refs == 0, "no force call; DirectInput released");
+}
+#else
+std::vector<std::string> sample_lines(const std::filesystem::path& source) {
+    std::vector<std::string> rows; std::istringstream in(read_text(source)); std::string line;
+    while (std::getline(in, line)) if (line.find("\"kind\":\"sample\"") != std::string::npos) rows.push_back(line);
+    return rows;
 }
 
 void test_open2_refusals() {
@@ -330,32 +371,52 @@ void test_latched_capture(const std::filesystem::path& dir, bool expect_checks =
           "the journal and the generic capture side by side in the run folder");
     check(in->counters.force_calls == 0, "no force call");
 }
+#endif
 }
 
+#if !DBCE_SHIM_ORDINARY_ONLY
 int capture_child(const std::filesystem::path& run, bool latched) {   // for the out-of-process seal check (shim_dll_seal.py)
     try { if (latched) test_latched_capture(run, false); else test_capture(run, false); return 0; }
     catch (const std::exception& e) { std::cerr << e.what() << "\n"; return 1; }
 }
+#endif
 namespace {
+// Every export both headers declare, by its plain name (the x86 build's __cdecl names are undecorated too).
 void test_dll(const std::wstring& path) {
     HMODULE m = LoadLibraryW(path.c_str()); check(m != nullptr, "the built DLL loads");
     for (const char* name : {"dbce_shim_abi_version", "dbce_shim_frame_size", "dbce_shim_open_args_size", "dbce_shim_action_name", "dbce_shim_open",
                              "dbce_shim_open2", "dbce_shim_tick", "dbce_shim_record", "dbce_shim_start_report", "dbce_shim_device_reports",
-                             "dbce_shim_profile_info", "dbce_shim_stop", "dbce_shim_profile_action_info"})
+                             "dbce_shim_profile_info", "dbce_shim_stop", "dbce_shim_profile_action_info",
+                             "dbce_shim_bridge_abi_version", "dbce_shim_bridge_device_size", "dbce_shim_bridge_sample_size", "dbce_shim_bridge_open",
+                             "dbce_shim_bridge_devices", "dbce_shim_bridge_devices_with_paths", "dbce_shim_bridge_tick"})
         check(GetProcAddress(m, name) != nullptr, std::string("export ") + name);
     auto proc = [&](const char* n) { return reinterpret_cast<void (*)()>(GetProcAddress(m, n)); };   // the usual FARPROC idiom
     auto version = reinterpret_cast<int32_t (*)()>(proc("dbce_shim_abi_version"));
     auto size = reinterpret_cast<int32_t (*)()>(proc("dbce_shim_frame_size"));
     auto name = reinterpret_cast<const char* (*)(int32_t)>(proc("dbce_shim_action_name"));
     check(version() == 2 && size() == 296 && std::strcmp(name(0), "steer") == 0, "the DLL's ABI agrees with this build");
+#if DBCE_SHIM_ORDINARY_ONLY
+    auto args_size = reinterpret_cast<int32_t (*)()>(proc("dbce_shim_open_args_size"));
+    auto open2 = reinterpret_cast<int32_t (*)(const dbce_shim_open_args*, void**, char*, int32_t)>(proc("dbce_shim_open2"));
+    char why[256] = {}; void* h = why;
+    check(args_size() == 80 && open2(nullptr, &h, why, 256) == DBCE_SHIM_REFUSED && !h && std::string(why).find("x86 build") != std::string::npos,
+          "the built x86 DLL is ordinary only");
+#endif
 }
 }
 
 int main(int argc, char** argv) {
+#if !DBCE_SHIM_ORDINARY_ONLY
     if (argc == 3 && std::string(argv[1]) == "--capture-child") return capture_child(std::filesystem::path(argv[2]), false);
     if (argc == 3 && std::string(argv[1]) == "--latched-capture-child") return capture_child(std::filesystem::path(argv[2]), true);
+#endif
     try {
-        test_layout(); test_profile_inspection(); test_refusals(); test_lifecycle(); test_path_unavailable(); test_schema2_refused(); test_open2_refusals(); test_latched(); test_capture(scratch() / "capture-run"); test_latched_capture(scratch() / "latched-capture-run");
+        test_layout(); test_profile_inspection(); test_refusals(); test_lifecycle(); test_path_unavailable(); test_schema2_refused();
+#if DBCE_SHIM_ORDINARY_ONLY
+        test_x86_refusals();
+#else
+        test_open2_refusals(); test_latched(); test_capture(scratch() / "capture-run"); test_latched_capture(scratch() / "latched-capture-run");
+#endif
         if (argc == 2) test_dll(std::filesystem::path(argv[1]).wstring());
     } catch (const std::exception& e) { std::cerr << "FAIL: " << e.what() << "\n"; return 1; }
     std::error_code ec; std::filesystem::remove_all(scratch(), ec);

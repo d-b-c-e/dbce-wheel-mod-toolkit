@@ -13,7 +13,11 @@
    - The shim reads devices non-exclusively and never creates force effects. dbce_shim_open is ordinary (no control
      worker, no capture). dbce_shim_open2 adds a latched test session (the reviewed control worker and journal, admitted
      only on the caller's verified fences and process-latched force mute) and a capture (the shared frame recorder: the
-     Core frame plus the game's own channels, sealed out of process under P21). */
+     Core frame plus the game's own channels, sealed out of process under P21).
+   - The x86 build (32-bit games) is ordinary only: the same exports, but dbce_shim_open2 and dbce_shim_bridge_open
+     always return DBCE_SHIM_REFUSED with the reason, and dbce_shim_record returns DBCE_SHIM_REFUSED for every live
+     handle. dbce_shim_open_args is x64's (128 bytes); on x86 it is 80 bytes and dbce_shim_open_args_size() says so.
+     Every export is __cdecl (the default for these declarations); an x86 caller must declare it so. */
 #include <stdint.h>
 #ifdef DBCE_SHIM_BUILD
 #define DBCE_SHIM_API __declspec(dllexport)

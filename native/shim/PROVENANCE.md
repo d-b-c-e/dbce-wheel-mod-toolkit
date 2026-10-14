@@ -111,6 +111,25 @@ The next commit on `codex/art-shim-bridge`, merged three ways from base `574bb88
 - **Union of both test lists:** `tests/test_shim_abi.cpp` runs `test_profile_inspection` beside the toolkit's
   `test_schema2_refused`.
 
+## x86 ordinary-only build (2026-10-14, sana 97961/99082)
+
+These changes are toolkit-local and were made after the move. For the files they touch, the blob table below records
+the moved bytes, not the current ones. They are for 32-bit games, following the HCT assessment in the hub's
+`artifacts/x86-shim-probe-20261014`. The x64 DLL's behavior is unchanged.
+
+- **New:** `shim/json_text.hpp` holds `json_string`, moved unchanged from `host/control_journal.hpp`. The journal keeps
+  the name `journal_detail::json_string` through a `using` declaration. The DLL's ordinary device and profile JSON now
+  uses it without including the journal.
+- **New:** `shim/ordinary_only.hpp` defines `DBCE_SHIM_ORDINARY_ONLY`, which is 1 only for `_M_IX86`.
+- **Changed:** `shim_dll/dbce_shim.cpp` compiles the journal, recorder and identity includes, the capture and latched
+  parts of `open_impl`, `game_channels`, `game_id`, the pending capture rows and `bridge_clock` on x64 only. On x86,
+  `dbce_shim_open2`, `dbce_shim_bridge_open` and `dbce_shim_record` refuse, and the `open_args` layout assert pins
+  the 80-byte x86 layout.
+- **Changed:** `tests/test_shim_abi.cpp` and `tests/test_provider_host.cpp` keep their latched, capture and journal
+  cases x64-only. `test_shim_abi` adds `test_x86_refusals` and checks all 20 exports on both architectures.
+- **Changed:** `build_test.ps1` gains `-Arch x86`, and an export, machine and import check for both architectures.
+- **Unchanged:** `shim/observer_transport.hpp`, with its x64 assert. The x86 build never includes it.
+
 ## Not moved
 
 - OutRun's adapter and game-side shim code (`windows/source/shim_input.cpp`, `outrun_adapter.*`, `shim_steer.hpp`), and

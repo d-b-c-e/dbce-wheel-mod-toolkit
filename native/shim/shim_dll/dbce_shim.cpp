@@ -1,15 +1,21 @@
 // dbce_shim.h's implementation: the reviewed ProviderHost (windows/host) over the reviewed Core and DInputProvider
 // (windows/shim), with the reviewed control worker, journal and shared frame recorder, behind the C ABI. This file only
 // validates, converts, pairs capture rows with their frames and owns handles.
+// The x86 build (DBCE_SHIM_ORDINARY_ONLY, shim/ordinary_only.hpp) compiles the ordinary path only: the journal, the
+// recorder and the copied-input bridge's open are left out, and their entries refuse.
 #ifndef DBCE_SHIM_BUILD
 #define DBCE_SHIM_BUILD
 #endif
 #include "dbce_shim_internal.hpp"
 #include "dbce_shim_bridge.h"
 #include "bridge_provider.hpp"
+#include "json_text.hpp"
+#include "ordinary_only.hpp"
+#if !DBCE_SHIM_ORDINARY_ONLY
 #include "control_journal.hpp"
 #include "frame_recorder.hpp"
 #include "journal_identity.hpp"
+#endif
 #include "provider_host.hpp"
 #include <algorithm>
 #include <cmath>
@@ -25,19 +31,40 @@
 namespace {
 namespace h = dbce::shim::hosting;
 namespace sh = dbce::shim;
+#if DBCE_SHIM_ORDINARY_ONLY
+constexpr const char* X86Refusal = "x86 build: ordinary dbce_shim_open only; dbce_shim_open2, latched control, capture and the "
+                                   "copied-input bridge are x64-only";
+#else
 namespace c = dbce::shim::control;
 namespace rec = dbce::shim::recorder;
 constexpr const char* CoreVersion = "input-shim core (dbce_shim ABI 2)";
+#endif
 
 static_assert(DBCE_SHIM_ACTIONS == sh::ActionCount, "the ABI's action count is Core's");
 static_assert(sizeof(dbce_shim_action) == 8 && offsetof(dbce_shim_action, status) == 4, "dbce_shim_action layout");
 static_assert(sizeof(dbce_shim_frame) == 296 && offsetof(dbce_shim_frame, seq) == 8 && offsetof(dbce_shim_frame, run) == 40 &&
               offsetof(dbce_shim_frame, sample_count) == 44 && offsetof(dbce_shim_frame, action) == 48, "dbce_shim_frame layout");
+#if DBCE_SHIM_ORDINARY_ONLY
+// x86: twelve 4-byte pointers. dbce_shim_open2 refuses here; the layout is pinned so dbce_shim_open_args_size() stays true.
+static_assert(sizeof(dbce_shim_open_args) == 80 && offsetof(dbce_shim_open_args, profile_len) == 8 &&
+              offsetof(dbce_shim_open_args, fences_verified) == 12 && offsetof(dbce_shim_open_args, folder) == 16 &&
+              offsetof(dbce_shim_open_args, capture_folder) == 44 && offsetof(dbce_shim_open_args, hz) == 64 &&
+              offsetof(dbce_shim_open_args, seconds) == 72, "dbce_shim_open_args layout (x86)");
+#else
 static_assert(sizeof(dbce_shim_open_args) == 128 && offsetof(dbce_shim_open_args, profile_len) == 8 &&
               offsetof(dbce_shim_open_args, fences_verified) == 12 && offsetof(dbce_shim_open_args, folder) == 16 &&
               offsetof(dbce_shim_open_args, capture_folder) == 72 && offsetof(dbce_shim_open_args, hz) == 112 &&
               offsetof(dbce_shim_open_args, seconds) == 120, "dbce_shim_open_args layout");
+#endif
 
+#if DBCE_SHIM_ORDINARY_ONLY
+// x86: no capture is compiled in, so the recorder phase is complete by construction.
+struct DllRecorder {
+    void finish() {}
+    struct Drained { h::RecOutcome outcome; bool joined; };
+    Drained drain(h::Clock::time_point) { return {h::RecOutcome::Complete, true}; }
+};
+#else
 // The host's recorder: the shared frame recorder when the open asked for a capture, otherwise nothing to drain (the
 // recorder phase is complete by construction).
 struct DllRecorder {
@@ -52,6 +79,7 @@ struct DllRecorder {
         return {d.outcome, d.joined};
     }
 };
+#endif
 using Host = h::ProviderHost<DllRecorder>;
 
 // A handle's shell is never freed (a few bytes per open), so a spent handle stays recognisable; the registry lets a
@@ -104,6 +132,7 @@ bool capability(const char* text, Shim& s, sh::Capability& caps, std::string& wh
     return true;
 }
 
+#if !DBCE_SHIM_ORDINARY_ONLY
 // The capture's game channel names: ASCII session names, unique, not the reserved "valid", at most 256.
 bool game_channels(const char* text, std::vector<std::string>& out, std::string& why) {
     out.clear();
@@ -123,6 +152,7 @@ bool game_id(const char* id) {
     const std::string s(id);
     return !s.empty() && s.size() <= 64 && std::all_of(s.begin(), s.end(), [](char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '-'; });
 }
+#endif
 
 // The DLL's code must outlive every worker the host may leave running (DInputProvider: "the code module is never
 // unloaded"): pin it, so no FreeLibrary can unload it under a thread.
@@ -133,7 +163,7 @@ bool pin_module() {
 }
 
 std::string device_json(const std::vector<sh::DeviceReport>& devices) {
-    using dbce::shim::control::journal_detail::json_string;
+    using dbce::shim::json_string;
     std::string j = "[";
     for (std::size_t d = 0; d < devices.size(); ++d) {
         const auto& r = devices[d];
@@ -147,6 +177,10 @@ std::string device_json(const std::vector<sh::DeviceReport>& devices) {
     return j + "]";
 }
 
+#if DBCE_SHIM_ORDINARY_ONLY
+void push_pending(Shim&) {}                      // x86: no capture is compiled in
+void hold_pending(Shim&, const sh::Frame&) {}
+#else
 // The pending frame's row: its game values when recorded and valid, otherwise zeros with game.valid=0.
 void push_pending(Shim& s) {
     if (!s.capture || !s.pending.active) return;
@@ -161,6 +195,7 @@ void hold_pending(Shim& s, const sh::Frame& f) {
     s.pending.frame = f; s.pending.active = true; s.pending.recorded = false; s.pending.valid = false;
     s.pending.values.assign(s.game.size(), 0.0);
 }
+#endif
 
 // One open for both entries: v1's ordinary host and v2's arguments.
 int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** out, char* why, int32_t why_len,
@@ -171,6 +206,9 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
         *out = nullptr;
         const bool latched = (a.flags & DBCE_SHIM_LATCHED) != 0, capture = (a.flags & DBCE_SHIM_CAPTURE) != 0;
         if (a.flags & ~std::uint32_t(DBCE_SHIM_LATCHED | DBCE_SHIM_CAPTURE)) return refuse(DBCE_SHIM_BAD_ARGUMENT, "unknown open flags");
+#if DBCE_SHIM_ORDINARY_ONLY
+        if (latched || capture) return refuse(DBCE_SHIM_REFUSED, X86Refusal);   // unreachable through the ABI: its entries refuse first
+#endif
         if ((!input && !bridge) || !a.folder || !a.nonce || !a.profile || a.profile_len < 0 || a.profile_len > (1 << 20))
             return refuse(DBCE_SHIM_BAD_ARGUMENT, "input, folder, nonce and a profile of at most 1 MiB are required");
         const DWORD attributes = GetFileAttributesW(a.folder);
@@ -182,12 +220,14 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
         auto shell = std::make_unique<Shim>();
         shell->bridge = bridge;
         shell->latched = latched; shell->capture = capture;
+#if !DBCE_SHIM_ORDINARY_ONLY
         if (capture) {
             std::string text;
             if (!a.capture_folder || !game_id(a.game_id) || !std::isfinite(a.hz) || a.hz <= 0 || !std::isfinite(a.seconds) || a.seconds <= 0)
                 return refuse(DBCE_SHIM_BAD_ARGUMENT, "a capture needs its folder, a [a-z0-9.-] game id of 1-64 and a positive rate and duration");
             if (!game_channels(a.game_channels, shell->game, text)) return refuse(DBCE_SHIM_BAD_ARGUMENT, text);
         }
+#endif
         if (!pin_module()) return refuse(DBCE_SHIM_REFUSED, "cannot pin the shim module");
         sh::Capability caps; std::string text;
         if (!capability(a.unsupported, *shell, caps, text)) return refuse(DBCE_SHIM_BAD_ARGUMENT, text);
@@ -201,6 +241,7 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
             if (parsed.ok) for (const auto& e : parsed.section.bound) instances.insert(e.binding.dev);
         }
         auto recorder = std::make_unique<DllRecorder>();
+#if !DBCE_SHIM_ORDINARY_ONLY
         if (capture) {
             if (instances.empty()) return refuse(DBCE_SHIM_BAD_ARGUMENT, "a capture needs a profile that binds a device");
             rec::FrameCaptureSettings cs;
@@ -215,10 +256,12 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
             catch (const std::exception& e) { return refuse(DBCE_SHIM_BAD_ARGUMENT, std::string("capture preflight: ") + e.what()); }
             recorder->frames.emplace(std::move(cs));
         }
+#endif
         // From here the host owns the DirectInput reference, also when its construction throws.
         auto* in = input; input = nullptr;
         if (bridge) shell->host = std::make_unique<Host>(a.folder,nonce,bridge,bytes,latched,std::move(recorder),caps);
         else shell->host = std::make_unique<Host>(a.folder, nonce, in, bytes, latched, std::move(recorder), caps, static_cast<HWND>(a.hwnd));
+#if !DBCE_SHIM_ORDINARY_ONLY
         if (capture) shell->host->recorder().set_devices(shell->host->device_reports());   // one sample slot per profile device
         if (latched) {   // the reviewed control worker and journal, in the run folder
             c::JournalLimits limits; limits.cap_bytes = c::LatchedJournalCap;
@@ -227,6 +270,7 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
                                                                       bridge ? "external-physical-input@1" : nullptr), limits);
             shell->host->start_control(io, {true, a.fences_verified == 1, a.force_absent == 1, nonce});
         }
+#endif
         { std::lock_guard<std::mutex> l(registry_lock); registry.insert(shell.get()); }
         *out = shell.release();
         return DBCE_SHIM_OK;
@@ -250,12 +294,19 @@ int32_t dbce_shim_open_with_input(IDirectInput8W* input, const wchar_t* folder, 
     return open_impl(input, ordinary(folder, nonce, profile, profile_len, unsupported, hwnd), out, why, why_len);
 }
 int32_t dbce_shim_open2_with_input(IDirectInput8W* input, const dbce_shim_open_args* args, void** out, char* why, int32_t why_len) {
+#if DBCE_SHIM_ORDINARY_ONLY
+    (void)args;   // x86: every open2 refuses, whatever its arguments, and releases the reference it was given
+    if (input) input->Release();
+    if (out) *out = nullptr;
+    return fail(DBCE_SHIM_REFUSED, X86Refusal, why, why_len);
+#else
     if (!args || args->struct_size != sizeof(dbce_shim_open_args)) {
         if (input) input->Release();
         if (out) *out = nullptr;
         return fail(DBCE_SHIM_BAD_ARGUMENT, "args is null or not dbce_shim_open_args_size() bytes", why, why_len);
     }
     return open_impl(input, *args, out, why, why_len);
+#endif
 }
 
 extern "C" {
@@ -271,10 +322,14 @@ int32_t dbce_shim_open(const wchar_t* folder, const char* nonce, const char* pro
     return dbce_shim_open_with_input(input, folder, nonce, profile, profile_len, unsupported, hwnd, out, why, why_len);
 }
 int32_t dbce_shim_open2(const dbce_shim_open_args* args, void** out, char* why, int32_t why_len) {
+#if DBCE_SHIM_ORDINARY_ONLY
+    return dbce_shim_open2_with_input(nullptr, args, out, why, why_len);   // x86: refuses before any DirectInput is created
+#else
     if (!args || args->struct_size != sizeof(dbce_shim_open_args)) return dbce_shim_open2_with_input(nullptr, args, out, why, why_len);
     IDirectInput8W* input = direct_input();
     if (!input) { if (out) *out = nullptr; return fail(DBCE_SHIM_REFUSED, "DirectInput8Create failed", why, why_len); }
     return dbce_shim_open2_with_input(input, args, out, why, why_len);
+#endif
 }
 
 static int32_t tick_impl(Shim* s, dbce_shim_frame* frame) {
@@ -303,13 +358,19 @@ static_assert(sizeof(dbce_shim_bridge_device_v1)==144 && sizeof(dbce_shim_bridge
 int32_t dbce_shim_bridge_abi_version(void){return 1;}
 int32_t dbce_shim_bridge_device_size(void){return sizeof(dbce_shim_bridge_device_v1);}
 int32_t dbce_shim_bridge_sample_size(void){return sizeof(dbce_shim_bridge_sample_v1);}
+#if !DBCE_SHIM_ORDINARY_ONLY
 static int64_t bridge_clock(){LARGE_INTEGER f{},t{};if(!QueryPerformanceFrequency(&f)||f.QuadPart<=0||!QueryPerformanceCounter(&t))return -1;
     return (t.QuadPart/f.QuadPart)*1000000+(t.QuadPart%f.QuadPart)*1000000/f.QuadPart;}
+#endif
 static std::string bridge_guid(const uint8_t* bytes){GUID g{};std::memcpy(&g,bytes,sizeof(g));char text[40]{};
     std::snprintf(text,sizeof(text),"{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",static_cast<unsigned long>(g.Data1),g.Data2,g.Data3,
         g.Data4[0],g.Data4[1],g.Data4[2],g.Data4[3],g.Data4[4],g.Data4[5],g.Data4[6],g.Data4[7]);return text;}
 int32_t dbce_shim_bridge_open(const dbce_shim_open_args* args,void** out,char* why,int32_t why_len){
     if(out)*out=nullptr;
+#if DBCE_SHIM_ORDINARY_ONLY
+    (void)args;   // x86: the bridge takes open_args and is x64-only; with no bridge handle, its other calls refuse the handle
+    return fail(DBCE_SHIM_REFUSED,X86Refusal,why,why_len);
+#else
     if(!args || args->struct_size!=sizeof(*args))return fail(DBCE_SHIM_BAD_ARGUMENT,"bridge args size",why,why_len);
     if(args->flags & ~std::uint32_t(DBCE_SHIM_LATCHED | DBCE_SHIM_CAPTURE))return fail(DBCE_SHIM_BAD_ARGUMENT,"unknown bridge open flags",why,why_len);
     if(args->flags & DBCE_SHIM_CAPTURE)return fail(DBCE_SHIM_REFUSED,"bridge capture source format is not qualified",why,why_len);
@@ -317,6 +378,7 @@ int32_t dbce_shim_bridge_open(const dbce_shim_open_args* args,void** out,char* w
     // terminal suppression. It does not turn copied physical samples into injection.
     try{return open_impl(nullptr,*args,out,why,why_len,std::make_shared<sh::BridgeProvider>(bridge_clock));}
     catch(...){return fail(DBCE_SHIM_REFUSED,"bridge allocation failed",why,why_len);}
+#endif
 }
 static int32_t bridge_devices_impl(void* handle,const dbce_shim_bridge_device_v1* devices,int32_t count,const wchar_t* const* paths){
     Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
@@ -373,6 +435,10 @@ int32_t dbce_shim_bridge_tick(void* handle,const dbce_shim_bridge_sample_v1* sam
 int32_t dbce_shim_record(void* handle, uint64_t frame_seq, const double* values, int32_t count) {
     Shim* s = nullptr;
     if (const auto r = lookup(handle, s)) return r;
+#if DBCE_SHIM_ORDINARY_ONLY
+    (void)frame_seq; (void)values; (void)count;
+    return DBCE_SHIM_REFUSED;   // x86: no capture is compiled in
+#else
     if (!s->capture) return DBCE_SHIM_BAD_ARGUMENT;
     auto& p = s->pending;
     if (!p.active || p.recorded || frame_seq != p.frame.seq) return DBCE_SHIM_STALE;   // changes nothing: the first call stands
@@ -381,6 +447,7 @@ int32_t dbce_shim_record(void* handle, uint64_t frame_seq, const double* values,
     for (int32_t i = 0; i < count; ++i) if (!std::isfinite(values[i])) return DBCE_SHIM_BAD_ARGUMENT;
     p.values.assign(values, values + count); p.valid = true;
     return DBCE_SHIM_OK;
+#endif
 }
 
 int32_t dbce_shim_start_report(void* handle, char* text, int32_t len, int32_t* needed) {
@@ -422,7 +489,7 @@ int32_t dbce_shim_profile_action_info(const char* profile, int32_t profile_len, 
         else if (!plan.invalid_keys.empty()) reason = "profile contains invalid or conflicting action: " + plan.invalid_keys.front();
         else if (plan.bound_of[std::size_t(action)] < 0) { status = "unbound"; reason = "action is not bound"; }
         else { status = "bound"; binding = &plan.bound[std::size_t(plan.bound_of[std::size_t(action)])].binding; }
-        using dbce::shim::control::journal_detail::json_string;
+        using dbce::shim::json_string;
         std::string result = "{\"schema\":1";
         auto field = [&](const char* key, const std::string& value) {
             result += std::string(",\"") + key + "\":";
@@ -443,7 +510,9 @@ int32_t dbce_shim_stop(void* handle, char* report, int32_t len, int32_t* needed)
     try {
         // P21 order, as OutRunDesktop's shutdown: the capture's device table, the pending row, control admission closed,
         // one final Core tick (recorded unconsumed: the caller never applied it), then the host's bounded stop.
+#if !DBCE_SHIM_ORDINARY_ONLY
         if (s->capture) s->host->recorder().set_devices(s->host->device_reports());
+#endif
         push_pending(*s);
         if (s->latched) {
             s->host->close_control_admission();
@@ -454,8 +523,10 @@ int32_t dbce_shim_stop(void* handle, char* report, int32_t len, int32_t* needed)
         const auto r = s->host->stop();
         std::string t = r.resolved ? "resolved" : "unresolved:";
         for (const auto& u : r.unresolved) t += " " + u + ";";
+#if !DBCE_SHIM_ORDINARY_ONLY
         if (s->capture) t += std::string("; capture ") + (r.recorder == h::RecOutcome::Complete ? "complete" : "not complete") +
                              (s->host->recorder().frames->refusal().empty() ? "" : " (" + s->host->recorder().frames->refusal() + ")");
+#endif
         if (r.resolved) s->host.reset();     // every worker joined: the host can go
         else (void)s->host.release();        // P21: never torn down under a running worker; alive until process exit
         (void)text_out(t, report, len, needed);   // the resolution is the result even when the report does not fit

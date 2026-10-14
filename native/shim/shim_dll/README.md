@@ -21,6 +21,29 @@ Build and test from the toolkit root with `pwsh native/shim/build_test.ps1`.
 `test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports. `test_shim_bridge` runs the copied-input
 bridge: its provider, Core over it, and its exports in memory.
 
+## x86 build: ordinary only
+
+`pwsh native/shim/build_test.ps1 -Arch x86` builds `build/x86-mt/dbce_shim.dll` for 32-bit games, such as Horizon
+Chase Turbo on Unity's Mono 2.0. It uses the same clang-cl for `i686-pc-windows-msvc` under vcvars32.
+
+It serves the ordinary path only: Core, the DirectInput provider and ProviderHost, opened with `dbce_shim_open`. The
+control journal, its observer transport (`observer_transport.hpp`, qualified for x64 only, assert unchanged) and the
+frame recorder are not compiled in (`shim/ordinary_only.hpp`, `DBCE_SHIM_ORDINARY_ONLY`). The x64 build is unchanged.
+
+| | x86 |
+| --- | --- |
+| Exports | The same 20 names, undecorated `__cdecl`. An x86 caller must declare every function as cdecl; in C# that is `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]`, because a delegate defaults to StdCall. |
+| `dbce_shim_open`, `tick`, `start_report`, `device_reports`, `profile_info`, `profile_action_info`, `stop` | As on x64. |
+| `dbce_shim_open2` | Always `DBCE_SHIM_REFUSED`, with the reason in `why`, before any DirectInput is created. |
+| `dbce_shim_bridge_open` | Always `DBCE_SHIM_REFUSED`, with the reason. With no bridge handle, the other bridge calls refuse every handle (`DBCE_SHIM_BAD_ARGUMENT`), as a direct handle does on x64. |
+| `dbce_shim_record` | `DBCE_SHIM_REFUSED` for every live handle. |
+| `dbce_shim_open_args` | 80 bytes, which `dbce_shim_open_args_size()` reports. The 128-byte struct is x64's; nothing on x86 accepts it. |
+| `dbce_shim_frame`, `dbce_shim_action`, bridge structs | Identical to x64 (296, 8, 144 and 232 bytes, with the same offsets). |
+
+`test_shim`, `test_dinput_provider` and `test_provider_host` run their ordinary cases on x86. `test_shim_abi` runs
+the ordinary cases plus the x86 refusals, and checks the built DLL's exports, its `open_args` size and its open2
+refusal. The receipt (`build/x86-mt/build-receipt.json`) records `arch` and `ordinaryOnly`, for a reviewed pin.
+
 ## Pure profile inspection (optional export)
 
 `dbce_shim_profile_action_info(profile, len, action, text, len, needed)` (since `5b96ba8`) reads one action's
