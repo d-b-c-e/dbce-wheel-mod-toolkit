@@ -18,7 +18,31 @@ experimental C ABI in `dbce_shim.h` (ABI 2, not a stable-ABI promise; Astra 1698
   frame producer with game channels from the adapter).
 
 Build and test from the toolkit root with `pwsh native/shim/build_test.ps1`.
-`test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports.
+`test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports. `test_shim_bridge` runs the copied-input
+bridge: its provider, Core over it, and its exports in memory.
+
+## Copied-input bridge (extension 1, additive)
+
+The same DLL also serves a consumer that already owns its device handle and copies each read in. Art's native reader
+(the toolkit's `WheelFfb.dll`) is the first such consumer. `dbce_shim_bridge.h` declares seven exports:
+
+- `dbce_shim_bridge_abi_version`, `dbce_shim_bridge_device_size` and `dbce_shim_bridge_sample_size`;
+- `dbce_shim_bridge_open`;
+- `dbce_shim_bridge_devices` and `dbce_shim_bridge_devices_with_paths`;
+- `dbce_shim_bridge_tick`.
+
+The design and its checks are in `../docs/COPIED-INPUT-BRIDGE.md` (copied from the OutRun branch; see `../PROVENANCE.md`).
+
+- **Unchanged:** base ABI 2, the frame, the open arguments and every existing export. A bridge handle refuses
+  `dbce_shim_tick`, and a direct handle refuses the bridge calls.
+- **Refused flags:** a bridge open refuses the latched and capture flags until source provenance is part of those formats.
+- **No device calls:** `shim/bridge_provider` holds memory leases only. It makes no DirectInput or COM call and never
+  reacquires; the external owner recovers its device.
+- **Device adoption:** the bridge goes through the same Core as DirectInput, including the absent-device rescan.
+  - A device batch published after an empty scan is adopted at the next scheduled scan
+    (`CoreConfig::missing_rescan_us`, 250 ms by default). That is a scheduling delay, not a wall-clock guarantee.
+  - A lost handle is closed and looked for again at once.
+  - Freshness uses the source's original read time, not the copy time.
 
 ## Opening is asynchronous: tick before admitting input
 

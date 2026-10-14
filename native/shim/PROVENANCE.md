@@ -26,10 +26,51 @@ layout mirrors the source `windows/` folders, so the decomp can vendor this tree
 | variant | source | DLL SHA-256 | consumers | notes |
 |---|---|---|---|---|
 | direct provider | `codex/shim-device-path` `f49cfc559f065b778967a7c94068a75df538ec69` | `9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8` | DRIVE (rc.12 and later), the Woden private pilot | The consumers pin this hash, ABI 2 and 31 actions. |
-| copied-provider bridge | `codex/art-shim-bridge` `574bb8827098779257bd08a89038c787403d15b0` | `7DDC962132819EDAE76EF84CE6509F1936B8C38177A36D498B8ABBCFDCFFBCAF` | Art (installed) | Shares Art's existing native reader. Its additions from base `a9e16010e4d8909b71d1090a8266551ce74acb14`: `bridge_provider.{hpp,cpp}`, `shim_dll/dbce_shim_bridge.h`, bridge exports in `dbce_shim.cpp`, and core/provider changes (`d46096c`, `1e88feb`, `574bb88`; tests `test_shim_bridge.cpp`). **Not included here**: merging them is a reviewed follow-up. |
+| copied-provider bridge | `codex/art-shim-bridge` `574bb8827098779257bd08a89038c787403d15b0` | `7DDC962132819EDAE76EF84CE6509F1936B8C38177A36D498B8ABBCFDCFFBCAF` | Art (installed) | Shares Art's existing native reader. Its additions from base `a9e16010e4d8909b71d1090a8266551ce74acb14`: `bridge_provider.{hpp,cpp}`, `shim_dll/dbce_shim_bridge.h`, bridge exports in `dbce_shim.cpp`, and core/provider changes (`d46096c`, `1e88feb`, `574bb88`; tests `test_shim_bridge.cpp`). **Merged here** since 2026-10-13: see "Copied-input bridge merge" below. Art keeps its pinned DLL until a reviewed adoption. |
 | integration line (this copy) | `24dc0f803e6bf111798ff7b74d6c99428cf3400e` | built by `build_test.ps1` (see its receipt) | none yet | A superset of the direct provider inside the DLL closure: an optional `front` provider in `provider_host.hpp` (default off; used by OutRun's WheelFfb bridge), read accessors in `frame_recorder.hpp`, and the absent-device rescan in `core.cpp`/`shim.hpp`. `dinput_provider.*` and `shim_dll/*` match `f49cfc55`. |
 
 No consumer is repinned by this move. Adoption, a repin or the bridge merge each need their own review.
+
+## Copied-input bridge merge (2026-10-13, sana 77241/77425)
+
+The bridge delta is `outrun2-decomp` `a9e16010..574bb88` on `codex/art-shim-bridge`. Its commits are `d46096c`, the
+evidence-only `2a11562`, `1e88feb` and `574bb88`. `a9e16010` is also the base of the line this copy came from. Each
+file was merged three ways: base `a9e16010`, this toolkit at `fb710df`, and the bridge at `574bb88`.
+
+- **New, byte-identical to the bridge** (same git blob):
+
+  | blob | file |
+  |---|---|
+  | `e99fc33505b5e3a50378a3cd7351901b77a413ed` | `shim/bridge_provider.hpp` |
+  | `172d99db1ddcc45564ae82ef7e0d9552229638d9` | `shim/bridge_provider.cpp` |
+  | `901c135917fd8f79b6f0e107c57d5edb0741f471` | `shim_dll/dbce_shim_bridge.h` |
+  | `a238dc228e9a33db28c491edbb7326afc8113442` | `tests/test_shim_bridge.cpp` |
+  | `cee0ae82d467ab6b0f5cb7efa0efa19f738ea758` | `docs/COPIED-INPUT-BRIDGE.md` (its paths and build notes are the OutRun branch's) |
+
+- **Merged without conflict:**
+  - `shim_dll/dbce_shim.cpp` and `shim/dinput_provider.hpp` now equal the bridge's (blobs `65dea610…`, `98f764aa…`).
+    The direct provider's metadata change (`f49cfc5` = bridge `1e88feb`) was already here.
+  - `shim/core.cpp` gains the optional `Provider::source_read` provenance.
+  - `shim/shim.hpp` gains `SourceRead`, `ProviderOwner`, `ProviderShutdownReport` and the sample's source generation and
+    sequence.
+- **Toolkit side kept.** These conflicts were the bridge's own copy of the device-path commit next to toolkit-only
+  additions:
+  - `shim.hpp`: `missing_scan_after_us_`;
+  - `tests/test_shim.cpp`: `test_missing_rescan`;
+  - `tests/test_shim_abi.cpp`: `test_schema2_refused`;
+  - `shim_dll/README.md`: the toolkit's paths and its asynchronous-open section, plus a bridge section added here.
+- **Merged by hand: `host/provider_host.hpp`.**
+  - The worker and release state hold `ProviderOwner`, as in the bridge.
+  - The DirectInput constructor keeps the toolkit's signature, its check and ownership order (recorder, then the
+    provider takes `input`, then the optional `front` callback over that concrete `DInputProvider`), and
+    `controls_reads`.
+  - A second constructor takes an owned provider, with no `front`. The bridge's delegating constructor is not used: it
+    would create the DirectInput provider before the recorder check.
+- **Not taken:** the bridge's `windows/CMakeLists.txt` change. `build_test.ps1` gets the same sources and the
+  `test_shim_bridge` target instead.
+
+The direct path's ABI, frame, open arguments, actions and exports are unchanged. The seven bridge exports are additive.
+No consumer is repinned.
 
 ## Not moved
 

@@ -16,7 +16,8 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 $common = "/nologo /D WIN32 /D _WINDOWS /EHsc /O2 /Ob2 /D NDEBUG /std:c++17 /$Crt /W4"
 $win = '/D NOMINMAX /D WIN32_LEAN_AND_MEAN /D _CRT_SECURE_NO_WARNINGS'
 $inc = '/I shim /I host /I host\recorder /I shim_dll /I tests /I ..\controls /I ..\session'
-$dllSources = 'shim_dll\dbce_shim.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp'
+# The DirectInput provider and the copied-input bridge (shim\bridge_provider; docs\COPIED-INPUT-BRIDGE.md) are both in the DLL.
+$dllSources = 'shim_dll\dbce_shim.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp shim\bridge_provider.cpp'
 $libs = 'dinput8.lib dxguid.lib bcrypt.lib'
 
 function Invoke-Step([string]$name, [string]$line) {
@@ -36,6 +37,7 @@ Invoke-Step 'test_shim' "`"$clang`" $common $inc tests\test_shim.cpp shim\parse.
 Invoke-Step 'test_dinput_provider' "`"$clang`" $common $win $inc tests\test_dinput_provider.cpp shim\dinput_provider.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_dinput_provider.exe`" /link dinput8.lib dxguid.lib && `"$dir\test_dinput_provider.exe`""
 Invoke-Step 'test_provider_host' "`"$clang`" $common /WX $win $inc tests\test_provider_host.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp /Fo{obj} /Fe`"$dir\test_provider_host.exe`" /link $libs && `"$dir\test_provider_host.exe`""
 Invoke-Step 'test_shim_abi'"`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
+Invoke-Step 'test_shim_bridge' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_bridge.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_bridge.exe`" /link $libs && `"$dir\test_shim_bridge.exe`""
 
 # What the DLL needs at run time, and its identity.
 $dump = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /dependents `"$dll`"" 2>&1

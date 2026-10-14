@@ -1,5 +1,14 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- native/shim: the copied-input bridge (extension 1), merged from the outrun2-decomp `codex/art-shim-bridge` 574bb88
+  as Art's installed variant uses it. It sits beside the DirectInput provider in one source.
+  - shim/bridge_provider holds memory leases only; dbce_shim_bridge.h adds seven exports.
+  - Core gains the optional source-read provenance.
+  - ProviderHost takes an owned provider beside its unchanged DirectInput constructor.
+  - Base ABI 2 and every existing export are unchanged.
+  - build_test.ps1 adds test_shim_bridge.
+  - No consumer is repinned; Art keeps 7DDC9621 until a reviewed adoption (PROVENANCE.md).
+
 - shared/session/FullSessionTimeline.cs: DRIVE's data-only full-session timeline, capture and package naming
   (dbce-mods-drive-rally 9f1b85e DriveRally.Core/FullSessionTimeline.cs) as vendorable source, with the schema
   supplied by each game (`Validate(schema)`, `new FullSessionCapture(schema, build, adapter)`). Field names, enum
