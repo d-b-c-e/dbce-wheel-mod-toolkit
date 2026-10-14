@@ -5,6 +5,6 @@
     <Compile Include="../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
     <Compile Include="../../shared/display/SpanTarget.cs" Link="SpanTarget.cs" />
   </ItemGroup>
-  <ItemGroup><Compile Remove="Compat/**" /></ItemGroup>
+  <ItemGroup><Compile Remove="Compat/**" /><Compile Remove="Compat35/**" /></ItemGroup>
   <ItemGroup><None Include="../../shared/display/racing-row-vectors.txt" Link="racing-row-vectors.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

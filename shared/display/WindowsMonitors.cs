@@ -2,18 +2,20 @@
 // read with EnumDisplayMonitors + GetMonitorInfoW. Read-only: it changes no display setting, profile or window.
 // Coordinates are those of the calling process's DPI context, as with the GetSystemMetrics(SM_*VIRTUALSCREEN) reads
 // the mods used before. Kept apart from the pure policy so fixtures and non-Windows hosts never need it.
-// Builds for netstandard2.0 and later.
+// Runs on Unity's legacy Mono 2.0 profile (.NET 3.5) as well as netstandard2.0 and later (see RacingRow.cs).
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 
 namespace Dbce.Wheel.Display
 {
     public static class WindowsMonitors
     {
-        /// <summary>The displays Windows reports now, in its enumeration order. Throws if Windows refuses the query.</summary>
-        public static IReadOnlyList<MonitorRect> Read()
+        /// <summary>The displays Windows reports now, in its enumeration order. Throws if Windows refuses the query. A
+        /// ReadOnlyCollection, which is also an IReadOnlyList on .NET 4.5 and later.</summary>
+        public static ReadOnlyCollection<MonitorRect> Read()
         {
             var list = new List<MonitorRect>();
             string? failure = null;
@@ -28,7 +30,7 @@ namespace Dbce.Wheel.Display
             bool enumerated = EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, proc, IntPtr.Zero);
             GC.KeepAlive(proc);
             if (!enumerated || failure != null) throw new InvalidOperationException(failure ?? "EnumDisplayMonitors failed");
-            return list;
+            return list.AsReadOnly();
         }
 
         /// <summary>The racing row for the displays Windows reports now (see <see cref="RacingRowPolicy"/>).</summary>

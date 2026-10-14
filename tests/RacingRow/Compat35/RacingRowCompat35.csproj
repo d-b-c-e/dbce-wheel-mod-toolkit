@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compile-only proof for Unity's legacy Mono 2.0 consumers (Horizon Chase Turbo). net35 proves the API surface;
+       net472 is how those mods compile, and Test-Mono20.ps1 checks its references (no Func/LINQ through mscorlib).
+       SpanTarget.cs is not part of this: it uses ValueTuple and Func and needs .NET 4.x or netstandard2.0. -->
+  <!-- No generated TargetFrameworkAttribute (4.0+), as in the Mono 2.0 mods: only the shared source is checked. -->
+  <PropertyGroup><TargetFrameworks>net35;net472</TargetFrameworks><LangVersion>latest</LangVersion><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
+    <Compile Include="../../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
+  </ItemGroup>
+</Project>

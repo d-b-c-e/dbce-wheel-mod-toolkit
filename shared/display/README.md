@@ -30,6 +30,15 @@ blob), keep the MIT header and record the toolkit commit. Do not copy the geomet
 `tests/RacingRow` checks the rules, including the rig's actual layout and a read-only print of the live displays;
 `tests/RacingRow/Compat` compiles both files for netstandard2.0.
 
+**Unity's legacy Mono 2.0 profile.** `RacingRow.cs` and `WindowsMonitors.cs` also run on Mono 2.0 (.NET 3.5), as used
+by Horizon Chase Turbo. They use no LINQ, because a .NET 4.x compile binds Func to mscorlib and Mono 2.0 has Func only
+in System.Core. They also avoid IReadOnlyList, Array.Empty and the generic `string.Join`. `RacingRow.Displays` and
+`WindowsMonitors.Read()` are `ReadOnlyCollection<MonitorRect>`, which is also an `IReadOnlyList` on .NET 4.5 and later,
+so code written against the earlier `IReadOnlyList` surface compiles unchanged. `tests/RacingRow/Compat35/Test-Mono20.ps1`
+compiles both files for net35, then checks their net472 build has no Func, LINQ, System.Core, IReadOnly* or ValueTuple
+reference. A Mono 2.0 consumer still checks its own build against the game's assemblies. `SpanTarget.cs` uses
+ValueTuple and Func, and stays .NET 4.x and netstandard2.0 only.
+
 **Native mods (C++).** `dbce_racing_row.hpp` is the C++ counterpart of `RacingRow.cs`: the same rules and the same
 reason sentences, header-only C++17, with no Windows calls. `dbce_windows_monitors.hpp` is the counterpart of
 `WindowsMonitors.cs`. The two implementations are kept equal by `racing-row-vectors.txt`. Every vector gives the
