@@ -6,6 +6,7 @@
 #pragma once
 #include <cmath>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace dbce::display {
