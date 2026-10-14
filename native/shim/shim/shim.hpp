@@ -280,7 +280,7 @@ class Core {
 public:
     Core(Provider&,CoreConfig);
     // Before the workers start. A latched process with a profile that is not usable goes INERT.
-    void set_profile(const Profile&);
+    void set_profile(const Profile&);   // once per Core, before the first tick: the device table is immutable after it
 
     // Provider worker: one bounded pass (enumeration when needed, at most max_opens_per_pass opens, reacquisition,
     // closes of epochs the input thread handed back). Returns true when it did anything.

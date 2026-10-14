@@ -98,7 +98,9 @@ The next commit on `codex/art-shim-bridge`, merged three ways from base `574bb88
 `codex/art-shim-profile-info` `5b96ba8`, the source of Art's installed `723E8A38`, merged three ways from base
 `f38b855`.
 
-- **New:** `docs/INPUT-SHIM-PROFILE-INSPECTION.md` (same blob).
+- **New:** `docs/INPUT-SHIM-PROFILE-INSPECTION.md`. It was the `5b96ba8` blob (`1a34f792…`) when merged, and then gained
+  a toolkit paragraph (Rita 78344, sana 78360): the export reads controls schema 1, it passes an empty `Capability`
+  (so it validates bindings, not adapter support), and `set_profile` runs once per Core.
 - **Same blob:** `shim_dll/dbce_shim.h`. It adds the optional `dbce_shim_profile_action_info` and leaves
   `dbce_shim_profile_info` unchanged.
 - **Merged without conflict:**
