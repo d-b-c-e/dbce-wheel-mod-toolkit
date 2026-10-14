@@ -20,6 +20,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     std::map<std::string, int> calls;
     LONG refs = 1;
     bool rangeFails = false;
+    HRESULT stateResult = DI_OK;   // what GetDeviceState answers; a failure writes nothing
     LONG lo = -32768, hi = 32767;
     DWORD lastSetProp = 0;
     void hit(const char *m) { ++calls[m]; }
@@ -52,6 +53,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID d) override
     {
         hit("GetDeviceState");
+        if (FAILED(stateResult)) return stateResult;
         memset(d, 0, cb);
         auto *s = (DIJOYSTATE *)d;
         s->lX = 576; s->lZ = -32768; s->rgdwPOV[0] = (DWORD)-1; s->rgdwPOV[1] = s->rgdwPOV[2] = s->rgdwPOV[3] = (DWORD)-1;
@@ -346,6 +348,43 @@ int main()
         settings().shapes = nullptr;
         dev->GetDeviceState(sizeof shaped, &shaped);
         check(shaped.lRz == dbce::controls::rescale(33639, 0, 65535, -32768, 32767), "no table: the injected sample unshaped (" + std::to_string(shaped.lRz) + ")");
+    }
+
+    // The observer (Settings::observe, sana 107988): the final standard-format state, after injection, for the wrapped
+    // device; nothing for a failed, custom-format or mis-sized read; no observer, no call.
+    {
+        struct Seen { const void *device; int format; DWORD cb; LONG lX, lZ; BYTE button40; int calls; };
+        static Seen seen;
+        seen = Seen{};
+        settings().observe = [](const void *device, int format, DWORD cb, const void *state) {
+            auto *s = (const DIJOYSTATE *)state;
+            seen = Seen{device, format, cb, s->lX, s->lZ, cb == sizeof(DIJOYSTATE2) ? ((const DIJOYSTATE2 *)state)->rgbButtons[40] : (BYTE)0, seen.calls + 1};
+        };
+        dev->SetDataFormat(&c_dfDIJoystick2);
+        check(inject(std::string("inject raw axis 0 dev=") + kInstText + " value=0 ms=2000").empty() &&
+              inject(std::string("inject raw button 40 dev=") + kInstText + " value=1 ms=2000").empty(), "observer: injections accepted");
+        DIJOYSTATE2 got{};
+        dev->GetDeviceState(sizeof got, &got);
+        check(seen.calls == 1 && seen.device == static_cast<IDirectInputDevice8A *>(&f) && seen.format == 2 && seen.cb == sizeof(DIJOYSTATE2),
+              "observer: one call for the read, with the wrapped device, format 2 and the DIJOYSTATE2 size");
+        check(seen.lX == got.lX && seen.lX == -32768 && seen.lZ == got.lZ && seen.button40 == 0x80 && got.rgbButtons[40] == 0x80,
+              "observer: sees the injected values the game received (lX " + std::to_string(seen.lX) + ")");
+        dev->SetDataFormat(&c_dfDIJoystick);
+        DIJOYSTATE got1{};
+        dev->GetDeviceState(sizeof got1, &got1);
+        check(seen.calls == 2 && seen.format == 1 && seen.cb == sizeof(DIJOYSTATE) && seen.lX == got1.lX, "observer: c_dfDIJoystick with a DIJOYSTATE is observed as format 1");
+        dev->GetDeviceState(sizeof got, &got);
+        check(seen.calls == 2, "observer: a c_dfDIJoystick format read with a DIJOYSTATE2 size is not observed");
+        dev->SetDataFormat(&custom);
+        dev->GetDeviceState(sizeof got, &got);
+        check(seen.calls == 2, "observer: a custom-format read is not observed");
+        dev->SetDataFormat(&c_dfDIJoystick2);
+        f.stateResult = DIERR_INPUTLOST;
+        check(dev->GetDeviceState(sizeof got, &got) == DIERR_INPUTLOST && seen.calls == 2, "observer: a failed read is not observed");
+        f.stateResult = DI_OK;
+        settings().observe = nullptr;
+        dev->GetDeviceState(sizeof got, &got);
+        check(seen.calls == 2 && got.lX == -32768, "observer: none set, no call; the read is unchanged");
     }
 
     // Lifetime: releasing the wrapper releases the device once.

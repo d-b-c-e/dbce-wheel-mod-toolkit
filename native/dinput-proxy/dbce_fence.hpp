@@ -18,7 +18,8 @@
 //
 // Test injection (dbce_inject_table.hpp) is delivered in FencedDevice::GetDeviceState, keyed by the instance GUID that
 // DirectInput reports for the created device. Buffered GetDeviceData reads are forwarded without injection.
-// Pedal rest shaping (dbce_shape_state.hpp), when a proxy sets one, runs in the same place after injection.
+// Pedal rest shaping (dbce_shape_state.hpp), when a proxy sets one, runs in the same place after injection. An observer
+// (Settings::observe), when a proxy sets one, then sees the final standard-format state: what the game receives.
 #pragma once
 #ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION 0x0800
@@ -43,6 +44,11 @@ struct Settings {
     void (*log)(const char *line) = nullptr;
     dbce::controls::InjectionTable *injections = nullptr;   // nullptr: no injection
     const dbce::controls::ShapeTable *shapes = nullptr;     // nullptr: no pedal shaping (set once, complete, never freed)
+    // What the game receives, for a proxy that observes its own reads (Gravel's telemetry, sana 107988): called on the
+    // reading thread after a successful GetDeviceState in a standard format (format 1 with a DIJOYSTATE, 2 with a
+    // DIJOYSTATE2), once injection and shaping are applied. `device` is the wrapped device, for identity only; `state` is
+    // borrowed and read-only for the call. Never called for a failed, null, custom-format or mis-sized read. nullptr: none.
+    void (*observe)(const void *device, int format, DWORD cb, const void *state) = nullptr;
 };
 inline Settings &settings() { static Settings s; return s; }
 
@@ -219,6 +225,10 @@ struct FencedDevice final : I {
         if (const auto *shapes = settings().shapes)
             dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); },
                 [](const dbce::controls::PedalShape &s, dbce::controls::ShapeMiss m, long mn, long mx) { logf("%s", dbce::shape::firstLine(s, m, mn, mx).c_str()); });
+        if (const auto observe = settings().observe) {
+            const LONG f = format;
+            if ((f == 1 && cb == sizeof(DIJOYSTATE)) || (f == 2 && cb == sizeof(DIJOYSTATE2))) observe(real, (int)f, cb, data);
+        }
         return hr;
     }
     STDMETHODIMP GetDeviceData(DWORD n, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD f) override { return real->GetDeviceData(n, d, k, f); }

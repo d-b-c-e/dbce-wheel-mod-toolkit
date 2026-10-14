@@ -278,6 +278,9 @@ cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.h
 - The game never holds a real DirectInput or device object.
 - Effects are software sinks, and no force command, escape or output reaches a device.
 - Injection is delivered only into the standard joystick formats.
+- A proxy that reports its own reads (Gravel's telemetry) can set `Settings::observe`. It is called after injection and
+  shaping, for a successful standard-format read only, with the final state as the game receives it, read only. It
+  changes nothing the game gets; unset, nothing is called.
 - `test_fence.cpp` checks this against a recording fake device.
 - `native/dinput-proxy/tools/fence-live-probe.cpp` checks a built proxy on the real devices without the game.
   - It is read only; build it under the game's exe name.
