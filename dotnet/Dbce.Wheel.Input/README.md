@@ -27,3 +27,17 @@ not UTF-8 give no identity and a reason; they never throw into the caller's inpu
 pending, owned, stopped, actual refusal) is in `knowledge/SHIM-IDENTITY-AND-NATIVE-ACTIONS-2026-10-11.md`.
 
 Tests: `dotnet run --project dotnet/Dbce.Wheel.Input.Tests -c Release` (bytes and reports only).
+
+# Value shaping for declared extras
+
+`ExtraControlValue.cs` is MIT source to vendor beside `ControlBinding.cs`. It holds the arithmetic native Core applies
+to a game's declared extras (native/shim extension 2, `dbce_shim_extras.h`) after its status checks, for managed
+previews in Wheelkit, the setup helper and F6.
+- `Pair(neg, pos)`: a centred component from two digital halves. Each half is `ControlBinding.Normalize(ControlShape.Digital, raw)`. The result is pos minus neg, an unbound half passes 0, and opposite halves together give 0.
+- `Stick(x, y, StickRange)`: each component is clamped to -1..1. `Circle` scales any vector longer than 1 back to
+  length 1; `Square` keeps both components. +X is right and +Y up.
+- `TryParseRange` accepts the declaration's words, exactly `circle` or `square`.
+
+It reads no device and knows no context or status. Unit neutrality (a configured part that is not Live leaves the whole
+destination neutral) stays in native Core. Non-finite input throws, and it is plain C# with no tuples, so netstandard
+and Unity Mono consumers can vendor it. The tests in `Dbce.Wheel.Input.Tests` match native `test_extras`.

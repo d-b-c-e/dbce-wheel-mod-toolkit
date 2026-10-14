@@ -182,4 +182,34 @@ Check(ShimSteering.FromAccepted(lastWins, Report(lastWins), out _)?.Device == Gu
 var notUtf8 = new byte[] { 0x5b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x5d, 0x0a, 0xff, 0xfe, 0x0a };
 Check(ShimSteering.FromAccepted(notUtf8, Report(notUtf8), out var utf8Why) == null && utf8Why == ShimSteering.NoSteering,
     "Accepted bytes that are not UTF-8 give no identity, never an exception");
+// ExtraControlValue: the same arithmetic as native Core's extras (tests/test_extras.cpp cases).
+bool Near(double a, double b) => Math.Abs(a - b) <= 1e-6;
+Check(ExtraControlValue.Pair(0, 1) == 1 && ExtraControlValue.Pair(1, 0) == -1 && ExtraControlValue.Pair(1, 1) == 0 && ExtraControlValue.Pair(0, 0) == 0,
+      "pair: pos - neg; opposite halves together give 0");
+Check(ExtraControlValue.Pair(0, 1) == 1 && ExtraControlValue.Pair(2, -1) == -1, "pair: a one-sided half works; inputs clamp to 0..1");
+var diagonal = ExtraControlValue.Stick(1, 1, StickRange.Circle);
+Check(Near(diagonal.X, 0.70710678) && Near(diagonal.Y, 0.70710678), "circle: a diagonal from buttons is unit length (native 0.70710678)");
+var inside = ExtraControlValue.Stick(0.6, 0.6, StickRange.Circle);
+Check(inside.X == 0.6 && inside.Y == 0.6, "circle: a vector shorter than 1 keeps its travel");
+var axis = ExtraControlValue.Stick(1, 0, StickRange.Circle);
+Check(axis.X == 1 && axis.Y == 0, "circle: full along one axis is unchanged");
+var clamped = ExtraControlValue.Stick(-2, 0, StickRange.Circle);
+Check(clamped.X == -1 && clamped.Y == 0, "stick: components clamp to -1..1 first");
+var square = ExtraControlValue.Stick(1, 1, StickRange.Square);
+Check(square.X == 1 && square.Y == 1 && ExtraControlValue.Stick(0.6, 0.6, StickRange.Square).X == 0.6, "square: each component is kept");
+var axisPair = ExtraControlValue.Stick(ExtraControlValue.Pair(1, 1), 1, StickRange.Circle);
+Check(axisPair.X == 0 && axisPair.Y == 1, "a stick from pairs: left and right together is X 0, up stays 1 (native test_extras)");
+foreach (double bad in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+{
+    string? pairName = null, stickName = null;
+    try { ExtraControlValue.Pair(0, bad); } catch (ArgumentOutOfRangeException e) { pairName = e.ParamName; }
+    try { ExtraControlValue.Stick(0, bad, StickRange.Square); } catch (ArgumentOutOfRangeException e) { stickName = e.ParamName; }
+    Check(pairName == "pos" && stickName == "y", "non-finite components are refused with their parameter name");
+}
+bool rangeRefused = false;
+try { ExtraControlValue.Stick(0, 0, (StickRange)7); } catch (ArgumentOutOfRangeException e) { rangeRefused = e.ParamName == "range"; }
+Check(rangeRefused, "an unknown range is refused");
+Check(ExtraControlValue.TryParseRange("circle", out var r1) && r1 == StickRange.Circle && ExtraControlValue.TryParseRange("square", out var r2) && r2 == StickRange.Square &&
+      !ExtraControlValue.TryParseRange("Circle", out _) && !ExtraControlValue.TryParseRange("", out _) && !ExtraControlValue.TryParseRange(null, out _),
+      "the range word is exactly 'circle' or 'square', as the declaration grammar");
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");
