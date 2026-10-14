@@ -66,8 +66,8 @@ typedef struct dbce_shim_frame {
     dbce_shim_action action[DBCE_SHIM_ACTIONS];
 } dbce_shim_frame;
 
-/* dbce_shim_open2's arguments. Fixed layout, naturally aligned, 128 bytes (asserted). Strings are UTF-8 (paths
-   UTF-16); fields a flag does not use must be zero/null. */
+/* dbce_shim_open2's arguments. Fixed layout, naturally aligned: 128 bytes on x64, 80 on x86 (asserted per
+   architecture; x86's open2 refuses). Strings are UTF-8 (paths UTF-16); fields a flag does not use must be zero/null. */
 typedef struct dbce_shim_open_args {
     uint32_t struct_size;          /* sizeof(dbce_shim_open_args); must equal dbce_shim_open_args_size() */
     uint32_t flags;                /* DBCE_SHIM_LATCHED | DBCE_SHIM_CAPTURE */
