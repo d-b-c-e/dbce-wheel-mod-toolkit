@@ -78,7 +78,7 @@ public:
         std::unique_ptr<RecorderType> recorder, dbce::shim::Capability capability = {}, HWND window = nullptr,
         std::int64_t freshness_us = 100'000,
         std::function<std::shared_ptr<dbce::shim::Provider>(const std::shared_ptr<dbce::shim::DInputProvider>&)> front = {},
-        int controls_reads = 1)
+        int controls_reads = 1, const dbce::shim::Declaration* extras = nullptr)
         : folder_(std::move(folder)), nonce_(std::move(nonce)), input_(std::this_thread::get_id()),
           recorder_(std::move(recorder)),
           w_(std::make_shared<WorkerState>()),latched_(latched) {
@@ -86,7 +86,7 @@ public:
         auto direct = std::make_shared<dbce::shim::DInputProvider>(input, window);   // takes `input` over
         w_->provider = direct;
         if (front) { w_->front = front(direct); if (!w_->front) throw std::invalid_argument("front provider refused"); }
-        start(profile, latched, capability, freshness_us, controls_reads);
+        start(profile, latched, capability, freshness_us, controls_reads, extras);
     }
     // A provider the host owns but did not create: shim/bridge_provider's copied reads, with no DirectInput object. The
     // core reads it directly (no front), and its shutdown runs in the same bounded release phase as DirectInput's.
@@ -101,11 +101,14 @@ public:
         start(profile, latched, capability, freshness_us, controls_reads);
     }
 private:
-    void start(const std::string& profile, bool latched, dbce::shim::Capability capability, std::int64_t freshness_us, int controls_reads) {
+    void start(const std::string& profile, bool latched, dbce::shim::Capability capability, std::int64_t freshness_us, int controls_reads,
+               const dbce::shim::Declaration* extras = nullptr) {
         dbce::shim::CoreConfig cfg; cfg.latched = latched; cfg.capability = capability;
         cfg.fresh_us = freshness_us;   // ordinary 100 ms bound; fixture wrapper explicitly supplies its own value
         w_->core = std::make_shared<dbce::shim::Core>(w_->front ? *w_->front : static_cast<dbce::shim::Provider&>(*w_->provider), cfg);
-        w_->core->set_profile(dbce::shim::read_profile(profile, controls_reads));
+        // A game's declared extras are planned from the same bytes, with their devices after the common table.
+        if (extras) w_->core->set_profile(dbce::shim::read_profile(profile, controls_reads), *extras, profile, controls_reads);
+        else w_->core->set_profile(dbce::shim::read_profile(profile, controls_reads));
         report_ = CreateFileW((folder_ + L"\\host-shutdown.json").c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
         auto s = w_;
         worker_ = std::thread([s] {
@@ -122,8 +125,15 @@ private:
 public:
     ProviderHost(const ProviderHost&) = delete; ProviderHost& operator=(const ProviderHost&) = delete;
 
-    const dbce::shim::Frame& tick() { // input thread; a close must reach Core before the final drain
-        const auto& frame=w_->core->tick();
+    const dbce::shim::Frame& tick() { return tick_frame(w_->core->tick()); }
+    // An extras host's one tick (Core::tick(contexts)): the common frame and the extras from one device read.
+    const dbce::shim::Frame& tick(std::uint32_t active_contexts) { return tick_frame(w_->core->tick(active_contexts)); }
+    bool has_extras() const { return w_->core->has_extras(); }
+    const dbce::shim::ExtrasFrame& extras_frame() const { return w_->core->extras_frame(); }   // input thread
+    const dbce::shim::Declaration& extras_declaration() const { return w_->core->extras_declaration(); }
+    std::string extras_report() const { return w_->core->extras_report(); }                    // input thread
+private:
+    const dbce::shim::Frame& tick_frame(const dbce::shim::Frame& frame) { // input thread; a close must reach Core before the final drain
         if(control_close_requested_){
             bool neutral=!latched_||(frame.suppress_native&&run_terminal(frame.run)&&frame.down==0);
             if(latched_)for(const auto& action:frame.action)neutral=neutral&&action.value==0;
@@ -131,6 +141,7 @@ public:
         }
         return frame;
     }
+public:
     std::vector<dbce::shim::DeviceReport> device_reports()const { return w_->core->device_reports(); } // input thread
     dbce::shim::StartReport start_report()const { return w_->core->start_report(); }           // input thread
     long long worker_passes() const { return w_->passes.load(); }

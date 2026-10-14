@@ -5,6 +5,7 @@
 // capture cases, which are x64-only.
 #include "dbce_shim_internal.hpp"
 #include "dbce_shim_bridge.h"
+#include "dbce_shim_extras.h"
 #include "ordinary_only.hpp"
 #include "dinput_provider.hpp"
 #include "shim_fake_com.hpp"
@@ -164,6 +165,66 @@ void test_path_unavailable() {
         check(in->counters.creates==1&&in->counters.path_reads==1&&in->counters.force_calls==0,"ABI metadata query opens no extra device or force");
         check(dbce_shim_stop(h,report,sizeof report,nullptr)==DBCE_SHIM_OK&&std::string(report)=="resolved","metadata fixture stop resolves");
     }
+}
+
+// Extension 2 (declared extras), on both architectures: the bounded open, the one tick, the context mask, the read-only
+// accessor with identical repeated reads, and an ordinary handle refusing the extension.
+void test_extras_abi() {
+    check(dbce_shim_extras_abi_version() == 1 && dbce_shim_extras_frame_size() == 296 && sizeof(dbce_shim_extras_frame) == 296, "extension 2 version and frame size");
+    const auto dir = scratch() / "extras"; std::filesystem::create_directories(dir);
+    const std::string decl = "game test\ncontexts observed race\ntest.boost digital contexts=race\ntest.look stick circle\n";
+    char hash[65] = {};
+    { const auto h = dbce::shim::hex(dbce::shim::sha256(decl)); std::memcpy(hash, h.data(), 64); }
+    const std::string profile = Profile + "\n[Extras]\nSchema = 1\nGame = test\nDeclaration = " + hash + "\n" +
+        "test.boost = button 5 dev=" + W + " prod=" + WP + "\ntest.look.x = axis 2 dev=" + W + " prod=" + WP + " range=0..65535 rest=32768 travel=+1\n";
+    char why[256] = {}; void* h = nullptr; std::size_t slot = 0;
+    // Bounded and strict before anything opens; the DirectInput reference is released.
+    auto* in = wheel_input(slot);
+    check(dbce_shim_open_extras_with_input(in, dir.wstring().c_str(), "extrasnonce", profile.data(), int32_t(profile.size()), nullptr, nullptr,
+                                           decl.data(), 4097, &h, why, 256) == DBCE_SHIM_BAD_ARGUMENT && !h && in->refs == 0, "a declaration length over 4096 refused");
+    const std::string nul = std::string("game test\ntest.boost\0 digital\n", 29);
+    in = wheel_input(slot);
+    check(dbce_shim_open_extras_with_input(in, dir.wstring().c_str(), "extrasnonce", profile.data(), int32_t(profile.size()), nullptr, nullptr,
+                                           nul.data(), int32_t(nul.size()), &h, why, 256) == DBCE_SHIM_BAD_ARGUMENT && std::string(why).find("ASCII") != std::string::npos &&
+          in->refs == 0, "an embedded NUL refused");
+    in = wheel_input(slot);
+    check(dbce_shim_open_extras_with_input(in, dir.wstring().c_str(), "extrasnonce", profile.data(), int32_t(profile.size()), nullptr, nullptr,
+                                           decl.data(), int32_t(decl.size()), &h, why, 256) == DBCE_SHIM_OK && h, std::string("extras open: ") + why);
+    dbce_shim_frame f{}; f.struct_size = sizeof f;
+    dbce_shim_extras_frame x{}; x.struct_size = sizeof x;
+    check(dbce_shim_tick(h, &f) == DBCE_SHIM_BAD_ARGUMENT, "dbce_shim_tick refuses an extras handle");
+    check(dbce_shim_tick_extras(h, 2, &f, &x) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_extras(h, 0, &x) == DBCE_SHIM_STALE, "an unknown context bit refused, nothing advanced");
+    bool live = false;
+    for (int n = 0; n < 400 && !live; ++n) {
+        check(dbce_shim_tick_extras(h, 1, &f, &x) == DBCE_SHIM_OK, "extras tick");
+        live = x.slot[0].status == uint8_t(dbce::shim::Status::Live) && f.action[idx("steer")].status == uint8_t(dbce::shim::Status::Live);
+        if (!live) Sleep(5);
+    }
+    check(live && x.seq == f.seq && x.count == 3 && x.abi == 1 && x.contexts == 1, "one tick: the common frame and the extras share a seq");
+    { std::lock_guard<std::mutex> l(in->m); in->scripts[slot].state.rgbButtons[5] = 0x80; }
+    check(dbce_shim_tick_extras(h, 1, &f, &x) == DBCE_SHIM_OK && x.slot[0].value == 1.f && (x.down & 1), "a press is a down edge");
+    dbce_shim_extras_frame a{}, b{}; a.struct_size = b.struct_size = sizeof a;
+    check(dbce_shim_extras(h, f.seq, &a) == DBCE_SHIM_OK && dbce_shim_extras(h, f.seq, &b) == DBCE_SHIM_OK && std::memcmp(&a, &b, sizeof a) == 0 &&
+          std::memcmp(&a, &x, sizeof a) == 0 && (a.down & 1), "repeated reads are identical, edges included");
+    check(dbce_shim_extras(h, f.seq + 1, &a) == DBCE_SHIM_STALE, "another seq is stale");
+    check(dbce_shim_tick_extras(h, 0, &f, &x) == DBCE_SHIM_OK && x.slot[0].status == DBCE_SHIM_CONTEXT_INACTIVE && x.slot[0].value == 0.f &&
+          x.slot[1].status == uint8_t(dbce::shim::Status::Live), "out of context: the boost is inactive, the context-free stick is not");
+    int32_t needed = 0;
+    check(dbce_shim_extras_info(h, nullptr, 0, &needed) == DBCE_SHIM_OK && needed > 1, "extras info length");
+    std::string info(std::size_t(needed), '\0');
+    check(dbce_shim_extras_info(h, info.data(), needed, nullptr) == DBCE_SHIM_OK && info.find("\"firstSlot\":1") != std::string::npos &&
+          info.find("\"contextMode\":\"observed\"") != std::string::npos, "extras info maps ids to slots: " + info.substr(0, 200));
+    char stopped[512] = {};
+    check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK && std::string(stopped) == "resolved", "the extras stop resolves");
+    check(in->counters.force_calls == 0 && in->refs == 0, "no force call; DirectInput released");
+    // Without a declaration: exactly an ordinary handle, which refuses the extension.
+    in = wheel_input(slot);
+    check(dbce_shim_open_extras_with_input(in, dir.wstring().c_str(), "extrasnonce", Profile.data(), int32_t(Profile.size()), nullptr, nullptr,
+                                           nullptr, 0, &h, why, 256) == DBCE_SHIM_OK && h, "no declaration: an ordinary open");
+    check(dbce_shim_tick(h, &f) == DBCE_SHIM_OK && dbce_shim_tick_extras(h, 0, &f, &x) == DBCE_SHIM_BAD_ARGUMENT &&
+          dbce_shim_extras(h, f.seq, &x) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_extras_info(h, nullptr, 0, &needed) == DBCE_SHIM_BAD_ARGUMENT,
+          "an ordinary handle refuses the extension");
+    check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK, "ordinary stop");
 }
 
 // The ABI reads controls schema 1 (STD-037 item 4; the host's default): a Schema 2 profile opens and applies nothing,
@@ -388,7 +449,9 @@ void test_dll(const std::wstring& path) {
                              "dbce_shim_open2", "dbce_shim_tick", "dbce_shim_record", "dbce_shim_start_report", "dbce_shim_device_reports",
                              "dbce_shim_profile_info", "dbce_shim_stop", "dbce_shim_profile_action_info",
                              "dbce_shim_bridge_abi_version", "dbce_shim_bridge_device_size", "dbce_shim_bridge_sample_size", "dbce_shim_bridge_open",
-                             "dbce_shim_bridge_devices", "dbce_shim_bridge_devices_with_paths", "dbce_shim_bridge_tick"})
+                             "dbce_shim_bridge_devices", "dbce_shim_bridge_devices_with_paths", "dbce_shim_bridge_tick",
+                             "dbce_shim_extras_abi_version", "dbce_shim_extras_frame_size", "dbce_shim_open_extras", "dbce_shim_tick_extras",
+                             "dbce_shim_extras", "dbce_shim_extras_info"})
         check(GetProcAddress(m, name) != nullptr, std::string("export ") + name);
     auto proc = [&](const char* n) { return reinterpret_cast<void (*)()>(GetProcAddress(m, n)); };   // the usual FARPROC idiom
     auto version = reinterpret_cast<int32_t (*)()>(proc("dbce_shim_abi_version"));
@@ -411,7 +474,7 @@ int main(int argc, char** argv) {
     if (argc == 3 && std::string(argv[1]) == "--latched-capture-child") return capture_child(std::filesystem::path(argv[2]), true);
 #endif
     try {
-        test_layout(); test_profile_inspection(); test_refusals(); test_lifecycle(); test_path_unavailable(); test_schema2_refused();
+        test_layout(); test_profile_inspection(); test_refusals(); test_lifecycle(); test_path_unavailable(); test_schema2_refused(); test_extras_abi();
 #if DBCE_SHIM_ORDINARY_ONLY
         test_x86_refusals();
 #else
