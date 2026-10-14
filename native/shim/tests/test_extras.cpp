@@ -270,6 +270,13 @@ void test_core_contexts(){
     w.state.buttons[9]=0x80;
     r.step(1);
     check(r.x().slot[2].status==Status::Live&&(r.x().down>>2&1)&&r.x().slot[0].status==Status::Live,"released, then a real press after the return");
+    check(r.core->extras_report().find("\"acceptedSchema\":1")!=std::string::npos,"the report names the accepted [Extras] Schema: 1 by default");
+    {
+        fk::Provider p2;fk::Device x;x.listed={W,WP,"Wheel"};x.caps=fk::wheel_caps();p2.add(x);
+        Core two(p2,CoreConfig{});
+        two.set_profile(read_profile(profile,2),d,profile,2);
+        check(two.extras_report().find("\"acceptedSchema\":2")!=std::string::npos,"a reads-2 Core reports 2");
+    }
     // Advisory: Core never gates.
     const auto a=declaration("game truckful\ncontexts advisory driving\ntruckful.reset digital contexts=driving\n");
     Rig v(common()+extras(a,{wheel("truckful.reset = button 9")}),&a);

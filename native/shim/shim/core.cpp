@@ -40,7 +40,7 @@ void Core::set_profile_impl(const Profile& profile,const Declaration* extras,con
     if(extras)xp=plan_extras(*profile_bytes,*extras,plan.devices,reads);
     for(auto& id:plan.devices){Device dev;dev.id=std::move(id);devs_.push_back(std::move(dev));}
     if(extras){
-        extras_=true;xdecl_=*extras;xrevision_=xp.revision;xignored_=xp.ignored;
+        extras_=true;xreads_=reads>=2?2:1;xdecl_=*extras;xrevision_=xp.revision;xignored_=xp.ignored;
         for(auto& id:xp.devices){Device dev;dev.id=std::move(id);devs_.push_back(std::move(dev));}
         for(std::size_t e=0;e<xp.extras.size();++e){
             XState x;x.base=xp.extras[e].base;x.reason=xp.extras[e].reason;
@@ -648,7 +648,8 @@ void Core::resolve_extras(std::int64_t now,std::uint32_t active_contexts){
 std::string Core::extras_report()const{
     using dbce::shim::json_string;
     auto str=[](std::string& j,const std::string& s){if(!json_string(j,s,1560))j+="null";};
-    std::string j="{\"abi\":1,\"game\":";str(j,xdecl_.game);
+    // acceptedSchema: the highest [Extras] Schema this open reads (the DLL ABI: 1), so a writer never guesses Schema 2.
+    std::string j="{\"abi\":1,\"acceptedSchema\":"+std::to_string(xreads_)+",\"game\":";str(j,xdecl_.game);
     j+=",\"declaration\":";str(j,hex(xdecl_.hash));
     j+=",\"contextMode\":\"";j+=xdecl_.mode==ContextMode::Observed?"observed":xdecl_.mode==ContextMode::Advisory?"advisory":"none";
     j+="\",\"contexts\":[";

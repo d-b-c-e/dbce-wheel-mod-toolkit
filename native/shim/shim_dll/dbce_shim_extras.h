@@ -53,7 +53,8 @@ DBCE_SHIM_API int32_t dbce_shim_tick_extras(void* handle, uint32_t active_contex
 /* Read-only: the extras frame the last dbce_shim_tick_extras made, by its seq (another seq, or no tick yet:
    DBCE_SHIM_STALE). Repeated reads are identical, including the edges. */
 DBCE_SHIM_API int32_t dbce_shim_extras(void* handle, uint64_t frame_seq, dbce_shim_extras_frame* out);
-/* The declaration as Core planned it (JSON): game, declaration SHA-256, context mode and names, the [Extras] Revision,
+/* The declaration as Core planned it (JSON): acceptedSchema (the highest [Extras] Schema this open reads: 1 for the
+   ABI, so a writer never emits Schema 2 or cal= here), game, declaration SHA-256, context mode and names, the [Extras] Revision,
    ignored keys, and per extra its shape, first slot, components, contexts, plan and reason, the last tick's slot statuses,
    and each bound input. The usual text and needed contract; callers must reject truncation. */
 DBCE_SHIM_API int32_t dbce_shim_extras_info(void* handle, char* text, int32_t len, int32_t* needed);

@@ -468,6 +468,7 @@ private:
     struct XComponent { ExtraComponent::Form form{ExtraComponent::Form::Unbound}; int a{-1},b{-1}; };   // into xin_
     struct XState { Status base{Status::Unbound}; std::string reason; XComponent component[2]; bool was_inactive{}; };
     bool extras_{};
+    int xreads_{1};                      // the highest [Extras] Schema this Core read (extras_info "acceptedSchema")
     Declaration xdecl_;
     std::string xrevision_;
     std::vector<std::string> xignored_;

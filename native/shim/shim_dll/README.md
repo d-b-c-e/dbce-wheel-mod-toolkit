@@ -44,6 +44,8 @@ A game can declare destinations beyond the 31 common actions, such as Truckful's
 - **Contexts.** An observed context that is not active gives `ContextInactive` (14), and the extra rearms when the
   context returns. Advisory contexts never gate.
 - **Status.** `dbce_shim_extras_info` reports each extra's plan, slots and inputs, for F6 and diagnostics.
+- **`acceptedSchema`** in `extras_info` is the highest `[Extras]` Schema the open reads. It is 1 through the ABI, so a
+  writer emits Schema 1 and no `cal=`; a Schema 2 section is refused as a whole, never half-applied.
 - **Scope.** Ordinary input only, on x86 and x64. No latched control, injection or capture of extras yet, so no
   recording claims to hold them.
 

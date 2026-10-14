@@ -213,7 +213,8 @@ void test_extras_abi() {
     check(dbce_shim_extras_info(h, nullptr, 0, &needed) == DBCE_SHIM_OK && needed > 1, "extras info length");
     std::string info(std::size_t(needed), '\0');
     check(dbce_shim_extras_info(h, info.data(), needed, nullptr) == DBCE_SHIM_OK && info.find("\"firstSlot\":1") != std::string::npos &&
-          info.find("\"contextMode\":\"observed\"") != std::string::npos, "extras info maps ids to slots: " + info.substr(0, 200));
+          info.find("\"contextMode\":\"observed\"") != std::string::npos && info.find("\"acceptedSchema\":1") != std::string::npos,
+          "extras info maps ids to slots and names the accepted Schema (the ABI reads 1): " + info.substr(0, 200));
     char stopped[512] = {};
     check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK && std::string(stopped) == "resolved", "the extras stop resolves");
     check(in->counters.force_calls == 0 && in->refs == 0, "no force call; DirectInput released");
