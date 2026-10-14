@@ -25,9 +25,15 @@ foreach (string line in File.ReadLines(Path.Combine(AppContext.BaseDirectory, "c
     {
         case "parse": Check(Parse(p[1], schema).ToString() == p[2] && Parse(Parse(p[1], schema).ToString(), schema).ToString() == p[2], description); break;
         case "reject": Check(!ControlBinding.TryParse(p[1], out var b, out var why, schema) && b == null && why == p[2], description); break;
-        case "fits": Check(Parse(p[2], schema).Fits(p[1]) == (p[3] == "ok" ? "" : p[3]), description); break;
-        case "norm": Check(Math.Abs(Parse(p[2], schema).Normalize(p[1], I(p[3])) - D(p[4])) <= 1e-6, description); break;
-        case "denorm": Check(Parse(p[2], schema).Denormalize(p[1], D(p[3])) == I(p[4]), description); break;
+        case "fits":
+            Check(Parse(p[2], schema).Fits(p[1]) == (p[3] == "ok" ? "" : p[3]), description);
+            Check(Parse(p[2], schema).Fits(ControlBinding.ShapeOf(p[1])) == (p[3] == "ok" ? "" : p[3]), description + " by shape"); break;
+        case "norm":
+            Check(Math.Abs(Parse(p[2], schema).Normalize(p[1], I(p[3])) - D(p[4])) <= 1e-6, description);
+            Check(Math.Abs(Parse(p[2], schema).Normalize(ControlBinding.ShapeOf(p[1]), I(p[3])) - D(p[4])) <= 1e-6, description + " by shape"); break;
+        case "denorm":
+            Check(Parse(p[2], schema).Denormalize(p[1], D(p[3])) == I(p[4]), description);
+            Check(Parse(p[2], schema).Denormalize(ControlBinding.ShapeOf(p[1]), D(p[3])) == I(p[4]), description + " by shape"); break;
         case "rescale": Check(ControlBinding.Rescale(I(p[1]), I(p[2]), I(p[3]), I(p[4]), I(p[5])) == I(p[6]), description); break;
         case "dibutton": Check(ControlBinding.DirectInputButtonDown(I(p[1])) == (p[2] == "1"), description); break;
         default: throw new Exception("Unknown vector type: " + line);
@@ -38,6 +44,19 @@ const string ids = " dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0
 var full = Parse("axis 0" + ids + " range=-2147483648..2147483647 rest=-2147483648 travel=+1");
 Check(full.Normalize("steer", int.MaxValue) == 1 && full.Normalize("throttle", int.MaxValue) == 1, "Int32 endpoints");
 Check(full.Denormalize("steer", 0) == -1 && full.Denormalize("throttle", 1) == int.MaxValue, "Wide inverse range");
+foreach (var shape in new[] { ControlShape.Unknown, (ControlShape)99, ControlShape.Digital })
+{
+    bool refusedForward = false, refusedInverse = false;
+    try { full.Normalize(shape, 0); } catch (ArgumentException e) { refusedForward = e.ParamName == "shape"; }
+    try { full.Denormalize(shape, 0); } catch (ArgumentException e) { refusedInverse = e.ParamName == "shape"; }
+    Check(refusedForward && refusedInverse, "Unusable declared shape refuses both directions: " + shape);
+}
+foreach (var action in new[] { "unknown", "confirm" })
+{
+    bool refused = false;
+    try { full.Normalize(action, 0); } catch (ArgumentException e) { refused = e.ParamName == "action"; }
+    Check(refused, "Existing action exception contract retained");
+}
 Check(!ControlBinding.TryParse("axis 0" + ids + " range=0..2147483648 rest=0 travel=+1", out _, out var reason) && reason == "bad-range", "Overflow refused");
 Check(!ControlBinding.TryParse("button 1" + ids + " name=\"injected\nsteer=\"", out _, out _), "Multiline refused");
 foreach (string lineBreak in new[] { "\r", "\n", "\r\n" })
@@ -50,6 +69,9 @@ foreach (double bad in new[] { double.NaN, double.PositiveInfinity, double.Negat
     bool refused = false;
     try { full.Denormalize("steer", bad); } catch (ArgumentOutOfRangeException) { refused = true; }
     Check(refused, "Nonfinite inverse refused");
+    refused = false;
+    try { full.Denormalize(ControlShape.Centred, bad); } catch (ArgumentOutOfRangeException e) { refused = e.ParamName == "n"; }
+    Check(refused, "Nonfinite shape inverse refused");
 }
 foreach(int angle in new[]{0,4500,9000,13500,18000,22500,27000,31500})
 {

@@ -63,7 +63,7 @@ namespace Dbce.Wheel.Input
         }
 
         /// <param name="schema">1 (default): `cal=` is an ignored attribute. 2: it is read (two or three integers joined by
-        /// ".."; reason bad-cal otherwise); its shape is checked by <see cref="Fits"/>.</param>
+        /// ".."; reason bad-cal otherwise); its shape is checked by <see cref="Fits(ControlShape)"/>.</param>
         public static bool TryParse(string text, out ControlBinding? binding, out string reason, int schema = 1)
         {
             binding = null;
@@ -183,7 +183,7 @@ namespace Dbce.Wheel.Input
             binding = b; reason = ""; return true;
         }
 
-        // Schema 2: `cal` has the action's shape and is measured, as a fraction of S = max - min (512 and 8192 counts at
+        // Schema 2: `cal` has the destination's shape and is measured, as a fraction of S = max - min (512 and 8192 counts at
         // 0..65535). Steer: min <= lo < centre < hi <= max, each side >= S/128, the sweep >= S/8. Pedal: both points in
         // range, |full - released| >= S/8.
         bool CalibrationFits(ControlShape shape)
@@ -200,9 +200,12 @@ namespace Dbce.Wheel.Input
             return Cal.Count == 2 && Math.Abs((double)Cal[1] - Cal[0]) * 8 >= span;
         }
 
-        public string Fits(string action)
+        public string Fits(string action) => Fits(ShapeOf(action));
+
+        /// <summary>Validate a declared scalar shape without inventing a common action name.</summary>
+        public string Fits(ControlShape shape)
         {
-            switch (ShapeOf(action))
+            switch (shape)
             {
                 case ControlShape.Centred:
                     if (Kind != ControlKind.Axis) return "wrong-kind";
@@ -229,10 +232,21 @@ namespace Dbce.Wheel.Input
         public double Normalize(string action, int raw)
         {
             if (Fits(action) != "") throw new ArgumentException("Binding does not fit action", nameof(action));
+            return NormalizeValue(ShapeOf(action), raw);
+        }
+        /// <summary>Normalize a declared scalar. An unfitting binding (including malformed calibration) throws;
+        /// native Core instead keeps that refused destination neutral.</summary>
+        public double Normalize(ControlShape shape, int raw)
+        {
+            if (Fits(shape) != "") throw new ArgumentException("Binding does not fit shape", nameof(shape));
+            return NormalizeValue(shape, raw);
+        }
+        double NormalizeValue(ControlShape shape, int raw)
+        {
             if (Kind == ControlKind.Button) return raw != 0 ? 1 : 0;
             if (Kind == ControlKind.Hat)
                 return HatPressed(raw, Angle) ? 1 : 0;
-            if (ShapeOf(action) == ControlShape.Centred)
+            if (shape == ControlShape.Centred)
             {
                 double n;
                 if (Cal != null)   // schema 2: two-sided around the measured centre, saturating beyond the measured locks
@@ -251,11 +265,20 @@ namespace Dbce.Wheel.Input
         public int Denormalize(string action, double n)
         {
             if (Fits(action) != "") throw new ArgumentException("Binding does not fit action", nameof(action));
+            return DenormalizeValue(ShapeOf(action), n);
+        }
+        public int Denormalize(ControlShape shape, double n)
+        {
+            if (Fits(shape) != "") throw new ArgumentException("Binding does not fit shape", nameof(shape));
+            return DenormalizeValue(shape, n);
+        }
+        int DenormalizeValue(ControlShape shape, double n)
+        {
             if (double.IsNaN(n) || double.IsInfinity(n)) throw new ArgumentOutOfRangeException(nameof(n));
             if (Kind == ControlKind.Button) return n >= .5 ? 1 : 0;
             if (Kind == ControlKind.Hat) return n >= .5 ? Angle : -1;
             double v;
-            if (ShapeOf(action) == ControlShape.Centred)
+            if (shape == ControlShape.Centred)
             {
                 double s = Clamp(Inverted ? -n : n, -1, 1);
                 if (Cal != null)   // inverse within the measured locks (a raw beyond them normalized to +-1 maps to the lock)
