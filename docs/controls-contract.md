@@ -281,6 +281,11 @@ cannot be used. Native DirectInput proxies use `native/dinput-proxy/dbce_fence.h
 - A proxy that reports its own reads (Gravel's telemetry) can set `Settings::observe`. It is called after injection and
   shaping, for a successful standard-format read only, with the final state as the game receives it, read only. It
   changes nothing the game gets; unset, nothing is called.
+- A proxy that records the game's original force requests (Gravel's signal capture) can set `Settings::observeEffect`.
+  It is told when each software effect is created, given parameters (`DIEP_START` included, as one event), started
+  (with its flags and iteration count), stopped and finally released, once. The game's parameters are borrowed, read
+  only, for the call; the device and effect are identities, never to be called. Nothing reaches a device, and a throwing
+  observer (either kind) changes no result.
 - `test_fence.cpp` checks this against a recording fake device.
 - `native/dinput-proxy/tools/fence-live-probe.cpp` checks a built proxy on the real devices without the game.
   - It is read only; build it under the game's exe name.

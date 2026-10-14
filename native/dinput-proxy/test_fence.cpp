@@ -387,6 +387,62 @@ int main()
         check(seen.calls == 2 && got.lX == -32768, "observer: none set, no call; the read is unchanged");
     }
 
+    // The effect observer (Settings::observeEffect, sana 109034): every request in order with the game's own parameters,
+    // DIEP_START inside one Parameters event, Start's flags and iterations, exactly one Released; a throwing observer
+    // changes no result; nothing reaches the device; no observer, no call.
+    {
+        struct Ev { const void *device, *effect; GUID type; EffectEvent event; const void *params; DWORD flags, value; LONG magnitude; };
+        static std::vector<Ev> evs;
+        evs.clear();
+        auto record = [](const void *device, const void *effect, REFGUID type, EffectEvent event, LPCDIEFFECT p, DWORD flags, DWORD value) {
+            LONG m = p && p->lpvTypeSpecificParams && p->cbTypeSpecificParams >= sizeof(DICONSTANTFORCE) ? ((const DICONSTANTFORCE *)p->lpvTypeSpecificParams)->lMagnitude : 0;
+            evs.push_back(Ev{device, effect, type, event, p, flags, value, m});
+        };
+        settings().observeEffect = record;
+        const int deviceEffects = f.n("CreateEffect"), deviceCommands = f.n("SendForceFeedbackCommand"), deviceEscapes = f.n("Escape");
+        DICONSTANTFORCE cf{7500}; DWORD ax = DIJOFS_X; LONG dir = 1;
+        DIEFFECT pe{}; pe.dwSize = sizeof pe; pe.dwGain = 8000; pe.cAxes = 1; pe.rgdwAxes = &ax; pe.rglDirection = &dir;
+        pe.cbTypeSpecificParams = sizeof cf; pe.lpvTypeSpecificParams = &cf;
+        LPDIRECTINPUTEFFECT fx = nullptr;
+        check(dev->CreateEffect(GUID_ConstantForce, &pe, &fx, nullptr) == DI_OK && fx, "effect observer: CreateEffect answered");
+        const void *id = fx;
+        check(evs.size() == 1 && evs[0].event == EffectEvent::Created && evs[0].device == static_cast<IDirectInputDevice8A *>(&f) && evs[0].effect == id &&
+              IsEqualGUID(evs[0].type, GUID_ConstantForce) && evs[0].params == &pe && evs[0].flags == DIEP_ALLPARAMS && evs[0].magnitude == 7500,
+              "effect observer: Created with the wrapped device, the effect, its type and the game's own parameters");
+        cf.lMagnitude = -5000;
+        check(fx->SetParameters(&pe, DIEP_TYPESPECIFICPARAMS | DIEP_START) == DI_OK, "effect observer: SetParameters answered");
+        check(evs.size() == 2 && evs[1].event == EffectEvent::Parameters && evs[1].flags == (DIEP_TYPESPECIFICPARAMS | DIEP_START) && evs[1].magnitude == -5000 && evs[1].effect == id,
+              "effect observer: SetParameters with DIEP_START is one Parameters event, with no Start");
+        check(fx->Start(3, DIES_SOLO) == DI_OK, "effect observer: Start answered");
+        check(evs.size() == 3 && evs[2].event == EffectEvent::Start && evs[2].flags == DIES_SOLO && evs[2].value == 3 && !evs[2].params,
+              "effect observer: Start with its flags and iteration count");
+        check(fx->Stop() == DI_OK && evs.size() == 4 && evs[3].event == EffectEvent::Stop, "effect observer: Stop");
+        fx->AddRef();
+        check(fx->Release() == 1 && evs.size() == 4, "effect observer: a release that is not the last is no event");
+        // A throwing observer changes nothing the game gets, including the last Release.
+        settings().observeEffect = [](const void *, const void *, REFGUID, EffectEvent, LPCDIEFFECT, DWORD, DWORD) { throw 1; };
+        LPDIRECTINPUTEFFECT fx2 = nullptr;
+        check(fx->SetParameters(&pe, DIEP_GAIN) == DI_OK && fx->Start(1, 0) == DI_OK && fx->Stop() == DI_OK, "effect observer: a throw changes no effect result");
+        check(dev->CreateEffect(GUID_Sine, &pe, &fx2, nullptr) == DI_OK && fx2 && fx2->Release() == 0, "effect observer: CreateEffect and the last Release still answer while one throws");
+        check(logged("an effect observer threw; ignored"), "effect observer: a throw is logged");
+        settings().observeEffect = record;
+        check(fx->Release() == 0, "effect observer: the last Release");
+        check(evs.size() == 5 && evs[4].event == EffectEvent::Released && evs[4].effect == id && !evs[4].params, "effect observer: exactly one Released, at the last Release");
+        check(f.n("CreateEffect") == deviceEffects && f.n("SendForceFeedbackCommand") == deviceCommands && f.n("Escape") == deviceEscapes &&
+              f.n("SetProperty FFGAIN") == 0, "effect observer: nothing reached the device");
+        settings().observeEffect = nullptr;
+        LPDIRECTINPUTEFFECT fx3 = nullptr;
+        check(dev->CreateEffect(GUID_ConstantForce, &pe, &fx3, nullptr) == DI_OK && fx3 && fx3->Release() == 0 && evs.size() == 5, "effect observer: none set, no call");
+    }
+    // A throwing state observer changes no read.
+    {
+        settings().observe = [](const void *, int, DWORD, const void *) { throw 2; };
+        dev->SetDataFormat(&c_dfDIJoystick2);
+        DIJOYSTATE2 st{};
+        check(dev->GetDeviceState(sizeof st, &st) == DI_OK && logged("a state observer threw; ignored"), "observer: a throwing state observer changes no read result");
+        settings().observe = nullptr;
+    }
+
     // Lifetime: releasing the wrapper releases the device once.
     const int before = f.n("Release");
     check(dev->Release() == 0 && f.n("Release") == before + 1, "the wrapper releases the device");
