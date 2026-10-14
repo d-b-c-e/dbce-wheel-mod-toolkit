@@ -38,6 +38,7 @@ function Invoke-Step([string]$name, [string]$line) {
 $dll = Join-Path $dir 'dbce_shim.dll'
 Invoke-Step 'dbce_shim' "`"$clang`" $common /WX $win $inc /LD $dllSources /Fo{obj} /Fe`"$dll`" /link $libs"
 Invoke-Step 'test_shim' "`"$clang`" $common $inc tests\test_shim.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_shim.exe`" && `"$dir\test_shim.exe`""
+Invoke-Step 'test_extras' "`"$clang`" $common /WX $inc tests\test_extras.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_extras.exe`" && `"$dir\test_extras.exe`""
 Invoke-Step 'test_dinput_provider' "`"$clang`" $common $win $inc tests\test_dinput_provider.cpp shim\dinput_provider.cpp shim\parse.cpp shim\core.cpp /Fo{obj} /Fe`"$dir\test_dinput_provider.exe`" /link dinput8.lib dxguid.lib && `"$dir\test_dinput_provider.exe`""
 Invoke-Step 'test_provider_host' "`"$clang`" $common /WX $win $inc tests\test_provider_host.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp /Fo{obj} /Fe`"$dir\test_provider_host.exe`" /link $libs && `"$dir\test_provider_host.exe`""
 Invoke-Step 'test_shim_abi'"`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
@@ -64,7 +65,7 @@ if ($LASTEXITCODE) { $info | Select-Object -Last 10; throw "dumpbin failed (exit
 $machine = if ($Arch -eq 'x86') { '14C machine (x86)' } else { '8664 machine (x64)' }
 if (-not @($info | Where-Object { "$_".Trim() -ceq $machine }).Count) { throw "the DLL's header has no '$machine' line" }
 $exports = @($info | ForEach-Object { if ("$_" -cmatch '^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]{8}\s+(\S+)\s*$') { $Matches[1] } })
-$declared = @(foreach ($h in 'shim_dll\dbce_shim.h', 'shim_dll\dbce_shim_bridge.h') {
+$declared = @(foreach ($h in 'shim_dll\dbce_shim.h', 'shim_dll\dbce_shim_bridge.h', 'shim_dll\dbce_shim_extras.h') {
     [regex]::Matches([IO.File]::ReadAllText((Join-Path $here $h)), 'DBCE_SHIM_API\s+[\w\s\*]+?\b(dbce_\w+)\s*\(') | ForEach-Object { $_.Groups[1].Value } })
 $missingExports = @($declared | Where-Object { $exports -cnotcontains $_ }); $extraExports = @($exports | Where-Object { $declared -cnotcontains $_ })
 if (-not $declared.Count -or $missingExports.Count -or $extraExports.Count) {

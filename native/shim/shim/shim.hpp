@@ -90,7 +90,8 @@ public:
 enum class Status : std::uint8_t {
     Unbound,Invalid,Unsupported,
     DeviceMissing,ProductMismatch,ObjectMissing,RangeUnqualified,Opening,ReadPending,ReadFailed,Stale,   // unavailable
-    Rearming,Live,TestNeutral                                                                       // applied
+    Rearming,Live,TestNeutral,                                                                      // applied
+    ContextInactive                 // appended (extras only): an observed context is not active; never in an ABI 2 frame
 };
 const char* status_name(Status);
 bool is_unavailable(Status);
@@ -251,6 +252,55 @@ struct ProfilePlan {
 };
 ProfilePlan plan_profile(const Profile&,const Capability& = {});
 
+// ---- game-scoped extras (hub artifacts/extra-actions-design-20261014, sana and deli reviews): the adapter's declaration
+// and the profile's [Extras], read and planned beside the 31, which they never change. Pure: no provider, clock or file.
+constexpr int MaxExtraSlots=32,MaxExtraContexts=8;
+constexpr std::size_t MaxDeclarationBytes=4096;
+enum class ContextMode : std::uint8_t { None,Observed,Advisory };
+struct ExtraDecl {
+    std::string id;                   // "<game>.<name>"
+    ctl::Shape shape{};               // Digital, Pedal or Centred; each component of a stick is Centred
+    bool stick{},circle{};            // a stick: two Centred components, X then Y, and its range rule (circle or square)
+    std::uint32_t contexts{};         // bits over Declaration::contexts; 0: always applicable
+    int first_slot{},components{1};
+};
+struct Declaration {
+    std::string game;
+    ContextMode mode{ContextMode::None};
+    std::vector<std::string> contexts;   // bit i = contexts[i]
+    std::vector<ExtraDecl> extras;       // in declaration order: the slot order
+    int slots{};
+    Sha256 hash{};                       // of the exact declaration bytes
+    std::uint32_t context_bits()const{return contexts.empty()?0u:(contexts.size()>=32?0xFFFFFFFFu:(1u<<contexts.size())-1u);}
+};
+// Strict: ASCII without NUL, at most MaxDeclarationBytes, exactly the grammar. False with the reason otherwise.
+bool parse_declaration(const char* bytes,std::size_t len,Declaration& out,std::string& why);
+
+// One physical binding an extra reads: a digital or pedal destination, an axis component, or one half of a pair.
+struct ExtraInput { bool configured{}; ctl::Binding binding; ctl::Shape shape{}; int device{-1}; };
+// A component is unbound (deliberately, or absent), one binding (`a`), or a pair of digital halves (`a` neg, `b` pos).
+struct ExtraComponent { enum class Form : std::uint8_t { Unbound,Single,Pair }; Form form{Form::Unbound}; ExtraInput a,b; };
+struct ExtraPlan { Status base{Status::Unbound}; std::string reason; ExtraComponent component[2]; };
+struct ExtrasPlan {
+    std::string error;                     // a whole-section problem: every extra unbound with this reason
+    std::string revision;                  // [Extras] Revision, echoed (the writer's effective revision)
+    std::vector<ExtraPlan> extras;         // in declaration order
+    std::vector<DeviceInfo> devices;       // extras-only devices, appended after the common table in planning order
+    std::vector<std::string> ignored;      // "key: why" for keys that name no declared extra (reported, never fatal)
+};
+// The profile bytes' [Extras] against the declaration. `common` is the 31's device table, which identifies a device first:
+// an extra that disagrees with it is the invalid one. Planning runs in declaration, component (X, Y) and half (neg, pos)
+// order, so the order a writer emits keys in never decides which extra fails.
+ExtrasPlan plan_extras(const std::string& profile_bytes,const Declaration&,const std::vector<DeviceInfo>& common,int reads=1);
+
+// One extras-aware tick's values (Core::tick(contexts)): the same seq as that tick's Frame.
+struct ExtrasFrame {
+    std::uint64_t seq{};
+    std::uint32_t contexts{};
+    std::uint64_t down{},up{};             // digital slots' edges against the previous tick, bit = slot
+    std::vector<ActionValue> slot;         // Declaration::slots entries
+};
+
 struct CoreConfig {
     bool latched{};               // inject.on existed at process start (decided by the entry point)
     Capability capability;
@@ -281,6 +331,9 @@ public:
     Core(Provider&,CoreConfig);
     // Before the workers start. A latched process with a profile that is not usable goes INERT.
     void set_profile(const Profile&);   // once per Core, before the first tick: the device table is immutable after it
+    // The same, plus a game's declared extras planned from the same profile bytes. Extras-only devices go after the
+    // common table, so without extras the table, its order and every sample slot are what set_profile(Profile) gives.
+    void set_profile(const Profile&,const Declaration&,const std::string& profile_bytes,int reads=1);
 
     // Provider worker: one bounded pass (enumeration when needed, at most max_opens_per_pass opens, reacquisition,
     // closes of epochs the input thread handed back). Returns true when it did anything.
@@ -305,6 +358,14 @@ public:
 
     // Game input thread.
     const Frame& tick();
+    // An extras Core's one tick: one device read resolves the 31 (exactly as tick()) and the extras, with the contexts
+    // active for it (bits over Declaration::contexts; the caller has refused unknown bits). Context transitions, rearm
+    // and edges advance here, once; extras_frame() then only reads.
+    const Frame& tick(std::uint32_t active_contexts);
+    bool has_extras()const{return extras_;}
+    const ExtrasFrame& extras_frame()const{return xframe_;}
+    const Declaration& extras_declaration()const{return xdecl_;}
+    std::string extras_report()const;    // JSON (dbce_shim_extras_info)
 
     // Reports (input thread, or after it stopped).
     StartReport start_report()const;
@@ -337,7 +398,7 @@ private:
     };
     struct Opened { int device; Handle handle; ObjectCaps caps; std::uint32_t epoch; std::string interface_path; };
     struct Returned { int device; Handle handle; Call why; std::uint32_t epoch; };
-    struct Rearm { bool need_release{},need_rest{}; };
+    struct Rearm { bool need_release{},need_rest{},need_centre{}; };   // need_centre: extras' centred inputs only
     struct Running { Command cmd; std::int64_t deadline_us{}; std::uint64_t batch{}; Sha256 hash{}; int device{-1}; };
 
     Provider& p_;
@@ -402,6 +463,25 @@ private:
     std::array<Event,EventRingSize> ring_{};
     std::uint64_t event_seq_{};
 
+    // Extras (immutable after set_profile, except each input's rearm and each extra's context state: input thread).
+    struct XInput { ctl::Binding binding; ctl::Shape shape{}; int device{-1}; Rearm rearm; };
+    struct XComponent { ExtraComponent::Form form{ExtraComponent::Form::Unbound}; int a{-1},b{-1}; };   // into xin_
+    struct XState { Status base{Status::Unbound}; std::string reason; XComponent component[2]; bool was_inactive{}; };
+    bool extras_{};
+    Declaration xdecl_;
+    std::string xrevision_;
+    std::vector<std::string> xignored_;
+    std::vector<XInput> xin_;
+    std::vector<XState> xs_;
+    ExtrasFrame xframe_;
+    std::uint64_t prev_xdigital_{};
+
+    const Frame& tick_impl(const std::uint32_t* active_contexts);
+    void set_profile_impl(const Profile&,const Declaration*,const std::string* profile_bytes,int reads);
+    ActionValue resolve_binding(const ctl::Binding&,int device,ctl::Shape,Rearm&,bool test,std::int64_t now);
+    void resolve_extras(std::int64_t now,std::uint32_t active_contexts);
+    ActionValue resolve_component(const XComponent&,bool test,std::int64_t now);
+    void arm_input(XInput&,bool context_return);
     void adopt_worker_changes(std::int64_t now);
     void evaluate_admission(std::int64_t now);
     void read_devices(std::int64_t now);

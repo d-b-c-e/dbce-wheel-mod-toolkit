@@ -130,6 +130,20 @@ the moved bytes, not the current ones. They are for 32-bit games, following the 
 - **Changed:** `build_test.ps1` gains `-Arch x86`, and an export, machine and import check for both architectures.
 - **Unchanged:** `shim/observer_transport.hpp`, with its x64 assert. The x86 build never includes it.
 
+## Declared extras, extension 2 (2026-10-14, sana 100911)
+
+These are toolkit-local and additive. The design and reviews are in the hub's `artifacts/extra-actions-design-20261014`.
+- `controls/dbce_controls.hpp`: `fits` and `normalize` gain `Shape` overloads. The action-name versions now delegate
+  to them, with identical results.
+- `shim/shim.hpp`, `shim/parse.cpp` and `shim/core.cpp`:
+  - `Status::ContextInactive` is appended, as 14;
+  - the declaration and `[Extras]` types, `parse_declaration` and `plan_extras`;
+  - Core's per-action resolve is split into `resolve_binding`, which the 31 and the extras share;
+  - `set_profile` and `tick` gain extras overloads; the current overloads are the no-extras case.
+- `host/provider_host.hpp`: an optional trailing declaration on the DirectInput constructor, and `tick(contexts)`.
+- `shim_dll/dbce_shim_extras.h` (new) and `dbce_shim.cpp`: six exports. `dbce_shim_tick` refuses an extras handle.
+- `tests/test_extras.cpp` is new; `tests/test_shim_abi.cpp` gains the extension cases and checks the export names.
+
 ## Not moved
 
 - OutRun's adapter and game-side shim code (`windows/source/shim_input.cpp`, `outrun_adapter.*`, `shim_steer.hpp`), and

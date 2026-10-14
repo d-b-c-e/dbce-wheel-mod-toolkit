@@ -21,6 +21,8 @@ pwsh native/shim/build_test.ps1 -Arch x86  # the ordinary-only DLL for 32-bit ga
 The script builds and runs the targets the decomp's CMake defines:
 - `dbce_shim.dll`;
 - `test_shim`: Core against the scripted provider;
+- `test_extras`: declared extras (extension 2), meaning the declaration grammar, the `[Extras]` plan and Core's
+  extras tick;
 - `test_dinput_provider`: the provider against a fake DirectInput;
 - `test_provider_host`: the in-process host (`host/provider_host.hpp`) as a consumer constructs it, with a fake
   DirectInput: a Schema 2 profile at `controls_reads` 2 (ordinary and latched values Core applies) and its refusal at

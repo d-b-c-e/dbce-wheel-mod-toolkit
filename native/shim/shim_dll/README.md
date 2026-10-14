@@ -21,6 +21,35 @@ Build and test from the toolkit root with `pwsh native/shim/build_test.ps1`.
 `test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports. `test_shim_bridge` runs the copied-input
 bridge: its provider, Core over it, and its exports in memory.
 
+## Declared extras (extension 2, additive)
+
+A game can declare destinations beyond the 31 common actions, such as Truckful's camera look stick or a nitro button.
+`dbce_shim_extras.h` declares six exports. The design and its reviews are in the hub's
+`artifacts/extra-actions-design-20261014`.
+
+- **Unchanged:** ABI 2, the 296-byte frame, the 31 actions and every existing export. A handle opened without a
+  declaration behaves exactly as before.
+- **Declaration.** ASCII text of at most 4096 bytes, passed with its length to `dbce_shim_open_extras`:
+  - a `game <id>` line;
+  - an optional `contexts observed|advisory <names>` line;
+  - one `<game>.<name> digital|pedal|centred|stick circle|square [contexts=...]` line per extra.
+  At most 32 scalar slots, a stick taking two.
+- **Profile.** The same `dbce-controls.ini` carries an `[Extras]` section after `[Controls]`, holding `Schema`, `Game`,
+  `Declaration` (the declaration's SHA-256) and an optional `Revision`. Pinned DLLs ignore the section.
+  - Each centred component is either one axis, or a `.neg`/`.pos` pair of buttons or hat directions.
+  - A conflicting or malformed extra is invalid on its own and never changes the 31.
+  - Extras-only devices come after the common device table.
+- **One tick.** `dbce_shim_tick_extras(handle, contexts, frame, extras)` reads the devices once for both frames.
+  `dbce_shim_tick` refuses an extras handle, and `dbce_shim_extras` only reads the cached frame by seq.
+- **Contexts.** An observed context that is not active gives `ContextInactive` (14), and the extra rearms when the
+  context returns. Advisory contexts never gate.
+- **Status.** `dbce_shim_extras_info` reports each extra's plan, slots and inputs, for F6 and diagnostics.
+- **Scope.** Ordinary input only, on x86 and x64. No latched control, injection or capture of extras yet, so no
+  recording claims to hold them.
+
+`test_extras` covers the grammar, the plan and Core's extras tick. `test_shim_abi` covers the exports on both
+architectures.
+
 ## x86 build: ordinary only
 
 `pwsh native/shim/build_test.ps1 -Arch x86` builds `build/x86-mt/dbce_shim.dll` for 32-bit games, such as Horizon
