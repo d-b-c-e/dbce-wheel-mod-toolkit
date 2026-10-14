@@ -35,7 +35,14 @@ The design and its checks are in `../docs/COPIED-INPUT-BRIDGE.md` (copied from t
 
 - **Unchanged:** base ABI 2, the frame, the open arguments and every existing export. A bridge handle refuses
   `dbce_shim_tick`, and a direct handle refuses the bridge calls.
-- **Refused flags:** a bridge open refuses the latched and capture flags until source provenance is part of those formats.
+- **Flags:**
+  - `DBCE_SHIM_LATCHED` (since `f38b855`) takes the base ABI's verified fences and process force mute. It writes the
+    same control journal with `inputSource: "external-physical-input@1"` on every row. Copied input stays physical
+    evidence; only accepted control batches are injected.
+  - `DBCE_SHIM_CAPTURE` is refused: the capture format has no external sample provenance.
+  - Any other flag is a bad argument.
+- **Journal reader:** `../tests/control_journal` builds the production journal sink and reads it back with the strict
+  reader, which accepts a header `inputSource` only with that exact value on every row.
 - **No device calls:** `shim/bridge_provider` holds memory leases only. It makes no DirectInput or COM call and never
   reacquires; the external owner recovers its device.
 - **Device adoption:** the bridge goes through the same Core as DirectInput, including the absent-device rescan.

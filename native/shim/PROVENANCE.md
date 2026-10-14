@@ -72,6 +72,27 @@ file was merged three ways: base `a9e16010`, this toolkit at `fb710df`, and the 
 The direct path's ABI, frame, open arguments, actions and exports are unchanged. The seven bridge exports are additive.
 No consumer is repinned.
 
+### Latched bridge control (`f38b855`, sana 78097)
+
+The next commit on `codex/art-shim-bridge`, merged three ways from base `574bb88`.
+
+- **Same blobs as `f38b855`:**
+  - `docs/CONTROL-JOURNAL.md`, `docs/COPIED-INPUT-BRIDGE.md`, `host/control_journal.hpp` (the optional
+    `inputSource`), `shim_dll/dbce_shim_bridge.h` and `tests/test_shim_bridge.cpp`;
+  - the journal fixture and its strict reader, new here: `tests/control_journal/main.cpp` (`b3ed8de7…`),
+    `read_journal.py` (`6dfba24d…`), `run.py` (`98704b63…`) and `README.md` (`d0f6013f…`).
+- **Adapted:**
+  - `tests/control_journal/CMakeLists.txt`: the controls headers come from the toolkit's `../controls`, not the
+    decomp's `vendor/controls`.
+  - `host/journal_identity.hpp`: the toolkit's `controls_reads` stays where it is, and `input_source` follows it.
+  - `shim_dll/dbce_shim.cpp`: the latched journal call names the DLL ABI's controls schema (1) before the bridge's
+    `"external-physical-input@1"`.
+- **Result:**
+  - `dbce_shim_bridge_open` admits `DBCE_SHIM_LATCHED` with the base ABI's fence and mute checks, and refuses
+    `DBCE_SHIM_CAPTURE`.
+  - Copied physical samples keep their source generation, sequence and timestamps. Only accepted batches are
+    injected.
+
 ## Not moved
 
 - OutRun's adapter and game-side shim code (`windows/source/shim_input.cpp`, `outrun_adapter.*`, `shim_steer.hpp`), and

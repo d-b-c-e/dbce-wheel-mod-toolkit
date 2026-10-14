@@ -8,6 +8,12 @@
   - Base ABI 2 and every existing export are unchanged.
   - build_test.ps1 adds test_shim_bridge.
   - No consumer is repinned; Art keeps 7DDC9621 until a reviewed adoption (PROVENANCE.md).
+- native/shim: the bridge admits fenced latched control (outrun2-decomp f38b855).
+  - It uses the base ABI's fence and force-mute checks and the same control journal, with
+    `inputSource: "external-physical-input@1"` on every row.
+  - CAPTURE stays refused.
+  - journal_identity keeps `controls_reads` and takes the optional input source after it.
+  - tests/control_journal (the production journal sink and its strict reader, f38b855) comes with it.
 
 - shared/session/FullSessionTimeline.cs: DRIVE's data-only full-session timeline, capture and package naming
   (dbce-mods-drive-rally 9f1b85e DriveRally.Core/FullSessionTimeline.cs) as vendorable source, with the schema
