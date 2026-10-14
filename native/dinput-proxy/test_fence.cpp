@@ -400,16 +400,16 @@ int main()
         };
         settings().observeEffect = record;
         const int deviceEffects = f.n("CreateEffect"), deviceCommands = f.n("SendForceFeedbackCommand"), deviceEscapes = f.n("Escape");
-        DICONSTANTFORCE cf{7500}; DWORD ax = DIJOFS_X; LONG dir = 1;
+        DICONSTANTFORCE requested{7500}; DWORD ax = DIJOFS_X; LONG dir = 1;
         DIEFFECT pe{}; pe.dwSize = sizeof pe; pe.dwGain = 8000; pe.cAxes = 1; pe.rgdwAxes = &ax; pe.rglDirection = &dir;
-        pe.cbTypeSpecificParams = sizeof cf; pe.lpvTypeSpecificParams = &cf;
+        pe.cbTypeSpecificParams = sizeof requested; pe.lpvTypeSpecificParams = &requested;
         LPDIRECTINPUTEFFECT fx = nullptr;
         check(dev->CreateEffect(GUID_ConstantForce, &pe, &fx, nullptr) == DI_OK && fx, "effect observer: CreateEffect answered");
         const void *id = fx;
         check(evs.size() == 1 && evs[0].event == EffectEvent::Created && evs[0].device == static_cast<IDirectInputDevice8A *>(&f) && evs[0].effect == id &&
               IsEqualGUID(evs[0].type, GUID_ConstantForce) && evs[0].params == &pe && evs[0].flags == DIEP_ALLPARAMS && evs[0].magnitude == 7500,
               "effect observer: Created with the wrapped device, the effect, its type and the game's own parameters");
-        cf.lMagnitude = -5000;
+        requested.lMagnitude = -5000;
         check(fx->SetParameters(&pe, DIEP_TYPESPECIFICPARAMS | DIEP_START) == DI_OK, "effect observer: SetParameters answered");
         check(evs.size() == 2 && evs[1].event == EffectEvent::Parameters && evs[1].flags == (DIEP_TYPESPECIFICPARAMS | DIEP_START) && evs[1].magnitude == -5000 && evs[1].effect == id,
               "effect observer: SetParameters with DIEP_START is one Parameters event, with no Start");
@@ -438,8 +438,8 @@ int main()
     {
         settings().observe = [](const void *, int, DWORD, const void *) { throw 2; };
         dev->SetDataFormat(&c_dfDIJoystick2);
-        DIJOYSTATE2 st{};
-        check(dev->GetDeviceState(sizeof st, &st) == DI_OK && logged("a state observer threw; ignored"), "observer: a throwing state observer changes no read result");
+        DIJOYSTATE2 thrown{};
+        check(dev->GetDeviceState(sizeof thrown, &thrown) == DI_OK && logged("a state observer threw; ignored"), "observer: a throwing state observer changes no read result");
         settings().observe = nullptr;
     }
 
