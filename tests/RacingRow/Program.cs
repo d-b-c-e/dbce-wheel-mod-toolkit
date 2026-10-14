@@ -55,6 +55,32 @@ Refused("two primaries", new[] { M(-2560, 0, 2560, 1440, true), Center, Right },
 Refused("an empty rectangle", new[] { Left, Center, Right, M(0, -10, 0, 0) }, "empty rectangle");
 Refused("nothing reported", Array.Empty<MonitorRect>(), "no primary display");
 
+// The shared vectors, which the C++ selector (dbce_racing_row.hpp) also runs: every one with this policy's fixed 2.9:1
+// wide-primary rule must match exactly, reason included. The others belong to consumers with another rule.
+int vectors = 0, otherAspect = 0;
+foreach (var line in File.ReadLines(Path.Combine(AppContext.BaseDirectory, "racing-row-vectors.txt")))
+{
+    if (line.Length == 0 || line[0] == '#') continue;
+    var f = line.Split(" | ");
+    Check(f.Length == 7 && f[0] == "row", "vector line: " + line);
+    if (double.Parse(f[2], System.Globalization.CultureInfo.InvariantCulture) != RacingRowPolicy.SurroundAspect) { otherAspect++; continue; }
+    var monitors = f[3] == "-" ? new List<MonitorRect>() : f[3].Split("; ").Select(t =>
+    {
+        var m = t.Split(',');
+        Check(m.Length == 4 || m.Length == 5 && m[4] == "primary", "vector monitor: " + t);
+        return M(int.Parse(m[0]), int.Parse(m[1]), int.Parse(m[2]), int.Parse(m[3]), m.Length == 5);
+    }).ToList();
+    var expect = f[4].Split(' ');
+    var rect = expect[1].Split(',').Select(int.Parse).ToArray();
+    var displays = f[5] == "-" ? new List<MonitorRect>() : f[5].Split(' ').Select(i => monitors[int.Parse(i)]).ToList();
+    var row = RacingRowPolicy.Select(monitors);
+    Check(row.Kind.ToString() == expect[0] && row.X == rect[0] && row.Y == rect[1] && row.Width == rect[2] && row.Height == rect[3]
+        && row.Displays.SequenceEqual(displays), "vector " + f[1] + ": expected " + f[4] + ", got " + row);
+    Check(row.Reason == f[6], "vector " + f[1] + ": reason\n  expected: " + f[6] + "\n  got:      " + row.Reason);
+    vectors++;
+}
+Check(vectors >= 25 && otherAspect >= 4, $"shared vectors: {vectors} run here, {otherAspect} with another aspect");
+
 // Read-only: what this machine reports now. Informational; the topology differs between machines.
 var live = WindowsMonitors.Read();
 Check(live.Count >= 1 && live.Count(m => m.Primary) == 1, "Windows reports at least one display and exactly one primary");

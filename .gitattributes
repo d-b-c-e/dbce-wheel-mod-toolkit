@@ -8,3 +8,6 @@ shared/ui/unity/SessionStatusHud.cs text eol=lf
 shared/display/RacingRow.cs text eol=lf
 shared/display/WindowsMonitors.cs text eol=lf
 shared/display/SpanTarget.cs text eol=lf
+shared/display/dbce_racing_row.hpp text eol=lf
+shared/display/dbce_windows_monitors.hpp text eol=lf
+shared/display/racing-row-vectors.txt text eol=lf

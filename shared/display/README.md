@@ -26,9 +26,22 @@ was taller than the primary. A mod adopting it spans `RacingRow.X/Y/Width/Height
 Surround path for `Surround`, and does nothing for `None` (log `Reason`).
 
 Consumers copy the files byte-identically (`git rev-parse <commit>:shared/display/RacingRow.cs` equals the consumer's
-blob), keep the MIT header and record the toolkit commit. Do not copy the geometry into a second implementation.
+blob), keep the MIT header and record the toolkit commit. Do not copy the geometry into a third implementation.
 `tests/RacingRow` checks the rules, including the rig's actual layout and a read-only print of the live displays;
 `tests/RacingRow/Compat` compiles both files for netstandard2.0.
+
+**Native mods (C++).** `dbce_racing_row.hpp` is the C++ counterpart of `RacingRow.cs`: the same rules and the same
+reason sentences, header-only C++17, with no Windows calls. `dbce_windows_monitors.hpp` is the counterpart of
+`WindowsMonitors.cs`. The two implementations are kept equal by `racing-row-vectors.txt`. Every vector gives the
+monitors, the expected row and the exact reason, and both test harnesses run every vector they can.
+`tests/RacingRow` runs the vectors that use the 2.9:1 rule. `tests/RacingRow/Native/build_test.ps1` runs all of them
+with MSVC x64 and x86 as C++17, and x64 as C++20, with warnings as errors. A rule change updates both files and the
+vectors together.
+
+The C++ selector takes the wide-primary aspect from its caller, `select_racing_row(monitors, aspect)`.
+`kSurroundAspect` (2.9) is the toolkit's rule. A mod that already has another rule, such as the 4:1 rule in the Sonic
+CrossWorlds renderer and ADRIFT, passes it explicitly, so adopting the row changes only its separate-display test.
+Native consumers copy both headers byte-identically, like the C# files, and record the toolkit commit and blob ids.
 
 `SpanTarget.cs` is the optional shared cached decision for consumers that check the span every frame. It preserves
 the saved span opt-out and triple-mode gate, selects only a `Separate` row, and reports a changed reason for logging.

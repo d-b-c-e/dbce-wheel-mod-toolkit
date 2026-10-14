@@ -1,5 +1,13 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- shared/display: `dbce_racing_row.hpp` and `dbce_windows_monitors.hpp`, a C++ counterpart of the racing-row selector
+  for native mods (sana 85075).
+  - The rules and reason sentences are the same as `RacingRow.cs`, and the shared `racing-row-vectors.txt` keeps the
+    two equal. `tests/RacingRow` now also runs the vectors, and `tests/RacingRow/Native` runs them in C++.
+  - The wide-primary aspect is a required argument, so a mod keeps its existing rule (4:1 for Sonic and ADRIFT).
+  - Why: the native renderers required exactly three monitors and fall back to one view on the four-display rig.
+  - `RacingRow.cs`, `WindowsMonitors.cs` and `SpanTarget.cs` are unchanged, so no C# consumer needs repinning.
+
 - native/shim: the copied-input bridge (extension 1), merged from the outrun2-decomp `codex/art-shim-bridge` 574bb88
   as Art's installed variant uses it. It sits beside the DirectInput provider in one source.
   - shim/bridge_provider holds memory leases only; dbce_shim_bridge.h adds seven exports.
