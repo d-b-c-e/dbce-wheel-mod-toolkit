@@ -266,7 +266,7 @@ ExtrasPlan plan_extras(const std::string& bytes,const Declaration& decl,const st
     ExtrasPlan r;r.extras.resize(decl.extras.size());
     for(auto& x:r.extras){x.base=Status::Unbound;x.reason="not bound";}
     auto all=[&](const std::string& why)->ExtrasPlan&{
-        r.error=why;r.devices.clear();
+        r.error=why;r.devices.clear();r.revision.clear();r.ignored.clear();   // a section error echoes nothing
         for(auto& x:r.extras){x=ExtraPlan{};x.base=Status::Unbound;x.reason=why;}
         return r;
     };
@@ -295,7 +295,7 @@ ExtrasPlan plan_extras(const std::string& bytes,const Declaration& decl,const st
     if(!section_line)return all("the profile has no [Extras]");
     struct Key{std::string key,val;int line;};
     std::vector<Key> keys;
-    long schema=-1;bool have_schema=false,have_game=false,have_declaration=false;
+    long schema=-1;bool have_schema=false,have_game=false,have_declaration=false,have_revision=false;
     std::string game,declaration;
     for(const auto& l:body){
         const auto t=ctl::trim(l.text);
@@ -307,7 +307,7 @@ ExtrasPlan plan_extras(const std::string& bytes,const Declaration& decl,const st
         if(key=="Schema"){if(have_schema)return all(at+": a second Schema");have_schema=true;long v=0;schema=ctl::detail::integer(val,v)?v:-1;continue;}
         if(key=="Game"){if(have_game)return all(at+": a second Game");have_game=true;game=val;continue;}
         if(key=="Declaration"){if(have_declaration)return all(at+": a second Declaration");have_declaration=true;declaration=lower(val);continue;}
-        if(key=="Revision"){r.revision=val;continue;}
+        if(key=="Revision"){if(have_revision)return all(at+": a second Revision");have_revision=true;r.revision=val;continue;}   // the echoed identity
         keys.push_back({key,val,l.number});
     }
     if(!have_schema)return all("[Extras] has no Schema");

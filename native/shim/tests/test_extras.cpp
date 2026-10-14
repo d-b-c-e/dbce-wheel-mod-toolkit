@@ -136,6 +136,9 @@ void test_plan(){
     check(p.error.find("Schema 2 is not supported")!=std::string::npos,"Schema 2 at reads 1 refused");
     p=plan_extras(base+extras(d,{})+"[Extras]\nSchema = 1\n",d,devs);
     check(p.error.find("second [Extras]")!=std::string::npos,"a second section refused");
+    p=plan_extras(base+extras(d,{"Revision = a",wheel("truckful.reset = button 9"),"Revision = b"}),d,devs);
+    check(p.error.find("second Revision")!=std::string::npos&&p.revision.empty()&&p.extras[1].base==Status::Unbound,
+          "a second Revision refuses the section, as a second Schema, Game or Declaration does (deli 101880)");
     check(read_profile(base+extras(d,{wheel("truckful.reset = button 9")})).ok,"the profile reader ignores [Extras]");
 }
 
