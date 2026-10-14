@@ -21,6 +21,14 @@ Build and test from the toolkit root with `pwsh native/shim/build_test.ps1`.
 `test_shim_abi` runs the ABI over fake COM and checks the built DLL's exports. `test_shim_bridge` runs the copied-input
 bridge: its provider, Core over it, and its exports in memory.
 
+## Pure profile inspection (optional export)
+
+`dbce_shim_profile_action_info(profile, len, action, text, len, needed)` (since `5b96ba8`) reads one action's
+configured binding from exact profile bytes, using Core's parser and binding admission (`plan_profile`). It has no
+handle, host, provider, file or device. The handle-based `dbce_shim_profile_info` is unchanged. Profiles are read at
+controls schema 1, as by the DLL's hosts, so a Schema 2 profile is reported invalid. The identity it returns is
+configured, not evidence of connected hardware (`../docs/INPUT-SHIM-PROFILE-INSPECTION.md`).
+
 ## Copied-input bridge (extension 1, additive)
 
 The same DLL also serves a consumer that already owns its device handle and copies each read in. Art's native reader

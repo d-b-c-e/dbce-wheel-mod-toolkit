@@ -14,6 +14,12 @@
   - CAPTURE stays refused.
   - journal_identity keeps `controls_reads` and takes the optional input source after it.
   - tests/control_journal (the production journal sink and its strict reader, f38b855) comes with it.
+- native/shim: optional `dbce_shim_profile_action_info` (outrun2-decomp 5b96ba8, the source of Art's installed
+  723E8A38).
+  - It is a pure, handle-free inspection of one action's configured binding through Core's parser and the newly
+    shared `plan_profile`.
+  - `dbce_shim_profile_info` is unchanged.
+  - Profiles are read at controls schema 1.
 
 - shared/session/FullSessionTimeline.cs: DRIVE's data-only full-session timeline, capture and package naming
   (dbce-mods-drive-rally 9f1b85e DriveRally.Core/FullSessionTimeline.cs) as vendorable source, with the schema

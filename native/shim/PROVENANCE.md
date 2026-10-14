@@ -93,6 +93,22 @@ The next commit on `codex/art-shim-bridge`, merged three ways from base `574bb88
   - Copied physical samples keep their source generation, sequence and timestamps. Only accepted batches are
     injected.
 
+### Pure profile action inspection (`5b96ba8`, sana 78097)
+
+`codex/art-shim-profile-info` `5b96ba8`, the source of Art's installed `723E8A38`, merged three ways from base
+`f38b855`.
+
+- **New:** `docs/INPUT-SHIM-PROFILE-INSPECTION.md` (same blob).
+- **Same blob:** `shim_dll/dbce_shim.h`. It adds the optional `dbce_shim_profile_action_info` and leaves
+  `dbce_shim_profile_info` unchanged.
+- **Merged without conflict:**
+  - `shim/shim.hpp` and `shim/parse.cpp`: `ProfilePlan` and `plan_profile`, Core's binding admission as a pure function;
+  - `shim/core.cpp`: `set_profile` uses it. The toolkit's `set_profile` matched the base there.
+  - `shim_dll/dbce_shim.cpp`: the export. It reads at the default controls schema 1.
+  - `tests/test_shim.cpp`.
+- **Union of both test lists:** `tests/test_shim_abi.cpp` runs `test_profile_inspection` beside the toolkit's
+  `test_schema2_refused`.
+
 ## Not moved
 
 - OutRun's adapter and game-side shim code (`windows/source/shim_input.cpp`, `outrun_adapter.*`, `shim_steer.hpp`), and
