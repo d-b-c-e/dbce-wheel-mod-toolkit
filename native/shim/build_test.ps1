@@ -49,8 +49,12 @@ $dump = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /dependents `"$dll`"" 2>&1
 if ($LASTEXITCODE) { $dump | Select-Object -Last 10; throw "dumpbin failed (exit $LASTEXITCODE): the imports were not inspected" }
 $deps = @($dump | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() })
 # An empty or partial listing proves nothing: the imports this DLL must have are the check's own evidence.
-$missing = @('KERNEL32.dll', 'DINPUT8.dll', 'bcrypt.dll' | Where-Object { $deps -notcontains $_ })
+# bcrypt is the capture recorder's alone (its run nonce, host/recorder/capture.hpp). The x86 build has no recorder, so
+# it must not import bcrypt, and that absence is evidence the recorder stayed out.
+$expected = if ($Arch -eq 'x86') { @('KERNEL32.dll', 'DINPUT8.dll') } else { @('KERNEL32.dll', 'DINPUT8.dll', 'bcrypt.dll') }
+$missing = @($expected | Where-Object { $deps -notcontains $_ })
 if ($missing.Count) { throw "the import listing lacks expected Windows imports ($($missing -join ', ')): got '$($deps -join ', ')'" }
+if ($Arch -eq 'x86' -and $deps -contains 'bcrypt.dll') { throw "the x86 ordinary-only DLL imports bcrypt.dll, the capture recorder's: got '$($deps -join ', ')'" }
 $crtDlls = @($deps | Where-Object { $_ -match '^(VCRUNTIME|MSVCP|api-ms-win-crt-|ucrtbase)' })
 if ($Crt -eq 'MT' -and $crtDlls.Count) { throw "a static-CRT build imports the C runtime: $($crtDlls -join ', ')" }
 # The machine, and the export names against every DBCE_SHIM_API declaration in both headers: none missing, none
