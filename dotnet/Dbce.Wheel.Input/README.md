@@ -21,6 +21,11 @@ Failed Save retains the draft; successful Save changes the next-start document w
 their maximum full-profile byte limit and own access, focus and input suppression. The portable helper keeps its
 existing admitted writer transaction; this small source is for Mono/IL2CPP hosts that cannot load Wheelkit.Core.
 
+`BindingEditorContract.cs` is the renderer-neutral `ISharedBindingHost` and snapshot view model contract. Active,
+NextStart and Draft are distinct typed values; null means no delta and `Bound=false` is an explicit unbound value.
+Each host supplies labels, reasons, qualified device views and capture commands. A panel consumes this contract and
+opens no devices. Vendor this shared contract rather than maintaining game-namespace copies.
+
 # Optional POV reader for existing managed pins
 
 `PovSnapshotReader.cs` is MIT source that can be vendored when a consumer keeps
