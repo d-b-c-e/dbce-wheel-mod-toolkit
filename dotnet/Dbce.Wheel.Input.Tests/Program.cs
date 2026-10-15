@@ -249,4 +249,5 @@ string hugeNameBinding = ControlBinding.FromCapture("confirm", ControlKind.Butto
 try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNameBinding }, "after"); } catch (InvalidDataException) { editedSectionRejected = true; }
 Check(sectionRejected && mixedRejected && editedSectionRejected, "shared document enforces native section cap on read and edit and refuses mixed EOL");
 checks += DraftTests.Run();
+checks += BindingCaptureFlowTests.Run();
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");

@@ -69,3 +69,23 @@ previews in Wheelkit, the setup helper and F6.
 It reads no device and knows no context or status. Unit neutrality (a configured part that is not Live leaves the whole
 destination neutral) stays in native Core. Non-finite input throws, and it is plain C# with no tuples, so netstandard
 and Unity Mono consumers can vendor it. The tests in `Dbce.Wheel.Input.Tests` match native `test_extras`.
+
+### Clock-injected capture lifecycle
+
+`SharedBindingCaptureFlow` consumes `AcceptedBindingObservation` from an already-qualified reader. The adapter keeps
+its binary decoder, applies metadata masks, admits the action and supplies its menu/focus policy. Observations carry
+exact instance/product identities, an opaque identity key, a per-instance generation/epoch, native read sequence and
+the injected local-clock `Seen`. Only new valid, non-stale reads are observations; loss/ended/closed/decode refusal calls
+`Remove` with an actionable reason. Repeated or regressed sequences never refresh eligibility. No reader is opened.
+
+The flow owns 0.25-second freshness, one-second analog rest, 10/11-second deadlines, held-input edges, cancellation,
+canonical `FromCapture` and exactly one result callback into the host's draft. Call `Refresh(canEdit)` before rendering;
+the callback returns null only after accepting the draft edit, or a refusal reason without changing prior state. A
+refusal cannot show a captured-success message. Save/restart remain separate. Art and DRIVE retain their different ABI decoders.
+
+One flow belongs to one qualified reader handle lifetime, with monotonically advancing per-instance epochs and read
+sequences. `Remove` and `ReaderStopped` retain watermarks against cached replay; they do not authorize a recreated
+reader to reset epochs. A new qualified handle requires a new flow, and must pass the adapter's normal ownership
+qualification first. Art and DRIVE currently keep their attached reader/host for the process and stop permanently.
+Observe accepted ticks while the editable F6 binding editor is visible, including before Begin, to supply the device
+list without a pending-start lifecycle. This copies the existing cache; it never activates another reader.

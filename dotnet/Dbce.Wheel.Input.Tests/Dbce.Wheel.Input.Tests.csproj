@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="../Dbce.Wheel.Input/ControlBinding.cs" Link="ControlBinding.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingCapture.cs" Link="BindingCapture.cs" />
+    <Compile Include="../Dbce.Wheel.Input/BindingCaptureFlow.cs" Link="BindingCaptureFlow.cs" />
     <Compile Include="../Dbce.Wheel.Input/ControlProfileDocument.cs" Link="ControlProfileDocument.cs" />
     <Compile Include="../Dbce.Wheel.Input/ControlProfileDraft.cs" Link="ControlProfileDraft.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingEditorContract.cs" Link="BindingEditorContract.cs" />
