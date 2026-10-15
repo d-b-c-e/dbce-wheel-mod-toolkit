@@ -113,7 +113,8 @@ namespace Dbce.Wheel.Ui
     {
         public static int[] Lines(float[] widths, float available, float gap, out int lineCount)
         {
-            var lines = new int[widths == null ? 0 : widths.Length];
+            if (widths == null) { lineCount = 0; return new int[0]; }
+            var lines = new int[widths.Length];
             lineCount = lines.Length == 0 ? 0 : 1;
             float x = 0;
             for (int i = 0; i < lines.Length; i++)
