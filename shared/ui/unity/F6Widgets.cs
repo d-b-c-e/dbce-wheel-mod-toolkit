@@ -88,6 +88,18 @@ namespace Dbce.Wheel.Ui.Unity
         public void Text(string text) => GUILayout.Label(text, _text, GUILayout.Width(S(BodyWidth)));
         public void Help(string text) => GUILayout.Label(text, _help, GUILayout.Width(S(BodyWidth)));
 
+        /// <summary>Body text inside the host's horizontal group (no fixed width).</summary>
+        public void Inline(string text) => GUILayout.Label(text, _text);
+
+        /// <summary>Adds a host-drawn control (e.g. a text field named with GUI.SetNextControlName) to the Tab order.</summary>
+        public void Register(string id) => _focusable.Add(id);
+
+        /// <summary>After drawing a host control: scrolls it into view when it is the requested focus.</summary>
+        public void Reveal(string id)
+        {
+            if (_inBody && _focusRequest == id && Event.current.type == EventType.Repaint) GUI.ScrollTo(GUILayoutUtility.GetLastRect());
+        }
+
         public void Divider()
         {
             Rect r = GUILayoutUtility.GetRect(S(BodyWidth), S(1), GUILayout.Width(S(BodyWidth)), GUILayout.Height(S(1)));
