@@ -212,4 +212,41 @@ Check(rangeRefused, "an unknown range is refused");
 Check(ExtraControlValue.TryParseRange("circle", out var r1) && r1 == StickRange.Circle && ExtraControlValue.TryParseRange("square", out var r2) && r2 == StickRange.Square &&
       !ExtraControlValue.TryParseRange("Circle", out _) && !ExtraControlValue.TryParseRange("", out _) && !ExtraControlValue.TryParseRange(null, out _),
       "the range word is exactly 'circle' or 'square', as the declaration grammar");
+BindingCaptureSnapshot Snap(int axis = 32767, bool button = false, int hat = -1) => new(new[] { axis }, new[] { button }, new[] { hat });
+var heldCapture = new SharedBindingCaptureSession(Snap(button: true), false);
+Check(heldCapture.Read(Snap(button: true)) == null, "held input does not bind");
+Check(heldCapture.Read(Snap()) == null, "release is not a binding");
+Check(heldCapture.Read(Snap(button: true))?.Kind == "Button", "same attempt captures release/repress");
+var axisCapture = new SharedBindingCaptureSession(Snap(), true);
+Check(axisCapture.Read(Snap(40000)) == null, "small movement does not bind");
+Check(axisCapture.Read(Snap(50000)) is { Kind: "Axis", Direction: 1, Rest: 32767 }, "axis captures against fixed initial rest");
+Check(SharedBindingCapture.Detect(Snap(), Snap(50000, true), true) == null, "ambiguous controls do not guess");
+Check(SharedBindingCapture.Detect(Snap(), Snap(hat: 9000), false) is { Kind: "Hat", Direction: 9000 }, "hat captures fresh direction");
+var rawAxes = new[] { 32767 }; var immutable = new BindingCaptureSnapshot(rawAxes, Array.Empty<bool>(), Array.Empty<int>());
+rawAxes[0] = 0;
+Check(immutable.Axes[0] == 32767, "snapshot cannot be changed by the reader's reused input buffer");
+var smallRange = new SharedBindingCaptureSession(new BindingCaptureSnapshot(new[] { 511 }, Array.Empty<bool>(), Array.Empty<int>()), true,
+    new[] { 0 }, new[] { 1023 });
+Check(smallRange.Read(new BindingCaptureSnapshot(new[] { 800 }, Array.Empty<bool>(), Array.Empty<int>()))?.Kind == "Axis", "known short ranges use proportional capture threshold");
+var unknownRange = new SharedBindingCaptureSession(new BindingCaptureSnapshot(new[] { 0 }, Array.Empty<bool>(), Array.Empty<int>()), true,
+    new[] { 0 }, new[] { 0 });
+Check(unknownRange.Read(new BindingCaptureSnapshot(new[] { 65535 }, Array.Empty<bool>(), Array.Empty<int>())) == null, "unknown ranges are never guessed");
+Check(SharedBindingCapture.Detect(new BindingCaptureSnapshot(new[] { 511 }, new[] { false }, Array.Empty<int>()),
+    new BindingCaptureSnapshot(new[] { 50000 }, new[] { true }, Array.Empty<int>()), false, new[] { 0 }, new[] { 1023 }) == null,
+    "out-of-range axis rejects a simultaneous digital binding through the shared range rule");
+const string captureDevice = "{11111111-1111-1111-1111-111111111111}", captureProduct = "{22222222-2222-2222-2222-222222222222}";
+string captureAxis = ControlBinding.FromCapture("steer", ControlKind.Axis, 0, 1, 511, Guid.Parse(captureDevice), Guid.Parse(captureProduct), "Fixture", 0, 1023).ToString();
+string editableProfile = "\uFEFF; owner\r\n[Controls]\r\nSchema = 1\r\nProfile = Fixture\r\nRevision = before\r\nTransmission = Automatic\r\nsteer = " + captureAxis + "\r\nFuture = keep\r\n[Other]\r\nX = untouched\r\n";
+var editableDocument = new ControlProfileDocument(editableProfile);
+string editedProfile = editableDocument.Edit(new Dictionary<string, string?> { ["steer"] = editableDocument.Bindings["steer"].WithInverted(true).ToString() }, "after");
+Check(editedProfile.StartsWith("\uFEFF; owner\r\n", StringComparison.Ordinal) && editedProfile.Contains("Future = keep\r\n[Other]\r\nX = untouched\r\n", StringComparison.Ordinal), "editing preserves BOM and unrelated lines");
+Check(new ControlProfileDocument(editedProfile).Bindings["steer"].Inverted, "canonical inversion round-trips through shared document");
+bool sectionRejected = false, mixedRejected = false, editedSectionRejected = false;
+try { _ = new ControlProfileDocument(editableProfile.Replace("Future = keep", "Future = " + new string('x', 65536))); } catch (InvalidDataException) { sectionRejected = true; }
+try { _ = new ControlProfileDocument(editableProfile.Replace("X = untouched\r\n", "X = untouched\n")); } catch (InvalidDataException) { mixedRejected = true; }
+var nearLimit = new ControlProfileDocument(editableProfile.Replace("Future = keep", "Future = " + new string('x', 64900)));
+string hugeNameBinding = ControlBinding.FromCapture("confirm", ControlKind.Button, 7, 1, 0, Guid.Parse(captureDevice), Guid.Parse(captureProduct), new string('z', 1000)).ToString();
+try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNameBinding }, "after"); } catch (InvalidDataException) { editedSectionRejected = true; }
+Check(sectionRejected && mixedRejected && editedSectionRejected, "shared document enforces native section cap on read and edit and refuses mixed EOL");
+checks += DraftTests.Run();
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");
