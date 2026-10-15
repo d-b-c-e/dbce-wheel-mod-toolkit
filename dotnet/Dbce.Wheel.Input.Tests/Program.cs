@@ -3,6 +3,11 @@ using Dbce.Wheel.Input;
 
 int checks = 0;
 void Check(bool ok, string description) { checks++; if (!ok) throw new Exception(description); }
+if (args.Length == 1 && args[0] == "--binding-editor-policy")
+{
+    Console.WriteLine($"PASS {BindingEditorPolicyTests.Run()} binding editor presentation policy checks (no device or game).");
+    return;
+}
 double D(string n) => double.Parse(n, CultureInfo.InvariantCulture);
 int I(string n) => int.Parse(n, CultureInfo.InvariantCulture);
 ControlBinding Parse(string text, int schema = 1)
@@ -250,4 +255,5 @@ try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNam
 Check(sectionRejected && mixedRejected && editedSectionRejected, "shared document enforces native section cap on read and edit and refuses mixed EOL");
 checks += DraftTests.Run();
 checks += BindingCaptureFlowTests.Run();
+checks += BindingEditorPolicyTests.Run();
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");

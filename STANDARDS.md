@@ -644,3 +644,15 @@ to: the controls contract (STD-033), every reader and writer of a `[Controls]` s
 *Item 4 clarified 2026-10-13 (calibration 9a run1, sana 65017): Core's profile reader includes the in-process host
 that parses the profile for Core, `ProviderHost(..., controls_reads)` and `journal_identity(..., controls_reads)` in
 `native/shim/host/`. A consumer passes its reads to both; the DLL ABI keeps 1.*
+
+### STD-004 / STD-030 clarification — shared binding edit affordances (2026-10-15)
+
+Vendor `dotnet/Dbce.Wheel.Input/BindingEditorPolicy.cs` with the existing binding
+view contract. A deliberately selected Saved mode retains the host's existing
+semantics. An explicit device choice which disappears or belongs to a replaced
+host remains visibly unavailable until the user explicitly selects Saved or a
+current device; reappearance alone does not confirm it. No other device is
+silently substituted. Rows with an unavailable-action/profile-mode Note show
+their reason and disable Bind, Clear and Invert. Capture locks and Cancel remain;
+this presentation policy does not replace host admission, capture freshness or
+checked profile Save. Working consumers need no rewrite solely for adoption.
