@@ -72,3 +72,26 @@ Hosts keep their own semantics:
 Rows show no default, custom or changed badges. "Unsaved" belongs only to binding drafts, which the host compares
 with its loaded state. The widgets read no device and write no file. Stripped IL2CPP hosts without GUILayout use
 the same `F6Style` rules with their own renderer. Offline checks: `dotnet run --project tests/F6Style`.
+
+### Rectangle binding panel candidate
+
+`SharedBindingPanel.cs` extracts the existing iRacing binding panel's contract-driven
+presentation and device selection into a bounded, one-action-at-a-time view.
+`unity/RectBindingPanel.cs` adapts its labels/buttons to rectangle IMGUI without
+GUILayout, following that consumer's stripped IL2CPP route. Compile with
+`DBCE_F6_IL2CPP` and an `interop` alias for IL2CPP; otherwise it uses ordinary Unity
+types. The host owns clipping/scrolling, focus/menu eligibility, close confirmation,
+cursor restoration and the Unity message bridge. It must preserve GUI state around
+the complete drawing callback. The adapter restores enabled state around each button.
+
+The panel consumes `ISharedBindingHost`, `SharedBindingDeviceSelection` and
+`SharedBindingUiPolicy`. It never enumerates devices, parses a binding, captures an
+input or writes a profile. Save and Discard call the host explicitly. Active,
+next-start and draft values remain separate; Return/Close never implies Apply.
+The device list contains only the existing host's fresh accepted snapshot rows.
+A disconnected explicit choice never silently selects another device.
+
+First isolated consumer: Truckful F6 source candidate, not built or rendered yet.
+Its production-linked offline fixture lives in that game's `tests/F6Bindings.Offline`.
+The existing Mono widgets and iRacing renderer/pins are unchanged. Missing native
+snapshot exports disable capture; a UI adapter cannot provide those exports.
