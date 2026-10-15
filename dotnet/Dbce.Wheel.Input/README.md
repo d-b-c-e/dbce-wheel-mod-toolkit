@@ -1,3 +1,20 @@
+# Shared binding capture and profile edits
+
+`BindingCapture.cs` contains the reusable, device-free capture detector. Hosts feed snapshots from their own reader;
+the detector owns no clock, cancellation, acquisition or force output. Held buttons and hats need release/repress,
+axes use a fixed rest, and ambiguous changes never guess. Optional per-axis known minimum/maximum values scale the
+threshold to the reader's range; absent/unknown ranges are excluded. Existing callers without range metadata keep
+the original 12000 threshold. A rest sample is not endpoint calibration or sustained-neutral qualification.
+
+`ControlProfileDocument.cs` reads Schema 1 with the canonical `ControlBinding` parser. It preserves action, device,
+product, inversion, range/rest/travel, transmission and revision, and retains unrelated INI lines. Only explicitly
+changed actions and Revision are edited. A null edit is an explicit Clear; it is not a missing value. Unrepresentable
+extended binding values, duplicate keys/sections, mixed line endings, and a Controls section above 64 KiB are refused.
+No device or file is opened. Hosts own expected-source checks, backups, the write transaction and restart semantics.
+
+`ControlBinding.FromCapture` validates captured parts through that same parser; `WithInverted` changes only axis
+inversion on a copy. There is no host-specific binding grammar or second profile format.
+
 # Optional POV reader for existing managed pins
 
 `PovSnapshotReader.cs` is MIT source that can be vendored when a consumer keeps

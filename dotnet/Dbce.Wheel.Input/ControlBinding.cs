@@ -31,6 +31,26 @@ namespace Dbce.Wheel.Input
         public string Name { get; private set; } = "";
         private ControlBinding() { }
 
+        public ControlBinding WithInverted(bool inverted)
+        {
+            if (Kind != ControlKind.Axis) throw new InvalidOperationException("Only axes can be inverted.");
+            var copy = (ControlBinding)MemberwiseClone(); copy.Inverted = inverted; return copy;
+        }
+
+        /// <summary>Shared capture hosts construct bindings here; the canonical parser checks the result.</summary>
+        public static ControlBinding FromCapture(string action, ControlKind kind, int index, int direction, int rest,
+            Guid device, Guid product, string name, int minimum = 0, int maximum = 65535)
+        {
+            var raw = new ControlBinding { Kind = kind, Index = index, Angle = kind == ControlKind.Hat ? direction : -1,
+                Device = device, Product = product, Name = name, Minimum = minimum, Maximum = maximum,
+                Rest = rest, Travel = kind == ControlKind.Axis ? direction : 0 };
+            if (device == Guid.Empty || product == Guid.Empty || !TryParse(raw.ToString(), out var result, out var reason) || result == null)
+                throw new ArgumentException("Captured control has no usable canonical binding.");
+            string fit = result.Fits(action);
+            if (fit.Length != 0) throw new ArgumentException(fit);
+            return result;
+        }
+
         public static ControlShape ShapeOf(string action)
         {
             switch (action)
