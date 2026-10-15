@@ -20,7 +20,7 @@ internal static class BindingEditorPolicyTests
         selection.Reconcile(host, new[] { shifter });
         Check(selection.Mode == SharedBindingSelectionMode.Unavailable && !selection.CanBind && selection.SelectedIndex == -1 && selection.InstanceGuid == a,
             "removing A while B remains never substitutes B or Saved");
-        Check(selection.UnavailableReason.Contains("Choose") && selection.UnavailableReason.Contains("no substitute"), "missing choice has visible recovery text");
+        Check(selection.UnavailableReason == "The input connection changed. Choose a device again to bind controls.", "missing choice has plain recovery text");
         selection.Reconcile(host, both);
         Check(!selection.CanBind && selection.Mode == SharedBindingSelectionMode.Unavailable, "reappearing A does not silently confirm a missing choice");
         Check(!selection.SelectDevice("not-present", both) && !selection.CanBind, "invalid choice keeps the unavailable latch");

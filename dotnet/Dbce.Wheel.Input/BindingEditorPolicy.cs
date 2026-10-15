@@ -20,7 +20,7 @@ namespace Dbce.Wheel.Input
         public bool CanBind => IsInitialized && (Mode == SharedBindingSelectionMode.Saved ||
             Mode == SharedBindingSelectionMode.Explicit && SelectedIndex >= 0);
         public string UnavailableReason => Mode == SharedBindingSelectionMode.Unavailable
-            ? "The selected capture device is unavailable or its host changed. Choose a capture target explicitly; no substitute was selected."
+            ? "The input connection changed. Choose a device again to bind controls."
             : "";
 
         public void Reconcile(object currentHost, IReadOnlyList<SharedBindingDeviceView> devices)
