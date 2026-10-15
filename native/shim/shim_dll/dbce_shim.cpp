@@ -9,6 +9,7 @@
 #include "dbce_shim_internal.hpp"
 #include "dbce_shim_bridge.h"
 #include "dbce_shim_extras.h"
+#include "dbce_shim_snapshot.h"
 #include "bridge_provider.hpp"
 #include "json_text.hpp"
 #include "ordinary_only.hpp"
@@ -82,6 +83,8 @@ struct DllRecorder {
 };
 #endif
 using Host = h::ProviderHost<DllRecorder>;
+// An ordinary host's freshness bound: Core's, and the one extension 3's snapshot reports.
+constexpr std::int64_t OrdinaryFreshUs = 100'000;
 
 // A handle's shell is never freed (a few bytes per open), so a spent handle stays recognisable; the registry lets a
 // call refuse an unknown pointer without reading through it.
@@ -101,6 +104,9 @@ struct Shim {
     std::uint32_t context_bits = 0;
     bool have_extras_frame = false;
     dbce_shim_extras_frame last_extras{};   // the last tick's, for the read-only dbce_shim_extras
+    // Extension 3: the frame the last successful tick returned. Core's own frame, alive as long as the host and changed
+    // only by the next tick on this thread, so the snapshot copies nothing per tick. Null until a tick succeeds.
+    const sh::Frame* last_frame = nullptr;
 };
 std::mutex registry_lock;
 std::set<const Shim*> registry;
@@ -270,7 +276,7 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
         auto* in = input; input = nullptr;
         if (bridge) shell->host = std::make_unique<Host>(a.folder,nonce,bridge,bytes,latched,std::move(recorder),caps);
         else shell->host = std::make_unique<Host>(a.folder, nonce, in, bytes, latched, std::move(recorder), caps, static_cast<HWND>(a.hwnd),
-                                                  100'000, nullptr, 1, extras);
+                                                  OrdinaryFreshUs, nullptr, 1, extras);
         if (extras) { shell->extras = true; shell->context_mode = extras->mode; shell->context_bits = extras->context_bits(); }
 #if !DBCE_SHIM_ORDINARY_ONLY
         if (capture) shell->host->recorder().set_devices(shell->host->device_reports());   // one sample slot per profile device
@@ -360,6 +366,7 @@ int32_t dbce_shim_open2(const dbce_shim_open_args* args, void** out, char* why, 
 }
 
 static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* active_contexts = nullptr) {
+    // Refused before Core ticks: nothing changes, so the last frame and its snapshot stay.
     if (!frame || frame->struct_size != sizeof(dbce_shim_frame)) return DBCE_SHIM_BAD_ARGUMENT;
     try {
         push_pending(*s);
@@ -372,8 +379,9 @@ static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* a
             const auto& a = f.action[std::size_t(i)]; auto& o = frame->action[i];
             o.value = a.value; o.status = std::uint8_t(a.status); o.injected = a.injected; o.reserved[0] = o.reserved[1] = 0;
         }
+        s->last_frame = &f;   // published only once the whole tick succeeded
         return DBCE_SHIM_OK;
-    } catch (...) { return DBCE_SHIM_REFUSED; }
+    } catch (...) { s->last_frame = nullptr; return DBCE_SHIM_REFUSED; }   // Core may have ticked: no snapshot until the next success
 }
 int32_t dbce_shim_tick(void* handle, dbce_shim_frame* frame) {
     Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
@@ -422,7 +430,7 @@ int32_t dbce_shim_tick_extras(void* handle, uint32_t active_contexts, dbce_shim_
         s->last_extras = f; s->have_extras_frame = true;
         *extras = f;
         return DBCE_SHIM_OK;
-    } catch (...) { return DBCE_SHIM_REFUSED; }
+    } catch (...) { s->last_frame = nullptr; return DBCE_SHIM_REFUSED; }   // a refused tick offers no snapshot either
 }
 int32_t dbce_shim_extras(void* handle, uint64_t frame_seq, dbce_shim_extras_frame* out) {
     Shim* s = nullptr;
@@ -437,6 +445,89 @@ int32_t dbce_shim_extras_info(void* handle, char* text, int32_t len, int32_t* ne
     if (const auto r = lookup(handle, s)) return r;
     if (!s->extras) return DBCE_SHIM_BAD_ARGUMENT;
     try { return text_out(s->host->extras_report(), text, len, needed); } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+
+// ---- extension 3: the accepted raw-input snapshot (ordinary handles)
+static_assert(sizeof(dbce_shim_snapshot_header) == 56 && offsetof(dbce_shim_snapshot_header, frame_seq) == 16 &&
+              offsetof(dbce_shim_snapshot_header, fresh_us) == 40 && offsetof(dbce_shim_snapshot_header, device_count) == 48,
+              "dbce_shim_snapshot_header layout");
+static_assert(sizeof(dbce_shim_snapshot_device) == 192 && offsetof(dbce_shim_snapshot_device, flags) == 16 &&
+              offsetof(dbce_shim_snapshot_device, button_mask) == 32 && offsetof(dbce_shim_snapshot_device, minimum) == 48 &&
+              offsetof(dbce_shim_snapshot_device, maximum) == 80 && offsetof(dbce_shim_snapshot_device, instance) == 112 &&
+              offsetof(dbce_shim_snapshot_device, product) == 152, "dbce_shim_snapshot_device layout");
+static_assert(sizeof(dbce_shim_snapshot_sample) == 224 && offsetof(dbce_shim_snapshot_sample, device_seq) == 16 &&
+              offsetof(dbce_shim_snapshot_sample, poll_call) == 40 && offsetof(dbce_shim_snapshot_sample, ended) == 44 &&
+              offsetof(dbce_shim_snapshot_sample, axes) == 48 && offsetof(dbce_shim_snapshot_sample, buttons) == 80 &&
+              offsetof(dbce_shim_snapshot_sample, pov) == 208, "dbce_shim_snapshot_sample layout");
+static_assert(DBCE_SHIM_CALL_OK == int(sh::Call::Ok) && DBCE_SHIM_CALL_ACQUISITION_LOST == int(sh::Call::AcquisitionLost) &&
+              DBCE_SHIM_CALL_GONE == int(sh::Call::Gone) && DBCE_SHIM_CALL_NOT_CALLED == int(sh::Call::NotCalled) &&
+              DBCE_SHIM_CALL_PENDING == int(sh::Call::Pending), "extension 3's call values are Core's published Call");
+int32_t dbce_shim_snapshot_abi_version(void) { return DBCE_SHIM_SNAPSHOT_ABI; }
+int32_t dbce_shim_snapshot_sizes(int32_t* header, int32_t* device, int32_t* sample) {
+    if (header) *header = int32_t(sizeof(dbce_shim_snapshot_header));
+    if (device) *device = int32_t(sizeof(dbce_shim_snapshot_device));
+    if (sample) *sample = int32_t(sizeof(dbce_shim_snapshot_sample));
+    return DBCE_SHIM_OK;
+}
+int32_t dbce_shim_snapshot(void* handle, uint64_t frame_seq, dbce_shim_snapshot_header* header, dbce_shim_snapshot_device* devices,
+                           int32_t device_capacity, dbce_shim_snapshot_sample* samples, int32_t sample_capacity) {
+    Shim* s = nullptr;
+    if (const auto r = lookup(handle, s)) return r;
+    if (!header || header->struct_size != sizeof(dbce_shim_snapshot_header) ||
+        header->device_struct_size != sizeof(dbce_shim_snapshot_device) || header->sample_struct_size != sizeof(dbce_shim_snapshot_sample) ||
+        device_capacity < 0 || sample_capacity < 0 || (device_capacity && !devices) || (sample_capacity && !samples))
+        return DBCE_SHIM_BAD_ARGUMENT;
+    if (s->latched || s->bridge) return DBCE_SHIM_REFUSED;   // ordinary input only: no injected or copied reads
+    if (!s->last_frame || s->last_frame->seq != frame_seq) return DBCE_SHIM_STALE;
+    try {
+        const auto& f = *s->last_frame;
+        // The input thread's device table as this frame left it (only a tick changes it). No device or provider call.
+        const auto table = s->host->device_reports();
+        if (table.size() > DBCE_SHIM_SNAPSHOT_MAX_DEVICES || f.samples.size() > table.size()) return DBCE_SHIM_REFUSED;   // never truncated
+        std::vector<dbce_shim_snapshot_device> rows(table.size());
+        for (std::size_t i = 0; i < table.size(); ++i) {
+            const auto& r = table[i]; auto& o = rows[i];
+            o.struct_size = sizeof o; o.abi = DBCE_SHIM_SNAPSHOT_ABI; o.index = std::uint32_t(i); o.epoch = r.epoch;
+            o.flags = (r.opened ? std::uint32_t(DBCE_SHIM_SNAPSHOT_OPENED) : 0u) |
+                      (r.opened && !r.identity.interface_path.empty() ? std::uint32_t(DBCE_SHIM_SNAPSHOT_PATH) : 0u);
+            if (r.opened) {   // Core zeroes a closed epoch's caps; only an open epoch advertises them
+                for (int a = 0; a < 8; ++a) {
+                    if (r.caps.axis[std::size_t(a)]) o.axis_mask |= 1u << a;
+                    if (r.caps.range_ok[std::size_t(a)]) o.range_mask |= 1u << a;
+                    o.minimum[a] = r.caps.min[std::size_t(a)]; o.maximum[a] = r.caps.max[std::size_t(a)];
+                }
+                for (int b = 0; b < 128; ++b)
+                    if (r.caps.button[std::size_t(b)]) o.button_mask[b / 8] = std::uint8_t(o.button_mask[b / 8] | (1u << (b % 8)));
+                for (int p = 0; p < 4; ++p) if (r.caps.pov[std::size_t(p)]) o.pov_mask |= 1u << p;
+            }
+            if (r.identity.dev.size() >= sizeof o.instance || r.identity.prod.size() >= sizeof o.product) return DBCE_SHIM_REFUSED;
+            std::memcpy(o.instance, r.identity.dev.data(), r.identity.dev.size());
+            std::memcpy(o.product, r.identity.prod.data(), r.identity.prod.size());
+        }
+        std::vector<dbce_shim_snapshot_sample> reads(f.samples.size());
+        for (std::size_t i = 0; i < f.samples.size(); ++i) {
+            const auto& x = f.samples[i]; auto& o = reads[i];
+            if (x.device >= table.size()) return DBCE_SHIM_REFUSED;
+            o.struct_size = sizeof o; o.abi = DBCE_SHIM_SNAPSHOT_ABI; o.index = x.device; o.epoch = x.epoch; o.device_seq = x.seq;
+            o.read_start_us = x.read_start_us; o.read_end_us = x.read_end_us;
+            o.poll_call = std::uint8_t(x.poll); o.state_call = std::uint8_t(x.state); o.valid = x.valid; o.stale = x.stale;
+            // Ended from the table, never from the calls: a pending read past Core's limit ends its epoch while both
+            // calls still say Pending. A read only ends the epoch it belongs to, and only a tick reopens one.
+            const auto& row = table[x.device];
+            o.ended = !(row.opened && row.epoch == x.epoch);
+            // physical is the complete state read when valid, otherwise its initial value (axes 0, buttons up, POVs centred).
+            std::copy(x.physical.axes, x.physical.axes + 8, o.axes);
+            std::copy(x.physical.buttons, x.physical.buttons + 128, o.buttons);
+            std::copy(x.physical.povs, x.physical.povs + 4, o.pov);
+        }
+        header->abi = DBCE_SHIM_SNAPSHOT_ABI; header->frame_seq = f.seq; header->tick_us = f.tick_us; header->boundary_us = f.boundary_us;
+        header->fresh_us = OrdinaryFreshUs;
+        header->device_count = std::uint32_t(rows.size()); header->sample_count = std::uint32_t(reads.size());
+        if (std::size_t(device_capacity) < rows.size() || std::size_t(sample_capacity) < reads.size()) return DBCE_SHIM_BAD_ARGUMENT;
+        if (!rows.empty()) std::memcpy(devices, rows.data(), rows.size() * sizeof rows[0]);
+        if (!reads.empty()) std::memcpy(samples, reads.data(), reads.size() * sizeof reads[0]);
+        return DBCE_SHIM_OK;
+    } catch (...) { return DBCE_SHIM_REFUSED; }
 }
 
 static_assert(sizeof(dbce_shim_bridge_device_v1)==144 && sizeof(dbce_shim_bridge_sample_v1)==232,"bridge extension ABI");
