@@ -35,6 +35,7 @@ internal static class BindingCaptureFlowTests
         flow.Begin("confirm", wheel, true);
         flow.Remove(wheel, "epoch ended: explicit fixture reason");
         Check(flow.CapturingAction == null && flow.Message.Contains("epoch ended"), "Remove surfaces adapter reason and cancels selected device");
+        Check(!flow.Observe(Read(8), true) && !flow.HasFreshObservation, "Remove retains sequence watermark against cached replay");
         flow.Observe(Read(9), true); flow.Begin("steer", wheel, true);
         now += .3; flow.Observe(Read(9), true);
         Check(flow.CapturingAction == null && flow.Observations.Count == 0, "duplicate sequence cannot refresh Seen");
@@ -63,6 +64,7 @@ internal static class BindingCaptureFlowTests
         Check(flow.CapturingAction == null && flow.Message.Contains("timed out") && delivered == 2, "deadline wins with continuing fresh unchanged observations");
         flow.Begin("steer", wheel, true); flow.ReaderStopped();
         Check(flow.CapturingAction == null && flow.Observations.Count == 0, "stopped reader clears device eligibility");
+        Check(!flow.Observe(Read(106, epoch: 2), true) && !flow.HasFreshObservation, "stop retains sequence watermark against cached replay");
         Check(!flow.Observe(Read(107, epoch: 2, seen: now + 1), true), "future Seen cannot fabricate freshness");
         var axes = new[] { 511 }; var minimum = new[] { 0 }; var maximum = new[] { 1023 };
         var copied = new AcceptedBindingObservation(wheel, product, "Fixture", "path", 3, 1, now,

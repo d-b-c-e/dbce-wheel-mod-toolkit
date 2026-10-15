@@ -36,6 +36,8 @@ namespace Dbce.Wheel.Input
         private readonly Func<double> clock;
         private readonly Action<string, ControlBinding> captured;
         private readonly Dictionary<Guid, AcceptedBindingObservation> devices = new Dictionary<Guid, AcceptedBindingObservation>();
+        // Keep sequence watermarks after Remove/stop so an old cached read cannot regain eligibility.
+        private readonly Dictionary<Guid, AcceptedBindingObservation> reads = new Dictionary<Guid, AcceptedBindingObservation>();
         private SharedBindingCaptureSession? capture;
         private ulong generation;
         private double start, deadline;
@@ -110,15 +112,16 @@ namespace Dbce.Wheel.Input
             if (value.Sample.Axes.Length > 8 || value.Sample.Buttons.Length > 128 || value.Sample.Hats.Length > 4 ||
                 !SharedBindingCapture.RangesValid(value.Sample.Axes, value.Minimum, value.Maximum))
             { Remove(value.Instance, "Capture refused an out-of-range raw sample. No control from that frame was bound; the prior binding was kept."); return false; }
-            if (devices.TryGetValue(value.Instance, out var previous))
+            if (reads.TryGetValue(value.Instance, out var previous))
             {
                 bool changed = previous.Generation != value.Generation || previous.Product != value.Product || previous.IdentityKey != value.IdentityKey;
                 if (changed && CapturingAction != null && CaptureDevice == value.Instance)
                     Cancel("Capture device disconnected or changed. The prior binding was kept.");
-                if (value.Generation < previous.Generation || !changed && value.ReadSequence <= previous.ReadSequence)
+                if (value.Generation < previous.Generation || value.Generation == previous.Generation && value.ReadSequence <= previous.ReadSequence)
                 { Refresh(canEdit); return false; } // A repeated read never refreshes Seen or advances capture edges.
             }
             devices[value.Instance] = value;
+            reads[value.Instance] = value;
             Refresh(canEdit);
             if (CapturingAction == null || CaptureDevice != value.Instance) return true;
             bool analog = ControlBinding.ShapeOf(CapturingAction) != ControlShape.Digital;

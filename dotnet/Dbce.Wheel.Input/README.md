@@ -69,6 +69,7 @@ previews in Wheelkit, the setup helper and F6.
 It reads no device and knows no context or status. Unit neutrality (a configured part that is not Live leaves the whole
 destination neutral) stays in native Core. Non-finite input throws, and it is plain C# with no tuples, so netstandard
 and Unity Mono consumers can vendor it. The tests in `Dbce.Wheel.Input.Tests` match native `test_extras`.
+
 ### Clock-injected capture lifecycle
 
 `SharedBindingCaptureFlow` consumes `AcceptedBindingObservation` from an already-qualified reader. The adapter keeps
