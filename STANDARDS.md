@@ -656,3 +656,12 @@ silently substituted. Rows with an unavailable-action/profile-mode Note show
 their reason and disable Bind, Clear and Invert. Capture locks and Cancel remain;
 this presentation policy does not replace host admission, capture freshness or
 checked profile Save. Working consumers need no rewrite solely for adoption.
+
+### STD-004 / STD-030 clarification - shared binding Save failures (2026-10-15)
+
+A failed explicit shared-binding Save remains visible independently of capture
+and general settings messages. Clear it only after successful Save, explicit
+Discard, or a new binding host. BindingSaveStatus is the optional renderer-neutral
+helper; ISharedBindingHost remains compatible. Existing independent presentation
+that already meets this behavior needs no migration. No writer or capture policy
+changes follow from adopting this status helper.

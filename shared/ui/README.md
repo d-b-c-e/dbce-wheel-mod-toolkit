@@ -72,3 +72,12 @@ Hosts keep their own semantics:
 Rows show no default, custom or changed badges. "Unsaved" belongs only to binding drafts, which the host compares
 with its loaded state. The widgets read no device and write no file. Stripped IL2CPP hosts without GUILayout use
 the same `F6Style` rules with their own renderer. Offline checks: `dotnet run --project tests/F6Style`.
+## Shared binding Save status
+
+BindingSaveStatus.cs is renderer-neutral C#7.3 source. One instance belongs to one
+binding host. Record the actual checked Save result, including access refusals;
+render SaveFailure independently from capture/general messages every frame.
+Successful Save and explicit Discard resolve the warning; a new host starts clear.
+The optional ISharedBindingSaveStatus companion leaves ISharedBindingHost
+compatible. No parser, writer, reader, native/force or file calls are added.
+Vendor the exact helper and MIT license with source commit/hash provenance.
