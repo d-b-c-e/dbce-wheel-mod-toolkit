@@ -113,6 +113,8 @@ namespace Dbce.Wheel.Ui.Unity
         }
 
         public void Heading(string text) => GUILayout.Label(text, _heading, GUILayout.Width(S(BodyWidth)));
+        /// <summary>A bold row-label line at the body width (a sub-section caption, such as one binding).</summary>
+        public void Caption(string text) => GUILayout.Label(text, _label, GUILayout.Width(S(BodyWidth)));
         public void Text(string text) => GUILayout.Label(text, _text, GUILayout.Width(S(BodyWidth)));
         public void Help(string text) => GUILayout.Label(text, _help, GUILayout.Width(S(BodyWidth)));
 
