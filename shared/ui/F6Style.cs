@@ -40,13 +40,16 @@ namespace Dbce.Wheel.Ui
     /// <summary>Logical-unit metrics (1080p design units; the host scales the whole panel).</summary>
     public static class F6Metrics
     {
-        public const float RowHeight = 34f, RowGap = 6f, RowPaddingY = 8f, ColumnGap = 16f;
-        /// <summary>Wheelkit's GameSettingRow control column.</summary>
-        public const float ControlColumn = 300f;
-        public const float ButtonPadX = 12f, ButtonPadY = 6f, ButtonMinWidth = 64f, StepButton = 34f, ValueWidth = 72f;
+        // Kiki's shared F6 review (hub docs/reviews/2026-10-14-shared-f6-ux-kiki.md): rows at least 40 high, commands at
+        // least 36 with measured width + 24, numeric editor slider >= 120 / step buttons 36 / value 72..96, editor capped
+        // near 360, label above editor when the usable width is below about 720.
+        public const float RowHeight = 36f, RowGap = 6f, RowPaddingY = 6f, ColumnGap = 16f;
+        /// <summary>The editor column (Wheelkit's GameSettingRow uses 300; the review caps editors near 360).</summary>
+        public const float ControlColumn = 340f;
+        public const float ButtonPadX = 12f, ButtonPadY = 6f, ButtonMinWidth = 64f, StepButton = 36f, ValueWidth = 80f;
         public const float SegmentMinWidth = 56f, TabPadX = 18f, TabPadY = 10f, TabLine = 2f, FocusLine = 1f;
-        public const float LabelMinWidth = 160f, EditorMinWidth = 220f;
-        public const int BodySize = 16, HelpSize = 14, HeadingSize = 18, TitleSize = 20;
+        public const float LabelMinWidth = 200f, EditorMinWidth = 220f, StackBelow = 720f;
+        public const int BodySize = 16, HelpSize = 14, HeadingSize = 20, TitleSize = 22;
     }
 
     /// <summary>Where a row's label and editor go for a given body width (Wheelkit's two columns, or stacked).</summary>
@@ -58,7 +61,8 @@ namespace Dbce.Wheel.Ui
         public F6RowLayout(bool stacked, float labelWidth, float editorWidth) { Stacked = stacked; LabelWidth = labelWidth; EditorWidth = editorWidth; }
 
         /// <summary>
-        /// Two columns when the label's minimum and the editor's needed width fit beside each other; otherwise stacked.
+        /// Two columns when the body is at least <see cref="F6Metrics.StackBelow"/> wide and the label's minimum and the
+        /// editor's needed width fit beside each other; otherwise stacked.
         /// <paramref name="editorNeeds"/> is the editor's own measured minimum (a segment row can need more than the
         /// fixed column); the column is never narrower than <see cref="F6Metrics.ControlColumn"/> when that fits.
         /// </summary>
@@ -67,7 +71,7 @@ namespace Dbce.Wheel.Ui
             if (float.IsNaN(bodyWidth) || bodyWidth <= 0) bodyWidth = 1;
             float editor = Math.Max(F6Metrics.ControlColumn, Math.Max(F6Metrics.EditorMinWidth, editorNeeds));
             float label = bodyWidth - editor - F6Metrics.ColumnGap;
-            if (label >= F6Metrics.LabelMinWidth) return new F6RowLayout(false, label, editor);
+            if (bodyWidth >= F6Metrics.StackBelow && label >= F6Metrics.LabelMinWidth) return new F6RowLayout(false, label, editor);
             return new F6RowLayout(true, bodyWidth, bodyWidth);
         }
     }

@@ -6,11 +6,12 @@ void Check(bool good, string reason) { checks++; if (!good) throw new Exception(
 Check(Math.Abs(F6Palette.Accent.R - 0x55 / 255f) < 1e-6 && Math.Abs(F6Palette.Accent.B - 0xE8 / 255f) < 1e-6, "accent is Wheelkit #55B9E8");
 Check(F6Palette.Text.A == 1f && F6Palette.Text.WithAlpha(.5f).A == .5f, "opaque tokens, alpha override");
 
-// Rows: Wheelkit's two columns when they fit, the fixed 300 control column, stacked when narrow.
+// Rows: two columns when they fit, the fixed editor column, stacked when narrow.
 var wide = F6RowLayout.For(820, F6Metrics.ControlColumn);
-Check(!wide.Stacked && wide.EditorWidth == 300 && wide.LabelWidth == 820 - 300 - F6Metrics.ColumnGap, "wide row: label + 300 editor");
+Check(!wide.Stacked && wide.EditorWidth == 340 && wide.LabelWidth == 820 - 340 - F6Metrics.ColumnGap, "wide row: label + 340 editor");
 var wideChoice = F6RowLayout.For(820, 420);
-Check(!wideChoice.Stacked && wideChoice.EditorWidth == 420, "an editor that measures wider than 300 widens its column");
+Check(!wideChoice.Stacked && wideChoice.EditorWidth == 420, "an editor that measures wider than the column widens it");
+Check(F6RowLayout.For(700, F6Metrics.ControlColumn).Stacked, "below 720 usable units rows stack (review)");
 var narrow = F6RowLayout.For(440, F6Metrics.ControlColumn);
 Check(narrow.Stacked && narrow.LabelWidth == 440 && narrow.EditorWidth == 440, "narrow body stacks label over a full-width editor");
 var tooWide = F6RowLayout.For(820, 900);
