@@ -28,7 +28,7 @@ namespace Dbce.Wheel.Ui.Unity
         private readonly List<string> _focusable = new List<string>(), _lastFocusable = new List<string>();
         private string _focusRequest;
         private bool _inBody;
-        private GUIStyle _label, _help, _heading, _title, _subtitle, _text, _button, _buttonWrap, _segment, _segmentOn, _segmentWrap, _segmentOnWrap, _tab, _tabOn, _value,
+        private GUIStyle _label, _help, _heading, _title, _titleWrap, _subtitle, _text, _button, _buttonWrap, _segment, _segmentOn, _segmentWrap, _segmentOnWrap, _tab, _tabOn, _value,
             _warningTitle, _slider, _thumb;
         private GUISkin _builtSkin;
         private float _builtScale = -1f;
@@ -84,6 +84,34 @@ namespace Dbce.Wheel.Ui.Unity
             if (!string.IsNullOrEmpty(subtitle)) { GUILayout.Space(S(12)); GUILayout.Label(subtitle, _subtitle, GUILayout.ExpandWidth(false)); }
             GUILayout.EndHorizontal();
         }
+        /// <summary>
+        /// The panel's title row with its close command at the right. The subtitle sits beside the title when everything
+        /// fits; otherwise it moves to its own wrapped line under the title, and a title that is still too long wraps
+        /// in the space left by the close command. Returns true when the close command was pressed.
+        /// </summary>
+        public bool TitleBar(string title, string subtitle, string closeId, string closeLabel)
+        {
+            var closeContent = new GUIContent(closeLabel);
+            float close = Mathf.Max(F6Metrics.ButtonMinWidth, _button.CalcSize(closeContent).x / Scale) + F6Metrics.ColumnGap;
+            float titleWidth = _title.CalcSize(new GUIContent(title)).x / Scale;
+            float subtitleWidth = string.IsNullOrEmpty(subtitle) ? 0 : 12 + _subtitle.CalcSize(new GUIContent(subtitle)).x / Scale;
+            float room = Mathf.Max(F6Metrics.LabelMinWidth, BodyWidth - close);
+            bool oneLine = titleWidth + subtitleWidth <= room;
+            GUILayout.BeginHorizontal(GUILayout.Width(S(BodyWidth)));
+            GUILayout.BeginVertical(GUILayout.Width(S(room)));
+            if (oneLine) Title(title, subtitle);
+            else
+            {
+                GUILayout.Label(title, _titleWrap, GUILayout.Width(S(room)));
+                if (!string.IsNullOrEmpty(subtitle)) GUILayout.Label(subtitle, _help, GUILayout.Width(S(room)));
+            }
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            bool clicked = Command(closeId, closeLabel);
+            GUILayout.EndHorizontal();
+            return clicked;
+        }
+
         public void Heading(string text) => GUILayout.Label(text, _heading, GUILayout.Width(S(BodyWidth)));
         public void Text(string text) => GUILayout.Label(text, _text, GUILayout.Width(S(BodyWidth)));
         public void Help(string text) => GUILayout.Label(text, _help, GUILayout.Width(S(BodyWidth)));
@@ -450,6 +478,7 @@ namespace Dbce.Wheel.Ui.Unity
             _heading.margin = new RectOffset(0, 0, Mathf.RoundToInt(S(14)), Mathf.RoundToInt(S(4)));
             _title = Style(GUI.skin.label, F6Metrics.TitleSize, F6Palette.Text, false);
             _title.fontStyle = FontStyle.Bold;
+            _titleWrap = new GUIStyle(_title) { wordWrap = true };
             _subtitle = Style(GUI.skin.label, F6Metrics.HelpSize, F6Palette.Secondary, false);
             _subtitle.alignment = TextAnchor.LowerLeft;
             _warningTitle = Style(GUI.skin.label, F6Metrics.BodySize, F6Palette.Warning, true);
