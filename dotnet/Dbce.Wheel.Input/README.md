@@ -80,4 +80,12 @@ the injected local-clock `Seen`. Only new valid, non-stale reads are observation
 
 The flow owns 0.25-second freshness, one-second analog rest, 10/11-second deadlines, held-input edges, cancellation,
 canonical `FromCapture` and exactly one result callback into the host's draft. Call `Refresh(canEdit)` before rendering;
-the callback changes only the draft, and Save/restart remain separate. Art and DRIVE retain their different ABI decoders.
+the callback returns null only after accepting the draft edit, or a refusal reason without changing prior state. A
+refusal cannot show a captured-success message. Save/restart remain separate. Art and DRIVE retain their different ABI decoders.
+
+One flow belongs to one qualified reader handle lifetime, with monotonically advancing per-instance epochs and read
+sequences. `Remove` and `ReaderStopped` retain watermarks against cached replay; they do not authorize a recreated
+reader to reset epochs. A new qualified handle requires a new flow, and must pass the adapter's normal ownership
+qualification first. Art and DRIVE currently keep their attached reader/host for the process and stop permanently.
+Observe accepted ticks while the editable F6 binding editor is visible, including before Begin, to supply the device
+list without a pending-start lifecycle. This copies the existing cache; it never activates another reader.

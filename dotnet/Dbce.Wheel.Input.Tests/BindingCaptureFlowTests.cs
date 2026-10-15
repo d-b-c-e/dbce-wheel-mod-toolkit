@@ -16,7 +16,7 @@ internal static class BindingCaptureFlowTests
             string path = "opaque-path", Guid? instance = null, int max = 1023, double? seen = null) =>
             new(instance ?? wheel, product, "Fixture", path, epoch, seq, seen ?? now,
                 new BindingCaptureSnapshot(new[] { axis }, new[] { button }, new[] { -1 }), new[] { 0 }, new[] { max });
-        var flow = new SharedBindingCaptureFlow(() => now, (action, binding) => { delivered++; resultAction = action; result = binding; });
+        var flow = new SharedBindingCaptureFlow(() => now, (action, binding) => { delivered++; resultAction = action; result = binding; return null; });
         Check(!flow.Begin("steer", wheel, true), "no fabricated reader fallback");
         flow.Observe(Read(1), true);
         Check(flow.Begin("steer", wheel, true) && flow.SecondsLeft == 11, "axis capture uses qualified reader and 11-second deadline");
@@ -65,6 +65,9 @@ internal static class BindingCaptureFlowTests
         flow.Begin("steer", wheel, true); flow.ReaderStopped();
         Check(flow.CapturingAction == null && flow.Observations.Count == 0, "stopped reader clears device eligibility");
         Check(!flow.Observe(Read(106, epoch: 2), true) && !flow.HasFreshObservation, "stop retains sequence watermark against cached replay");
+        Check(!flow.Observe(Read(1, epoch: 1), true), "recreated reader cannot reuse an old flow's lifetime");
+        var recreated = new SharedBindingCaptureFlow(() => now, (_, _) => null);
+        Check(recreated.Observe(Read(1), true) && recreated.Begin("steer", wheel, true), "new qualified reader lifetime gets a new flow and may start epoch 1");
         Check(!flow.Observe(Read(107, epoch: 2, seen: now + 1), true), "future Seen cannot fabricate freshness");
         var axes = new[] { 511 }; var minimum = new[] { 0 }; var maximum = new[] { 1023 };
         var copied = new AcceptedBindingObservation(wheel, product, "Fixture", "path", 3, 1, now,
@@ -72,6 +75,22 @@ internal static class BindingCaptureFlowTests
         axes[0] = 50000; minimum[0] = 50000; maximum[0] = 50000;
         Check(flow.Observe(copied, true) && flow.Begin("steer", wheel, true), "reader buffer reuse cannot alter owned observation");
         flow.Cancel(); Check(delivered == 2, "explicit Cancel never edits prior draft");
+        var existing = ControlBinding.FromCapture("steer", ControlKind.Axis, 0, 1, 511, wheel, product, "Fixture", 0, 1023);
+        var draft = new ControlProfileDraft(System.Text.Encoding.UTF8.GetBytes("[Controls]\nSchema = 1\nTransmission = Automatic\nsteer = " + existing + "\n"));
+        bool admit = false;
+        int attempts = 0;
+        var refusal = new SharedBindingCaptureFlow(() => now, (action, binding) => {
+            attempts++;
+            if (!admit) return "fixture draft admission changed";
+            draft.Set(action, binding.ToString()); return null;
+        });
+        refusal.Observe(Read(1), true); refusal.Begin("confirm", wheel, true);
+        refusal.Observe(Read(2), true); refusal.Observe(Read(3, button: true), true);
+        Check(attempts == 1 && refusal.CapturingAction == null && !draft.HasDraft && draft.Binding("steer")!.ToString() == existing.ToString(), "refused result keeps real prior draft and ends the attempt once");
+        Check(refusal.Message.Contains("fixture draft admission changed") && !refusal.Message.Contains("captured into"), "refusal cannot become a captured-success message");
+        admit = true; refusal.Observe(Read(4), true); refusal.Begin("confirm", wheel, true);
+        refusal.Observe(Read(5), true); refusal.Observe(Read(6, button: true), true);
+        Check(attempts == 2 && draft.HasDraft && draft.Binding("confirm")!.Kind == ControlKind.Button, "accepted callback applies the canonical result to the real draft");
         return checks;
     }
 }
