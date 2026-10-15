@@ -66,11 +66,12 @@ namespace Dbce.Wheel.Ui.Unity
             }
         }
 
-        /// <summary>Wraps the scrolling body; inside it a requested focus scrolls into view.</summary>
+        /// <summary>Wraps the scrolling body; inside it a requested focus scrolls into view. A height of 0 or less
+        /// fills the remaining window height.</summary>
         public Vector2 BeginBody(Vector2 scroll, float height)
         {
             _inBody = true;
-            return GUILayout.BeginScrollView(scroll, GUILayout.Height(S(height)));
+            return GUILayout.BeginScrollView(scroll, height > 0 ? GUILayout.Height(S(height)) : GUILayout.ExpandHeight(true));
         }
         public void EndBody() { GUILayout.EndScrollView(); _inBody = false; }
 
