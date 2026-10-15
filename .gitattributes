@@ -14,3 +14,7 @@ shared/display/racing-row-vectors.txt text eol=lf
 
 # Preserve byte-exact vendored binding presentation policy.
 dotnet/Dbce.Wheel.Input/BindingEditorPolicy.cs text eol=lf
+
+# Successor process harness and synthetic fixture are pinned by raw SHA-256.
+tools/playback/Stage-OwnedProcess.ps1 -text
+tools/playback/Test-StageOwnedProcess.ps1 -text
