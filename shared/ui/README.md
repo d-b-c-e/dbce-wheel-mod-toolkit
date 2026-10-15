@@ -47,3 +47,28 @@ display; the host's shown stop action closes the recording without closing the g
 completion; Saved/Incomplete agree with the actual sealed files. No armed session
 means no banner or recording hotkey behavior. Verify the installed consumer, not
 just these source tests (`dotnet run --project tests/SessionStatus`).
+
+## F6 panel rows
+
+`F6Style.cs` holds the shared F6 presentation rules. It is engine-free C# 7.3, so it works in Unity 2019 Mono and
+in newer hosts:
+- the palette, taken from Wheelkit's dark theme (`F6Palette`);
+- logical-unit metrics (`F6Metrics`);
+- Wheelkit's two-column row geometry with a stacked fallback when narrow (`F6RowLayout`);
+- line wrapping for segments and commands (`F6Flow`).
+
+`unity/F6Widgets.cs` is the Unity IMGUI (GUILayout) renderer for Mono hosts (#DRIVE Rally, art of rally):
+- tabs, segments and measured commands;
+- toggle, number and choice rows;
+- a status card;
+- Tab / Enter / arrow keyboard focus, with scroll-to-focus inside the body.
+
+Hosts keep their own semantics:
+- the window, scrolling, saving and every action;
+- their shortcuts and their copy (for example, F8 toggles in DRIVE and stops in art of rally);
+- their value grids. A host snaps a proposed value with `NumberEdit` and keeps a saved off-grid value until an
+  explicit edit.
+
+Rows show no default, custom or changed badges. "Unsaved" belongs only to binding drafts, which the host compares
+with its loaded state. The widgets read no device and write no file. Stripped IL2CPP hosts without GUILayout use
+the same `F6Style` rules with their own renderer. Offline checks: `dotnet run --project tests/F6Style`.
