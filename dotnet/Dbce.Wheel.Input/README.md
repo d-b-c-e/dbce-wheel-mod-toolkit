@@ -15,6 +15,12 @@ No device or file is opened. Hosts own expected-source checks, backups, the writ
 `ControlBinding.FromCapture` validates captured parts through that same parser; `WithInverted` changes only axis
 inversion on a copy. There is no host-specific binding grammar or second profile format.
 
+`ControlProfileDraft.cs` adds the shared in-game active/saved/draft lifecycle. It performs file I/O only on explicit
+Save: bounded expected-source reads, a flushed temporary file, atomic replacement with a unique backup, and readback.
+Failed Save retains the draft; successful Save changes the next-start document without changing Active. Hosts supply
+their maximum full-profile byte limit and own access, focus and input suppression. The portable helper keeps its
+existing admitted writer transaction; this small source is for Mono/IL2CPP hosts that cannot load Wheelkit.Core.
+
 # Optional POV reader for existing managed pins
 
 `PovSnapshotReader.cs` is MIT source that can be vendored when a consumer keeps

@@ -248,4 +248,5 @@ var nearLimit = new ControlProfileDocument(editableProfile.Replace("Future = kee
 string hugeNameBinding = ControlBinding.FromCapture("confirm", ControlKind.Button, 7, 1, 0, Guid.Parse(captureDevice), Guid.Parse(captureProduct), new string('z', 1000)).ToString();
 try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNameBinding }, "after"); } catch (InvalidDataException) { editedSectionRejected = true; }
 Check(sectionRejected && mixedRejected && editedSectionRejected, "shared document enforces native section cap on read and edit and refuses mixed EOL");
+checks += DraftTests.Run();
 Console.WriteLine($"PASS {vectors} shared controls vectors; {checks} managed checks (no device or game).");
