@@ -286,7 +286,7 @@ namespace Dbce.Wheel.Ui.Unity
             string focus = GUI.GetNameOfFocusedControl();
             bool arrow = enabled && prior && e.type == EventType.KeyDown && (e.keyCode == KeyCode.LeftArrow || e.keyCode == KeyCode.RightArrow) &&
                 (focus == id + "-down" || focus == id + "-up" || focus == id + "-slider");
-            if (arrow) { proposed = value + (e.keyCode == KeyCode.LeftArrow ? -step : step); e.Use(); }
+            if (arrow) { proposed = value + (e.keyCode == KeyCode.LeftArrow ? -step : step); GUI.changed = true; e.Use(); }
             GUI.enabled = prior && enabled;
             Rect area = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, GUILayout.MinWidth(S(60)), GUILayout.Height(S(F6Metrics.RowHeight)), GUILayout.ExpandWidth(true));
             float fraction = max > min ? Mathf.Clamp01((float)((value - min) / (max - min))) : 0f;
@@ -416,7 +416,7 @@ namespace Dbce.Wheel.Ui.Unity
             bool clicked = GUILayout.Button(content, style, a, b);
             var e = Event.current;
             if (GUI.enabled && focused && e.type == EventType.KeyDown && (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter || e.keyCode == KeyCode.Space))
-            { clicked = true; e.Use(); }
+            { clicked = true; GUI.changed = true; e.Use(); }   // hosts that save on GUI.changed see keyboard presses too
             if (e.type == EventType.Repaint)
             {
                 Rect r = GUILayoutUtility.GetLastRect();
