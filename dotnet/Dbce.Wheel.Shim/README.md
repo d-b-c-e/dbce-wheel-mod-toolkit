@@ -25,8 +25,12 @@ use the ordinary route. Extras do not support latched injection or recording.
 
 The added pure fixtures cover coherence, optional-export/version refusal,
 declaration/slot/count checks, context loss, stale sequences, invalid frames,
-invalidation, deduplication and exactly-once stop. They have not been executed
-for this source candidate; no device or runtime qualification is implied.
+invalidation, deduplication and exactly-once stop. At source commit `0c57ae4`,
+the affected contract/extras selection passed **22/22** actual TRX cases under
+the October 15 named offline batch. Durable logs and receipts are in the hub's
+`artifacts/truckful-camera-extras-offline-20261015`. This batch used fake frames
+and export refusal; no native DLL was loaded, and no device or runtime
+qualification is implied.
 
 `Dbce.Wheel.Shim` is the game-neutral managed side of
 `native/shim/shim_dll/dbce_shim.h`. It supplies the 31-action table, status and
