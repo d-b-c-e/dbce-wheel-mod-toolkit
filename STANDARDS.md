@@ -669,11 +669,13 @@ changes follow from adopting this status helper.
 ### STD-004 / STD-030 clarification - applicable actions and Help (2026-10-15)
 
 Owner UAT direction: use consistent shared binding-row presentation in Wheelkit
-and F6, with readable action/assignment/device text and separators. Hide actions
-that the game does not support. A supported action that is temporarily
-unavailable because of context, transmission, a missing device or a failed
-adapter stays visible with its reason; hiding it must not conceal a failure.
-An unimplemented game action is a delivery gap, not proof the game lacks it.
+and F6, with readable action/assignment/device text and separators. Show actions
+the installed adapter implements. Omit actions absent from the game and actions
+the adapter explicitly declares it cannot deliver. Keep missing consumers in
+capability records and the work queue; this does not claim the game lacks them.
+A supported action temporarily unavailable because of context, transmission,
+a missing device or a failed adapter stays visible with its reason; hiding it
+must not conceal a runtime failure.
 
 Every mod's Help tab should offer **Submit GitHub Issue**, **Mod on GitHub** and
 **Wheelkit on GitHub**. Reuse one shared report/log preparation implementation
