@@ -12,6 +12,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <ProjectReference Include="../Dbce.Wheel.Shim/Dbce.Wheel.Shim.csproj" />
     <None Include="../../native/shim/shim_dll/dbce_shim.h" Link="dbce_shim.h" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../native/shim/shim_dll/dbce_shim_snapshot.h" Link="dbce_shim_snapshot.h" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../native/controls/dbce_controls.hpp" Link="dbce_controls.hpp" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

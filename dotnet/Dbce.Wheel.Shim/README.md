@@ -13,6 +13,17 @@ a separate consumer adoption is reviewed.
 Art of Rally's copied-provider bridge uses a separate ABI variant and is not
 covered by this loader.
 
+`ShimSnapshot.cs` decodes extension 3 (`native/shim/shim_dll/dbce_shim_snapshot.h`,
+snapshot ABI 1): Core's device table and the device reads of one ticked frame,
+raw values only, for in-game binding capture without a second reader. The
+consumer binds the three exports itself as optional (an older DLL means no
+in-game capture), checks them with `ShimSnapshotAbi.Validate`, and calls
+`ShimSnapshot.Take` with the seq of the frame its last successful `Tick`
+returned, right after that tick, only while a capture needs it. `CaptureValues`
+applies the device caps for the shared capture detector. The file is portable C#
+(no records, spans or `BinaryPrimitives`) so .NET Standard 2.1, .NET Framework
+4.8 and Mono consumers can vendor it byte-exact.
+
 The consumer supplies its reviewed DLL hash and verifies its installed receipt,
 game build, device isolation and keyboard-only native residual before admitting
 shared input. It owns the game-input thread for every handle call, and it must
