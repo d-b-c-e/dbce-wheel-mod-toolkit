@@ -25,13 +25,16 @@ namespace Dbce.Wheel.Ui.Unity
             if (Event.current.type == EventType.MouseUp || !GUI.enabled) pressed = -1;
             if (label == null)
             {
-                label = new GUIStyle(GUI.skin.label);
-                help = new GUIStyle(GUI.skin.label);
-                button = new GUIStyle(GUI.skin.button);
+                // The current Truckful IL2CPP proxy has no GUIStyle copy ctor.
+                // Own plain styles instead of aliasing or mutating GUI.skin.
+                label = new GUIStyle();
+                help = new GUIStyle();
+                button = new GUIStyle();
+                button.alignment = TextAnchor.MiddleCenter;
                 label.wordWrap = help.wordWrap = button.wordWrap = true;
                 label.normal.textColor = new Color(F6Palette.Text.R, F6Palette.Text.G, F6Palette.Text.B, 1);
                 help.normal.textColor = new Color(F6Palette.Secondary.R, F6Palette.Secondary.G, F6Palette.Secondary.B, 1);
-                // Remove every inherited skin background, including selected/
+                // Defensively clear every style background, including selected/
                 // pressed/focused states. Flat fills below own the presentation.
                 foreach (var state in new[] { button.normal, button.hover, button.active, button.focused,
                     button.onNormal, button.onHover, button.onActive, button.onFocused }) state.background = null;
