@@ -52,6 +52,54 @@ A game can declare destinations beyond the 31 common actions, such as Truckful's
 `test_extras` covers the grammar, the plan and Core's extras tick. `test_shim_abi` covers the exports on both
 architectures.
 
+## Accepted raw-input snapshot (extension 3, additive)
+
+An ordinary handle can show its F6 binding editor the raw values Core just read, so a pressed button or a moved axis
+can be captured without a second reader (sana 124000, for DRIVE). `dbce_shim_snapshot.h` declares three exports:
+`dbce_shim_snapshot_abi_version`, `dbce_shim_snapshot_sizes` and `dbce_shim_snapshot`.
+
+- **Unchanged:** ABI 2, the 296-byte frame, the bridge and extras extensions and every existing export. A DLL without
+  the exports offers no snapshot, and the caller reports capture unavailable.
+- **Source.** The device reads of the frame the last `dbce_shim_tick` or `dbce_shim_tick_extras` returned: the reads
+  that resolved its actions, plus Core's device table. The DLL keeps a pointer to Core's own frame, so ticks copy
+  nothing. The getter makes no tick and no device, provider, file or force call.
+- **Handles.** Ordinary input only: `dbce_shim_open`, `dbce_shim_open_extras`, or `dbce_shim_open2` without
+  `DBCE_SHIM_LATCHED` (a capture-only handle included; its pending row stays the caller's to record). Latched and
+  bridge handles get `DBCE_SHIM_REFUSED`. Present on x86 too.
+- **Same frame.** `frame_seq` must be the last ticked frame, otherwise `DBCE_SHIM_STALE` and nothing is written.
+  - The same seq is the same observation: repeated calls are byte-identical.
+  - `stale` is Core's verdict at that frame's `boundary_us`, not at the call.
+- **Buffers.** The caller sets the header's three struct sizes.
+  - When the seq matches, the header gets the frame, the clocks, `fresh_us` and both counts.
+  - A short capacity gives `DBCE_SHIM_BAD_ARGUMENT` with neither array written.
+  - A table above 64 devices is refused, never truncated.
+- **Device rows (192 bytes).**
+  - Table index, epoch and flags (`OPENED`, `PATH`).
+  - The caps Core read back: axis, range, button and POV masks, and the read-back minimum and maximum. All are zero
+    unless the epoch is open.
+  - The instance and product GUID text exactly as the profile's `dev=`/`prod=` write them.
+  - Names, status text and the interface path stay in `dbce_shim_device_reports`; join on index, epoch and instance.
+- **Reads (224 bytes).**
+  - Index, epoch, `device_seq` (one per read, rising across epochs) and the read times.
+  - Core's call classification (`DBCE_SHIM_CALL_*`), never an HRESULT. Ordinary reads have no source generation.
+  - `valid`, `stale` and `ended`.
+  - The raw axes, the DirectInput button bytes and the POVs (hundredths of a degree, `0xFFFFFFFF` centred).
+  - An invalid read carries the initial values only: axes 0, buttons up, POVs centred.
+- **`ended`** comes from the table, never from the calls: the device row no longer has that read's epoch open. A
+  pending read past Core's limit ends its epoch while its call still says `PENDING`.
+- **Limit.** Only devices the profile binds are read, since Core opens no other. A new device still needs the
+  profile written first.
+
+`test_shim_snapshot` runs on both architectures with fake COM. It checks:
+- zero added device calls across repeated snapshots;
+- raw values, caps and identity against the fake's script;
+- STALE handling and all-or-nothing buffers;
+- a pending read, the pending timeout that ends an epoch, an unplug, and the reopens with new epochs;
+- Core's stale verdict, and an extras handle.
+
+On x64 it also checks a capture handle and the latched and bridge refusals. With the DLL path it checks the three
+exports.
+
 ## x86 build: ordinary only
 
 `pwsh native/shim/build_test.ps1 -Arch x86` builds `build/x86-mt/dbce_shim.dll` for 32-bit games, such as Horizon
@@ -70,6 +118,7 @@ frame recorder are not compiled in (`shim/ordinary_only.hpp`, `DBCE_SHIM_ORDINAR
 | `dbce_shim_record` | `DBCE_SHIM_REFUSED` for every live handle. |
 | `dbce_shim_open_args` | 80 bytes, which `dbce_shim_open_args_size()` reports. The 128-byte struct is x64's; nothing on x86 accepts it. |
 | `dbce_shim_frame`, `dbce_shim_action`, bridge structs | Identical to x64 (296, 8, 144 and 232 bytes, with the same offsets). |
+| `dbce_shim_snapshot` (extension 3) | As on x64, for ordinary handles. Its header, device and read structs are 56, 192 and 224 bytes, with the same offsets. |
 
 `test_shim`, `test_dinput_provider` and `test_provider_host` run their ordinary cases on x86. `test_shim_abi` runs
 the ordinary cases plus the x86 refusals, and checks the built DLL's exports, its `open_args` size and its open2
