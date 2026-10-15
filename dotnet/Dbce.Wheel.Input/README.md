@@ -69,3 +69,14 @@ previews in Wheelkit, the setup helper and F6.
 It reads no device and knows no context or status. Unit neutrality (a configured part that is not Live leaves the whole
 destination neutral) stays in native Core. Non-finite input throws, and it is plain C# with no tuples, so netstandard
 and Unity Mono consumers can vendor it. The tests in `Dbce.Wheel.Input.Tests` match native `test_extras`.
+### Clock-injected capture lifecycle
+
+`SharedBindingCaptureFlow` consumes `AcceptedBindingObservation` from an already-qualified reader. The adapter keeps
+its binary decoder, applies metadata masks, admits the action and supplies its menu/focus policy. Observations carry
+exact instance/product identities, an opaque identity key, a per-instance generation/epoch, native read sequence and
+the injected local-clock `Seen`. Only new valid, non-stale reads are observations; loss/ended/closed/decode refusal calls
+`Remove` with an actionable reason. Repeated or regressed sequences never refresh eligibility. No reader is opened.
+
+The flow owns 0.25-second freshness, one-second analog rest, 10/11-second deadlines, held-input edges, cancellation,
+canonical `FromCapture` and exactly one result callback into the host's draft. Call `Refresh(canEdit)` before rendering;
+the callback changes only the draft, and Save/restart remain separate. Art and DRIVE retain their different ABI decoders.
