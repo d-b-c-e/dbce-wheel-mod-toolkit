@@ -162,6 +162,54 @@ namespace Dbce.Wheel.Ui.Unity
             return clicked;
         }
 
+        /// <summary>
+        /// The page tabs and the view switch. On one line when both fit (tabs left, view switch right); otherwise the tabs
+        /// wrap into lines at tab boundaries and the view switch takes its own line below. Focus order is always the tabs,
+        /// then the views. Returns the clicked tab index or -1; <paramref name="viewClicked"/> is the clicked view or -1.
+        /// </summary>
+        public int Header(string[] tabIds, string[] tabs, int selectedTab, bool tabsEnabled,
+            string[] viewIds, string[] views, int selectedView, bool viewsEnabled, out int viewClicked)
+        {
+            viewClicked = -1;
+            int clicked = -1;
+            var tabWidths = new float[tabs.Length];
+            float tabsTotal = 0;
+            for (int i = 0; i < tabs.Length; i++) { tabWidths[i] = (i == selectedTab ? _tabOn : _tab).CalcSize(new GUIContent(tabs[i])).x / Scale; tabsTotal += tabWidths[i]; }
+            var viewWidths = new float[views.Length];
+            float viewsTotal = 0;
+            for (int i = 0; i < views.Length; i++) { viewWidths[i] = Mathf.Max(S(F6Metrics.SegmentMinWidth), _segment.CalcSize(new GUIContent(views[i])).x) / Scale; viewsTotal += viewWidths[i] + (i > 0 ? F6Metrics.RowGap : 0); }
+            if (tabsTotal + F6Metrics.ColumnGap + viewsTotal <= BodyWidth)
+            {
+                GUILayout.BeginHorizontal(GUILayout.Width(S(BodyWidth)));
+                for (int i = 0; i < tabs.Length; i++) if (Tab(tabIds[i], tabs[i], i == selectedTab, tabsEnabled)) clicked = i;
+                GUILayout.FlexibleSpace();
+                for (int i = 0; i < views.Length; i++) if (Segment(viewIds[i], views[i], i == selectedView, viewsEnabled)) viewClicked = i;
+                GUILayout.EndHorizontal();
+            }
+            else
+            {
+                int tabLines, viewLines;
+                int[] tabLine = F6Flow.Lines(tabWidths, BodyWidth, 0, out tabLines);
+                for (int line = 0, i = 0; line < tabLines; line++)
+                {
+                    GUILayout.BeginHorizontal(GUILayout.Width(S(BodyWidth)));
+                    for (; i < tabs.Length && tabLine[i] == line; i++) if (Tab(tabIds[i], tabs[i], i == selectedTab, tabsEnabled)) clicked = i;
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                }
+                int[] viewLine = F6Flow.Lines(viewWidths, BodyWidth, F6Metrics.RowGap, out viewLines);
+                for (int line = 0, i = 0; line < viewLines; line++)
+                {
+                    GUILayout.BeginHorizontal(GUILayout.Width(S(BodyWidth)));
+                    for (; i < views.Length && viewLine[i] == line; i++) if (Segment(viewIds[i], views[i], i == selectedView, viewsEnabled, BodyWidth)) viewClicked = i;
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                }
+            }
+            Divider();
+            return clicked;
+        }
+
         /// <summary>Segments that wrap into lines within <paramref name="available"/> units. Returns the clicked index or -1.</summary>
         public int Segments(string idPrefix, string[] labels, int selected, bool enabled, float available, bool alignRight)
         {
