@@ -73,8 +73,12 @@ typedef struct dbce_shim_snapshot_sample {
 DBCE_SHIM_API int32_t dbce_shim_snapshot_abi_version(void);
 /* The three struct sizes; any pointer may be null. */
 DBCE_SHIM_API int32_t dbce_shim_snapshot_sizes(int32_t* header, int32_t* device, int32_t* sample);
-/* Owner thread. Copies the reads of frame_seq, which must be the frame the last tick returned: another seq, no tick yet
-   or a failed last tick gives DBCE_SHIM_STALE and writes nothing. When the seq matches, the header is filled even if a
+/* Owner thread. Copies the reads of frame_seq, which must be the frame the last successful tick returned: another seq or
+   no successful tick yet gives DBCE_SHIM_STALE and writes nothing.
+   - A tick that returns DBCE_SHIM_REFUSED (Core may have ticked) leaves no snapshot: STALE until the next successful tick.
+   - A tick refused before Core ticks (DBCE_SHIM_BAD_ARGUMENT: a bad frame, a refused context mask, the wrong tick for
+     the handle; or DBCE_SHIM_WRONG_THREAD) changes nothing: the last successful frame and its snapshot stay as they were.
+   When the seq matches, the header is filled even if a
    capacity is short; then DBCE_SHIM_BAD_ARGUMENT, and neither array is written (all or nothing). A null array is
    allowed with a zero capacity. A device table above DBCE_SHIM_SNAPSHOT_MAX_DEVICES is never truncated: DBCE_SHIM_REFUSED,
    nothing written; the handle's ordinary ticks are unaffected.

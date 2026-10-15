@@ -366,12 +366,11 @@ int32_t dbce_shim_open2(const dbce_shim_open_args* args, void** out, char* why, 
 }
 
 static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* active_contexts = nullptr) {
+    // Refused before Core ticks: nothing changes, so the last frame and its snapshot stay.
     if (!frame || frame->struct_size != sizeof(dbce_shim_frame)) return DBCE_SHIM_BAD_ARGUMENT;
-    s->last_frame = nullptr;   // the previous frame's reads end here; a failed tick leaves no snapshot
     try {
         push_pending(*s);
         const auto& f = active_contexts ? s->host->tick(*active_contexts) : s->host->tick();
-        s->last_frame = &f;
         hold_pending(*s, f);
         frame->abi = DBCE_SHIM_ABI; frame->seq = f.seq; frame->tick_us = f.tick_us; frame->down = f.down; frame->up = f.up;
         frame->run = std::uint8_t(f.run); frame->latched = f.latched; frame->suppress_native = f.suppress_native; frame->reserved0 = 0;
@@ -380,8 +379,9 @@ static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* a
             const auto& a = f.action[std::size_t(i)]; auto& o = frame->action[i];
             o.value = a.value; o.status = std::uint8_t(a.status); o.injected = a.injected; o.reserved[0] = o.reserved[1] = 0;
         }
+        s->last_frame = &f;   // published only once the whole tick succeeded
         return DBCE_SHIM_OK;
-    } catch (...) { return DBCE_SHIM_REFUSED; }
+    } catch (...) { s->last_frame = nullptr; return DBCE_SHIM_REFUSED; }   // Core may have ticked: no snapshot until the next success
 }
 int32_t dbce_shim_tick(void* handle, dbce_shim_frame* frame) {
     Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;

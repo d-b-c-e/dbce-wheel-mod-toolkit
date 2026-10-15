@@ -66,7 +66,11 @@ can be captured without a second reader (sana 124000, for DRIVE). `dbce_shim_sna
 - **Handles.** Ordinary input only: `dbce_shim_open`, `dbce_shim_open_extras`, or `dbce_shim_open2` without
   `DBCE_SHIM_LATCHED` (a capture-only handle included; its pending row stays the caller's to record). Latched and
   bridge handles get `DBCE_SHIM_REFUSED`. Present on x86 too.
-- **Same frame.** `frame_seq` must be the last ticked frame, otherwise `DBCE_SHIM_STALE` and nothing is written.
+- **Same frame.** `frame_seq` must be the last successfully ticked frame, otherwise `DBCE_SHIM_STALE` and nothing is
+  written.
+  - A tick that returns `DBCE_SHIM_REFUSED` (Core may have ticked) leaves no snapshot until the next successful tick.
+  - A tick refused before Core ticks (`DBCE_SHIM_BAD_ARGUMENT` or `DBCE_SHIM_WRONG_THREAD`) changes nothing: the prior
+    frame's snapshot stays byte-identical.
   - The same seq is the same observation: repeated calls are byte-identical.
   - `stale` is Core's verdict at that frame's `boundary_us`, not at the call.
 - **Buffers.** The caller sets the header's three struct sizes.

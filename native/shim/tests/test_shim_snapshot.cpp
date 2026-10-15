@@ -164,6 +164,23 @@ void test_ordinary() {
     const auto next = take(h, f.seq);
     check(next.r == DBCE_SHIM_OK && next.s[0].device_seq == device_seq + 1 && next.s[0].epoch == s.epoch, "one new read: device_seq advances by one");
 
+    // Ticks refused before Core ticks change nothing: the prior successful frame's snapshot stays, byte for byte.
+    {
+        const int reads_before = in->counters.polls;
+        dbce_shim_frame shortened{}; shortened.struct_size = sizeof shortened - 8;
+        dbce_shim_extras_frame xf{}; xf.struct_size = sizeof xf;
+        int32_t elsewhere = 0;
+        std::thread([&] { dbce_shim_frame g{}; g.struct_size = sizeof g; elsewhere = dbce_shim_tick(h, &g); }).join();
+        check(dbce_shim_tick(h, nullptr) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_tick(h, &shortened) == DBCE_SHIM_BAD_ARGUMENT &&
+              dbce_shim_tick_extras(h, 0, &f, &xf) == DBCE_SHIM_BAD_ARGUMENT && elsewhere == DBCE_SHIM_WRONG_THREAD,
+              "a null frame, a short frame, the extras tick on an ordinary handle and another thread are refused");
+        const auto same = take(h, f.seq);
+        check(same.r == DBCE_SHIM_OK && std::memcmp(&same.h, &next.h, sizeof same.h) == 0 &&
+              std::memcmp(same.d.data(), next.d.data(), same.d.size() * sizeof same.d[0]) == 0 &&
+              std::memcmp(same.s.data(), next.s.data(), same.s.size() * sizeof same.s[0]) == 0 && in->counters.polls == reads_before,
+              "after refused ticks the prior frame's snapshot is byte-identical and no device was read");
+    }
+
     // Arguments and buffers.
     dbce_shim_snapshot_header hdr{}; hdr.struct_size = sizeof hdr; hdr.device_struct_size = sizeof(dbce_shim_snapshot_device); hdr.sample_struct_size = sizeof(dbce_shim_snapshot_sample);
     dbce_shim_snapshot_device dev{}; dbce_shim_snapshot_sample smp{};
@@ -283,7 +300,13 @@ void test_extras_handle() {
     check(live && dbce_shim_tick_extras(h, 0, &f, &x) == DBCE_SHIM_OK, "an extras frame");
     const auto o = take(h, f.seq);
     check(o.r == DBCE_SHIM_OK && o.h.frame_seq == x.seq && o.h.sample_count == 1 && o.s[0].buttons[5] == 0x80, "the snapshot of the extras tick's own reads");
-    check(dbce_shim_tick_extras(h, 2, &f, &x) == DBCE_SHIM_BAD_ARGUMENT && take(h, f.seq).r == DBCE_SHIM_OK, "a refused mask advances nothing: the last frame stays");
+    const int reads_before = in->counters.polls;
+    check(dbce_shim_tick_extras(h, 2, &f, &x) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_tick(h, &f) == DBCE_SHIM_BAD_ARGUMENT,
+          "a refused context mask and the plain tick on an extras handle are refused before Core ticks");
+    const auto kept = take(h, f.seq);
+    check(kept.r == DBCE_SHIM_OK && std::memcmp(&kept.h, &o.h, sizeof o.h) == 0 && std::memcmp(kept.d.data(), o.d.data(), o.d.size() * sizeof o.d[0]) == 0 &&
+          std::memcmp(kept.s.data(), o.s.data(), o.s.size() * sizeof o.s[0]) == 0 && in->counters.polls == reads_before,
+          "the extras handle's prior snapshot stays byte-identical, no device read");
     char stopped[512] = {};
     check(dbce_shim_stop(h, stopped, sizeof stopped, nullptr) == DBCE_SHIM_OK, "the extras stop resolves");
     check(in->counters.force_calls == 0 && in->refs == 0, "no force call; DirectInput released");
