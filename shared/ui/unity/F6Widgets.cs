@@ -245,11 +245,12 @@ namespace Dbce.Wheel.Ui.Unity
             return value;
         }
 
-        /// <summary>A number with slider, minus, value and plus. Returns the proposed value (the host snaps it).</summary>
+        /// <summary>A number with slider, minus, value and plus, and an optional "Default" command when the host has a
+        /// default to restore. Returns the proposed value (the host snaps or clamps it).</summary>
         public double NumberRow(string id, string label, string help, double value, double min, double max, double step,
-            string format, string unit, bool enabled)
+            string format, string unit, bool enabled, double? defaultValue = null)
         {
-            var layout = BeginRow(label, help, F6Metrics.ControlColumn);
+            var layout = BeginRow(label, help, F6Metrics.ControlColumn + (defaultValue.HasValue ? 96f : 0f));
             double proposed = value;
             bool prior = GUI.enabled;
             // Arrow keys first, before the slider can consume them with its own increment: exactly one host step.
@@ -281,6 +282,11 @@ namespace Dbce.Wheel.Ui.Unity
             GUILayout.Label(value.ToString(format, System.Globalization.CultureInfo.InvariantCulture) + unit, _value,
                 GUILayout.Width(S(F6Metrics.ValueWidth)), GUILayout.Height(S(F6Metrics.RowHeight)));
             if (Press(id + "-up", new GUIContent("+"), _button, enabled && value < max, GUILayout.Width(S(F6Metrics.StepButton)), GUILayout.Height(S(F6Metrics.RowHeight)))) proposed = value + step;
+            if (defaultValue.HasValue)
+            {
+                GUILayout.Space(S(F6Metrics.RowGap));
+                if (Command(id + "-default", "Default", enabled && value != defaultValue.Value, 96f)) proposed = defaultValue.Value;
+            }
             EndRow(layout);
             return proposed;
         }
