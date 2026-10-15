@@ -15,14 +15,26 @@ covered by this loader.
 
 `ShimSnapshot.cs` decodes extension 3 (`native/shim/shim_dll/dbce_shim_snapshot.h`,
 snapshot ABI 1): Core's device table and the device reads of one ticked frame,
-raw values only, for in-game binding capture without a second reader. The
-consumer binds the three exports itself as optional (an older DLL means no
-in-game capture), checks them with `ShimSnapshotAbi.Validate`, and calls
-`ShimSnapshot.Take` with the seq of the frame its last successful `Tick`
-returned, right after that tick, only while a capture needs it. `CaptureValues`
-applies the device caps for the shared capture detector. The file is portable C#
-(no records, spans or `BinaryPrimitives`) so .NET Standard 2.1, .NET Framework
-4.8 and Mono consumers can vendor it byte-exact.
+raw values only, for in-game binding capture without a second reader. The three
+exports are optional (an older DLL means no in-game capture): `ShimNativeLibrary`
+binds them and reports `SnapshotUnavailable`, and a consumer with its own loader
+checks them with `ShimSnapshotAbi.Validate`. The consumer calls `ShimSnapshot.Take`
+with the seq of the frame its last successful `Tick` returned, right after that
+tick and before the next, and checks the returned `FrameSeq`; it takes snapshots
+only while its binding editor is editable, including before a capture begins, so
+a fresh device can be chosen. `CaptureValues` applies the device caps for the
+shared capture detector.
+
+`ShimSnapshotFeed.cs` holds the shared per-row rules once: a row that is not
+opened, or a read that ended or belongs to another epoch, is removed; an
+explicitly invalid or stale read is removed at once; a row without a matching
+identity report is removed; a valid fresh read becomes an observation; a row with
+no read in the frame ages out. An already-read frame seq yields nothing.
+`SharedBindingFrameGuard` keeps the wheel's menu and mod actions from dispatching
+in any frame a capture listened in, including the frame whose own tick completed
+or refused it; the host notes the frame before it takes or refuses a snapshot.
+Both files are portable C# (no records, spans or `BinaryPrimitives`) so .NET
+Standard 2.1, .NET Framework 4.8 and Mono consumers can vendor them byte-exact.
 
 The consumer supplies its reviewed DLL hash and verifies its installed receipt,
 game build, device isolation and keyboard-only native residual before admitting

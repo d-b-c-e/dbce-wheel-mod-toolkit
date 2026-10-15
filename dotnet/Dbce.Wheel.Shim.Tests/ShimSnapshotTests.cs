@@ -7,7 +7,7 @@ using Xunit;
 // Extension 3 (dbce_shim_snapshot.h): the portable managed decoder, from bytes laid out by the C header.
 public class ShimSnapshotTests
 {
-    const string Wheel = "{d71b8350-61b7-11f1-8001-444553540000}", WheelProduct = "{0006346e-0000-0000-0000-504944564944}";
+    internal const string Wheel = "{d71b8350-61b7-11f1-8001-444553540000}", WheelProduct = "{0006346e-0000-0000-0000-504944564944}";
     const string Pedals = "{d71b8350-61b7-11f1-8001-444553540099}", PedalProduct = "{0006346f-0000-0000-0000-504944564944}";
 
     // Field offsets as the decoder reads them; ContractMatchesNativeHeader proves them against the C structs.
@@ -81,7 +81,7 @@ public class ShimSnapshotTests
     }
 
     // Builders write through the same offset table.
-    static byte[] Header(ulong seq, int devices, int samples)
+    internal static byte[] Header(ulong seq, int devices, int samples)
     {
         var b = ShimSnapshot.NewHeader(); const string h = "dbce_shim_snapshot_header";
         BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(At(h, "abi")), 1);
@@ -94,7 +94,7 @@ public class ShimSnapshotTests
         return b;
     }
 
-    static byte[] Device(int index, uint epoch, uint flags, uint axisMask, uint rangeMask, uint povMask, int[] buttons, string instance, string product)
+    internal static byte[] Device(int index, uint epoch, uint flags, uint axisMask, uint rangeMask, uint povMask, int[] buttons, string instance, string product)
     {
         var b = new byte[ShimSnapshotAbi.DeviceSize]; const string d = "dbce_shim_snapshot_device";
         BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(At(d, "struct_size")), ShimSnapshotAbi.DeviceSize);
@@ -116,7 +116,7 @@ public class ShimSnapshotTests
         return b;
     }
 
-    static byte[] Sample(int index, uint epoch, ulong deviceSeq, ShimSnapshotCall poll, ShimSnapshotCall state, bool valid, bool stale, bool ended,
+    internal static byte[] Sample(int index, uint epoch, ulong deviceSeq, ShimSnapshotCall poll, ShimSnapshotCall state, bool valid, bool stale, bool ended,
         int[] axes, int[] pressed, uint[] pov)
     {
         var b = new byte[ShimSnapshotAbi.SampleSize]; const string s = "dbce_shim_snapshot_sample";
@@ -136,11 +136,11 @@ public class ShimSnapshotTests
         return b;
     }
 
-    static readonly int[] Axes = { 32767, 0, 65535, -100, 40000, 1, 2, 3 };
-    static readonly uint[] Pov = { 9000, 0xFFFFFFFF, 18000, 0 };
+    internal static readonly int[] Axes = { 32767, 0, 65535, -100, 40000, 1, 2, 3 };
+    internal static readonly uint[] Pov = { 9000, 0xFFFFFFFF, 18000, 0 };
 
     // The wheel (row 0) is opened with a path; the pedals (row 1) never opened. One valid wheel read.
-    static (byte[] Header, byte[] Devices, byte[] Samples) Frame(Action<byte[], byte[], byte[]>? change = null)
+    internal static (byte[] Header, byte[] Devices, byte[] Samples) Frame(Action<byte[], byte[], byte[]>? change = null)
     {
         var header = Header(42, 2, 1);
         var devices = Device(0, 3, ShimSnapshotAbi.FlagOpened | ShimSnapshotAbi.FlagPath, 0b1001_1111, 0b0001_1111, 0b0101, new[] { 0, 5, 120, 127 }, Wheel, WheelProduct)

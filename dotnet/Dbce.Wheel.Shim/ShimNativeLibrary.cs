@@ -46,18 +46,29 @@ public sealed class ShimNativeLibrary
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int TickCall(IntPtr handle, [In, Out] byte[] frame);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int RecordCall(IntPtr handle, ulong sequence, [In] double[] values, int count);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int TextCall(IntPtr handle, [Out] byte[] text, int length, out int needed);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SnapshotSizesCall(out int header, out int device, out int sample);
+    // Extension 3 (dbce_shim_snapshot.h): pinned byte buffers, so the copies the DLL writes are seen here.
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SnapshotCall(IntPtr handle, ulong frameSeq, [In, Out] byte[] header, [In, Out] byte[] devices, int deviceCapacity,
+        [In, Out] byte[] samples, int sampleCapacity);
 
     private readonly OpenCall _open;
     private readonly Open2Call _open2;
     private readonly TickCall _tick;
     private readonly RecordCall _record;
     private readonly TextCall _startReport, _devices, _profile, _stop;
+    private readonly SnapshotCall? _snapshot;
+
+    /// <summary>Why this DLL offers no accepted-input snapshot (extension 3 is optional), or null when it does. Without it
+    /// a consumer's in-game binding capture is unavailable; nothing else changes.</summary>
+    public string? SnapshotUnavailable { get; }
 
     private ShimNativeLibrary(OpenCall open, Open2Call open2, TickCall tick, RecordCall record,
-        TextCall startReport, TextCall devices, TextCall profile, TextCall stop)
+        TextCall startReport, TextCall devices, TextCall profile, TextCall stop, SnapshotCall? snapshot, string? snapshotUnavailable)
     {
         _open = open; _open2 = open2; _tick = tick; _record = record;
         _startReport = startReport; _devices = devices; _profile = profile; _stop = stop;
+        _snapshot = snapshot; SnapshotUnavailable = snapshotUnavailable;
     }
 
     public static ShimNativeLibrary Load(string path, string expectedSha256)
@@ -92,10 +103,27 @@ public sealed class ShimNativeLibrary
             // The returned name pointer is static native storage. Never marshal
             // the export itself as a string, which could free that pointer.
             ShimAbi2.Validate(abi(), size(), argsSize(), i => Marshal.PtrToStringAnsi(name(i)));
+            // Optional extension 3: an older DLL simply has no snapshot.
+            SnapshotCall? snapshot = null; string? snapshotUnavailable;
+            if (!NativeLibrary.TryGetExport(module, "dbce_shim_snapshot_abi_version", out var snapshotAbi) ||
+                !NativeLibrary.TryGetExport(module, "dbce_shim_snapshot_sizes", out var snapshotSizes) ||
+                !NativeLibrary.TryGetExport(module, "dbce_shim_snapshot", out var snapshotExport))
+                snapshotUnavailable = "this dbce_shim.dll has no accepted-input snapshot";
+            else if (Marshal.GetDelegateForFunctionPointer<SnapshotSizesCall>(snapshotSizes)(out int header, out int device, out int sample) != 0)
+                snapshotUnavailable = "dbce_shim.dll did not report its snapshot sizes";
+            else
+            {
+                try
+                {
+                    ShimSnapshotAbi.Validate(Marshal.GetDelegateForFunctionPointer<IntCall>(snapshotAbi)(), header, device, sample);
+                    snapshot = Marshal.GetDelegateForFunctionPointer<SnapshotCall>(snapshotExport); snapshotUnavailable = null;
+                }
+                catch (InvalidDataException e) { snapshotUnavailable = e.Message; }
+            }
             return new ShimNativeLibrary(Get<OpenCall>("dbce_shim_open"), Get<Open2Call>("dbce_shim_open2"),
                 Get<TickCall>("dbce_shim_tick"), Get<RecordCall>("dbce_shim_record"),
                 Get<TextCall>("dbce_shim_start_report"), Get<TextCall>("dbce_shim_device_reports"),
-                Get<TextCall>("dbce_shim_profile_info"), Get<TextCall>("dbce_shim_stop"));
+                Get<TextCall>("dbce_shim_profile_info"), Get<TextCall>("dbce_shim_stop"), snapshot, snapshotUnavailable);
         }
         catch { NativeLibrary.Free(module); throw; }
         // On success the module remains loaded for the process. A stop that
@@ -152,6 +180,16 @@ public sealed class ShimNativeLibrary
 
     public int Record(IntPtr handle, ulong frameSequence, double[] values) =>
         _record(handle, frameSequence, values, values.Length);
+
+    /// <summary>dbce_shim_snapshot of <paramref name="handle"/>'s frame <paramref name="frameSeq"/> (extension 3): call it on
+    /// the handle's thread right after the tick that returned that frame, through <see cref="ShimSnapshot.Take"/>.
+    /// REFUSED when the DLL has no snapshot (<see cref="SnapshotUnavailable"/>).</summary>
+    public int Snapshot(IntPtr handle, ulong frameSeq, byte[] header, byte[] devices, int deviceCapacity, byte[] samples, int sampleCapacity) =>
+        _snapshot == null ? ShimSnapshotAbi.Refused : _snapshot(handle, frameSeq, header, devices, deviceCapacity, samples, sampleCapacity);
+
+    /// <summary>The <see cref="ShimSnapshot.NativeCall"/> for one owned handle.</summary>
+    public ShimSnapshot.NativeCall SnapshotCallFor(IntPtr handle) =>
+        (frameSeq, header, devices, deviceCapacity, samples, sampleCapacity) => Snapshot(handle, frameSeq, header, devices, deviceCapacity, samples, sampleCapacity);
 
     public string StartReport(IntPtr handle) => Read(_startReport, handle);
     public string DeviceReports(IntPtr handle) => Read(_devices, handle);
