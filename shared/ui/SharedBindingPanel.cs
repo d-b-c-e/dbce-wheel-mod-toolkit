@@ -2,6 +2,7 @@
 // Uses the existing shared binding contract and selection policy; owns no reader or writer.
 #nullable disable
 using System;
+using System.Linq;
 using Dbce.Wheel.Input;
 
 namespace Dbce.Wheel.Ui
@@ -18,20 +19,21 @@ namespace Dbce.Wheel.Ui
     public sealed class SharedBindingPanel
     {
         private readonly SharedBindingDeviceSelection selection = new SharedBindingDeviceSelection();
-        private int action, devicePage;
+        private int devicePage;
+        private string action;
+        private bool details, unsupported;
         private object previousHost;
 
-        public void Draw(ISharedBindingHost host, ISharedBindingPanelUi ui)
+        public void Draw(ISharedBindingHost host, ISharedBindingPanelUi ui, string saveStatus)
         {
             if (host == null || ui == null) throw new ArgumentNullException();
-            if (!ReferenceEquals(previousHost, host)) { action = devicePage = 0; previousHost = host; }
+            if (!ReferenceEquals(previousHost, host)) { action = null; devicePage = 0; details = unsupported = false; previousHost = host; }
             string capturing = host.CapturingAction;
             bool listening = capturing != null;
             ui.Label("Shared controls");
-            ui.Help("Active: " + host.ActiveSource);
             ui.Help(host.AccessReason);
             if (host.SavedPendingRestart) ui.Help("Saved for next start. Active bindings are unchanged; restart to use saved controls.");
-            ui.Help("Choose an already-open wheel, shifter or other device for each action. A new or disconnected device needs the matching Controls Setup download with the game closed. Wheelkit is optional.");
+            ui.Help("Choose an open device for each action. For a new device, close the game and use the matching Controls Setup download. Wheelkit is optional.");
             ui.Help(host.CaptureMessage);
             if (listening)
             {
@@ -41,11 +43,18 @@ namespace Dbce.Wheel.Ui
 
             var rows = host.Rows;
             if (rows.Count == 0) { ui.Help("No admitted control rows are available."); return; }
-            action = Math.Max(0, Math.Min(action, rows.Count - 1));
-            var row = rows[action];
-            ui.Label((action + 1) + " / " + rows.Count + ": " + row.Label);
-            if (ui.Button("Previous action", !listening && action > 0)) action--;
-            if (ui.Button("Next action", !listening && action + 1 < rows.Count)) action++;
+            var delivered = rows.Where(value => string.IsNullOrEmpty(value.Note)).ToArray();
+            var unavailable = rows.Where(value => !string.IsNullOrEmpty(value.Note)).ToArray();
+            if (!delivered.Any(value => value.Action == action)) action = delivered.FirstOrDefault()?.Action;
+            foreach (var choice in delivered)
+                if (ui.Button((choice.Action == action ? "Selected: " : "Edit: ") + choice.Label, !listening)) action = choice.Action;
+            if (unavailable.Length > 0 && ui.Button((unsupported ? "Hide" : "Show") + " unsupported controls (" + unavailable.Length + ")", !listening)) unsupported = !unsupported;
+            if (unsupported) foreach (var value in unavailable) ui.Help(value.Label + ": " + value.Note);
+            if (ui.Button(details ? "Hide details" : "Details")) details = !details;
+            if (details) ui.Help("Active source: " + host.ActiveSource);
+            var row = delivered.FirstOrDefault(value => value.Action == action);
+            if (row == null) { if (!string.IsNullOrWhiteSpace(saveStatus)) ui.Help(saveStatus); return; }
+            ui.Label(row.Label);
             ui.Help("Active: " + row.Active.Text);
             if (row.NextStart.HasValue) ui.Help("Next start: " + row.NextStart.Value.Text);
             if (row.Draft.HasValue) ui.Help("Draft: " + row.Draft.Value.Text);
@@ -80,6 +89,9 @@ namespace Dbce.Wheel.Ui
             if (ui.Button("Save bindings for next start", host.Access == SharedBindingAccess.Editable && !listening && host.HasDraft))
                 host.Save(out _);
             if (ui.Button("Discard unsaved edits", !listening && host.HasDraft)) host.Discard();
+            // This is independent of capture text. A failed Save stays visible
+            // when a later capture changes the host's transient message.
+            if (!string.IsNullOrWhiteSpace(saveStatus)) ui.Help(saveStatus);
         }
     }
 }

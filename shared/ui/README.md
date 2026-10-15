@@ -91,6 +91,12 @@ next-start and draft values remain separate; Return/Close never implies Apply.
 The device list contains only the existing host's fresh accepted snapshot rows.
 A disconnected explicit choice never silently selects another device.
 
+Delivered actions are direct choices; unsupported reasons are collapsed separately.
+Revision/source information is under Details. The caller must pass its persistent
+Save status separately from transient capture text to Draw, so another capture
+cannot hide a refused Save. Rectangle buttons clear all inherited skin backgrounds
+and draw flat palette normal/hover/pressed/disabled/text states with existing GUI primitives.
+
 First isolated consumer: Truckful F6 source candidate, not built or rendered yet.
 Its production-linked offline fixture lives in that game's `tests/F6Bindings.Offline`.
 The existing Mono widgets and iRacing renderer/pins are unchanged. Missing native
