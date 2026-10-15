@@ -1,5 +1,33 @@
 # Managed shim ABI 2
 
+## Optional declared extras (source candidate)
+
+`ShimExtrasNative` binds extension 2 of the same hash-pinned module. Missing
+exports or a version/size mismatch leave `ShimNativeLibrary.Extras` null, with
+`ExtrasUnavailable`; the legacy exports remain available. This does not adopt a
+new native DLL pin for any game. The unchanged native header is authoritative.
+
+An opted-in consumer opens **one** host with `Extras.Open`, passing the exact
+complete existing `dbce-controls.ini` and its ASCII game declaration. Verify
+`ProfileInfo` against those complete bytes with `ShimProfile.Verify`, then verify
+`Extras.Info` with `ShimExtrasInfo.Verify` against the game's exact declaration,
+expected shapes and context mode. Native `firstSlot`/`components` supply the
+mapping; the wrapper does not parse bindings or derive slots by counting lines.
+
+`ShimExtrasSession` ticks that handle once per engine frame, returning common
+and extras frames with the same sequence. The caller passes its observed context
+mask (0 when unknown), uses fresh samples only, invalidates on lifecycle changes,
+and supplies one stop callback on the owning thread. Do not call ordinary Tick
+on this handle or open another host for common actions. A post-open verification
+failure must spend/stop that handle before considering any fallback; an unresolved
+stop never authorizes a second reader. Before-open optional-extension refusal can
+use the ordinary route. Extras do not support latched injection or recording.
+
+The added pure fixtures cover coherence, optional-export/version refusal,
+declaration/slot/count checks, context loss, stale sequences, invalid frames,
+invalidation, deduplication and exactly-once stop. They have not been executed
+for this source candidate; no device or runtime qualification is implied.
+
 `Dbce.Wheel.Shim` is the game-neutral managed side of
 `native/shim/shim_dll/dbce_shim.h`. It supplies the 31-action table, status and
 frame decoding, exact `[Controls]` byte extraction, Core hash verification,
