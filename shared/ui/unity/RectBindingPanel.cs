@@ -17,7 +17,7 @@ namespace Dbce.Wheel.Ui.Unity
         private int control, pressed = -1;
         private GUIStyle label, help, button;
         // Help page additions: heading, small repository link, text field/area, one-line toggle text and a clear hit area.
-        private GUIStyle heading, link, field, area, toggleText, plain;
+        private GUIStyle heading, link, field, area, toggleText, plain, tab;
         public float Bottom { get { return y; } }
 
         public void Begin(float left, float top, float bodyWidth, float uiScale)
@@ -52,7 +52,8 @@ namespace Dbce.Wheel.Ui.Unity
                 toggleText = new GUIStyle(); toggleText.alignment = TextAnchor.MiddleLeft; toggleText.wordWrap = true;
                 toggleText.normal.textColor = ToColor(F6Palette.Text);
                 plain = new GUIStyle();
-                foreach (var style in new[] { link, field, area, plain })
+                tab = new GUIStyle(); tab.alignment = TextAnchor.MiddleCenter; tab.clipping = TextClipping.Clip;
+                foreach (var style in new[] { link, field, area, plain, tab })
                     foreach (var state in States(style)) state.background = null;
             }
             label.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
@@ -60,7 +61,7 @@ namespace Dbce.Wheel.Ui.Unity
             button.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
             heading.fontSize = (int)Math.Round(F6Metrics.HeadingSize * scale);
             link.fontSize = (int)Math.Round(F6Metrics.HelpSize * scale);
-            field.fontSize = area.fontSize = toggleText.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
+            field.fontSize = area.fontSize = toggleText.fontSize = tab.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
         }
 
         private Rect Next(string text, int size, float minimum)
@@ -183,6 +184,51 @@ namespace Dbce.Wheel.Ui.Unity
                 return GUI.Button(rect, "", plain) ? !value : value;
             }
             finally { GUI.enabled = prior; GUI.color = priorColor; }
+        }
+
+        /// <summary>The page tabs in the shared tab presentation (F6Widgets.Tab): body text, secondary when unselected,
+        /// bold primary with the accent line when selected, the tab-focus tint on hover, then a divider. Tabs that do not
+        /// fit wrap at tab boundaries. Returns the clicked index or -1; the host switches pages.</summary>
+        public int Tabs(string[] labels, int selected, bool enabled = true)
+        {
+            float height = (F6Metrics.RowHeight + 6) * scale, left = x, top = y;
+            int clicked = -1;
+            bool prior = GUI.enabled;
+            Color priorColor = GUI.color;
+            try
+            {
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    float w = Math.Min(width, labels[i].Length * F6Metrics.BodySize * scale * .54f + 2 * F6Metrics.TabPadX * scale);
+                    if (left > x && left + w > x + width) { left = x; top += height; }
+                    var rect = new Rect(left, top, w, height);
+                    bool active = prior && enabled, on = i == selected;
+                    bool hover = active && rect.Contains(Event.current.mousePosition);
+                    GUI.enabled = true;
+                    if (hover)
+                    {
+                        GUI.color = ToColor(F6Palette.TabFocus, .6f);
+                        GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, rect.height - F6Metrics.TabLine * scale), Texture2D.whiteTexture);
+                    }
+                    if (on)
+                    {
+                        GUI.color = ToColor(F6Palette.Accent);
+                        GUI.DrawTexture(new Rect(rect.x + 6 * scale, rect.y + rect.height - F6Metrics.TabLine * scale, rect.width - 12 * scale, F6Metrics.TabLine * scale), Texture2D.whiteTexture);
+                    }
+                    GUI.color = Color.white;
+                    tab.fontStyle = on ? FontStyle.Bold : FontStyle.Normal;
+                    foreach (var state in States(tab)) state.textColor = ToColor(!active ? F6Palette.Disabled : on || hover ? F6Palette.Text : F6Palette.Secondary);
+                    GUI.enabled = active;
+                    if (GUI.Button(rect, labels[i], tab)) clicked = i;
+                    left += w;
+                }
+                GUI.enabled = true;
+                GUI.color = ToColor(F6Palette.Divider);
+                GUI.DrawTexture(new Rect(x, top + height, width, Math.Max(1, scale)), Texture2D.whiteTexture);
+            }
+            finally { GUI.enabled = prior; GUI.color = priorColor; }
+            y = top + height + 8 * scale;
+            return clicked;
         }
 
         private static GUIStyleState[] States(GUIStyle style)

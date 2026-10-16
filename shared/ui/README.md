@@ -105,6 +105,14 @@ shared problem report (`shared/support`):
 - `TextInput` is a labeled one-line field or 120-unit area. It uses
   `GUI.TextField`/`GUI.TextArea`, and shows plain text when disabled.
 - `Toggle` is a flat square plus label, and returns the new value.
+- `Tabs` draws page tabs in the shared tab presentation (as `F6Widgets.Tab`):
+  - text is secondary when unselected, and bold primary with the accent line
+    when selected;
+  - hover shows the tab-focus tint, and a divider follows the row;
+  - tabs wrap at tab boundaries.
+
+  It returns the clicked index. The host switches pages, and keeps its title
+  and tabs fixed above a scrolled page body.
 
 They use the same cursor, own plain styles and restore `GUI.enabled`/`GUI.color`.
 Label, Help, Button and the binding panel are unchanged. Hosts check their own
