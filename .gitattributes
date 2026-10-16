@@ -24,3 +24,8 @@ shared/support/README.md text eol=lf
 shared/support/SupportReport.cs text eol=lf
 tests/SupportReport/Program.cs text eol=lf
 tests/SupportReport/SupportReport.csproj text eol=lf
+
+# The shared read-only operator helper is imported by its raw source hash.
+tools/playback/UnityOperatorAdmission.mjs text eol=lf
+tools/playback/Test-UnityOperatorAdmission.mjs text eol=lf
+tools/playback/UnityOperatorAdmission.md text eol=lf
