@@ -72,6 +72,7 @@ void run(const fs::path& root) {
     refuses([&] { prepared.write_review_file(report); });
     check(read(report)==prepared.preview(),"No overwrite");
     refuses([&] { prepared.write_review_file(root/L"config.json"); });
+    refuses([&] { prepared.write_review_file(root/L"NUL.txt"); });
     refuses([&] { prepared.write_review_file(root/L"missing"/L"report.txt"); });
     check(!fs::exists(root/L"missing"),"No directories created");
     refuses([] { (void)selected_logs({}); });

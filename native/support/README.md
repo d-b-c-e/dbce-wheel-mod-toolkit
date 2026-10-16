@@ -43,7 +43,9 @@ UTF-32, incomplete characters and binary controls refuse. A truncated first line
 is omitted before decoding, even if no complete line remains. Log headers use
 basenames only; log fences/HTML delimiters are escaped. Unknown extensions,
 duplicate normalized paths, UNC/device/alternate-stream paths and reparse points
-refuse. Export requires an existing nonlinked local parent and `.txt`, uses
+refuse. Reserved DOS device components also refuse, even with extensions such
+as `NUL.txt`; output is checked as a regular disk handle before any write.
+Export requires an existing nonlinked local parent and `.txt`, uses
 `CREATE_NEW` with no sharing, never creates folders or overwrites existing bytes.
 An IO failure may leave a partial newly created file; it is never retried over.
 Path checks are conservative, not a sandbox against concurrent parent replacement.
@@ -78,7 +80,12 @@ cmake --build build-native-support --target dbce_support_report_tests
 ctest --test-dir build-native-support --output-on-failure
 ```
 
-Initial implementation: execution pending. `/W4 /WX /utf-8 /permissive-` applies
-to both library and fixture. No broad toolkit/panel suite or consumer runtime
-acceptance follows from this source component. Review report/IO handling before
-merging shared source; ADRIFT owns the first host adapter independently.
+Initial implementation3ea0a9c: MSVC19.44 Release `/W4 /WX /utf-8 /permissive-`
+build passed with zero warnings/errors; all85 checks passed, including real
+symlink refusal (no skipped fixture). Original logs/result are
+`E:/native-support-research/nemo-20261016-01`; cleanup.json separately closes the
+exact owned idle compiler server and releases the lease. Review195592 then
+required reserved-device export rejection; that source correction and its one
+extra fixture await the changed-target check. Initial passing result is retained.
+No broad toolkit/panel suite or consumer runtime acceptance follows. Shared
+merge waits for correction qualification/review; ADRIFT owns the first adapter.

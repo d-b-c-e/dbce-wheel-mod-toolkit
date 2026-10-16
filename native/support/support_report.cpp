@@ -169,6 +169,18 @@ std::filesystem::path local_path(const std::filesystem::path& input) {
     name=path.native();
     if (name.size()<3 || !alpha(name[0]) || name[1]!=L':' || name.find(L':',2)!=std::wstring::npos)
         invalid("Choose a local drive path, not a stream or device path.");
+    for (const auto& component : path.relative_path()) {
+        auto part=component.native();
+        // Win32 DOS aliases remain devices with an extension (NUL.txt, COM1.log).
+        // Trim the stem's trailing spaces too, rather than trust normalization.
+        part.resize(part.find(L'.')==std::wstring::npos ? part.size() : part.find(L'.'));
+        while (!part.empty() && part.back()==L' ') part.pop_back();
+        std::transform(part.begin(),part.end(),part.begin(),lower);
+        const bool numbered=part.size()==4 && (part.compare(0,3,L"com")==0 || part.compare(0,3,L"lpt")==0) &&
+            ((part[3]>=L'1' && part[3]<=L'9') || part[3]==0xb9 || part[3]==0xb2 || part[3]==0xb3);
+        if (part==L"con" || part==L"prn" || part==L"aux" || part==L"nul" || part==L"conin$" || part==L"conout$" || numbered)
+            invalid("Choose a regular file path, not a reserved device name.");
+    }
     (void)utf8(name);
     return path;
 }
@@ -335,6 +347,10 @@ void PreparedReport::write_review_file(const std::filesystem::path& destination)
     auto absolute=local_path(destination);
     (void)regular_local_path(absolute.parent_path());
     Handle file(CreateFileW(absolute.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr));
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (GetFileType(file.get())!=FILE_TYPE_DISK || !GetFileInformationByHandle(file.get(),&info) ||
+        (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))
+        io_error("Report destination is not a regular disk file.");
     auto text=preview(); std::size_t written=0;
     while (written<text.size()) {
         DWORD count=0;
