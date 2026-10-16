@@ -86,6 +86,17 @@ symlink refusal (no skipped fixture). Original logs/result are
 `E:/native-support-research/nemo-20261016-01`; cleanup.json separately closes the
 exact owned idle compiler server and releases the lease. Review195592 then
 required reserved-device export rejection; that source correction and its one
-extra fixture await the changed-target check. Initial passing result is retained.
-No broad toolkit/panel suite or consumer runtime acceptance follows. Shared
-merge waits for correction qualification/review; ADRIFT owns the first adapter.
+extra fixture are qualified at source `38a1d163a6d5bdb2fd1d92f7f14c98c8c6970066`:
+the incremental library/fixture build passed with zero warnings/errors, all86
+checks passed with no skips, and final source review195705 found no remaining
+issue. Original result/stdout/stderr/JUnit are at
+`E:/native-support-research/nemo-20261016-02`; all owned children were quiescent,
+query complete and lease released/absent at21:24:26.3014298Z. Mako received the
+direct handoff before documentation; ADRIFT owns the first adapter. Initial
+passing result remains intact. No broad toolkit/panel suite, host browser/UI,
+native game/provider load or consumer runtime acceptance follows.
+
+Qualified source SHA-256 pins (normal repository bytes; preserve when vendoring):
+
+- `support_report.hpp`: `C96C3B37A58E7AE0EDF519EE8EA3A74173E001083F56C10A58E35C1D17FB58F7`
+- `support_report.cpp`: `63B778EADDA25043925F10BC75287858A7CF13CE71BCA1D675DE662829BD8C64`

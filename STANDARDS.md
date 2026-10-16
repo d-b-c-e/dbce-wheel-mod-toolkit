@@ -699,3 +699,9 @@ uploader or managed-runtime bridge is needed. The component's focused fixture
 ports existing support cases; initial source qualification remains pending until
 its recorded build/check and shared report/IO review. Consumer Help wiring and
 rendered acceptance stay separate.
+
+October16 native source38a1d163 now passes the focused C++17 MSVC build with
+zero warnings/errors, all86 inert support cases/no skips and final report/IO
+review195705 after the reserved-device export correction. No full-suite rerun
+or host/provider/browser/runtime acceptance. See native/support/README.md for
+the exact source pins and original results; ADRIFT owns the first adapter.
