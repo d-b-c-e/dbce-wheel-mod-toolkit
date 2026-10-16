@@ -384,6 +384,8 @@ static void drawHelp(bool advanced)
         savePref("Scale", v);
     }
     EndGroup();
+    // Host-owned issue/report actions precede the unobtrusive repository links.
+    if (g_cfg.drawPage) g_cfg.drawPage(PAGE_HELP, advanced);
     const bool modLink = g_cfg.modRepositoryUrl && *g_cfg.modRepositoryUrl;
     const bool wheelkitLink = g_cfg.wheelkitRepositoryUrl && *g_cfg.wheelkitRepositoryUrl;
     if (modLink || wheelkitLink) {
@@ -394,7 +396,6 @@ static void drawHelp(bool advanced)
         ImGui::PopFont();
         EndGroup();
     }
-    if (g_cfg.drawPage) g_cfg.drawPage(PAGE_HELP, advanced);
     if (!g_cfg.pages[PAGE_CAMERAS]) drawFrameRate();
 }
 
