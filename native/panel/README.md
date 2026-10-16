@@ -21,6 +21,22 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
 3. Draw each page with the panel widgets; save settings to the mod's own ini (Wheelkit reads the same file).
 4. While `dbce::panel::IsOpen()`, suppress driving input the mod can see (DirectInput buttons, keyboard, mouse).
 
+### Help repository links
+
+Set `Config::modRepositoryUrl` and `Config::wheelkitRepositoryUrl` to the mod and
+Wheelkit repository URLs. Help renders each as a small text hyperlink using the
+existing secondary font and Dear ImGui's text-link widget. Empty or null values
+omit a link, preserving existing callers. These links have no filled button or
+full-row hit area; opening a URL requires an explicit click. The existing mod
+Help callback and any issue/report action remain separate.
+
+The descriptor strings must outlive the panel, as with `modName`. Rebuild and
+vendor the header and implementation together; do not mix compiled Config layouts.
+The existing offline panel-render fixture supplies both URLs for its Help frames,
+without clicking them. Source-only as of October 16: compilation and rendered
+review of this addition remain pending a coordinated affected batch. This does
+not add a report generator, uploader or issue-submission flow.
+
 ## Limits (2026-10-08)
 
 Rendered offline only; not yet seen in a game. No binding capture, wheel/pad navigation of the panel or Settings button
