@@ -1,5 +1,10 @@
 # Shared F6 panel for native mods
 
+Help draws the host's `drawPage(PAGE_HELP, advanced)` content before the small
+repository text links. A host can place its separate issue/report action there;
+the shared renderer owns the link ordering and styling. This does not change
+report preparation, browser admission, input handling or overlay behavior.
+
 The standard **Wheel settings** panel (STD-004, STD-017, STD-022, STD-030; UX-1 in `docs/CONSUMER-UX.md`) for mods that
 are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`native/third_party/imgui`, vendored, MIT).
 
@@ -20,6 +25,27 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
    `stopFfb` when it can stop forces, the canonical ini path), call `Configure`, then `dbce::overlay::StartD3D11(log)`.
 3. Draw each page with the panel widgets; save settings to the mod's own ini (Wheelkit reads the same file).
 4. While `dbce::panel::IsOpen()`, suppress driving input the mod can see (DirectInput buttons, keyboard, mouse).
+
+### Help repository links
+
+Set `Config::modRepositoryUrl` and `Config::wheelkitRepositoryUrl` to the mod and
+Wheelkit repository URLs. Help renders each as a small text hyperlink using the
+existing secondary font and Dear ImGui's text-link widget. Empty or null values
+omit a link, preserving existing callers. These links have no filled button or
+full-row hit area; opening a URL requires an explicit click. The existing mod
+Help callback and any issue/report action remain separate.
+
+The descriptor strings must outlive the panel, as with `modName`. Rebuild and
+vendor the header and implementation together; do not mix compiled Config layouts.
+The existing offline panel-render fixture supplies both URLs for its Help frames,
+without clicking them. On October 16 the first ADRIFT report consumer compiled
+this exact renderer/ordering with its existing DLL target: no reported warnings
+or errors, sole Lua export verified. DLL SHA256
+`BCADDFEE4A1095D524A7B1CF9CFB5698FCCC5A966A6B5FACBA9A74C75A0E58A1`;
+original log `E:/Source/games/.worktrees/mako-adrift-native-report-20261016/build/native-report-20261016.log`.
+The fixture and rendered/browser checks were not run. The link renderer adds no
+report generator, uploader or issue submission; hosts adopt `native/support`
+separately for reviewed report preparation and data-only browser drafts.
 
 ## Limits (2026-10-08)
 

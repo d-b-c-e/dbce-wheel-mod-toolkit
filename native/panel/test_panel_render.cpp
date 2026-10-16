@@ -115,6 +115,8 @@ int main(int argc, char **argv)
                 WritePrivateProfileStringA("Panel", "View", view ? "Advanced" : "Simple", ini);
                 dbce::panel::Config c;
                 c.modName = "Example mod 0.0.0 (panel render check)";
+                c.modRepositoryUrl = "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit";
+                c.wheelkitRepositoryUrl = "https://github.com/d-b-c-e/dbce-wheelkit";
                 c.iniPath = ini;
                 c.pages[dbce::panel::PAGE_CONTROLS] = false;   // nothing to offer here: hidden (STD-017)
                 c.pages[dbce::panel::PAGE_FFB] = true;
