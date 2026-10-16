@@ -67,7 +67,9 @@ namespace Dbce.Wheel.Ui.Unity
         {
             // Conservative wrapping estimate avoids a dependency on stripped CalcHeight.
             int columns = Math.Max(12, (int)(width / Math.Max(1, size * scale * .54f)));
-            int lines = Math.Max(1, (text.Length + columns - 1) / columns);
+            // Each explicit line wraps on its own (a report preview has many); text without one is estimated as before.
+            int lines = 0;
+            foreach (string part in text.Split('\n')) lines += Math.Max(1, (part.Length + columns - 1) / columns);
             float height = Math.Max(minimum * scale, lines * (size + 4) * scale);
             var rect = new Rect(x, y, width, height);
             y += height + 5 * scale;
