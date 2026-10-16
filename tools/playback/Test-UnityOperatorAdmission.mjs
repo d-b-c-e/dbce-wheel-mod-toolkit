@@ -20,17 +20,23 @@ assert.deepEqual(inspectUnityAdmission(fixture(), request, start).failedChecks, 
 assert.deepEqual(inspectUnityAdmission(stale, request, start).failedChecks, ['freshness']);
 // A real slow publication must not force another game launch.
 let tick = start, reads = 0, waits = 0;
+let pendingSnapshot, pendingDetails, pendingCount = 0;
 const resumed = await readUnityOperatorAdmission('', request, {
   read: async () => JSON.stringify(++reads < 3 ? stale : fixture(200)),
   now: () => tick, wait: async ms => { tick += ms; waits++; },
+  onPending: async (details, text) => { pendingSnapshot = text; pendingDetails = details; pendingCount++; },
 });
 assert.equal(resumed.game.pid, 123);
 assert.equal(reads, 3); assert.equal(waits, 2);
+assert.equal(pendingCount, 1);
+assert.equal(pendingSnapshot, JSON.stringify(stale));
+assert.equal(pendingDetails.checkedUtc, iso(0));
 // A frozen producer expires at its existing deadline, preserving the failed read.
 tick = start;
 await assert.rejects(readUnityOperatorAdmission('', request, {
   read: async () => JSON.stringify(stale), now: () => tick, wait: async ms => { tick += ms; },
-}), error => error.details.failedChecks.includes('deadline') && error.snapshotText === JSON.stringify(stale));
+}), error => error.details.failedChecks.includes('deadline') && error.snapshotText === JSON.stringify(stale) &&
+  error.firstFailedDetails.failedChecks.join() === 'freshness' && error.firstFailedDetails.checkedUtc === iso(0));
 assert.equal(tick, start + 1000);
 for (const mutate of [
   c => { c.game.pid = c.foreground.processId = 789; },
@@ -56,4 +62,10 @@ for (const [field, mutate] of [
     wait: async () => assert.fail('A permanent refusal must not wait'),
   }), error => error.details.failedChecks.includes(field));
 }
+await assert.rejects(readUnityOperatorAdmission('', request, {
+  read: async () => '{malformed', now: () => start,
+}), error => error.details.failedChecks.join() === 'parse' && error.snapshotText === '{malformed');
+await assert.rejects(readUnityOperatorAdmission('', request, {
+  read: async () => { throw new Error('fixture unreadable'); }, now: () => start,
+}), error => error.details.failedChecks.join() === 'read' && error.snapshotText === undefined);
 console.log('PASS: freshness recovery, original expiry, identity/deadline drift, request/birth/path/window/status refusals. No OS calls.');

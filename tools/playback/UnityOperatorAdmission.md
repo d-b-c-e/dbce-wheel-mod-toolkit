@@ -16,6 +16,9 @@ The helper preserves the two-second freshness requirement. Only a stale sample
 is reread, at 100 ms intervals and only until the original producer deadline.
 Changed identity/deadline or another failed check refuses immediately. Errors
 name failed checks and retain the exact JSON read in `error.snapshotText`.
+`onPending(details, snapshotText)` receives the first stale read even if the
+next read succeeds. Errors also retain `firstFailedDetails` and
+`firstFailedSnapshotText`; read and parse failures have distinct predicates.
 This corrects that brittle behavior; it does not prove Woden gameplay works.
 
 Before a newly coordinated run, import the pinned helper in `node_repl` and
@@ -23,10 +26,19 @@ replace the old `beniReadAdmission` definition:
 
 ```javascript
 globalThis.admissionModule = await import('file:///EXACT/PINNED/UnityOperatorAdmission.mjs');
+globalThis.beniFirstStaleRecorded = false; // Initialize once for this fresh run.
 globalThis.beniReadAdmission = async () => {
   try {
     return await admissionModule.readUnityOperatorAdmission(
-      beniAdmissionPath, beniExpectedRequestId);
+      beniAdmissionPath, beniExpectedRequestId, {
+        onPending: async (details, snapshotText) => {
+          if (beniFirstStaleRecorded) return;
+          await beniDesktopFs.writeFile(EXACT_NEW_FIRST_STALE_FILE, snapshotText, { flag: 'wx' });
+          await beniDesktopFs.writeFile(EXACT_NEW_FIRST_STALE_METADATA,
+            JSON.stringify(details), { flag: 'wx' });
+          beniFirstStaleRecorded = true;
+        }
+      });
   } catch (error) {
     if (typeof error.snapshotText === 'string') {
       // A fresh run-specific evidence file, never an existing result.
