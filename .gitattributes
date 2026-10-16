@@ -18,3 +18,9 @@ dotnet/Dbce.Wheel.Input/BindingEditorPolicy.cs text eol=lf
 # Successor process harness and synthetic fixture are pinned by raw SHA-256.
 tools/playback/Stage-OwnedProcess.ps1 -text
 tools/playback/Test-StageOwnedProcess.ps1 -text
+
+# Shared problem-report source and focused fixtures use raw LF provenance pins.
+shared/support/README.md text eol=lf
+shared/support/SupportReport.cs text eol=lf
+tests/SupportReport/Program.cs text eol=lf
+tests/SupportReport/SupportReport.csproj text eol=lf
