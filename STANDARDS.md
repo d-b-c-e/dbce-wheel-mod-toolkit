@@ -690,3 +690,12 @@ Wheelkit. The report uses the active version, relevant selected logs and a
 reviewable preview. The user deliberately submits or opens the browser handoff;
 state any required attachment step clearly. These UX changes do not imply new
 input/force semantics or a repeat of already accepted gameplay baselines.
+
+Native C++17 hosts use `native/support/support_report.hpp` + `.cpp`, the pure
+Windows counterpart of `shared/support/SupportReport.cs`. Both keep explicit
+selected bounded text logs, redacted immutable review and data-only GitHub draft
+handoff; host UI/picker/browser actions remain outside. No per-game collector,
+uploader or managed-runtime bridge is needed. The component's focused fixture
+ports existing support cases; initial source qualification remains pending until
+its recorded build/check and shared report/IO review. Consumer Help wiring and
+rendered acceptance stay separate.

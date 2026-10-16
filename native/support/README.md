@@ -1,0 +1,84 @@
+# Native reviewed support reports
+
+`support_report.hpp` / `support_report.cpp` are the Windows C++17 counterpart of
+[`shared/support/SupportReport.cs`](../../shared/support/SupportReport.cs).
+Vendor both exact files and the toolkit MIT license with source/hash provenance.
+No managed runtime, game/provider, panel, HTTP client, browser, picker, clipboard
+or process-launch dependency. Win32 is used only for strict Unicode conversion,
+the current home path, bounded local-file IO and create-new export.
+
+The shared [host contract](../../shared/support/README.md) applies unchanged:
+package known product/version/repository metadata; let the user explicitly
+select known relevant text logs and enter a title/description; prepare only on
+Review; show best-effort redaction wording and the complete preview. A host must
+invalidate the snapshot and review flag on every input/selection change, and
+clear an old preview when preparation fails. No automatic directory/config/save
+collection or broad support ZIP is accepted by this API.
+
+```cpp
+#include "support_report.hpp"
+using namespace dbce::support;
+ReportProduct product("Packaged game", "1.2.3", "owner/repository");
+auto report = prepare(product, title_utf8, description_utf8, selected_known_logs);
+// Host displays report.preview(); input changes discard report/review state.
+auto draft = report.create_browser_submission(user_reviewed_this_snapshot);
+// Host shows draft.instructions. For attachment fallback it first asks for a
+// fresh local .txt path and calls report.write_review_file(path).
+// Only an explicit host action opens draft.url. The helper opens nothing.
+```
+
+`ReportProduct` exposes validated HTTPS `mod_page()` / `wheelkit_page()` links.
+All public text is strict UTF-8. Paths are `std::filesystem::path` (use a native
+wide path or `std::filesystem::u8path` for UTF-8 input). Optional explicit `home`
+is useful for deterministic fixtures; absent means current `USERPROFILE`, empty
+means no explicit home substitution (generic Windows user-path redaction stays).
+`PreparedReport` owns private copies with const accessors and no setters. Its
+URL and export methods never reread logs. Errors throw standard exceptions;
+hosts show the message without logging raw report data.
+
+Limits match managed behavior: title200, description10000, metadata120 and body
+50000 UTF-16 code units; up to five logs share 24000 bytes of tails, plus four
+encoding-prefix bytes per log. UTF-8 and BOM-marked UTF-16 LE/BE are strict;
+UTF-32, incomplete characters and binary controls refuse. A truncated first line
+is omitted before decoding, even if no complete line remains. Log headers use
+basenames only; log fences/HTML delimiters are escaped. Unknown extensions,
+duplicate normalized paths, UNC/device/alternate-stream paths and reparse points
+refuse. Export requires an existing nonlinked local parent and `.txt`, uses
+`CREATE_NEW` with no sharing, never creates folders or overwrites existing bytes.
+An IO failure may leave a partial newly created file; it is never retried over.
+Path checks are conservative, not a sandbox against concurrent parent replacement.
+
+Redaction covers the same home/Windows user paths, GitHub token forms, credential
+labels/line remainder and ASCII email forms as the managed fixtures. Bounded
+scans avoid an uninterruptible C++ regex engine; this is best effort, not a proof
+that arbitrary secrets are absent. Native redaction additionally refuses input
+over1MiB or expanded output over1Mi UTF-16 units to bound allocations. Report
+fields/logs have much tighter limits. URL percent escaping uses UTF-8 bytes and
+the same unreserved set. The4096-character URL policy is local, not a promised
+GitHub/browser maximum. A large report retains its full immutable local preview
+and uses the managed short description/setup/one-attachment instructions.
+Opening a draft transmits its prefilled text; attaching uploads immediately;
+neither action submits an issue. Both actions remain with the host/user.
+
+## Focused qualification
+
+`test_support_report.cpp` ports the existing inputs/assertions from
+`tests/SupportReport/Program.cs`: redaction, destination rejection, exact query
+escaping, frozen preview, create-new export, five-log budget, split UTF tails,
+binary refusal and useful long-draft fallback. Additional cases cover native
+path/stream refusal, UTF-32/invalid surrogates/C1 controls, UTF-8 emoji, missing
+parent/no folder creation and real symlink refusal when Windows permits creating
+the fixture link. No game, device/provider, browser, network or GUI is opened.
+
+Build only this target in a developer environment under the coordinated lease:
+
+```text
+cmake -S native/support -B build-native-support -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-native-support --target dbce_support_report_tests
+ctest --test-dir build-native-support --output-on-failure
+```
+
+Initial implementation: execution pending. `/W4 /WX /utf-8 /permissive-` applies
+to both library and fixture. No broad toolkit/panel suite or consumer runtime
+acceptance follows from this source component. Review report/IO handling before
+merging shared source; ADRIFT owns the first host adapter independently.

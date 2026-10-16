@@ -1,5 +1,10 @@
 # Shared problem reports
 
+Windows C++17 hosts use the source counterpart in
+[`native/support`](../../native/support/README.md), with the same host review,
+selection and browser handoff contract below. It has no managed-runtime or UI
+dependency; native IO/report qualification is recorded with that component.
+
 `SupportReport.cs` is the single portable C# 7.3 implementation for standalone
 mod Help tabs and Wheelkit's report adapter. Vendor the exact file and toolkit
 MIT license with source commit/SHA-256 provenance. No Unity, loader, WPF,
