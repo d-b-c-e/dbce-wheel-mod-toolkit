@@ -404,6 +404,12 @@ say so and why. Reference: the 2026-10-08 triples-on deployment (DiRT 4, DiRT Ra
 Rally 3 / Origins, OutRun 2006; backups in _archive\2026-10-08\owner-triples-on-*).
 
 ## STD-030 — The F6 panel comes first
+
+October16 presentation clarification: Help repository destinations are small
+underlined text links below the separate issue/report command. Reuse shared
+link metrics/widgets and retain each host's focus/input handling and URLs.
+Changing this presentation does not submit a report or open a link on its own.
+
 2026-10-08 · owner ("for everything that we're working on, let's put the mod menu as a priority - it just makes testing everything else simpler - so lets aim for parity on all in progress items with an F6 menu, even if it doesn't have all the options yet. Also make sure it's in line with the toolkit standards") · applies to: every in-progress game
 
 Before other new features, every in-progress game gets an F6 panel in the standard shape (STD-004:
