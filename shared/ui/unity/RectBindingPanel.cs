@@ -16,6 +16,8 @@ namespace Dbce.Wheel.Ui.Unity
         private float x, y, width, scale;
         private int control, pressed = -1;
         private GUIStyle label, help, button;
+        // Help page additions: heading, small repository link, text field/area, one-line toggle text and a clear hit area.
+        private GUIStyle heading, link, field, area, toggleText, plain;
         public float Bottom { get { return y; } }
 
         public void Begin(float left, float top, float bodyWidth, float uiScale)
@@ -39,9 +41,26 @@ namespace Dbce.Wheel.Ui.Unity
                 foreach (var state in new[] { button.normal, button.hover, button.active, button.focused,
                     button.onNormal, button.onHover, button.onActive, button.onFocused }) state.background = null;
             }
+            if (heading == null)
+            {
+                // Plain owned styles as above; every state background stays null and flat fills draw the surfaces.
+                heading = new GUIStyle(); heading.wordWrap = true; heading.fontStyle = FontStyle.Bold;
+                heading.normal.textColor = ToColor(F6Palette.Text);
+                link = new GUIStyle(); link.alignment = TextAnchor.MiddleLeft; link.clipping = TextClipping.Clip;
+                field = new GUIStyle(); field.clipping = TextClipping.Clip;
+                area = new GUIStyle(); area.wordWrap = true; area.clipping = TextClipping.Clip;
+                toggleText = new GUIStyle(); toggleText.alignment = TextAnchor.MiddleLeft; toggleText.wordWrap = true;
+                toggleText.normal.textColor = ToColor(F6Palette.Text);
+                plain = new GUIStyle();
+                foreach (var style in new[] { link, field, area, plain })
+                    foreach (var state in States(style)) state.background = null;
+            }
             label.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
             help.fontSize = (int)Math.Round(F6Metrics.HelpSize * scale);
             button.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
+            heading.fontSize = (int)Math.Round(F6Metrics.HeadingSize * scale);
+            link.fontSize = (int)Math.Round(F6Metrics.HelpSize * scale);
+            field.fontSize = area.fontSize = toggleText.fontSize = (int)Math.Round(F6Metrics.BodySize * scale);
         }
 
         private Rect Next(string text, int size, float minimum)
@@ -82,5 +101,93 @@ namespace Dbce.Wheel.Ui.Unity
             }
             finally { GUI.enabled = prior; GUI.color = priorColor; }
         }
+
+        public void Heading(string text) { GUI.Label(Next(text, F6Metrics.HeadingSize, 28), text, heading); }
+
+        /// <summary>A small underlined text link (shared Help presentation, F6Metrics.LinkHeight/LinkUnderline): help-size
+        /// accent text with no button surface, only as wide as its estimated text. The host owns the destination.</summary>
+        public bool Link(string text)
+        {
+            var row = Next(text, F6Metrics.HelpSize, F6Metrics.LinkHeight);
+            var rect = new Rect(row.x, row.y, Math.Min(row.width, text.Length * F6Metrics.HelpSize * scale * .54f + 2 * scale), row.height);
+            bool prior = GUI.enabled;
+            Color priorColor = GUI.color;
+            bool hover = prior && rect.Contains(Event.current.mousePosition);
+            var tone = !prior ? F6Palette.Disabled : hover ? F6Palette.Text : F6Palette.Accent;
+            try
+            {
+                foreach (var state in States(link)) state.textColor = ToColor(tone);
+                GUI.color = ToColor(tone);
+                GUI.DrawTexture(new Rect(rect.x, rect.y + rect.height - 3 * scale, rect.width, Math.Max(1, F6Metrics.LinkUnderline * scale)), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                return GUI.Button(rect, text, link);
+            }
+            finally { GUI.enabled = prior; GUI.color = priorColor; }
+        }
+
+        /// <summary>A labeled one-line field or several-line area, full body width under its label. Disabled, it shows the
+        /// text without an editor. Returns the text as edited this frame.</summary>
+        public string TextInput(string text, string value, bool multiline, bool enabled = true, int maxLength = 4000)
+        {
+            Label(text);
+            value = value ?? "";
+            float height = (multiline ? 120 : F6Metrics.RowHeight) * scale;
+            var rect = new Rect(x, y, width, height);
+            y += height + 5 * scale;
+            bool prior = GUI.enabled;
+            Color priorColor = GUI.color;
+            bool active = prior && enabled;
+            var style = multiline ? area : field;
+            try
+            {
+                GUI.enabled = true;
+                GUI.color = ToColor(F6Palette.ButtonBorder);
+                GUI.DrawTexture(rect, Texture2D.whiteTexture);
+                GUI.color = ToColor(active ? F6Palette.Card : F6Palette.Window);
+                GUI.DrawTexture(new Rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                foreach (var state in States(style)) state.textColor = ToColor(active ? F6Palette.Text : F6Palette.Disabled);
+                var inner = new Rect(rect.x + 8 * scale, rect.y + 6 * scale, rect.width - 16 * scale, rect.height - 12 * scale);
+                if (!active) { GUI.Label(inner, value, style); return value; }
+                string edited = multiline ? GUI.TextArea(inner, value, maxLength, style) : GUI.TextField(inner, value, maxLength, style);
+                return edited ?? value;
+            }
+            finally { GUI.enabled = prior; GUI.color = priorColor; }
+        }
+
+        /// <summary>An explicit on/off row: a flat square (accent when on) and its label; the whole row toggles.
+        /// Returns the new value.</summary>
+        public bool Toggle(string text, bool value, bool enabled = true)
+        {
+            var rect = Next(text, F6Metrics.BodySize, F6Metrics.RowHeight);
+            bool prior = GUI.enabled;
+            Color priorColor = GUI.color;
+            bool active = prior && enabled;
+            bool hover = active && rect.Contains(Event.current.mousePosition);
+            float box = 18 * scale;
+            var square = new Rect(rect.x, rect.y + (rect.height - box) / 2, box, box);
+            try
+            {
+                GUI.enabled = true;
+                GUI.color = ToColor(F6Palette.ButtonBorder, active ? 1 : .65f);
+                GUI.DrawTexture(square, Texture2D.whiteTexture);
+                var fill = value ? F6Palette.Accent : hover ? F6Palette.ButtonHover : F6Palette.Button;
+                GUI.color = ToColor(fill, active ? 1 : .65f);
+                GUI.DrawTexture(new Rect(square.x + 1, square.y + 1, square.width - 2, square.height - 2), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                toggleText.normal.textColor = ToColor(active ? F6Palette.Text : F6Palette.Disabled);
+                GUI.Label(new Rect(rect.x + box + 10 * scale, rect.y, rect.width - box - 10 * scale, rect.height), text, toggleText);
+                GUI.enabled = active;
+                return GUI.Button(rect, "", plain) ? !value : value;
+            }
+            finally { GUI.enabled = prior; GUI.color = priorColor; }
+        }
+
+        private static GUIStyleState[] States(GUIStyle style)
+        {
+            return new[] { style.normal, style.hover, style.active, style.focused, style.onNormal, style.onHover, style.onActive, style.onFocused };
+        }
+
+        private static Color ToColor(F6Color color, float alpha = 1) { return new Color(color.R, color.G, color.B, alpha); }
     }
 }

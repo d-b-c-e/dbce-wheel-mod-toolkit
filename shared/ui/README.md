@@ -97,6 +97,20 @@ Save status separately from transient capture text to Draw, so another capture
 cannot hide a refused Save. Rectangle buttons clear all inherited skin backgrounds
 and draw flat palette normal/hover/pressed/disabled/text states with existing GUI primitives.
 
+Help page members (`Heading`, `Link`, `TextInput`, `Toggle`) serve a host's
+shared problem report (`shared/support`):
+- `Link` is the small underlined repository link (STD-030 October 16), using
+  `F6Metrics.LinkHeight`/`LinkUnderline`. It is as wide as its estimated text and
+  has no button surface. The host opens the URL only when it returns true.
+- `TextInput` is a labeled one-line field or 120-unit area. It uses
+  `GUI.TextField`/`GUI.TextArea`, and shows plain text when disabled.
+- `Toggle` is a flat square plus label, and returns the new value.
+
+They use the same cursor, own plain styles and restore `GUI.enabled`/`GUI.color`.
+Label, Help, Button and the binding panel are unchanged. Hosts check their own
+interop for the IMGUI calls they use, and close text input while the game takes
+typed keys.
+
 First isolated consumer: Truckful F6 source candidate, not built or rendered yet.
 Its production-linked offline fixture lives in that game's `tests/F6Bindings.Offline`.
 The existing Mono widgets and iRacing renderer/pins are unchanged. Missing native
