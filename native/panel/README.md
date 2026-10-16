@@ -38,9 +38,14 @@ Help callback and any issue/report action remain separate.
 The descriptor strings must outlive the panel, as with `modName`. Rebuild and
 vendor the header and implementation together; do not mix compiled Config layouts.
 The existing offline panel-render fixture supplies both URLs for its Help frames,
-without clicking them. Source-only as of October 16: compilation and rendered
-review of this addition remain pending a coordinated affected batch. This does
-not add a report generator, uploader or issue-submission flow.
+without clicking them. On October 16 the first ADRIFT report consumer compiled
+this exact renderer/ordering with its existing DLL target: no reported warnings
+or errors, sole Lua export verified. DLL SHA256
+`BCADDFEE4A1095D524A7B1CF9CFB5698FCCC5A966A6B5FACBA9A74C75A0E58A1`;
+original log `E:/Source/games/.worktrees/mako-adrift-native-report-20261016/build/native-report-20261016.log`.
+The fixture and rendered/browser checks were not run. The link renderer adds no
+report generator, uploader or issue submission; hosts adopt `native/support`
+separately for reviewed report preparation and data-only browser drafts.
 
 ## Limits (2026-10-08)
 
