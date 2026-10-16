@@ -101,3 +101,13 @@ First isolated consumer: Truckful F6 source candidate, not built or rendered yet
 Its production-linked offline fixture lives in that game's `tests/F6Bindings.Offline`.
 The existing Mono widgets and iRacing renderer/pins are unchanged. Missing native
 snapshot exports disable capture; a UI adapter cannot provide those exports.
+
+## Shared binding Save status
+
+BindingSaveStatus.cs is renderer-neutral C#7.3 source. One instance belongs to one
+binding host. Record the actual checked Save result, including access refusals;
+render SaveFailure independently from capture/general messages every frame.
+Successful Save and explicit Discard resolve the warning; a new host starts clear.
+The optional ISharedBindingSaveStatus companion leaves ISharedBindingHost
+compatible. No parser, writer, reader, native/force or file calls are added.
+Vendor the exact helper and MIT license with source commit/hash provenance.

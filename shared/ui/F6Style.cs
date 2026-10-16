@@ -50,6 +50,8 @@ namespace Dbce.Wheel.Ui
         public const float SegmentMinWidth = 56f, TabPadX = 18f, TabPadY = 10f, TabLine = 2f, FocusLine = 1f;
         public const float LabelMinWidth = 200f, EditorMinWidth = 220f, StackBelow = 720f, SliderMinWidth = 120f;
         public const int BodySize = 16, HelpSize = 14, HeadingSize = 20, TitleSize = 22;
+        /// <summary>Small repository text links use help text and no command-button surface.</summary>
+        public const float LinkHeight = 22f, LinkUnderline = 1f;
     }
 
     /// <summary>Where a row's label and editor go for a given body width (Wheelkit's two columns, or stacked).</summary>

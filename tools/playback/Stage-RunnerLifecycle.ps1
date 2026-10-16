@@ -9,6 +9,25 @@ function Resolve-StageFileSystemPath {
     return $full
 }
 
+# A shared append log is not an atomic reply file. Only LF-terminated records
+# are published; the final unterminated tail remains pending in the caller's
+# existing bounded wait. Completed malformed JSON still fails without retry.
+function Read-StageJsonLogReply {
+    param([AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory)][string]$Marker,
+        [Parameter(Mandatory)][string]$RequestId,
+        [Parameter(Mandatory)][string]$StepId)
+    $lastLf = $Text.LastIndexOf([char]10)
+    if ($lastLf -lt 0) { return $null }
+    foreach ($line in $Text.Substring(0, $lastLf).Split([char]10)) {
+        $offset = $line.IndexOf($Marker, [StringComparison]::Ordinal)
+        if ($offset -lt 0) { continue }
+        $reply = $line.Substring($offset + $Marker.Length).Trim() | ConvertFrom-Json -ErrorAction Stop
+        if ($reply.requestId -ceq $RequestId -and $reply.stepId -ceq $StepId) { return $reply }
+    }
+    return $null
+}
+
 function Get-StageProcessSnapshot {
     param([Parameter(Mandatory)][string]$Name)
     foreach ($process in @(Get-Process -Name $Name -ErrorAction SilentlyContinue)) {

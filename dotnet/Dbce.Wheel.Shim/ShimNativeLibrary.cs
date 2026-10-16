@@ -63,6 +63,10 @@ public sealed class ShimNativeLibrary
     /// a consumer's in-game binding capture is unavailable; nothing else changes.</summary>
     public string? SnapshotUnavailable { get; }
 
+    /// <summary>Optional ordinary-only declared-extra transport from this same pinned module.</summary>
+    public ShimExtrasNative? Extras { get; private set; }
+    public string? ExtrasUnavailable { get; private set; }
+
     private ShimNativeLibrary(OpenCall open, Open2Call open2, TickCall tick, RecordCall record,
         TextCall startReport, TextCall devices, TextCall profile, TextCall stop, SnapshotCall? snapshot, string? snapshotUnavailable)
     {
@@ -120,10 +124,14 @@ public sealed class ShimNativeLibrary
                 }
                 catch (InvalidDataException e) { snapshotUnavailable = e.Message; }
             }
-            return new ShimNativeLibrary(Get<OpenCall>("dbce_shim_open"), Get<Open2Call>("dbce_shim_open2"),
+            var library = new ShimNativeLibrary(Get<OpenCall>("dbce_shim_open"), Get<Open2Call>("dbce_shim_open2"),
                 Get<TickCall>("dbce_shim_tick"), Get<RecordCall>("dbce_shim_record"),
                 Get<TextCall>("dbce_shim_start_report"), Get<TextCall>("dbce_shim_device_reports"),
                 Get<TextCall>("dbce_shim_profile_info"), Get<TextCall>("dbce_shim_stop"), snapshot, snapshotUnavailable);
+            library.Extras = ShimExtrasNative.TryBind(export => NativeLibrary.TryGetExport(module, export, out var pointer) ? pointer : IntPtr.Zero,
+                out string? extrasUnavailable);
+            library.ExtrasUnavailable = extrasUnavailable;
+            return library;
         }
         catch { NativeLibrary.Free(module); throw; }
         // On success the module remains loaded for the process. A stop that

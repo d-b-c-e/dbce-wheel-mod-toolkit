@@ -404,6 +404,12 @@ say so and why. Reference: the 2026-10-08 triples-on deployment (DiRT 4, DiRT Ra
 Rally 3 / Origins, OutRun 2006; backups in _archive\2026-10-08\owner-triples-on-*).
 
 ## STD-030 — The F6 panel comes first
+
+October16 presentation clarification: Help repository destinations are small
+underlined text links below the separate issue/report command. Reuse shared
+link metrics/widgets and retain each host's focus/input handling and URLs.
+Changing this presentation does not submit a report or open a link on its own.
+
 2026-10-08 · owner ("for everything that we're working on, let's put the mod menu as a priority - it just makes testing everything else simpler - so lets aim for parity on all in progress items with an F6 menu, even if it doesn't have all the options yet. Also make sure it's in line with the toolkit standards") · applies to: every in-progress game
 
 Before other new features, every in-progress game gets an F6 panel in the standard shape (STD-004:
@@ -656,3 +662,31 @@ silently substituted. Rows with an unavailable-action/profile-mode Note show
 their reason and disable Bind, Clear and Invert. Capture locks and Cancel remain;
 this presentation policy does not replace host admission, capture freshness or
 checked profile Save. Working consumers need no rewrite solely for adoption.
+
+### STD-004 / STD-030 clarification - shared binding Save failures (2026-10-15)
+
+A failed explicit shared-binding Save remains visible independently of capture
+and general settings messages. Clear it only after successful Save, explicit
+Discard, or a new binding host. BindingSaveStatus is the optional renderer-neutral
+helper; ISharedBindingHost remains compatible. Existing independent presentation
+that already meets this behavior needs no migration. No writer or capture policy
+changes follow from adopting this status helper.
+
+### STD-004 / STD-030 clarification - applicable actions and Help (2026-10-15)
+
+Owner UAT direction: use consistent shared binding-row presentation in Wheelkit
+and F6, with readable action/assignment/device text and separators. Show actions
+the installed adapter implements. Omit actions absent from the game and actions
+the adapter explicitly declares it cannot deliver. Keep missing consumers in
+capability records and the work queue; this does not claim the game lacks them.
+A supported action temporarily unavailable because of context, transmission,
+a missing device or a failed adapter stays visible with its reason; hiding it
+must not conceal a runtime failure.
+
+Every mod's Help tab should offer **Submit GitHub Issue**, **Mod on GitHub** and
+**Wheelkit on GitHub**. Reuse one shared report/log preparation implementation
+with small per-game repository/log descriptors, and support installation without
+Wheelkit. The report uses the active version, relevant selected logs and a
+reviewable preview. The user deliberately submits or opens the browser handoff;
+state any required attachment step clearly. These UX changes do not imply new
+input/force semantics or a repeat of already accepted gameplay baselines.
