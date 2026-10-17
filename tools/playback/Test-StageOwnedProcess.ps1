@@ -130,7 +130,11 @@ function Get-CimInstance {
     param([string]$ClassName, [string]$ErrorAction)
     if ($ClassName -cne 'Win32_Process') { throw 'Unexpected census class.' }
     $script:fixtureCimRows
+    $self=[Diagnostics.Process]::GetCurrentProcess()
+    try{$stamp=$self.StartTime.ToUniversalTime();$stamp=[DateTime]::new($stamp.Ticks-($stamp.Ticks%10),[DateTimeKind]::Utc)}finally{$self.Dispose()}
+    [pscustomobject]@{ProcessId=$PID;ParentProcessId=$script:fixtureRunnerParent;CreationDate=$stamp;CommandLine='runner'}
 }
+$fixtureRunnerParent=0
 $owned=Tracked @{100=$root}
 $observeExternal=$null
 $sourceRoot='Z:\synthetic-owned-source'
@@ -149,6 +153,32 @@ $fixtureCimRows=@(
     [pscustomobject]@{ProcessId=200;ParentProcessId=100;CreationDate=(Stamp $child);CommandLine='owned-child'})
 $observed=@(Observe-Owned)
 Assert-Ids @($observed.ProcessId) @(100,200) 'Adapter retains the original true-child contract.'
+
+$fixtureRunnerParent=700
+$owned=Tracked @{100=$root;700=$root}
+$fixtureCimRows=@(
+    [pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine=$sourceRoot},
+    [pscustomobject]@{ProcessId=700;ParentProcessId=600;CreationDate=(Stamp $rootCim);CommandLine=$sourceRoot},
+    [pscustomobject]@{ProcessId=600;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine=$outputRoot},
+    [pscustomobject]@{ProcessId=900;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine=$sourceRoot})
+$observed=@(Observe-Owned)
+Assert-Ids @($observed.ProcessId) @(100,700,900,$PID) 'Only verified runner ancestors are excluded from supplemental text scope; owned ancestry, their retained runner descendant and unrelated matches remain.'
+$fixtureRunnerParent=0
+
+$runner=[pscustomobject]@{processId=300;createdUtc=$grandchild;precision='Tick100ns'}
+$ancestorRows=@((Row 300 200 $grandchild),(Row 200 100 $child),(Row 100 0 $rootCim))
+Assert-Ids @(Get-StageRunnerAncestorIds $runner (Snapshot $ancestorRows)) @(100,200) 'A valid runner chain is verified from the same snapshot.'
+Assert-Ids @(Get-StageRunnerAncestorIds $runner (Snapshot @((Row 300 200 $grandchild),(Row 200 0 $replacement)))) @() 'A parent PID newer than its child is not excluded.'
+Assert-Ids @(Get-StageRunnerAncestorIds $runner (Snapshot @((Row 300 200 $grandchild)))) @() 'An absent parent adds no exclusion.'
+foreach($invalid in @(
+    (Snapshot @((Row 300 200 $grandchild),(Row 200 0 $null))),
+    (Snapshot @((Row 300 200 $grandchild),(Row 200 300 $child))),
+    (Snapshot @((Row 300 0 $grandchild),(Row 300 0 $grandchild))),
+    (Snapshot @((Row 300 0 $null))))) {
+    $refused=$false
+    try{$null=Get-StageRunnerAncestorIds $runner $invalid}catch{$refused=$true}
+    Assert $refused 'Unknown, cyclic or duplicate runner ancestry refuses supplemental exclusion.'
+}
 
 $owned=Tracked @{100=$root}
 $fixtureCimRows=@([pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=$null;CommandLine='unknown'})
