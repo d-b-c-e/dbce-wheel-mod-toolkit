@@ -77,9 +77,39 @@ function Update-StageOwnedProcessLineage {
 # Narrow adaptations: caller timeout, no forced termination (Lola's bounded-wait policy),
 # latch timeout/unknown identity/streams as unsafe, optional exact Steam-game observer.
 # Caller supplies sourceRoot, outputRoot, result and observeExternal (or null).
+function Get-StageRunnerAncestorIds {
+    param([Parameter(Mandatory)]$Runner, [Parameter(Mandatory)]$Snapshot)
+    $same=Get-StageProcessIdentityDisposition -Recorded $Runner -Snapshot $Snapshot
+    if($same.state -cne 'OriginalAlive'){throw 'Runner identity unavailable for supplemental scope.'}
+    $byId=@{}
+    foreach($row in $Snapshot.rows){
+        if($byId.ContainsKey([uint32]$row.processId)){throw 'Duplicate runner ancestry PID.'}
+        $byId[[uint32]$row.processId]=$row
+    }
+    $visited=[Collections.Generic.HashSet[uint32]]::new()
+    $ancestors=[Collections.Generic.List[uint32]]::new()
+    $child=$byId[[uint32]$Runner.processId]
+    [void]$visited.Add([uint32]$Runner.processId)
+    while([uint32]$child.parentProcessId -ne 0){
+        $parentId=[uint32]$child.parentProcessId
+        if(!$visited.Add($parentId)){throw 'Cyclic runner ancestry.'}
+        if(!$byId.ContainsKey($parentId)){break} # An exited ancestor cannot be a live supplemental match.
+        $parent=$byId[$parentId]
+        $before=ConvertTo-StageCreationStamp $parent.createdUtc $parent.precision
+        $after=ConvertTo-StageCreationStamp $child.createdUtc $child.precision
+        if($null -eq $before -or $null -eq $after){throw 'Runner ancestor creation identity unavailable.'}
+        $quantum=[Math]::Max($before.quantum,$after.quantum)
+        if(($before.ticks-($before.ticks%$quantum)) -gt ($after.ticks-($after.ticks%$quantum))){break} # Reused parent PID.
+        $ancestors.Add($parentId)
+        $child=$parent
+    }
+    return $ancestors.ToArray()
+}
+
 $owned = [Collections.Generic.Dictionary[uint32,DateTime]]::new()
 $ownedRoots = [Collections.Generic.List[Diagnostics.Process]]::new()
 $processQuerySafe = $true
+$ownedRunnerIdentity=$null
 function Save-Result {
     [IO.File]::WriteAllText((Join-Path $outputRoot 'result.json'), ($script:result | ConvertTo-Json -Depth 12))
 }
@@ -96,11 +126,17 @@ function Observe-Owned {
                 }
             })
         }
+        if($null -eq $ownedRunnerIdentity){
+            $self=[Diagnostics.Process]::GetCurrentProcess()
+            try{$script:ownedRunnerIdentity=[pscustomobject]@{processId=$PID;createdUtc=$self.StartTime.ToUniversalTime();precision='Tick100ns'}}
+            finally{$self.Dispose()}
+        }
+        $ancestors=@(Get-StageRunnerAncestorIds -Runner $ownedRunnerIdentity -Snapshot $snapshot)
         $observation = Update-StageOwnedProcessLineage -Owned $owned -Snapshot $snapshot
     } catch { $script:processQuerySafe = $false; throw }
     @($rows | Where-Object {
         ($observation.originalAliveProcessIds -contains [uint32]$_.ProcessId) -or
-        ($_.ProcessId -ne $PID -and $_.CommandLine -and
+        ($_.ProcessId -ne $PID -and $_.ProcessId -notin $ancestors -and $_.CommandLine -and
             ($_.CommandLine.IndexOf($sourceRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
              $_.CommandLine.IndexOf($outputRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0))
     })
