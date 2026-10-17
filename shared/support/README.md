@@ -1,5 +1,28 @@
 # Shared problem reports
 
+## PowerShell hosts
+
+`SupportReport.ps1` is a lazy adapter over the exact adjacent `SupportReport.cs`.
+Vendor both files and the toolkit MIT license, with commit and SHA-256 provenance.
+It uses Windows PowerShell 5.1's existing Add-Type compiler; no runtime installation
+or Wheelkit assembly is required. Compilation occurs only on a report action.
+The compiled assembly carries the source fingerprint; repeat import reuses the
+same source, while a conflicting loaded component refuses with a reopen message.
+
+The wrapper adds no redaction, log-reader, export or browser-budget implementation.
+Core owns those rules and returns its immutable PreparedReport directly. Metadata
+and explicitly selected local log paths are host inputs. PowerShell functions
+return browser submission data only; the host handles deliberate browser opening.
+The host must show the redacted Preview and best-effort warning, tie review to
+that snapshot, and explicitly save the one report attachment for long drafts.
+No clipboard, automatic upload, broad support ZIP or automatic log selection is
+added. UNC paths are refused before report IO. UI links/labels remain in each game.
+
+The affected Gravel `Test-SetupUx.ps1 -HelpOnly` fixture qualifies the wrapper and
+inert host actions against Windows PowerShell; existing C# fixtures remain the
+behavioral reference and their unchanged passing results are retained. Source
+preparation alone does not establish compilation or rendered Help acceptance.
+
 Windows C++17 hosts use the source counterpart in
 [`native/support`](../../native/support/README.md), with the same host review,
 selection and browser handoff contract below. It has no managed-runtime or UI
