@@ -138,5 +138,15 @@ fixture-local data, plus focused alternate-text/double-store/float-store/failure
 cases. The fixture links only pure source, not WindowsMonitors, and performs
 no desktop observation or game/device/display action. For a private worktree,
 set TripleScreenToolkitRoot to the existing pinned triple-screen toolkit;
-canonical sibling checkout layout is the default. Qualification is queued
-separately; no new shared pass is claimed by this source note.
+canonical sibling checkout layout is the default.
+
+Qualification, 2026-10-17 (grant 226763): source
+091eef18978f4a67c05577dea24c048855330b42 built for net6.0/C# 10 with nullable and
+warnings as errors, with zero warnings/errors. All 61 retained checks and 14
+adapter-seam checks passed. Original logs and result are in the portfolio hub's
+artifacts/shared-triples-dani-20261017/run-01. Owned processes were quiescent and
+the lease was released at 09:40:48.9164559Z. No consumer build, game, device or
+display action occurred. Ordinary merge c8b67d83ca3648537eae72918ef80886a013ad80
+preserves this qualified source and canonical process-helper source 0d55d5a;
+the eight extraction paths do not overlap that helper change. Consumers still
+qualify their own adapters when they next adopt the shared source.
