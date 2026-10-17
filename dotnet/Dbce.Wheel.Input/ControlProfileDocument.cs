@@ -25,6 +25,7 @@ namespace Dbce.Wheel.Input
         private readonly Dictionary<string, int> positions = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly Dictionary<string, ControlBinding> bindings = new Dictionary<string, ControlBinding>(StringComparer.Ordinal);
         private readonly int sectionEnd;
+        private readonly DeclaredControlExtras? extras;
         public BindingMap Bindings =>
 #if DBCE_INPUT_NET35
             new Dictionary<string, ControlBinding>(bindings, StringComparer.Ordinal);
@@ -36,7 +37,10 @@ namespace Dbce.Wheel.Input
         public string Transmission { get; private set; } = "";
 
         public ControlProfileDocument(string text)
+            : this(text, null) { }
+        public ControlProfileDocument(string text, DeclaredControlExtras? extras)
         {
+            this.extras = extras;
             if (new UTF8Encoding(false, true).GetByteCount(text) > 1024 * 1024 || text.IndexOf('\0') >= 0)
                 throw new InvalidDataException("The shared profile is oversized or contains a null character.");
             string bare = text.Replace("\r\n", "");
@@ -96,6 +100,8 @@ namespace Dbce.Wheel.Input
             if (Transmission != "Automatic" && Transmission != "Sequential" && Transmission != "H-pattern")
                 throw new InvalidDataException("Unsupported shared controls Transmission.");
             sectionEnd = end;
+            if (extras != null)
+                foreach (var pair in new DeclaredExtrasDocument(text, extras).Bindings) bindings.Add(pair.Key, pair.Value);
         }
 
         /// <summary>Only changed action keys and Revision are touched. Null means an explicit Clear.</summary>
@@ -105,8 +111,10 @@ namespace Dbce.Wheel.Input
                 throw new InvalidDataException("Invalid shared controls revision.");
             foreach (char c in revision) if (char.IsControl(c)) throw new InvalidDataException("Invalid shared controls revision.");
             var replacements = new Dictionary<int, string?>(); var added = new List<string>();
+            var extraChanges = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var pair in changes)
             {
+                if (extras != null && extras.Contains(pair.Key)) { extraChanges.Add(pair.Key, pair.Value); continue; }
                 if (ControlBinding.ShapeOf(pair.Key) == ControlShape.Unknown) throw new InvalidDataException("Unknown shared action: " + pair.Key);
                 string? value = pair.Value;
                 if (value != null)
@@ -130,7 +138,8 @@ namespace Dbce.Wheel.Input
                 else output.Add(lines[i]);
             }
             string result = (bom ? "\uFEFF" : "") + string.Join(eol, output.ToArray()) + (finalNewline ? eol : "");
-            var checkedResult = new ControlProfileDocument(result);
+            if (extras != null) result = new DeclaredExtrasDocument(result, extras).Edit(extraChanges, revision);
+            var checkedResult = new ControlProfileDocument(result, extras);
             if (!checkedResult.bindings.ContainsKey("steer")) throw new InvalidDataException("A usable steering binding is required. Nothing was saved.");
             return result;
         }

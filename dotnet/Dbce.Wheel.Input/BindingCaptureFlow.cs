@@ -15,6 +15,7 @@ using CapturedCallback = System.Func<string, Dbce.Wheel.Input.ControlBinding, st
 
 namespace Dbce.Wheel.Input
 {
+    public delegate ControlShape BindingActionShape(string action);
 #if DBCE_INPUT_NET35
     // Domain callbacks avoid the incompatible mscorlib Func reference emitted for old Unity Mono.
     public delegate double BindingClock();
@@ -52,6 +53,7 @@ namespace Dbce.Wheel.Input
     {
         private readonly CaptureClock clock;
         private readonly CapturedCallback captured;
+        private readonly BindingActionShape shape;
         private readonly Dictionary<Guid, AcceptedBindingObservation> devices = new Dictionary<Guid, AcceptedBindingObservation>();
         // Keep sequence watermarks after Remove/stop so an old cached read cannot regain eligibility.
         private readonly Dictionary<Guid, AcceptedBindingObservation> reads = new Dictionary<Guid, AcceptedBindingObservation>();
@@ -76,7 +78,9 @@ namespace Dbce.Wheel.Input
         /// <param name="captured">Commit only to the draft. Null means accepted; a refusal reason means the prior draft
         /// was left unchanged. Validation must precede mutation. The callback is delivered at most once.</param>
         public SharedBindingCaptureFlow(CaptureClock clock, CapturedCallback captured)
-        { this.clock = clock ?? throw new ArgumentNullException(nameof(clock)); this.captured = captured ?? throw new ArgumentNullException(nameof(captured)); }
+            : this(clock, captured, ControlBinding.ShapeOf) { }
+        public SharedBindingCaptureFlow(CaptureClock clock, CapturedCallback captured, BindingActionShape shape)
+        { this.clock = clock ?? throw new ArgumentNullException(nameof(clock)); this.captured = captured ?? throw new ArgumentNullException(nameof(captured)); this.shape = shape ?? throw new ArgumentNullException(nameof(shape)); }
         private bool Fresh(AcceptedBindingObservation value)
         {
             double age = clock() - value.Seen;
@@ -86,10 +90,10 @@ namespace Dbce.Wheel.Input
         {
             Refresh(canEdit);
             if (!canEdit || CapturingAction != null && CapturingAction != action) return false;
-            if (ControlBinding.ShapeOf(action) == ControlShape.Unknown) return false;
+            if (shape(action) == ControlShape.Unknown) return false;
             if (!devices.TryGetValue(instance, out var device) || !Fresh(device))
             { Message = "That saved device is not available for capture. Its prior binding was kept; restart or use standalone setup for new devices."; return false; }
-            if (ControlBinding.ShapeOf(action) == ControlShape.Centred)
+            if (shape(action) == ControlShape.Centred)
             {
                 bool range = false;
                 for (int i = 0; i < device.Sample.Axes.Length; i++) range |= device.Maximum[i] > device.Minimum[i];
@@ -97,7 +101,7 @@ namespace Dbce.Wheel.Input
                 { Message = "This reader has no qualified axis range for steering capture. Its prior binding was kept; use standalone setup."; return false; }
             }
             CapturingAction = action; CaptureDevice = instance; generation = device.Generation;
-            start = clock(); deadline = start + (ControlBinding.ShapeOf(action) == ControlShape.Digital ? 10 : 11);
+            start = clock(); deadline = start + (shape(action) == ControlShape.Digital ? 10 : 11);
             capture = null;
             Message = "Release buttons and hats. Keep an axis released or centered for one second, then move one control.";
             return true;
@@ -143,7 +147,7 @@ namespace Dbce.Wheel.Input
             reads[value.Instance] = value;
             Refresh(canEdit);
             if (CapturingAction == null || CaptureDevice != value.Instance) return true;
-            bool analog = ControlBinding.ShapeOf(CapturingAction) != ControlShape.Digital;
+            bool analog = shape(CapturingAction) != ControlShape.Digital;
             if (analog && clock() - start < 1) return true;
             if (capture == null)
             {
@@ -156,7 +160,7 @@ namespace Dbce.Wheel.Input
             try
             {
                 var kind = (ControlKind)Enum.Parse(typeof(ControlKind), detected.Kind);
-                var binding = ControlBinding.FromCapture(CapturingAction, kind, detected.Index, detected.Direction, detected.Rest,
+                var binding = ControlBinding.FromCapture(shape(CapturingAction), kind, detected.Index, detected.Direction, detected.Rest,
                     value.Instance, value.Product, value.Name, kind == ControlKind.Axis ? value.Minimum[detected.Index] : 0,
                     kind == ControlKind.Axis ? value.Maximum[detected.Index] : 65535);
                 string action = CapturingAction;

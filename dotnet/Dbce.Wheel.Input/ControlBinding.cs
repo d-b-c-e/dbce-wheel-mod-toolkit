@@ -46,13 +46,18 @@ namespace Dbce.Wheel.Input
         /// <summary>Shared capture hosts construct bindings here; the canonical parser checks the result.</summary>
         public static ControlBinding FromCapture(string action, ControlKind kind, int index, int direction, int rest,
             Guid device, Guid product, string name, int minimum = 0, int maximum = 65535)
+            => FromCapture(ShapeOf(action), kind, index, direction, rest, device, product, name, minimum, maximum);
+
+        /// <summary>Capture for an explicitly declared scalar shape; no invented common action identifier.</summary>
+        public static ControlBinding FromCapture(ControlShape shape, ControlKind kind, int index, int direction, int rest,
+            Guid device, Guid product, string name, int minimum = 0, int maximum = 65535)
         {
             var raw = new ControlBinding { Kind = kind, Index = index, Angle = kind == ControlKind.Hat ? direction : -1,
                 Device = device, Product = product, Name = name, Minimum = minimum, Maximum = maximum,
                 Rest = rest, Travel = kind == ControlKind.Axis ? direction : 0 };
             if (device == Guid.Empty || product == Guid.Empty || !TryParse(raw.ToString(), out var result, out var reason) || result == null)
                 throw new ArgumentException("Captured control has no usable canonical binding.");
-            string fit = result.Fits(action);
+            string fit = result.Fits(shape);
             if (fit.Length != 0) throw new ArgumentException(fit);
             return result;
         }
