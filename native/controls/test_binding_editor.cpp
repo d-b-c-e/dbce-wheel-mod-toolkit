@@ -52,7 +52,7 @@ static void draft_and_save(const fs::path& root){
     draft.discard();check(!draft.has_draft(),"discard changes only local draft");
     std::string bad=original;bad.insert(bad.find("Schema = 1"),"SCHEMA = 1\r\n");bool rejected=false;try{(void)e::ProfileDraft(bad,policy);}catch(const std::invalid_argument&){rejected=true;}check(rejected,"duplicate keys refused");
     bad="[Controls]\nSchema = 1\n";bad+="Future = "+std::string(65536-bad.size()-9,'x');rejected=false;try{(void)e::ProfileDraft(bad,policy);}catch(const std::invalid_argument&){rejected=true;}check(!rejected,"exact 64KiB Controls section accepted");bad+='x';rejected=false;try{(void)e::ProfileDraft(bad,policy);}catch(const std::invalid_argument&){rejected=true;}check(rejected,"Controls bound includes its section header");
-    bad=original+char(0xFF);rejected=false;try{(void)e::ProfileDraft(bad,policy);}catch(const std::invalid_argument&){rejected=true;}check(rejected,"invalid UTF8 refused");
+    bad=original+"\xFF";rejected=false;try{(void)e::ProfileDraft(bad,policy);}catch(const std::invalid_argument&){rejected=true;}check(rejected,"invalid UTF8 refused");
     e::ProfileDraft gated(original,policy,true);gated.set("steer",std::nullopt,reason);rejected=false;try{(void)gated.preview("fixture-04");}catch(const std::invalid_argument&){rejected=true;}check(rejected,"explicit optional require-steering policy");
     e::ProfileDraft locked(original,policy);locked.set("steer",std::nullopt,reason);write(file,original);e::store_detail::Handle hold(CreateFileW(file.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,0,nullptr));auto fail=e::save(locked,file,"fixture-05");check(!fail.saved&&!fail.replaced&&locked.has_draft(),"exclusive external lock refuses save");
 }
