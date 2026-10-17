@@ -2,6 +2,9 @@ using System;
 using System.IO;
 using System.Text;
 using Dbce.Wheel.Support;
+#if DBCE_SUPPORT_NET35
+using InvalidDataException = System.IO.IOException;
+#endif
 
 internal static class Program
 {

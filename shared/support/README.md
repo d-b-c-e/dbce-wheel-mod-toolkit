@@ -94,7 +94,8 @@ No attachment query parameter or automatic upload behavior is assumed.
 ## Legacy CLR 2 / .NET 3.5 hosts, October 16
 
 Compile the same source with `DBCE_SUPPORT_NET35` for HCT's legacy host.
-That opt-in uses `IList<string>` for selected log paths, `USERPROFILE` for
+That opt-in uses `IOException` for invalid report data (Unity Mono2 lacks
+`InvalidDataException`), `IList<string>` for selected log paths, `USERPROFILE` for
 home redaction, and a character whitespace check. It uses the legacy regex
 overload on fixed helper patterns with a 50,000-character input bound because
 CLR 2 lacks timeout overloads. Modern builds retain their existing
@@ -115,3 +116,22 @@ recovery closure and a contention-only refusal are preserved in `run-01/02`.
 The passing batch closed all six owned process identities, restored its process
 environment, and released its exact lease at `2026-10-17T00:33:16.9685425Z`.
 These checks do not qualify a rendered HCT Help panel or game behavior.
+
+### Stripped Unity Mono2 follow-up
+
+HCT's actual game System.dll does not define `InvalidDataException`, despite the
+full desktop CLR2/3.5 target above passing. Source `969a1092bfd0930350893ae77e0a74edb568f632`
+uses `IOException` only under `DBCE_SUPPORT_NET35`; modern exception/API behavior
+is unchanged. Exact shared source SHA-256 is
+`16C9F7D0EBAF82C388B958CDC7AA4A453F2922453FA62218AE0DDD3B704FD9C3`.
+
+The same fixture and shared source compiled with warnings as errors against the
+three shipped HCT framework assemblies (mscorlib/System/System.Core). The game's
+existing `Check-Net35Api.ps1` passed its assembly-qualified type/member-name
+checks, then the fixture ran 50 checks under Windows CLR2. This establishes
+shipped-reference compilation and API inspection plus that desktop execution;
+it does not establish Unity game loading or rendered Help behavior.
+Original evidence: hub `artifacts/support-unity35-lola-20261016/run-01`.
+Four owned identities closed and the exact lease released with safe queries,
+quiescent children and environment restoration at `2026-10-17T00:54:07.7451202Z`.
+The earlier desktop passes and game-API failure are retained as distinct results.

@@ -7,6 +7,8 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 #if DBCE_SUPPORT_NET35
+// Unity Mono2 ships a stripped System.dll without InvalidDataException.
+using InvalidDataException = System.IO.IOException;
 using ReportLogPaths = System.Collections.Generic.IList<string>;
 #else
 using ReportLogPaths = System.Collections.Generic.IReadOnlyList<string>;
