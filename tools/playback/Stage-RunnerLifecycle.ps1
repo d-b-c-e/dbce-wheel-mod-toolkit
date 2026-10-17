@@ -28,6 +28,62 @@ function Read-StageJsonLogReply {
     return $null
 }
 
+# A live status publisher replaces its file. Readers must permit deletion of
+# their old handle; StreamReader disposal closes that handle on every path.
+function Read-StageSharedText {
+    param([Parameter(Mandatory)][string]$Path, [ValidateRange(1,16777216)][int]$MaximumBytes=1048576)
+    $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try {
+        if($stream.Length -gt $MaximumBytes){throw [IO.InvalidDataException]::new('Shared text exceeds its size limit.')}
+        $reader=[IO.StreamReader]::new($stream,[Text.Encoding]::UTF8,$true,1024,$true)
+        try {
+            $text=$reader.ReadToEnd()
+            if([Text.Encoding]::UTF8.GetByteCount($text) -gt $MaximumBytes){throw [IO.InvalidDataException]::new('Shared text grew past its size limit.')}
+            return $text
+        } finally {$reader.Dispose()}
+    } finally {$stream.Dispose()}
+}
+
+# One publisher, one owned status path. Retry only Windows sharing/lock errors
+# (Windows may map a reader denying delete to access-denied/5), within BOTH the
+# caller's existing phase deadline and this short per-publication retry cap.
+# A persistent access denial still fails; there is no alternate replace route.
+function Write-StageAtomicText {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory)][DateTime]$DeadlineUtc,
+        [ValidateRange(0,1000)][int]$RetryMilliseconds=250)
+    $fullPath=[IO.Path]::GetFullPath($Path)
+    if((Test-Path -LiteralPath $fullPath) -and ((Get-Item -LiteralPath $fullPath -Force).Attributes -band ([IO.FileAttributes]::ReparsePoint -bor [IO.FileAttributes]::Directory))){throw 'Atomic text target must be an ordinary file.'}
+    $temp=$fullPath+'.tmp.'+[guid]::NewGuid().ToString('N')
+    $timer=[Diagnostics.Stopwatch]::StartNew();$attempts=0;$lastFailure=$null;$created=$false
+    try {
+        $bytes=[Text.UTF8Encoding]::new($false).GetBytes($Text)
+        $stream=[IO.File]::Open($temp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        $created=$true
+        try {$stream.Write($bytes,0,$bytes.Length)} finally {$stream.Dispose()}
+        do {
+            if($attempts -gt 0 -and ([DateTime]::UtcNow -ge $DeadlineUtc.ToUniversalTime() -or $timer.ElapsedMilliseconds -ge $RetryMilliseconds)){throw $lastFailure}
+            $attempts++
+            try {
+                # Move-overwrite can fail even with delete-sharing readers.
+                # Replace is the existing-file operation; first publication
+                # uses create-only Move. Neither falls back after a refusal.
+                if([IO.File]::Exists($fullPath)){[IO.File]::Replace($temp,$fullPath,[NullString]::Value)}
+                else {[IO.File]::Move($temp,$fullPath)}
+                return [pscustomobject]@{attempts=$attempts;retries=$attempts-1;elapsedMilliseconds=$timer.ElapsedMilliseconds}
+            } catch {
+                $lastFailure=$_;$cause=$_.Exception.GetBaseException();$code=$cause.HResult -band 65535
+                $remaining=[Math]::Min($RetryMilliseconds-$timer.ElapsedMilliseconds,($DeadlineUtc.ToUniversalTime()-[DateTime]::UtcNow).TotalMilliseconds)
+                if(($cause -isnot [IO.IOException] -and $cause -isnot [UnauthorizedAccessException]) -or $code -notin @(5,32,33) -or $remaining -lt 1){throw}
+                Start-Sleep -Milliseconds ([int][Math]::Min(10,[Math]::Floor($remaining)))
+            }
+        } while($true)
+    } finally {
+        # Only this invocation's unique CreateNew temporary file is owned.
+        if($created -and [IO.File]::Exists($temp)){[IO.File]::Delete($temp)}
+    }
+}
+
 function Get-StageProcessSnapshot {
     param([Parameter(Mandatory)][string]$Name)
     foreach ($process in @(Get-Process -Name $Name -ErrorAction SilentlyContinue)) {
