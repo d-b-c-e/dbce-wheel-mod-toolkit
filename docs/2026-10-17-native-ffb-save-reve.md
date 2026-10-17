@@ -26,16 +26,27 @@ copies and packages belong to Mubi and are untouched. Future adoption needs
 the layer CPP/header plus the narrow shared-panel F8 ordering change; it does
 not require blanket vendoring or new configuration keys.
 
-Qualification pending: existing `test_layer.cpp`, x64 and x86 MSVC `/W4 /WX`.
+Qualification PASS: existing `test_layer.cpp`, x64 and x86 MSVC `/W4 /WX`,
+128 checks per architecture (256 total). Both product compiles have no warnings;
+the existing recipe compiles third-party ImGui separately at `/W0`.
 New checks exercise successful and failed real private INI writes through the
 production handlers, recording fake effect starts/stops/gain, memory-only
 behavior, post-failure game Start/autocenter blocking, retry, clamping and mute.
 CPU-only ImGui text emission checks that the actual F8 path retains the error.
 This creates no renderer, window, GPU context or real DirectInput device.
 
-Kobe request240124 queued, not granted (ack240154). Exact prepared hub runner:
-`artifacts/native-ffb-save-reve-20261017/Run-01.ps1`; four-minute exclusive build
-and cleanup cap using existing rig-lease/owned-process helpers. No heavy compile
-has run. No game, UI, input, device, owner install or runtime qualification is
-authorized here; actual rendered UI/physical force and downstream adoption remain
-separate gates. No current process/lease/restore custody.
+Kobe request240124 was queued (ack240154), then granted by240300 after Mubi's
+release. Exact hub runner `artifacts/native-ffb-save-reve-20261017/Run-01.ps1`
+ran against clean docs HEAD `d900cb6058a0a80c3c29d4907067f8ee2ff64609`.
+Lease entry 2026-10-17T23:34:09.017Z; actual release 23:34:31.548Z, 22.5 seconds
+within the four-minute build/cleanup cap. Existing owned-process census reports
+12 tracked identities, no remaining scoped children, query safe, quiescent, exact
+lease released and literal absence. Both fixture runs verified private INI/temp
+directory removal. Compiler environments were confined to exited child command
+processes; no global environment change or owner files needed restoration.
+
+Evidence: hub `artifacts/native-ffb-save-reve-20261017/run-01/result.json` and
+`layer.stdout.log` (both PASS markers), empty `layer.stderr.log`. No game, UI,
+input, real device, owner install or runtime qualification was performed. Actual
+rendered UI/physical force and downstream adoption remain separate gates.
+No current process/lease/restore custody. Frozen Mubi candidates remain untouched.
