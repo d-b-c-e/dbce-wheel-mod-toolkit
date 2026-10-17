@@ -573,11 +573,16 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
     return hr;
 }
 
-void saveIni(const char *key, const char *value)
+bool saveIni(const char *key, const char *value, const char *failure = "Settings could not be saved")
 {
-    if (!g_opt.iniPath) return;
-    if (WritePrivateProfileStringA("FFB", key, value, g_opt.iniPath)) dbce::panel::NoteSaved(true);
-    else { dbce::panel::NoteSaved(false, "Settings could not be saved"); dlog("ffb: could not save [FFB] %s (%lu)", key, GetLastError()); }
+    if (!g_opt.iniPath) return true;   // explicitly memory-only: no persistence is requested
+    if (WritePrivateProfileStringA("FFB", key, value, g_opt.iniPath)) {
+        dbce::panel::NoteSaved(true);
+        return true;
+    }
+    dbce::panel::NoteSaved(false, failure);
+    dlog("ffb: could not save [FFB] %s (%lu)", key, GetLastError());
+    return false;
 }
 } // namespace
 
@@ -687,30 +692,32 @@ int Strength() { return g_strength; }
 void SetOn(bool on)
 {
     ensure();
+    // Enabling must be confirmed before forces resume. Off is a safety action: block and stop first,
+    // then attempt persistence; a failed write must never restore the previous enabled state.
+    if (on && !saveIni("Enabled", "1")) return;
     InterlockedExchange(&g_on, on ? 1 : 0);
-    saveIni("Enabled", on ? "1" : "0");
     struct Item { IDirectInputEffect *eff; DWORD iterations; bool running; } items[32];
     int n = 0;
     EnterCriticalSection(&g_cs);
     for (int i = 0; i < g_effCount; ++i) if (g_effs[i].eff) items[n++] = {(IDirectInputEffect *)g_effs[i].eff, g_effs[i].iterations, g_effs[i].running};
     LeaveCriticalSection(&g_cs);
     dlog("ffb: %s from the F6 panel (%d effects)%s", on ? "on" : "off", n, g_opt.mute ? "; the test switch keeps forces muted" : "");
-    if (g_opt.mute) return;
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; !g_opt.mute && i < n; ++i) {
         if (!on) ((NoArgFn)orig(H_E_STOP, items[i].eff))(items[i].eff);
         else if (items[i].running) ((StartFn)orig(H_E_START, items[i].eff))(items[i].eff, items[i].iterations ? items[i].iterations : 1, 0);
     }
-    if (!on && g_wheelDev) ((SendFfFn)orig(H_SENDFF, g_wheelDev))(g_wheelDev, DISFFC_STOPALL);
+    if (!g_opt.mute && !on && g_wheelDev) ((SendFfFn)orig(H_SENDFF, g_wheelDev))(g_wheelDev, DISFFC_STOPALL);
+    if (!on) saveIni("Enabled", "0", "FFB stopped; Off could not be saved");
 }
 
 void SetStrength(int percent)
 {
     ensure();
     percent = (std::min)(100, (std::max)(0, percent));
-    InterlockedExchange(&g_strength, percent);
     char v[16];
     sprintf_s(v, "%d", percent);
-    saveIni("Strength", v);
+    if (!saveIni("Strength", v)) return;
+    InterlockedExchange(&g_strength, percent);
     struct Item { IDirectInputEffect *eff; Kind kind; TypeParams params; DWORD bytes; DWORD gain; } items[32];
     int n = 0;
     EnterCriticalSection(&g_cs);

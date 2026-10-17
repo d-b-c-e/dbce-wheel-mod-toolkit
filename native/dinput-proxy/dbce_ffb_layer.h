@@ -36,6 +36,8 @@ void HookDirectInput(void *directInput8);
 void HookDevice(void *device);
 
 bool On();
+// Enable and Strength apply only after a successful save (or immediately when iniPath is null).
+// Off always blocks/stops first, even if saving fails; On() then stays false and the panel reports unsaved Off.
 void SetOn(bool on);
 int Strength();
 void SetStrength(int percent);

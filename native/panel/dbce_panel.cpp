@@ -119,8 +119,8 @@ bool StopFfbAvailable() { return g_cfg.ffbOn && g_cfg.stopFfb; }
 void StopFfbFromKey()
 {
     if (!StopFfbAvailable() || !g_cfg.ffbOn()) return;
-    g_cfg.stopFfb();
     NoteSaved(true, "FFB stopped");
+    g_cfg.stopFfb();   // callback persistence feedback, especially failure, takes precedence
     logf("panel: F8 stopped force feedback");
 }
 bool Advanced() { return g_advanced; }

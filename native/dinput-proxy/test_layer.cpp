@@ -5,6 +5,9 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include "dbce_ffb_layer.h"
 #include "dbce_shape_state.hpp"
+#include "../panel/dbce_panel.h"
+#include "../third_party/imgui/imgui.h"
+#include "../third_party/imgui/imgui_internal.h"
 #include <cstring>
 #include <iostream>
 #include <vector>
@@ -19,10 +22,35 @@ static int g_live;   // fake devices alive
 // Same-address reuse: while g_parkFrees is set, a deleted fake's block is parked and the next new FakeDevice gets it.
 static void *g_parked;
 static bool g_parkFrees;
+struct FakeEffect : IDirectInputEffect {
+    LONG refs = 1;
+    int starts = 0, stops = 0, updates = 0;
+    DWORD iterations = 0;
+    LONG magnitude = 0;
+    STDMETHODIMP QueryInterface(REFIID, LPVOID *o) override { if (o) *o = this; return S_OK; }
+    STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)++refs; }
+    STDMETHODIMP_(ULONG) Release() override { return (ULONG)--refs; }
+    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return DI_OK; }
+    STDMETHODIMP GetEffectGuid(LPGUID) override { return DI_OK; }
+    STDMETHODIMP GetParameters(LPDIEFFECT, DWORD) override { return DI_OK; }
+    STDMETHODIMP SetParameters(LPCDIEFFECT e, DWORD) override {
+        ++updates;
+        if (e && e->lpvTypeSpecificParams) magnitude = ((const DICONSTANTFORCE *)e->lpvTypeSpecificParams)->lMagnitude;
+        return DI_OK;
+    }
+    STDMETHODIMP Start(DWORD n, DWORD) override { ++starts; iterations = n; return DI_OK; }
+    STDMETHODIMP Stop() override { ++stops; return DI_OK; }
+    STDMETHODIMP GetEffectStatus(LPDWORD) override { return DI_OK; }
+    STDMETHODIMP Download() override { return DI_OK; }
+    STDMETHODIMP Unload() override { return DI_OK; }
+    STDMETHODIMP Escape(LPDIEFFESCAPE) override { return DI_OK; }
+};
 struct FakeDevice : IDirectInputDevice8A {
     LONG refs = 1;
     GUID inst;
     bool infoFails = false, rangeFails = false;
+    FakeEffect *effect = nullptr;
+    int stopAll = 0, properties = 0;
     LONG rz = 1743;   // the pedal's raw sample (the game's range is 0..65535 here)
     void (*onFinalRelease)() = nullptr;   // runs after the object is gone, before Release returns
     explicit FakeDevice(const GUID &g) : inst(g) { ++g_live; }
@@ -42,7 +70,7 @@ struct FakeDevice : IDirectInputDevice8A {
         }
         return DI_OK;
     }
-    STDMETHODIMP SetProperty(REFGUID, LPCDIPROPHEADER) override { return DI_OK; }
+    STDMETHODIMP SetProperty(REFGUID, LPCDIPROPHEADER) override { ++properties; return DI_OK; }
     STDMETHODIMP Acquire() override { return DI_OK; }
     STDMETHODIMP Unacquire() override { return DI_OK; }
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID d) override
@@ -66,11 +94,11 @@ struct FakeDevice : IDirectInputDevice8A {
     }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { return DI_OK; }
     STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return DI_OK; }
-    STDMETHODIMP CreateEffect(REFGUID, LPCDIEFFECT, LPDIRECTINPUTEFFECT *e, LPUNKNOWN) override { if (e) *e = nullptr; return DIERR_UNSUPPORTED; }
+    STDMETHODIMP CreateEffect(REFGUID, LPCDIEFFECT, LPDIRECTINPUTEFFECT *e, LPUNKNOWN) override { if (e) *e = effect; return effect ? DI_OK : DIERR_UNSUPPORTED; }
     STDMETHODIMP EnumEffects(LPDIENUMEFFECTSCALLBACKA, LPVOID, DWORD) override { return DI_OK; }
     STDMETHODIMP GetEffectInfo(LPDIEFFECTINFOA, REFGUID) override { return DI_OK; }
     STDMETHODIMP GetForceFeedbackState(LPDWORD) override { return DI_OK; }
-    STDMETHODIMP SendForceFeedbackCommand(DWORD) override { return DI_OK; }
+    STDMETHODIMP SendForceFeedbackCommand(DWORD cmd) override { if (cmd == DISFFC_STOPALL) ++stopAll; return DI_OK; }
     STDMETHODIMP EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK, LPVOID, DWORD) override { return DI_OK; }
     STDMETHODIMP Escape(LPDIEFFESCAPE) override { return DI_OK; }
     STDMETHODIMP Poll() override { return DI_OK; }
@@ -109,6 +137,124 @@ struct FakeInput : IDirectInput8A {
 static const GUID kWheel = {0x000000a1, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
 static const GUID kOther = {0x000000b2, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
 static const GUID kAskedFor = {0x0006346e, 0, 0, {0, 0, 0x50, 0x49, 0x44, 0x56, 0x49, 0x44}};   // a product GUID, as some games pass
+
+// ImGui text emission only: no renderer, window, GPU, OS input or device. Exercise the actual panel note path.
+static std::string panelText()
+{
+    ImGui::NewFrame();
+    ImGui::LogToBuffer();
+    dbce::panel::Draw(1920, 1080);
+    const std::string text = ImGui::GetCurrentContext()->LogBuffer.c_str();
+    ImGui::LogFinish();
+    ImGui::Render();
+    return text;
+}
+
+static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
+{
+    auto *fake = static_cast<FakeDevice *>(dev);
+    FakeEffect effect;
+    fake->effect = &effect;
+    o.mute = false;
+    o.gainEmulation = true;
+    dbce::ffb::Init(o);   // start the focused memory-only scenario with the existing fake device
+    DICONSTANTFORCE force{2000};
+    DIEFFECT params{};
+    params.dwSize = sizeof params;
+    params.dwGain = DI_FFNOMINALMAX;
+    params.cbTypeSpecificParams = sizeof force;
+    params.lpvTypeSpecificParams = &force;
+    IDirectInputEffect *eff = nullptr;
+    check(dev->CreateEffect(GUID_ConstantForce, &params, &eff, nullptr) == DI_OK && eff, "recording fake effect created through production hook");
+    if (!eff) return;
+    dbce::ffb::SetOn(false);
+    eff->Start(7, 0);   // the game's request is remembered, but cannot reach the fake while Off
+    check(effect.starts == 0 && !dbce::ffb::On(), "Off blocks game Start");
+    dbce::ffb::SetOn(true);
+    dbce::ffb::SetStrength(75);
+    check(dbce::ffb::On() && effect.starts == 1 && effect.iterations == 7, "memory-only enable resumes the game's requested iterations");
+    check(dbce::ffb::Strength() == 75 && effect.magnitude == 3000, "memory-only strength preserves gain law");
+
+    char temp[MAX_PATH], root[MAX_PATH];
+    const bool tempOk = GetTempPathA(MAX_PATH, temp) && GetTempFileNameA(temp, "dbf", 0, root);
+    check(tempOk, "private temp path created");
+    if (!tempOk) { eff->Release(); return; }
+    const bool rootOk = DeleteFileA(root) && CreateDirectoryA(root, nullptr);
+    check(rootOk, "private temp directory created");
+    if (!rootOk) { eff->Release(); return; }
+    const std::string good = std::string(root) + "\\settings.ini";
+    const std::string bad = std::string(root) + "\\blocked.ini";
+    check(CreateDirectoryA(bad.c_str(), nullptr) != FALSE, "save-failure target is a directory");
+    check(WritePrivateProfileStringA("FFB", "Strength", "50", good.c_str()) != FALSE, "baseline INI created");
+    char ini[MAX_PATH];
+    strcpy_s(ini, good.c_str());
+    o.iniPath = ini;
+    dbce::ffb::Init(o);
+    dbce::ffb::SetStrength(60);
+    check(dbce::ffb::Strength() == 60 && effect.magnitude == 2400 && GetPrivateProfileIntA("FFB", "Strength", 0, ini) == 60, "successful strength save applies and persists exact gain");
+    dbce::ffb::SetOn(false);
+    check(!dbce::ffb::On() && GetPrivateProfileIntA("FFB", "Enabled", 1, ini) == 0, "successful Off stops and persists");
+
+    strcpy_s(ini, bad.c_str());   // same options pointer, genuine Win32 profile-write failure
+    const int starts = effect.starts, updates = effect.updates;
+    dbce::ffb::SetOn(true);
+    dbce::ffb::SetStrength(100);
+    check(!dbce::ffb::On() && effect.starts == starts, "failed enable stays Off and never starts an effect");
+    check(dbce::ffb::Strength() == 60 && effect.updates == updates && effect.magnitude == 2400, "failed strength retains last-confirmed value and sends no gain update");
+    check(GetPrivateProfileIntA("FFB", "Enabled", 1, good.c_str()) == 0 && GetPrivateProfileIntA("FFB", "Strength", 0, good.c_str()) == 60, "failed writes leave confirmed INI untouched");
+
+    strcpy_s(ini, good.c_str());
+    dbce::ffb::SetOn(true);
+    check(dbce::ffb::On() && effect.starts == starts + 1 && effect.iterations == 7 && GetPrivateProfileIntA("FFB", "Enabled", 0, ini) == 1, "retry enable persists and resumes the game request");
+    strcpy_s(ini, bad.c_str());
+    const int stops = effect.stops, stopAll = fake->stopAll;
+    dbce::panel::Config c;
+    c.ffbOn = dbce::ffb::On;
+    c.stopFfb = [] { dbce::ffb::SetOn(false); };
+    dbce::panel::Configure(c);
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(1920, 1080);
+    dbce::panel::Prepare(1920, 1080);
+    dbce::panel::BuildFonts();
+    unsigned char *pixels; int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    dbce::panel::SetOpen(true);
+    panelText();   // settle initial window visibility before capturing text
+    dbce::panel::StopFfbFromKey();
+    check(!dbce::ffb::On() && effect.stops == stops + 1 && fake->stopAll == stopAll + 1, "F8 stops immediately despite failed persistence");
+    check(panelText().find("FFB stopped; Off could not be saved") != std::string::npos, "F8 preserves stopped-but-not-saved panel feedback");
+    check(GetPrivateProfileIntA("FFB", "Enabled", 0, good.c_str()) == 1, "failed Off leaves disk enabled but live state safely Off");
+    eff->Start(3, 0);
+    check(effect.starts == starts + 1, "game Start remains blocked after failed Off save");
+    DIPROPDWORD spring{};
+    spring.diph.dwSize = sizeof spring;
+    spring.diph.dwHeaderSize = sizeof spring.diph;
+    spring.dwData = DIPROPAUTOCENTER_ON;
+    const int properties = fake->properties;
+    dev->SetProperty(DIPROP_AUTOCENTER, &spring.diph);
+    check(fake->properties == properties, "autocenter remains blocked after failed Off save");
+    strcpy_s(ini, good.c_str());
+    dbce::ffb::SetOn(false);
+    check(GetPrivateProfileIntA("FFB", "Enabled", 1, ini) == 0 && panelText().find("Off could not be saved") == std::string::npos, "successful Off retry clears failure and persists without enabling");
+    dbce::ffb::SetStrength(150);
+    check(dbce::ffb::Strength() == 100 && effect.magnitude == 4000, "successful strength still clamps at 100");
+    o.mute = true;
+    dbce::ffb::Init(o);
+    const int mutedStarts = effect.starts, mutedStops = effect.stops, mutedStopAll = fake->stopAll;
+    dbce::ffb::SetOn(true);
+    dbce::ffb::SetOn(false);
+    check(effect.starts == mutedStarts && effect.stops == mutedStops && fake->stopAll == mutedStopAll, "mute preserves existing no-device-call enable/Off behavior");
+    dbce::panel::SetOpen(false);
+    ImGui::DestroyContext();
+    eff->Release();
+    fake->effect = nullptr;
+    o.iniPath = nullptr;
+    dbce::ffb::Init(o);   // no dangling options pointer after this fixture
+    WritePrivateProfileStringA(nullptr, nullptr, nullptr, good.c_str());
+    check(DeleteFileA(good.c_str()) && RemoveDirectoryA(bad.c_str()) && RemoveDirectoryA(root), "private INI and directories removed");
+}
 
 int main()
 {
@@ -225,6 +371,7 @@ int main()
         s_next->Release();
     }
 
+    saveStateChecks(dev, o);
     dev->Release();
     check(g_live == 0, "every fake device was released (" + std::to_string(g_live) + " left)");
     if (g_fail) { std::cerr << g_fail << " of " << g_checks << " layer checks failed\n"; return 1; }
