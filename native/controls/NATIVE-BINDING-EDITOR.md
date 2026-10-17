@@ -22,7 +22,10 @@ Include `dbce_binding_editor.hpp`; Windows explicit Save additionally includes
    epoch/read sequence, local observation time, masks, raw state and ranges.
    Missing/stale/ended/closed/unknown input calls `remove` or `reader_stopped`.
    No accepted snapshot means capture unavailable. Only already-opened devices
-   can be offered; there is no new-device discovery route here.
+   can be offered; there is no new-device discovery route here. A first device
+   comes from shim extension 4 (`dbce_shim_candidate.h`): the host lists and
+   selects it explicitly, then admits the candidate snapshot the same way and
+   passes it here as one more observation. This header is unchanged.
 3. `CaptureFlow.observe(o, now, canEdit)` accepts new observations; `devices(now)`
    lists fresh targets. `begin(action, instance, now, canEdit)` starts one bounded
    capture. Call `refresh(now, canEdit)` before drawing. Digital capture has a

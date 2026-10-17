@@ -91,8 +91,8 @@ can be captured without a second reader (sana 124000, for DRIVE). `dbce_shim_sna
   - An invalid read carries the initial values only: axes 0, buttons up, POVs centred.
 - **`ended`** comes from the table, never from the calls: the device row no longer has that read's epoch open. A
   pending read past Core's limit ends its epoch while its call still says `PENDING`.
-- **Limit.** Only devices the profile binds are read, since Core opens no other. A new device still needs the
-  profile written first.
+- **Limit.** Only devices the profile binds are read, since Core opens no other. A first device comes through
+  extension 4's explicit candidate instead.
 
 `test_shim_snapshot` runs on both architectures with fake COM. It checks:
 - zero added device calls across repeated snapshots;
@@ -103,6 +103,66 @@ can be captured without a second reader (sana 124000, for DRIVE). `dbce_shim_sna
 
 On x64 it also checks a capture handle and the latched and bridge refusals. With the DLL path it checks the three
 exports.
+
+## First-device capture candidate (extension 4, additive)
+
+Extension 3 can only offer devices the profile binds, so an all-unbound profile gives an in-game editor nothing to
+capture. Extension 4 lets the editor bind a first device without external setup (sana 213587). It reads one explicitly
+selected controller beside Core, through the same provider and tick. `dbce_shim_candidate.h` declares six exports:
+
+- `dbce_shim_candidate_abi_version`
+- `dbce_shim_candidate_list`
+- `dbce_shim_candidate_select`
+- `dbce_shim_candidate_release`
+- `dbce_shim_candidate_report`
+- `dbce_shim_candidate_snapshot`
+
+- **Unchanged:** ABI 2 and its frame, extensions 1 to 3 and every existing export.
+  - Core's device table stays the profile's, and Core never resolves an action from the candidate.
+  - Extension 3's rows and counts never include it, so a strict extension 3 consumer is unaffected.
+  - The candidate never enters the journal or the recorder.
+- **Explicit.** No listing or open happens before `dbce_shim_candidate_list` or `dbce_shim_candidate_select`. Both only
+  queue a request for the host's existing provider worker (`shim/candidate.hpp`, serviced from the same worker loop as
+  `Core::service_devices`). The listing and the open results reach the owner thread at its next tick.
+- **One reader.** The worker lists and opens through the host's own provider, never a force front. The DirectInput
+  provider opens background and non-exclusive, and makes no force-feedback call.
+  - The open is checked like Core's: attached, the product as listed, the identity read back from the new handle, and
+    unreadable ranges marked.
+  - The owner thread reads an open candidate once per successful ordinary tick, after Core.
+- **Selection.** One candidate at a time; a new select replaces it. Malformed GUID text gives `BAD_ARGUMENT`. An
+  instance in Core's table gives `REFUSED`, because extension 3 already offers it. `why` names the reason.
+- **Report.** The report is JSON as of the last tick:
+  - the listing: `seq`, `pending`, and the devices with instance, product, name and a `bound` flag;
+  - the candidate: `state` (none, opening, open, lost or refused), identity, interface path, epoch, `opened` and the
+    reason.
+- **Snapshot.** The snapshot uses extension 3's structs and capacity rules for the tick that returned `frame_seq`;
+  any other seq gives `STALE`.
+  - Zero or one device row, at index 0, with `OPENED`, `PATH` and the masks and ranges only while open.
+  - Zero or one read: the epoch, `device_seq`, both calls, `valid`, `stale` (always 0, since it was read this frame),
+    `ended` and the raw state.
+  - `boundary_us` is the read's end.
+  - The getter makes no device call and reads no clock.
+- **Lifetime.** Any of these releases the candidate:
+  - `dbce_shim_candidate_release`;
+  - a read that ends its epoch: gone, acquisition lost, or pending past 1 s. There is no reacquisition; it reports
+    `lost` until selected again;
+  - 2 s of ticks with no matching `dbce_shim_candidate_snapshot` call;
+  - `dbce_shim_stop`, through the existing provider shutdown, which releases any handle still open.
+
+  The worker closes released handles, and a late open result of a replaced or released selection is closed unused.
+- **Handles.** Ordinary only, as extension 3: latched and bridge handles get `REFUSED`. Owner thread only. Present on
+  x86 too.
+
+`test_shim_candidate` runs on both architectures. It checks:
+- the pure `Candidate` over the scripted provider: inert passes, the listing, the refusals, the open and its raw read,
+  one read per tick, the 2 s bound, replacement, early and late release, loss without reacquisition, the pending limit,
+  and the worker's own refusals (detached, wrong product, an identity change during the open);
+- the C ABI over fake COM: nothing listed or opened for an all-unbound profile until asked, owner-thread and GUID
+  refusals, the row and read against the fake's script, no Core sample or action and no extension 3 row from the
+  candidate, a release, an unplug, a stop with the candidate open (no force call, DirectInput released), and a bound
+  profile's refusal and `bound` flag with a second device as the candidate.
+
+On x64 it also checks the latched and bridge refusals. With the DLL path it checks the six exports.
 
 ## x86 build: ordinary only
 
@@ -123,6 +183,7 @@ frame recorder are not compiled in (`shim/ordinary_only.hpp`, `DBCE_SHIM_ORDINAR
 | `dbce_shim_open_args` | 80 bytes, which `dbce_shim_open_args_size()` reports. The 128-byte struct is x64's; nothing on x86 accepts it. |
 | `dbce_shim_frame`, `dbce_shim_action`, bridge structs | Identical to x64 (296, 8, 144 and 232 bytes, with the same offsets). |
 | `dbce_shim_snapshot` (extension 3) | As on x64, for ordinary handles. Its header, device and read structs are 56, 192 and 224 bytes, with the same offsets. |
+| `dbce_shim_candidate_*` (extension 4) | As on x64, for ordinary handles, with extension 3's structs. |
 
 `test_shim`, `test_dinput_provider` and `test_provider_host` run their ordinary cases on x86. `test_shim_abi` runs
 the ordinary cases plus the x86 refusals, and checks the built DLL's exports, its `open_args` size and its open2

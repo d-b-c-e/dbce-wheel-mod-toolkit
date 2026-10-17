@@ -43,6 +43,7 @@ Invoke-Step 'test_dinput_provider' "`"$clang`" $common $win $inc tests\test_dinp
 Invoke-Step 'test_provider_host' "`"$clang`" $common /WX $win $inc tests\test_provider_host.cpp shim\core.cpp shim\parse.cpp shim\dinput_provider.cpp /Fo{obj} /Fe`"$dir\test_provider_host.exe`" /link $libs && `"$dir\test_provider_host.exe`""
 Invoke-Step 'test_shim_abi'"`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_abi.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_abi.exe`" /link $libs && `"$dir\test_shim_abi.exe`" `"$dll`""
 Invoke-Step 'test_shim_snapshot' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_snapshot.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_snapshot.exe`" /link $libs && `"$dir\test_shim_snapshot.exe`" `"$dll`""
+Invoke-Step 'test_shim_candidate' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_candidate.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_candidate.exe`" /link $libs && `"$dir\test_shim_candidate.exe`" `"$dll`""
 if ($Arch -eq 'x64') { Invoke-Step 'test_shim_bridge' "`"$clang`" $common /WX $win /D DBCE_SHIM_BUILD $inc tests\test_shim_bridge.cpp $dllSources /Fo{obj} /Fe`"$dir\test_shim_bridge.exe`" /link $libs && `"$dir\test_shim_bridge.exe`"" }
 else { 'test_shim_bridge: x64 only (on x86 the bridge open refuses; test_shim_abi checks that)' }
 
@@ -59,14 +60,14 @@ if ($missing.Count) { throw "the import listing lacks expected Windows imports (
 if ($Arch -eq 'x86' -and $deps -contains 'bcrypt.dll') { throw "the x86 ordinary-only DLL imports bcrypt.dll, the capture recorder's: got '$($deps -join ', ')'" }
 $crtDlls = @($deps | Where-Object { $_ -match '^(VCRUNTIME|MSVCP|api-ms-win-crt-|ucrtbase)' })
 if ($Crt -eq 'MT' -and $crtDlls.Count) { throw "a static-CRT build imports the C runtime: $($crtDlls -join ', ')" }
-# The machine, and the export names against every DBCE_SHIM_API declaration in the four headers: none missing, none
+# The machine, and the export names against every DBCE_SHIM_API declaration in the five headers: none missing, none
 # extra, so a decorated name (_name, name@N) fails as both.
 $info = cmd /c "`"$vcvars`" >nul && dumpbin /nologo /headers /exports `"$dll`"" 2>&1
 if ($LASTEXITCODE) { $info | Select-Object -Last 10; throw "dumpbin failed (exit $LASTEXITCODE): the headers and exports were not inspected" }
 $machine = if ($Arch -eq 'x86') { '14C machine (x86)' } else { '8664 machine (x64)' }
 if (-not @($info | Where-Object { "$_".Trim() -ceq $machine }).Count) { throw "the DLL's header has no '$machine' line" }
 $exports = @($info | ForEach-Object { if ("$_" -cmatch '^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]{8}\s+(\S+)\s*$') { $Matches[1] } })
-$declared = @(foreach ($h in 'shim_dll\dbce_shim.h', 'shim_dll\dbce_shim_bridge.h', 'shim_dll\dbce_shim_extras.h', 'shim_dll\dbce_shim_snapshot.h') {
+$declared = @(foreach ($h in 'shim_dll\dbce_shim.h', 'shim_dll\dbce_shim_bridge.h', 'shim_dll\dbce_shim_extras.h', 'shim_dll\dbce_shim_snapshot.h', 'shim_dll\dbce_shim_candidate.h') {
     [regex]::Matches([IO.File]::ReadAllText((Join-Path $here $h)), 'DBCE_SHIM_API\s+[\w\s\*]+?\b(dbce_\w+)\s*\(') | ForEach-Object { $_.Groups[1].Value } })
 $missingExports = @($declared | Where-Object { $exports -cnotcontains $_ }); $extraExports = @($exports | Where-Object { $declared -cnotcontains $_ })
 if (-not $declared.Count -or $missingExports.Count -or $extraExports.Count) {
