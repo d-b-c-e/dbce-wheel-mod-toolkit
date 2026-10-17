@@ -48,6 +48,9 @@ Check(BindingPresentation.Footer(true, true, save.SaveFailure) == BindingPresent
 save.Record(true, "");
 Check(BindingPresentation.Footer(false, true, save.SaveFailure) == BindingPresentation.SavedForNextStart, "saved is explicitly next-start, not active");
 Check(BindingPresentation.Footer(false, false, " \t") == "", "blank failure is not an error");
+foreach (var prefix in new[] { "Bindings not saved:", "Bindings not saved —", "bindings not saved -" })
+    Check(BindingPresentation.Footer(true, false, prefix + " Reader disconnected.") == "Bindings not saved — Reader disconnected.", "existing writer prefix appears once");
+Check(BindingPresentation.Footer(true, false, "Bindings not saved:") == "Bindings not saved", "empty labeled reason has no dangling separator");
 Check(BindingPresentation.SetupGuidance(true).Contains("Find devices") && !BindingPresentation.SetupGuidance(false).Contains("Find devices"), "discovery guidance is capability dependent");
 Check(BindingPresentation.SetupGuidance(false).Contains("Set Up Controls.bat") && BindingPresentation.SetupGuidance(false).Contains("Wheelkit is optional"), "non-discovery hosts retain the standalone setup route");
 Console.WriteLine($"F6Style: {checks} checks passed");
