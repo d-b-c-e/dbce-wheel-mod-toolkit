@@ -5,6 +5,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
+#if DBCE_INPUT_NET35
+using BindingMap = System.Collections.Generic.IDictionary<string, Dbce.Wheel.Input.ControlBinding>;
+using ProfileEdits = System.Collections.Generic.IDictionary<string, string?>;
+using InvalidDataException = System.IO.IOException;
+#else
+using BindingMap = System.Collections.Generic.IReadOnlyDictionary<string, Dbce.Wheel.Input.ControlBinding>;
+using ProfileEdits = System.Collections.Generic.IReadOnlyDictionary<string, string?>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
     public sealed class ControlProfileDocument
@@ -16,7 +25,12 @@ namespace Dbce.Wheel.Input
         private readonly Dictionary<string, int> positions = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly Dictionary<string, ControlBinding> bindings = new Dictionary<string, ControlBinding>(StringComparer.Ordinal);
         private readonly int sectionEnd;
-        public IReadOnlyDictionary<string, ControlBinding> Bindings => bindings;
+        public BindingMap Bindings =>
+#if DBCE_INPUT_NET35
+            new Dictionary<string, ControlBinding>(bindings, StringComparer.Ordinal);
+#else
+            bindings;
+#endif
         public string Name { get; private set; } = "Installed controls";
         public string Revision { get; private set; } = "";
         public string Transmission { get; private set; } = "";
@@ -85,7 +99,7 @@ namespace Dbce.Wheel.Input
         }
 
         /// <summary>Only changed action keys and Revision are touched. Null means an explicit Clear.</summary>
-        public string Edit(IReadOnlyDictionary<string, string?> changes, string revision)
+        public string Edit(ProfileEdits changes, string revision)
         {
             if (revision.Length == 0 || Encoding.UTF8.GetByteCount(revision) > 128)
                 throw new InvalidDataException("Invalid shared controls revision.");
@@ -115,7 +129,7 @@ namespace Dbce.Wheel.Input
                 if (replacements.TryGetValue(i, out var replacement)) { if (replacement != null) output.Add(replacement); }
                 else output.Add(lines[i]);
             }
-            string result = (bom ? "\uFEFF" : "") + string.Join(eol, output) + (finalNewline ? eol : "");
+            string result = (bom ? "\uFEFF" : "") + string.Join(eol, output.ToArray()) + (finalNewline ? eol : "");
             var checkedResult = new ControlProfileDocument(result);
             if (!checkedResult.bindings.ContainsKey("steer")) throw new InvalidDataException("A usable steering binding is required. Nothing was saved.");
             return result;

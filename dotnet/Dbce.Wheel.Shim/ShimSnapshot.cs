@@ -9,6 +9,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
+#if DBCE_INPUT_NET35
+using SnapshotDeviceRows = System.Collections.Generic.IList<Dbce.Wheel.Shim.ShimSnapshotDevice>;
+using SnapshotSampleRows = System.Collections.Generic.IList<Dbce.Wheel.Shim.ShimSnapshotSample>;
+using InvalidDataException = System.IO.IOException;
+#else
+using SnapshotDeviceRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Shim.ShimSnapshotDevice>;
+using SnapshotSampleRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Shim.ShimSnapshotSample>;
+#endif
+
 namespace Dbce.Wheel.Shim
 {
     public static class ShimSnapshotAbi
@@ -106,9 +115,9 @@ namespace Dbce.Wheel.Shim
         public long BoundaryUs { get; }
         public long FreshUs { get; }
         /// <summary>Core's device table in row order (<see cref="ShimSnapshotDevice.Index"/> equals the position).</summary>
-        public IReadOnlyList<ShimSnapshotDevice> Devices { get; }
+        public SnapshotDeviceRows Devices { get; }
         /// <summary>The frame's reads, at most one per device row.</summary>
-        public IReadOnlyList<ShimSnapshotSample> Samples { get; }
+        public SnapshotSampleRows Samples { get; }
 
         /// <summary>
         /// Takes the snapshot of <paramref name="frameSeq"/>: the frame the host's last successful tick returned, taken right
@@ -220,12 +229,23 @@ namespace Dbce.Wheel.Shim
         private static uint U32(byte[] b, int at) => BitConverter.ToUInt32(b, at);
         private static void Put(byte[] b, int at, int value) => Buffer.BlockCopy(BitConverter.GetBytes(value), 0, b, at, 4);
 
+        private static bool GuidValue(string text, out Guid guid)
+        {
+#if DBCE_INPUT_NET35
+            guid = Guid.Empty;
+            try { guid = new Guid(text); return text == guid.ToString("B"); }
+            catch (FormatException) { return false; }
+#else
+            return Guid.TryParseExact(text, "B", out guid);
+#endif
+        }
+
         // Lower-case braced GUID text, NUL-terminated within its 40 bytes (the profile's dev=/prod= form).
         private static Guid GuidText(byte[] b, int at, string field, int row)
         {
             int end = Array.IndexOf(b, (byte)0, at, 40);
             string text = end < 0 ? "" : Encoding.ASCII.GetString(b, at, end - at);
-            if (end < 0 || text.Length != 38 || text != text.ToLowerInvariant() || !Guid.TryParseExact(text, "B", out var guid) || guid == Guid.Empty)
+            if (end < 0 || text.Length != 38 || text != text.ToLowerInvariant() || !GuidValue(text, out var guid) || guid == Guid.Empty)
                 throw new InvalidDataException("Snapshot device row " + row + " has no lower-case braced " + field + " GUID.");
             return guid;
         }

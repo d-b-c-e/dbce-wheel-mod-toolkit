@@ -89,3 +89,26 @@ reader to reset epochs. A new qualified handle requires a new flow, and must pas
 qualification first. Art and DRIVE currently keep their attached reader/host for the process and stop permanently.
 Observe accepted ticks while the editable F6 binding editor is visible, including before Begin, to supply the device
 list without a pending-start lifecycle. This copies the existing cache; it never activates another reader.
+
+### Legacy Mono binding consumers
+
+Define `DBCE_INPUT_NET35` only when source-vendoring the binding components into a
+legacy Mono host. Modern builds keep their existing public signatures and defaults.
+The legacy surface uses IList/IDictionary, read-only list wrappers and protective
+binding/draft dictionary copies, domain clock/capture callbacks, and a named
+snapshot identity struct. GUID constructor fallbacks retain the same exact braced
+round-trip grammar. Parse refusal uses IOException where the shipped framework
+lacks InvalidDataException. Explicit Save flushes the managed stream, then Windows
+FlushFileBuffers on its SafeFileHandle before the existing guarded Replace and
+readback. This Windows-only path is opt-in, not a general cross-platform fallback.
+
+HCT consumer qualification (October 16, product shared54dbaa0/game6ac31a94):
+207 existing grammar vectors / 288494 Input checks in the new legacy variant;
+38 existing snapshot/feed cases in that variant; direct compilation against the
+actual HCT mscorlib/System/System.Core and the existing API check; 30 new HCT host
+composition checks plus pure snapshot Cdecl ABI/sizes/invalid-handle refusal under
+Windows CLR2/x86. The ordinary x86 native7DE31B3E snapshot fixture passed241 checks;
+its prior177 ABI checks were retained, not repeated. No game/provider/device ran.
+Actual plugin build/API passed after the shared legacy panel avoided compiler-
+selected mscorlib Func predicates. Original runner-argument and compiled-plugin
+API failures remain in the HCT worktree artifacts/shared-bindings-20261016.

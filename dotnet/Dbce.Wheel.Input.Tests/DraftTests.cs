@@ -18,6 +18,14 @@ internal static class DraftTests
             var draft = new ControlProfileDraft(File.ReadAllBytes(path), 1024);
             draft.Set("steer", binding.WithInverted(true).ToString());
             Check(draft.HasDraft && !draft.Active.Bindings["steer"].Inverted, "edit remains a draft over frozen active input");
+#if DBCE_INPUT_NET35
+            var exportedBindings = draft.Active.Bindings;
+            exportedBindings.Clear();
+            var exportedChanges = draft.Changes;
+            exportedChanges.Clear();
+            Check(draft.Active.Bindings.ContainsKey("steer") && draft.HasDraft,
+                "legacy IDictionary surfaces cannot mutate active bindings or the pending draft");
+#endif
             Check(draft.Save(path, out var message), message);
             Check(!draft.HasDraft && draft.SavedPendingRestart && !draft.Active.Bindings["steer"].Inverted && draft.Saved.Bindings["steer"].Inverted,
                 "Save promotes only next-start state");

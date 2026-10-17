@@ -1,6 +1,14 @@
 #nullable enable
 using System.Collections.Generic;
 
+#if DBCE_INPUT_NET35
+using BindingRows = System.Collections.Generic.IList<Dbce.Wheel.Input.SharedBindingRowView>;
+using DeviceRows = System.Collections.Generic.IList<Dbce.Wheel.Input.SharedBindingDeviceView>;
+#else
+using BindingRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Input.SharedBindingRowView>;
+using DeviceRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Input.SharedBindingDeviceView>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
     public enum SharedBindingAccess { Missing, ReadOnly, Editable }
@@ -10,8 +18,8 @@ namespace Dbce.Wheel.Input
         SharedBindingAccess Access { get; }
         string AccessReason { get; }
         string ActiveSource { get; }
-        IReadOnlyList<SharedBindingRowView> Rows { get; }
-        IReadOnlyList<SharedBindingDeviceView> Devices { get; }
+        BindingRows Rows { get; }
+        DeviceRows Devices { get; }
         string? CapturingAction { get; }
         double CaptureSecondsLeft { get; }
         string CaptureMessage { get; }

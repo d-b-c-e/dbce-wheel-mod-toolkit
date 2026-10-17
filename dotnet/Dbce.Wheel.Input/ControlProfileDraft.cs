@@ -7,6 +7,15 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
+#if DBCE_INPUT_NET35
+using ProfileEdits = System.Collections.Generic.IDictionary<string, string?>;
+using InvalidDataException = System.IO.IOException;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+#else
+using ProfileEdits = System.Collections.Generic.IReadOnlyDictionary<string, string?>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
     public sealed class ControlProfileDraft
@@ -14,7 +23,12 @@ namespace Dbce.Wheel.Input
         public ControlProfileDocument Active { get; }
         public ControlProfileDocument Saved { get; private set; }
         private readonly Dictionary<string, string?> changes = new Dictionary<string, string?>(StringComparer.Ordinal);
-        public IReadOnlyDictionary<string, string?> Changes => changes;
+        public ProfileEdits Changes =>
+#if DBCE_INPUT_NET35
+            new Dictionary<string, string?>(changes, StringComparer.Ordinal);
+#else
+            changes;
+#endif
         private string savedHash;
         private readonly string activeHash;
         private readonly int maxProfileBytes;
@@ -59,7 +73,15 @@ namespace Dbce.Wheel.Input
                 byte[] next = new UTF8Encoding(false, true).GetBytes(text);
                 if (next.Length > maxProfileBytes) throw new InvalidDataException("The edited profile would exceed this host's size limit.");
                 using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                { stream.Write(next, 0, next.Length); stream.Flush(true); }
+                {
+                  stream.Write(next, 0, next.Length);
+#if DBCE_INPUT_NET35
+                  stream.Flush();
+                  if (!FlushFileBuffers(stream.SafeFileHandle)) throw new IOException("The binding draft could not be flushed to disk (" + Marshal.GetLastWin32Error() + ").");
+#else
+                  stream.Flush(true);
+#endif
+                }
                 if (Hash(ReadExisting(path)) != savedHash)
                     throw new IOException("The installed controls changed before Save. Nothing was replaced; the draft was kept.");
                 string backup = path + ".bindings-backup-" + Guid.NewGuid().ToString("N");
@@ -75,6 +97,11 @@ namespace Dbce.Wheel.Input
             { message = "Bindings not saved: " + ex.Message; return false; }
             finally { try { if (File.Exists(temp)) File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
         }
+#if DBCE_INPUT_NET35
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool FlushFileBuffers(SafeFileHandle handle);
+#endif
         private byte[] ReadExisting(string path)
         {
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))

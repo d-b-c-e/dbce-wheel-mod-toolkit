@@ -3,8 +3,23 @@
 using System;
 using System.Collections.Generic;
 
+#if DBCE_INPUT_NET35
+using ObservationRows = System.Collections.Generic.IList<Dbce.Wheel.Input.AcceptedBindingObservation>;
+using CaptureClock = Dbce.Wheel.Input.BindingClock;
+using CapturedCallback = Dbce.Wheel.Input.BindingCaptured;
+#else
+using ObservationRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Input.AcceptedBindingObservation>;
+using CaptureClock = System.Func<double>;
+using CapturedCallback = System.Func<string, Dbce.Wheel.Input.ControlBinding, string?>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
+#if DBCE_INPUT_NET35
+    // Domain callbacks avoid the incompatible mscorlib Func reference emitted for old Unity Mono.
+    public delegate double BindingClock();
+    public delegate string? BindingCaptured(string action, ControlBinding binding);
+#endif
     /// <summary>A new, valid, non-stale read accepted by the existing reader. Masks are already applied.
     /// Generation is compared per instance; IdentityKey is opaque. Seen uses the injected local clock.</summary>
     public sealed class AcceptedBindingObservation
@@ -35,8 +50,8 @@ namespace Dbce.Wheel.Input
     /// ReaderStopped does not reset per-instance epoch/sequence watermarks within the current lifetime.</summary>
     public sealed class SharedBindingCaptureFlow
     {
-        private readonly Func<double> clock;
-        private readonly Func<string, ControlBinding, string?> captured;
+        private readonly CaptureClock clock;
+        private readonly CapturedCallback captured;
         private readonly Dictionary<Guid, AcceptedBindingObservation> devices = new Dictionary<Guid, AcceptedBindingObservation>();
         // Keep sequence watermarks after Remove/stop so an old cached read cannot regain eligibility.
         private readonly Dictionary<Guid, AcceptedBindingObservation> reads = new Dictionary<Guid, AcceptedBindingObservation>();
@@ -49,7 +64,7 @@ namespace Dbce.Wheel.Input
         public double SecondsLeft => CapturingAction == null ? 0 : Math.Max(0, deadline - clock());
         public bool HasFreshObservation
         { get { foreach (var value in devices.Values) if (Fresh(value)) return true; return false; } }
-        public IReadOnlyList<AcceptedBindingObservation> Observations
+        public ObservationRows Observations
         {
             get
             {
@@ -60,7 +75,7 @@ namespace Dbce.Wheel.Input
         }
         /// <param name="captured">Commit only to the draft. Null means accepted; a refusal reason means the prior draft
         /// was left unchanged. Validation must precede mutation. The callback is delivered at most once.</param>
-        public SharedBindingCaptureFlow(Func<double> clock, Func<string, ControlBinding, string?> captured)
+        public SharedBindingCaptureFlow(CaptureClock clock, CapturedCallback captured)
         { this.clock = clock ?? throw new ArgumentNullException(nameof(clock)); this.captured = captured ?? throw new ArgumentNullException(nameof(captured)); }
         private bool Fresh(AcceptedBindingObservation value)
         {

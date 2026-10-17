@@ -1,4 +1,7 @@
 using System.Buffers.Binary;
+#if DBCE_INPUT_NET35
+using InvalidDataException = System.IO.IOException;
+#endif
 using System.Text;
 using System.Text.RegularExpressions;
 using Dbce.Wheel.Shim;

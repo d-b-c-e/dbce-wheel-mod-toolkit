@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(DbceInputNet35)' == 'true'">
+    <DefineConstants>$(DefineConstants);DBCE_INPUT_NET35</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Dbce.Wheel.Input/ControlBinding.cs" Link="ControlBinding.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingCapture.cs" Link="BindingCapture.cs" />
