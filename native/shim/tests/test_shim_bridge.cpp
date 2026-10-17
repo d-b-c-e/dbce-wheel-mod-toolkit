@@ -126,14 +126,16 @@ void bridge_extras_abi(){
     dbce_shim_frame f{};f.struct_size=sizeof(f);dbce_shim_extras_frame x{};x.struct_size=sizeof(x);
     check(dbce_shim_tick(h,&f)==DBCE_SHIM_BAD_ARGUMENT&&dbce_shim_tick_extras(h,1,&f,&x)==DBCE_SHIM_BAD_ARGUMENT&&
         dbce_shim_bridge_tick(h,nullptr,0,&f)==DBCE_SHIM_BAD_ARGUMENT,"all other tick routes refuse bridge extras handle");
-    dbce_shim_bridge_sample_v1 sample{};sample.struct_size=sizeof(sample);sample.abi=1;sample.generation=71;sample.valid=1;sample.axes[0]=65535;sample.buttons[0]=128;
+    dbce_shim_bridge_sample_v1 sample{};sample.struct_size=sizeof(sample);sample.abi=1;sample.generation=71;sample.valid=1;sample.axes[0]=65535;sample.buttons[0]=0;
     auto next=[&]{++sample.sequence;sample.read_start_us=sample.read_end_us=clock_us();};
     bool live=false;for(int i=0;i<400&&!live;++i){next();
         check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_OK,"one copied sample feeds common and extras");
         check(f.seq==x.seq&&x.count==1,"common and extras share exact Core sequence");
         live=f.action[0].status==uint8_t(Status::Live)&&x.slot[0].status==uint8_t(Status::Live);if(!live)Sleep(5);
     }
-    check(live&&f.action[0].value==1.f&&x.slot[0].value==1.f&&!x.slot[0].injected,"same physical read reaches common and extra");
+    check(live&&x.slot[0].value==0.f,"new digital source must release before arming");
+    next();sample.buttons[0]=128;
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_OK&&f.action[0].value==1.f&&x.slot[0].value==1.f&&x.down==1&&!x.slot[0].injected,"same physical read reaches common and extra after release");
     dbce_shim_extras_frame cached{};cached.struct_size=sizeof(cached);
     check(dbce_shim_extras(h,f.seq,&cached)==DBCE_SHIM_OK&&std::memcmp(&x,&cached,sizeof(x))==0,"read-only extras snapshot has identical edges/sequence");
     const auto seq=f.seq;next();
