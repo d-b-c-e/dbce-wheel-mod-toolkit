@@ -1,7 +1,8 @@
 // The force layer's production hook boundary (dbce_ffb_layer.cpp) against recording fake DirectInput objects: the layer
 // patches the fakes' vtables exactly as it patches dinput8's, so CreateDevice, GetDeviceState and Release run through
 // the real hooks. Checks pedal rest shaping by the reported instance, device churn beyond the 32-device table, the
-// full-table and unreadable-identity reports, and the per-shape status. No real device is opened.
+// full-table and unreadable-identity reports, the per-shape status, and failed/successful FFB saves with fake effects.
+// Panel feedback uses CPU-only ImGui text emission. No real device, window or renderer is opened.
 #define DIRECTINPUT_VERSION 0x0800
 #include "dbce_ffb_layer.h"
 #include "dbce_shape_state.hpp"
@@ -207,6 +208,10 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     dbce::ffb::SetOn(true);
     check(dbce::ffb::On() && effect.starts == starts + 1 && effect.iterations == 7 && GetPrivateProfileIntA("FFB", "Enabled", 0, ini) == 1, "retry enable persists and resumes the game request");
     strcpy_s(ini, bad.c_str());
+    const int liveUpdates = effect.updates;
+    dbce::ffb::SetStrength(0);
+    dbce::ffb::SetOn(true);
+    check(dbce::ffb::On() && dbce::ffb::Strength() == 60 && effect.updates == liveUpdates && effect.starts == starts + 1, "failed changes while On preserve confirmed gain and never restart effects");
     const int stops = effect.stops, stopAll = fake->stopAll;
     dbce::panel::Config c;
     c.ffbOn = dbce::ffb::On;
