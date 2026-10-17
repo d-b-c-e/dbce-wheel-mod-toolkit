@@ -64,3 +64,79 @@ selector/cache harness passed 159 assertions and read the active four-display ri
 (-2560,0); the netstandard2.0 compatibility build passed without warnings. Consumer window placement and rendering
 still require consumer evidence. A transient failed query is cached too: a one-shot startup caller may keep its
 normal window if it runs during that failure interval, rather than using an old or invented span.
+
+## Triple layout and settings draft (source-vendored, .NET 6+)
+
+TripleLayout.cs and TripleSettingsDraft.cs contain engine-free behavior extracted
+from qualified Truckful source 7e8161e3b41ac9efc27c09db100008e946f48574. They use
+the existing Dbce.TripleScreen.Core geometry and this folder's unchanged
+RacingRow.cs. The geometry core receives no wheel/display dependency.
+
+These two new files require C# 10 and .NET 6+ (record structs, init properties).
+This does not change RacingRow/WindowsMonitors legacy Mono 2.0 compatibility or
+SpanTarget's existing targets. Older Mono consumers must not copy the new files
+as if they had those older compatibility guarantees.
+
+The source namespace is Dbce.Wheel.Display. Copy the two files byte-for-byte,
+retain their MIT headers and pin the toolkit commit/blob identities when a
+consumer adopts. Link/reference the existing pinned TripleScreen.Core and
+RacingRow sources, without copying the projection math into another framework.
+No game, Unity, BepInEx, Win32, device, display-application or UI calls exist here.
+
+The shared names retain the qualified selector, validation, projection and
+ownership semantics: TripleMode, TripleLayoutChoice, TripleRig, TripleSettings,
+PanelFrustum, OffCenterProjection, TriplePanels, TripleGate, DesktopLayout,
+SpanAction and SpanPolicy. Physical inputs are millimeters and degrees. Panel
+frusta are left/center/right, with yaw and near-plane-one tangents in +Z camera
+space; OffCenterProjection uses the existing OpenGL/Unity projection convention.
+Near/far require 0 < near < far. The solver keeps the 89-degree side-angle bound.
+The width gate uses RacingRowPolicy.SurroundAspect rather than a second constant.
+
+Consumers supply their complete defaults (rig dimensions, Mode/Span and
+MatchGameFov). There is no shared owner-rig or chase-framing default.
+TripleSettingsDraft takes active settings and the existing save/canEdit/status
+callbacks, plus TripleDraftText(Initial, Locked, NoChanges, Saved, Discarded) and
+storeAsSinglePrecision. Pass true for a float store such as Truckful/OTH
+ConfigEntry<float>; pass false for an actual double store. The supplied active
+settings must already reflect the store's precision. Text and comparisons use
+the shortest invariant round trip for that precision; opening a page does not
+rewrite precise saved geometry.
+
+Save validates before calling the adapter, preserves a refused/failed draft,
+and changes Saved only after a successful explicit store callback. Active
+stays fixed for the process and SavedPendingRestart remains distinct from an
+unsaved draft. Discard/HoldClose/PanelHidden and edit gates retain the original
+lifecycle. Five page-specific strings are consumer data, not shared UI rules.
+The adapter still owns file names/keys, stale-file checks, persistence/rollback,
+focus/menu/solo conditions, the rendered page and report/status integration.
+
+SpanPolicy returns decisions only. An adapter must reach it on initialization
+even when the renderer is Off, so an exact persisted owned-span marker can
+request one restore. A player-selected size never matches that ownership guard.
+Local window, camera, pipeline, HUD and shutdown hooks remain game-specific.
+This extraction neither repairs those hooks automatically nor establishes any
+rendered or physical acceptance. Consumers adopt in their next coherent
+candidate; qualified Truckful 7e8161e bytes stay unchanged.
+
+Qualified extraction provenance (original Truckful blobs):
+
+| Source | Blob |
+| --- | --- |
+| src/Truckful.Wheel/TripleLayout.cs | e132df60b6eef22b907f352fb7ff288f8b05b024 |
+| src/Truckful.Wheel/TripleSettingsDraft.cs | 5c87d22f4fda81809073421dc33d7383fcd248dd |
+| tests/Wheel.Offline/TripleChecks.cs | 35f894e557f16bad4386284b60679364f778438f |
+
+Changes from those bodies are the namespace, removal of game defaults, explicit
+System/nullable imports, consumer text and float/double storage seams, plus
+reuse of the existing aspect constant. Geometry, selector, marker/Off policy
+and draft lifecycle are otherwise retained. Core source pin is
+866c59f827c2b32e4e38722976b97040c9f47ac5; RacingRow's inherited pin is
+f9abfcf9dc295a1da63ef7279bdfaa68ece716ea.
+
+tests/TripleSettings ports all 61 qualified checks with owner defaults as
+fixture-local data, plus focused alternate-text/double-store/float-store/failure
+cases. The fixture links only pure source, not WindowsMonitors, and performs
+no desktop observation or game/device/display action. For a private worktree,
+set TripleScreenToolkitRoot to the existing pinned triple-screen toolkit;
+canonical sibling checkout layout is the default. Qualification is queued
+separately; no new shared pass is claimed by this source note.

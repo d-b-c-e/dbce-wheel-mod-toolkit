@@ -49,6 +49,11 @@ should feel about the same in every mod. Default 50%.
 ## STD-004 — Consistent settings UX
 2026-09 · owner · applies to: every game
 
+October 17 extraction: shared/display/TripleLayout.cs and TripleSettingsDraft.cs
+provide source-vendored engine-free geometry/policy/draft behavior for modern
+.NET 6+ consumers. Game defaults, store precision and page text stay explicit
+adapter inputs; camera/config/UI/span hooks remain local. See shared/display/README.md.
+Qualification and consumer adoption are recorded separately.
 Same F6 settings panel shape across mods (Simple/Advanced views, same page names
 and controls where the game allows), F8 FFB on/off. Details:
 `docs/CONSUMER-EXPERIENCE.md`; full guides `docs/CONSUMER-UX.md`,
@@ -288,6 +293,10 @@ matches are evidence. Normalization work is Codex's.
 ## STD-022 — One triple-screen selector: Off · Surround · Separate monitors
 2026-10-06 · owner ("it should just be a simple off / surround / separate like the other projects") · applies to: every game with triples
 
+October 17 shared source: TripleLayoutChoice and SpanPolicy now have one
+vendored home under shared/display. Local initialization must reach owned-span
+restoration before returning for renderer Off; the shared policy does not make
+window calls. Existing qualified consumers are not rebuilt merely for extraction.
 The settings panel offers triple screens as one three-way choice, in this order: **Off** (one
 view, and no span), **Surround** (three views when the game window spans a Surround desktop),
 **Separate monitors** (the mod opens one borderless window across three side-by-side monitors,
