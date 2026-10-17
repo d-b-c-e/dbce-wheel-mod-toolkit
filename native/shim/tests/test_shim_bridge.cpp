@@ -102,6 +102,53 @@ void abi(){
     check(dbce_shim_stop(h,why,sizeof(why),nullptr)==DBCE_SHIM_OK,"bridge Host resolved stop");
     check(dbce_shim_bridge_tick(h,nullptr,0,&f)==DBCE_SHIM_STOPPED,"spent bridge handle");
 }
+void bridge_extras_abi(){
+    const auto dir=std::filesystem::temp_directory_path()/("dbce-bridge-extras-"+std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(dir);const auto folder=dir.wstring();
+    const std::string declaration="game fzero\ncontexts observed race\nfzero.boost digital contexts=race\n";
+    Declaration decl;std::string reason;
+    check(parse_declaration(declaration.data(),declaration.size(),decl,reason),"bridge declaration uses existing parser");
+    const std::string profile=Profile+"[Extras]\nSchema = 1\nGame = fzero\nDeclaration = "+hex(decl.hash)+
+        "\nfzero.boost = button 0 dev="+W+" prod="+P+"\n";
+    dbce_shim_open_args a{};a.struct_size=sizeof(a);a.folder=folder.c_str();a.nonce="bridgeextras1";
+    a.profile=profile.data();a.profile_len=int(profile.size());void* h=nullptr;char why[512]{};
+    for(const auto flags:{DBCE_SHIM_LATCHED,DBCE_SHIM_CAPTURE}){
+        a.flags=flags;check(dbce_shim_bridge_open_extras(&a,declaration.data(),int(declaration.size()),&h,why,sizeof(why))==DBCE_SHIM_REFUSED&&!h,"extras bridge refuses latched and capture");
+    }
+    a.flags=0;
+    check(dbce_shim_bridge_open_extras(&a,nullptr,0,&h,why,sizeof(why))==DBCE_SHIM_BAD_ARGUMENT&&!h,"bridge extras requires declaration");
+    check(dbce_shim_bridge_open_extras(&a,declaration.data(),4097,&h,why,sizeof(why))==DBCE_SHIM_BAD_ARGUMENT&&!h,"declaration bounded before byte read");
+    check(dbce_shim_bridge_open_extras(&a,declaration.data(),int(declaration.size()),&h,why,sizeof(why))==DBCE_SHIM_OK&&h,"ordinary bridge with declared extras opens");
+    dbce_shim_bridge_device_v1 d{};d.struct_size=sizeof(d);d.abi=1;d.generation=71;d.axis_mask=d.range_mask=1;d.maximum[0]=65535;d.button_mask[0]=1;
+    const GUID wg={0xd71b8350,0x61b7,0x11f1,{0x80,1,0x44,0x45,0x53,0x54,0,0}},pg={0x0006346e,0,0,{0,0,0x50,0x49,0x44,0x56,0x49,0x44}};
+    std::memcpy(d.instance,&wg,16);std::memcpy(d.product,&pg,16);
+    check(dbce_shim_bridge_devices(h,&d,1)==DBCE_SHIM_OK,"extras reuses copied device table");
+    dbce_shim_frame f{};f.struct_size=sizeof(f);dbce_shim_extras_frame x{};x.struct_size=sizeof(x);
+    check(dbce_shim_tick(h,&f)==DBCE_SHIM_BAD_ARGUMENT&&dbce_shim_tick_extras(h,1,&f,&x)==DBCE_SHIM_BAD_ARGUMENT&&
+        dbce_shim_bridge_tick(h,nullptr,0,&f)==DBCE_SHIM_BAD_ARGUMENT,"all other tick routes refuse bridge extras handle");
+    dbce_shim_bridge_sample_v1 sample{};sample.struct_size=sizeof(sample);sample.abi=1;sample.generation=71;sample.valid=1;sample.axes[0]=65535;sample.buttons[0]=128;
+    auto next=[&]{++sample.sequence;sample.read_start_us=sample.read_end_us=clock_us();};
+    bool live=false;for(int i=0;i<400&&!live;++i){next();
+        check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_OK,"one copied sample feeds common and extras");
+        check(f.seq==x.seq&&x.count==1,"common and extras share exact Core sequence");
+        live=f.action[0].status==uint8_t(Status::Live)&&x.slot[0].status==uint8_t(Status::Live);if(!live)Sleep(5);
+    }
+    check(live&&f.action[0].value==1.f&&x.slot[0].value==1.f&&!x.slot[0].injected,"same physical read reaches common and extra");
+    dbce_shim_extras_frame cached{};cached.struct_size=sizeof(cached);
+    check(dbce_shim_extras(h,f.seq,&cached)==DBCE_SHIM_OK&&std::memcmp(&x,&cached,sizeof(x))==0,"read-only extras snapshot has identical edges/sequence");
+    const auto seq=f.seq;next();
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,2,&f,&x)==DBCE_SHIM_BAD_ARGUMENT&&f.seq==seq,"unknown context refuses without ticking");
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_OK&&f.seq==seq+1,"invalid context consumed no sample or Core tick");
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_REFUSED,"repeated physical batch refused");
+    next();sample.buttons[0]=0;
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,1,&f,&x)==DBCE_SHIM_OK&&x.slot[0].value==0.f&&x.up==1,"release edge comes from next source sample");
+    next();sample.buttons[0]=128;
+    check(dbce_shim_bridge_tick_extras(h,&sample,1,0,&f,&x)==DBCE_SHIM_OK&&x.slot[0].value==0.f&&x.slot[0].status==uint8_t(Status::ContextInactive),"unobserved context remains neutral");
+    check(dbce_shim_bridge_tick_extras(h,nullptr,0,1,&f,&x)==DBCE_SHIM_OK&&f.action[0].value==0.f&&x.slot[0].value==0.f,"omitted source does not reuse common or extra sample");
+    int other=0;std::thread([&]{other=dbce_shim_bridge_tick_extras(h,nullptr,0,1,&f,&x);}).join();check(other==DBCE_SHIM_WRONG_THREAD,"extras bridge preserves input thread ownership");
+    check(dbce_shim_stop(h,why,sizeof(why),nullptr)==DBCE_SHIM_OK,"extras bridge bounded memory-only stop resolves");
+    check(dbce_shim_bridge_tick_extras(h,nullptr,0,1,&f,&x)==DBCE_SHIM_STOPPED,"stopped extras bridge cannot rearm");
+}
 void latched_abi(){
     const auto dir=std::filesystem::temp_directory_path()/("dbce-bridge-latched-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
     std::filesystem::create_directories(dir);const auto folder=dir.wstring(),session=(dir/"inject.on").wstring(),batch=(dir/"inject.txt").wstring();
@@ -142,4 +189,4 @@ void latched_abi(){
     std::cout<<"latched journal: "<<(dir/"controls-journal.jsonl").string()<<"\n";
 }
 }
-int main(){try{provider();core();latched_core();abi();latched_abi();std::cout<<"PASS: "<<checks<<" copied-provider/Core/ABI checks; no device acquisition or force\n";return 0;}catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;}}
+int main(){try{provider();core();latched_core();abi();bridge_extras_abi();latched_abi();std::cout<<"PASS: "<<checks<<" copied-provider/Core/ABI checks; no device acquisition or force\n";return 0;}catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;}}

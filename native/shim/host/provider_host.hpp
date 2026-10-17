@@ -92,13 +92,13 @@ public:
     // core reads it directly (no front), and its shutdown runs in the same bounded release phase as DirectInput's.
     ProviderHost(std::wstring folder, std::string nonce, std::shared_ptr<dbce::shim::ProviderOwner> provider, const std::string& profile,
         bool latched, std::unique_ptr<RecorderType> recorder, dbce::shim::Capability capability = {},
-        std::int64_t freshness_us = 100'000, int controls_reads = 1)
+        std::int64_t freshness_us = 100'000, int controls_reads = 1, const dbce::shim::Declaration* extras = nullptr)
         : folder_(std::move(folder)), nonce_(std::move(nonce)), input_(std::this_thread::get_id()),
           recorder_(std::move(recorder)),
           w_(std::make_shared<WorkerState>()),latched_(latched) {
         if (!recorder_ || !provider) throw std::invalid_argument("recorder and provider required");
         w_->provider = std::move(provider);
-        start(profile, latched, capability, freshness_us, controls_reads);
+        start(profile, latched, capability, freshness_us, controls_reads, extras);
     }
 private:
     void start(const std::string& profile, bool latched, dbce::shim::Capability capability, std::int64_t freshness_us, int controls_reads,

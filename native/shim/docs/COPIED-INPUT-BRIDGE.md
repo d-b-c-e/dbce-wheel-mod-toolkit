@@ -133,3 +133,23 @@ admission/batch/end, terminal suppression, complete journal and resolved stop.
 The journal harness passes 366 checks; its reader also checks optional external
 source identity and drift. No game, DirectInput device, force, install or capture
 was opened. The earlier DLL hash above is historical, not this new candidate.
+
+## Ordinary copied input with declared extras, October 16
+
+The additive `dbce_shim_bridge_open_extras` entry requires a nonempty existing
+C4 declaration (at most 4096 bytes), reads controls schema 1, and refuses latched
+or capture flags. `dbce_shim_bridge_tick_extras` accepts the same copied sample
+batch and observed-context mask and returns both common and extras frames from
+one Core tick. No new device reader, force owner, callbacks or ABI layout exists.
+Base ABI 2, bridge ABI 1, extras ABI 1 and every existing export are preserved.
+Both new exports refuse x86, matching the existing copied bridge admission.
+
+The copied ProviderHost forwards the declaration to the existing Core planner.
+An extras bridge handle refuses base tick, ordinary extras tick and old bridge
+tick; callers must provide their physical sample batch through the new entry.
+Unknown contexts or malformed frame sizes refuse before sample sequence/Core
+advancement. Existing sequence/age/identity/capability rules, memory-only bounded
+stop and spent-handle refusal apply unchanged. Read-only `dbce_shim_extras`
+returns the same accepted frame and edges. Capturing extras or latched extras
+remains unsupported. This source alone does not adopt F-Zero's native snapshot
+candidate or qualify physical FFB/game response.

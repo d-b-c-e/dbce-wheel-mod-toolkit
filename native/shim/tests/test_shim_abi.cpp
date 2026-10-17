@@ -273,6 +273,9 @@ void test_x86_refusals() {
     auto a = args_for(dir.wstring(), 0); h = &slot;
     check(dbce_shim_bridge_open(&a, &h, why, 256) == DBCE_SHIM_REFUSED && !h && std::string(why).find("copied-input bridge") != std::string::npos,
           "the bridge open refuses on x86");
+    h = &slot;
+    check(dbce_shim_bridge_open_extras(&a, "game fzero\nfzero.boost digital\n", 31, &h, why, 256) == DBCE_SHIM_REFUSED && !h,
+          "the additive extras bridge also refuses before any x86 provider exists");
     auto* in = wheel_input(slot);
     check(dbce_shim_open_with_input(in, dir.wstring().c_str(), "x86nonce1", Profile.data(), int32_t(Profile.size()), nullptr, nullptr, &h, why, 256) == DBCE_SHIM_OK && h,
           std::string("x86 ordinary open: ") + why);
@@ -451,6 +454,7 @@ void test_dll(const std::wstring& path) {
                              "dbce_shim_profile_info", "dbce_shim_stop", "dbce_shim_profile_action_info",
                              "dbce_shim_bridge_abi_version", "dbce_shim_bridge_device_size", "dbce_shim_bridge_sample_size", "dbce_shim_bridge_open",
                              "dbce_shim_bridge_devices", "dbce_shim_bridge_devices_with_paths", "dbce_shim_bridge_tick",
+                             "dbce_shim_bridge_open_extras", "dbce_shim_bridge_tick_extras",
                              "dbce_shim_extras_abi_version", "dbce_shim_extras_frame_size", "dbce_shim_open_extras", "dbce_shim_tick_extras",
                              "dbce_shim_extras", "dbce_shim_extras_info"})
         check(GetProcAddress(m, name) != nullptr, std::string("export ") + name);
