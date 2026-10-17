@@ -8,12 +8,12 @@
 #include "../third_party/imgui/imgui.h"
 
 namespace {
-HWND panelWindow, foregroundWindow, panelRoot, foregroundRoot;
+HWND panelWindow, foregroundWindow, mockPanelRoot, mockForegroundRoot;
 int clipCalls;
 bool panelOpen;
 HWND WINAPI fakeForeground() { return foregroundWindow; }
 HWND WINAPI fakeAncestor(HWND window, UINT) {
-    return window == panelWindow ? panelRoot : foregroundRoot;
+    return window == panelWindow ? mockPanelRoot : mockForegroundRoot;
 }
 BOOL WINAPI fakeClip(const RECT*) { ++clipCalls; return TRUE; }
 BOOL WINAPI fakeCursor(POINT*) { return FALSE; }
@@ -51,7 +51,7 @@ int main()
     const auto run = [&](const char* label, HWND window, HWND foreground,
                          HWND root, HWND activeRoot, bool open, int expected) {
         panelWindow = window; foregroundWindow = foreground;
-        panelRoot = root; foregroundRoot = activeRoot; panelOpen = open;
+        mockPanelRoot = root; mockForegroundRoot = activeRoot; panelOpen = open;
         dbce::panel::g_hwnd = window;
         dbce::panel::g_wasOpen = false;
         clipCalls = 0;
