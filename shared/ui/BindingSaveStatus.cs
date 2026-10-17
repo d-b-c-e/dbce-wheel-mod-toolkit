@@ -16,12 +16,23 @@ namespace Dbce.Wheel.Ui
 
         public bool Record(bool saved, string message)
         {
-            SaveFailure = saved ? "" : string.IsNullOrWhiteSpace(message)
+            SaveFailure = saved ? "" : Blank(message)
                 ? "Bindings could not be saved. The draft was kept." : message;
             return saved;
         }
 
         /// <summary>Call only after explicit Discard; a new host gets a new instance.</summary>
         public void Discard() { SaveFailure = ""; }
+        private static bool Blank(string value)
+        {
+#if DBCE_INPUT_NET35
+            if (value == null) return true;
+            foreach (char c in value) if (!char.IsWhiteSpace(c)) return false;
+            return true;
+#else
+            return string.IsNullOrWhiteSpace(value);
+#endif
+        }
+
     }
 }

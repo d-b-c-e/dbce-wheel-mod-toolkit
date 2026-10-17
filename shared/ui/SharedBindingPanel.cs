@@ -53,7 +53,7 @@ namespace Dbce.Wheel.Ui
             if (ui.Button(details ? "Hide details" : "Details")) details = !details;
             if (details) ui.Help("Active source: " + host.ActiveSource);
             var row = delivered.FirstOrDefault(value => value.Action == action);
-            if (row == null) { if (!string.IsNullOrWhiteSpace(saveStatus)) ui.Help(saveStatus); return; }
+            if (row == null) { if (!Blank(saveStatus)) ui.Help(saveStatus); return; }
             ui.Label(row.Label);
             ui.Help("Active: " + row.Active.Text);
             if (row.NextStart.HasValue) ui.Help("Next start: " + row.NextStart.Value.Text);
@@ -91,7 +91,18 @@ namespace Dbce.Wheel.Ui
             if (ui.Button("Discard unsaved edits", !listening && host.HasDraft)) host.Discard();
             // This is independent of capture text. A failed Save stays visible
             // when a later capture changes the host's transient message.
-            if (!string.IsNullOrWhiteSpace(saveStatus)) ui.Help(saveStatus);
+            if (!Blank(saveStatus)) ui.Help(saveStatus);
         }
+        private static bool Blank(string value)
+        {
+#if DBCE_INPUT_NET35
+            if (value == null) return true;
+            foreach (char c in value) if (!char.IsWhiteSpace(c)) return false;
+            return true;
+#else
+            return string.IsNullOrWhiteSpace(value);
+#endif
+        }
+
     }
 }

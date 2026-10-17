@@ -3,6 +3,12 @@
 using System;
 using System.Collections.Generic;
 
+#if DBCE_INPUT_NET35
+using DeviceRows = System.Collections.Generic.IList<Dbce.Wheel.Input.SharedBindingDeviceView>;
+#else
+using DeviceRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Input.SharedBindingDeviceView>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
     public enum SharedBindingSelectionMode { Saved, Explicit, Unavailable }
@@ -23,7 +29,7 @@ namespace Dbce.Wheel.Input
             ? "The input connection changed. Choose a device again to bind controls."
             : "";
 
-        public void Reconcile(object currentHost, IReadOnlyList<SharedBindingDeviceView> devices)
+        public void Reconcile(object currentHost, DeviceRows devices)
         {
             if (currentHost == null) throw new ArgumentNullException(nameof(currentHost));
             if (devices == null) throw new ArgumentNullException(nameof(devices));
@@ -44,7 +50,7 @@ namespace Dbce.Wheel.Input
         }
 
         /// <summary>Call only for a deliberate choice from the current reconciled host's snapshot.</summary>
-        public bool SelectDevice(string instanceGuid, IReadOnlyList<SharedBindingDeviceView> devices)
+        public bool SelectDevice(string instanceGuid, DeviceRows devices)
         {
             if (devices == null) throw new ArgumentNullException(nameof(devices));
             int index = Find(devices, instanceGuid);
@@ -55,7 +61,7 @@ namespace Dbce.Wheel.Input
             return true;
         }
 
-        private static int Find(IReadOnlyList<SharedBindingDeviceView> devices, string? instanceGuid)
+        private static int Find(DeviceRows devices, string? instanceGuid)
         {
             if (string.IsNullOrEmpty(instanceGuid)) return -1;
             for (int i = 0; i < devices.Count; i++)

@@ -6,8 +6,24 @@
 using System;
 using System.Collections.Generic;
 
+#if DBCE_INPUT_NET35
+using SnapshotFeedRows = System.Collections.Generic.IList<Dbce.Wheel.Shim.ShimSnapshotFeedItem>;
+using IdentityLookup = Dbce.Wheel.Shim.ShimSnapshotIdentityLookup;
+#else
+using SnapshotFeedRows = System.Collections.Generic.IReadOnlyList<Dbce.Wheel.Shim.ShimSnapshotFeedItem>;
+using IdentityLookup = System.Func<Dbce.Wheel.Shim.ShimSnapshotDevice, (string Name, string IdentityKey)?>;
+#endif
+
 namespace Dbce.Wheel.Shim
 {
+#if DBCE_INPUT_NET35
+    public struct ShimSnapshotIdentity
+    {
+        public readonly string Name, IdentityKey;
+        public ShimSnapshotIdentity(string name, string identityKey) { Name = name; IdentityKey = identityKey; }
+    }
+    public delegate ShimSnapshotIdentity? ShimSnapshotIdentityLookup(ShimSnapshotDevice row);
+#endif
     /// <summary>One device row's result for a frame: a removal with its reason, or a new accepted read.</summary>
     public sealed class ShimSnapshotFeedItem
     {
@@ -68,7 +84,7 @@ namespace Dbce.Wheel.Shim
 
         /// <param name="identity">The host's device report for a row: its name and identity key, or null when no report
         /// matches the row's index, epoch and instance.</param>
-        public IReadOnlyList<ShimSnapshotFeedItem>? Read(ShimSnapshot snapshot, Func<ShimSnapshotDevice, (string Name, string IdentityKey)?> identity)
+        public SnapshotFeedRows? Read(ShimSnapshot snapshot, IdentityLookup identity)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             if (identity == null) throw new ArgumentNullException(nameof(identity));

@@ -7,6 +7,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
+#if DBCE_INPUT_NET35
+using CalibrationPoints = System.Collections.Generic.IList<int>;
+#else
+using CalibrationPoints = System.Collections.Generic.IReadOnlyList<int>;
+#endif
+
 namespace Dbce.Wheel.Input
 {
     public enum ControlKind { Axis, Button, Hat }
@@ -27,7 +33,7 @@ namespace Dbce.Wheel.Input
         /// <summary>Carried metadata only (Wheelkit's flag); it changes no value.</summary>
         public bool Calibrated { get; private set; }
         /// <summary>Schema 2 `cal=`, raw in the range: steer {lo, centre, hi}, pedal {released, full}; null when absent.</summary>
-        public IReadOnlyList<int>? Cal { get; private set; }
+        public CalibrationPoints? Cal { get; private set; }
         public string Name { get; private set; } = "";
         private ControlBinding() { }
 
@@ -79,7 +85,13 @@ namespace Dbce.Wheel.Input
         static bool GuidValue(string value, out Guid guid)
         {
             guid = Guid.Empty;
+            #if DBCE_INPUT_NET35
+            if (value.Length != 38) return false;
+            try { guid = new Guid(value); return string.Equals(guid.ToString("B"), value, StringComparison.OrdinalIgnoreCase); }
+            catch (FormatException) { return false; }
+#else
             return value.Length == 38 && Guid.TryParseExact(value, "B", out guid);
+#endif
         }
 
         /// <param name="schema">1 (default): `cal=` is an ignored attribute. 2: it is read (two or three integers joined by

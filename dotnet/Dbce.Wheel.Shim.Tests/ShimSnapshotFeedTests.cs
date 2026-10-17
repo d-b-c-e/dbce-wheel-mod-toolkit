@@ -5,7 +5,11 @@ using Xunit;
 // The shared per-row rules (ShimSnapshotFeed) and the completing-frame guard, from bytes built by ShimSnapshotTests.
 public class ShimSnapshotFeedTests
 {
+#if DBCE_INPUT_NET35
+    static ShimSnapshotIdentity? Names(ShimSnapshotDevice row) => row.Index == 0 ? new ShimSnapshotIdentity("MOZA R12 Base", @"\\?\hid#wheel") : new ShimSnapshotIdentity("Pedals", "row:1");
+#else
     static (string Name, string IdentityKey)? Names(ShimSnapshotDevice row) => row.Index == 0 ? ("MOZA R12 Base", @"\\?\hid#wheel") : ("Pedals", "row:1");
+#endif
 
     static ShimSnapshot Snap(Action<byte[], byte[], byte[]>? change = null)
     {

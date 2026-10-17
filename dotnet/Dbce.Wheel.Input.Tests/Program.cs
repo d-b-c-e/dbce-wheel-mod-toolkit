@@ -3,6 +3,11 @@ using Dbce.Wheel.Input;
 
 int checks = 0;
 void Check(bool ok, string description) { checks++; if (!ok) throw new Exception(description); }
+bool DataError(Exception error) => error is InvalidDataException
+#if DBCE_INPUT_NET35
+    || error is IOException
+#endif
+    ;
 if (args.Length == 1 && args[0] == "--binding-editor-policy")
 {
     Console.WriteLine($"PASS {BindingEditorPolicyTests.Run()} binding editor presentation policy checks (no device or game).");
@@ -137,7 +142,7 @@ foreach (var (name, report) in new[] {
     ("no hash", "ok=1\n"), ("repeated field", Report(accepted) + "ok=1\n") })
 {
     bool refused = false;
-    try { ShimSteering.FromAccepted(accepted, report, out _); } catch (InvalidDataException) { refused = true; }
+    try { ShimSteering.FromAccepted(accepted, report, out _); } catch (Exception error) when (DataError(error)) { refused = true; }
     Check(refused, "Core acceptance required: " + name);
 }
 foreach (var (name, body) in new[] {
@@ -247,11 +252,11 @@ string editedProfile = editableDocument.Edit(new Dictionary<string, string?> { [
 Check(editedProfile.StartsWith("\uFEFF; owner\r\n", StringComparison.Ordinal) && editedProfile.Contains("Future = keep\r\n[Other]\r\nX = untouched\r\n", StringComparison.Ordinal), "editing preserves BOM and unrelated lines");
 Check(new ControlProfileDocument(editedProfile).Bindings["steer"].Inverted, "canonical inversion round-trips through shared document");
 bool sectionRejected = false, mixedRejected = false, editedSectionRejected = false;
-try { _ = new ControlProfileDocument(editableProfile.Replace("Future = keep", "Future = " + new string('x', 65536))); } catch (InvalidDataException) { sectionRejected = true; }
-try { _ = new ControlProfileDocument(editableProfile.Replace("X = untouched\r\n", "X = untouched\n")); } catch (InvalidDataException) { mixedRejected = true; }
+try { _ = new ControlProfileDocument(editableProfile.Replace("Future = keep", "Future = " + new string('x', 65536))); } catch (Exception error) when (DataError(error)) { sectionRejected = true; }
+try { _ = new ControlProfileDocument(editableProfile.Replace("X = untouched\r\n", "X = untouched\n")); } catch (Exception error) when (DataError(error)) { mixedRejected = true; }
 var nearLimit = new ControlProfileDocument(editableProfile.Replace("Future = keep", "Future = " + new string('x', 64900)));
 string hugeNameBinding = ControlBinding.FromCapture("confirm", ControlKind.Button, 7, 1, 0, Guid.Parse(captureDevice), Guid.Parse(captureProduct), new string('z', 1000)).ToString();
-try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNameBinding }, "after"); } catch (InvalidDataException) { editedSectionRejected = true; }
+try { _ = nearLimit.Edit(new Dictionary<string, string?> { ["confirm"] = hugeNameBinding }, "after"); } catch (Exception error) when (DataError(error)) { editedSectionRejected = true; }
 Check(sectionRejected && mixedRejected && editedSectionRejected, "shared document enforces native section cap on read and edit and refuses mixed EOL");
 checks += DraftTests.Run();
 checks += BindingCaptureFlowTests.Run();
