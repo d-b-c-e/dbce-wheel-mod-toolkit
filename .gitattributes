@@ -30,3 +30,9 @@ native/support/* text eol=lf
 tools/playback/UnityOperatorAdmission.mjs text eol=lf
 tools/playback/Test-UnityOperatorAdmission.mjs text eol=lf
 tools/playback/UnityOperatorAdmission.md text eol=lf
+
+# Shared FFB output gate source and focused fixture use raw LF provenance pins.
+shared/ffb/SharedFfbOutput.cs text eol=lf
+shared/ffb/README.md text eol=lf
+tests/SharedFfbOutput/Program.cs text eol=lf
+tests/SharedFfbOutput/SharedFfbOutput.csproj text eol=lf
