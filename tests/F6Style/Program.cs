@@ -38,4 +38,16 @@ Check(count == 0 && lines.Length == 0, "no items, no lines");
 lines = F6Flow.Lines(null!, 300, 6, out count);
 Check(count == 0 && lines.Length == 0, "null items retain the empty layout behavior");
 
+var save = new BindingSaveStatus();
+save.Record(false, "Reader disconnected; draft kept.");
+Check(BindingPresentation.Footer(true, true, save.SaveFailure) == "Bindings not saved — Reader disconnected; draft kept.", "persistent save failure outranks draft/restart status");
+Check(BindingPresentation.Footer(false, false, save.SaveFailure).Contains("Reader disconnected"), "unrelated host status does not clear save failure");
+save.Discard();
+Check(BindingPresentation.Footer(false, false, save.SaveFailure) == "", "discarded unsaved-only draft has no restart claim");
+Check(BindingPresentation.Footer(true, true, save.SaveFailure) == BindingPresentation.Unsaved, "new draft outranks prior saved revision");
+save.Record(true, "");
+Check(BindingPresentation.Footer(false, true, save.SaveFailure) == BindingPresentation.SavedForNextStart, "saved is explicitly next-start, not active");
+Check(BindingPresentation.Footer(false, false, " \t") == "", "blank failure is not an error");
+Check(BindingPresentation.SetupGuidance(true).Contains("Find devices") && !BindingPresentation.SetupGuidance(false).Contains("Find devices"), "discovery guidance is capability dependent");
+Check(BindingPresentation.SetupGuidance(false).Contains("Set Up Controls.bat") && BindingPresentation.SetupGuidance(false).Contains("Wheelkit is optional"), "non-discovery hosts retain the standalone setup route");
 Console.WriteLine($"F6Style: {checks} checks passed");
