@@ -2,7 +2,11 @@
 // Uses the existing shared binding contract and selection policy; owns no reader or writer.
 #nullable disable
 using System;
+#if DBCE_INPUT_NET35
+using System.Collections.Generic;
+#else
 using System.Linq;
+#endif
 using Dbce.Wheel.Input;
 
 namespace Dbce.Wheel.Ui
@@ -43,16 +47,36 @@ namespace Dbce.Wheel.Ui
 
             var rows = host.Rows;
             if (rows.Count == 0) { ui.Help("No admitted control rows are available."); return; }
+#if DBCE_INPUT_NET35
+            // Avoid compiler-selected mscorlib Func references on old Unity profiles.
+            var admitted = new List<SharedBindingRowView>();
+            var refused = new List<SharedBindingRowView>();
+            bool found = false;
+            foreach (var value in rows)
+            {
+                if (string.IsNullOrEmpty(value.Note)) { admitted.Add(value); if (value.Action == action) found = true; }
+                else refused.Add(value);
+            }
+            var delivered = admitted.ToArray();
+            var unavailable = refused.ToArray();
+            if (!found) action = delivered.Length == 0 ? null : delivered[0].Action;
+#else
             var delivered = rows.Where(value => string.IsNullOrEmpty(value.Note)).ToArray();
             var unavailable = rows.Where(value => !string.IsNullOrEmpty(value.Note)).ToArray();
             if (!delivered.Any(value => value.Action == action)) action = delivered.FirstOrDefault()?.Action;
+#endif
             foreach (var choice in delivered)
                 if (ui.Button((choice.Action == action ? "Selected: " : "Edit: ") + choice.Label, !listening)) action = choice.Action;
             if (unavailable.Length > 0 && ui.Button((unsupported ? "Hide" : "Show") + " unsupported controls (" + unavailable.Length + ")", !listening)) unsupported = !unsupported;
             if (unsupported) foreach (var value in unavailable) ui.Help(value.Label + ": " + value.Note);
             if (ui.Button(details ? "Hide details" : "Details")) details = !details;
             if (details) ui.Help("Active source: " + host.ActiveSource);
+#if DBCE_INPUT_NET35
+            SharedBindingRowView row = null;
+            foreach (var value in delivered) if (value.Action == action) { row = value; break; }
+#else
             var row = delivered.FirstOrDefault(value => value.Action == action);
+#endif
             if (row == null) { if (!Blank(saveStatus)) ui.Help(saveStatus); return; }
             ui.Label(row.Label);
             ui.Help("Active: " + row.Active.Text);
