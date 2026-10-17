@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsTestProject>true</IsTestProject>
+    <!-- ShimCandidateNativeTests: UnmanagedCallersOnly fake exports behind native function pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(DbceInputNet35)' == 'true'">
     <DefineConstants>$(DefineConstants);DBCE_INPUT_NET35</DefineConstants>
