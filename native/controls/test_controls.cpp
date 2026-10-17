@@ -2,6 +2,7 @@
 // test_controls.exe [vectors file]
 #include "dbce_controls.hpp"
 #include "dbce_inject.hpp"
+#include "dbce_menu_edge.hpp"
 #include "fixtures/pcmod_axis_calibration.hpp"
 #include <cmath>
 #include <fstream>
@@ -218,6 +219,17 @@ int main(int argc, char **argv)
         }
         check(validSame, "validity agrees with the PC mod on 0..65535");
         check(same, "normalization agrees with the PC mod (inverted once) on 0..65535");
+    }
+    {
+        MenuEdge edge;
+        check(!edge.consume({1, true, true}, true), "menu held at startup is not an edge");
+        check(!edge.consume({2, true, false}, true) && edge.consume({3, true, true}, true), "menu release arms one press");
+        check(!edge.consume({3, true, true}, true) && !edge.consume({4, true, true}, true), "menu repeated/held tick does not repeat");
+        check(!edge.consume({5, true, false}, false) && !edge.consume({6, true, true}, true), "menu gate loss requires release");
+        check(!edge.consume({7, true, false}, true) && !edge.consume({8, false, false}, true) && !edge.consume({9, true, true}, true), "menu non-Live sample disarms");
+        edge.reset();
+        check(!edge.consume({1, true, true}, true), "menu new host epoch disarms");
+        check(!edge.consume({2, true, false}, true) && !edge.consume({0, true, false}, true) && !edge.consume({3, true, true}, true), "menu zero sequence disarms");
     }
     if (g_failures) { std::cerr << g_failures << " of " << g_checks << " controls checks failed\n"; return 1; }
     std::cout << "PASS " << g_checks << " controls checks (" << vectors << " shared vectors)\n";
