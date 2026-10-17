@@ -447,6 +447,7 @@ static void drawStatusLine(int width, int height)
         ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("##dbce-session-status", nullptr, flags)) {
+        ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow()); // display order only, never focus
         ImGui::PushFont(g_body);
         ImGui::SetWindowFontScale(scale / g_scale);
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + boxWidth - 2 * inset);
@@ -464,9 +465,8 @@ static void drawStatusLine(int width, int height)
     ImGui::PopStyleColor(2);
 }
 
-void Draw(int width, int height)
+static void drawPanel(int width, int height)
 {
-    drawStatusLine(width, height);
     if (!IsOpen()) return;
     const float s = g_scale;
     // Placement: on the centre screen of a three-screen span (STD-019), centred in the window otherwise.
@@ -550,6 +550,12 @@ void Draw(int width, int height)
     ImGui::End();
 }
 
+
+void Draw(int width, int height)
+{
+    drawPanel(width, height);
+    drawStatusLine(width, height);
+}
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------
 void PollDev()
