@@ -135,7 +135,7 @@ function Get-CimInstance {
     [pscustomobject]@{ProcessId=$PID;ParentProcessId=$script:fixtureRunnerParent;CreationDate=$stamp;CommandLine='runner'}
 }
 $fixtureRunnerParent=0
-$owned=Tracked @{100=$root}
+$script:StageOwnedProcessState.Identities=Tracked @{100=$root}
 $observeExternal=$null
 $sourceRoot='Z:\synthetic-owned-source'
 $outputRoot='Z:\synthetic-owned-output'
@@ -144,10 +144,10 @@ $fixtureCimRows=@(
     [pscustomobject]@{ProcessId=200;ParentProcessId=100;CreationDate=(Stamp $foreignChild);CommandLine='foreign-child'})
 $observed=@(Observe-Owned)
 Assert ($observed.Count -eq 0) 'The adapter excludes reused root and foreign child using the same identity classifier.'
-Assert-Ids $owned.Keys @(100) 'Adapter does not adopt a foreign child.'
-Assert $processQuerySafe 'Known PID reuse remains a safe query, not an unknown identity.'
+Assert-Ids $script:StageOwnedProcessState.Identities.Keys @(100) 'Adapter does not adopt a foreign child.'
+Assert $script:StageOwnedProcessState.QuerySafe 'Known PID reuse remains a safe query, not an unknown identity.'
 
-$owned=Tracked @{100=$root}
+$script:StageOwnedProcessState.Identities=Tracked @{100=$root}
 $fixtureCimRows=@(
     [pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine='owned-root'},
     [pscustomobject]@{ProcessId=200;ParentProcessId=100;CreationDate=(Stamp $child);CommandLine='owned-child'})
@@ -155,7 +155,7 @@ $observed=@(Observe-Owned)
 Assert-Ids @($observed.ProcessId) @(100,200) 'Adapter retains the original true-child contract.'
 
 $fixtureRunnerParent=700
-$owned=Tracked @{100=$root;700=$root}
+$script:StageOwnedProcessState.Identities=Tracked @{100=$root;700=$root}
 $fixtureCimRows=@(
     [pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine=$sourceRoot},
     [pscustomobject]@{ProcessId=700;ParentProcessId=600;CreationDate=(Stamp $rootCim);CommandLine=$sourceRoot},
@@ -180,12 +180,12 @@ foreach($invalid in @(
     Assert $refused 'Unknown, cyclic or duplicate runner ancestry refuses supplemental exclusion.'
 }
 
-$owned=Tracked @{100=$root}
+$script:StageOwnedProcessState.Identities=Tracked @{100=$root}
 $fixtureCimRows=@([pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=$null;CommandLine='unknown'})
 $refused=$false
 try { $null=Observe-Owned } catch { $refused=$true }
 Assert $refused 'Adapter refuses unknown tracked identity.'
-Assert (!$processQuerySafe) 'Adapter latches unknown identity as unsafe.'
+Assert (!$script:StageOwnedProcessState.QuerySafe) 'Adapter latches unknown identity as unsafe.'
 
 # Owned MSVC telemetry (haru shared run-01): VCTIP 32232 outlived cl.exe and held the lease. Its lineage
 # stamp came from CIM; the live handle carries 100 ns ticks. Fake handles only; nothing is terminated.
@@ -212,11 +212,11 @@ function New-FakeHandle([string]$Start) {
     $handle|Add-Member ScriptMethod Dispose { $this.Disposed=$true }
     $handle
 }
-$openOwnedProcess={ param([uint32]$Id) if($Id -ne 32232){throw 'Unexpected handle.'}; $script:handle }
-$owned=Tracked @{35916=$compiler}
-$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new()
-$ownedRoots=[Collections.Generic.List[Diagnostics.Process]]::new()
-$processQuerySafe=$true
+$script:StageOwnedProcessState.OpenProcess={ param([uint32]$Id) if($Id -ne 32232){throw 'Unexpected handle.'}; $script:handle }
+$script:StageOwnedProcessState.Identities=Tracked @{35916=$compiler}
+$script:StageOwnedProcessState.Precision=[Collections.Generic.Dictionary[uint32,string]]::new()
+$script:StageOwnedProcessState.Roots=[Collections.Generic.List[Diagnostics.Process]]::new()
+$script:StageOwnedProcessState.QuerySafe=$true
 $fixtureCimRows=@(
     [pscustomobject]@{ProcessId=35916;ParentProcessId=0;CreationDate=(Stamp $compiler);CommandLine='cl';Name='cl.exe';ExecutablePath=($vctipPath -replace 'VCTIP','cl')},
     [pscustomobject]@{ProcessId=32232;ParentProcessId=35916;CreationDate=(Stamp $vctipCim);CommandLine='vctip';Name='VCTIP.EXE';ExecutablePath=$vctipPath})
@@ -232,8 +232,8 @@ Assert ($stop.Count -eq 1 -and $stop[0].stopped -and $stop[0].precision -ceq 'Ci
 Assert (@($result.ownedLineage|Where-Object {$_.pid -eq 32232})[0].precision -ceq 'CimMicrosecond' -and
     @($result.ownedLineage|Where-Object {$_.pid -eq 35916})[0].precision -ceq 'Tick100ns') 'ownedLineage carries each producer precision.'
 
-$owned=Tracked @{32232=$vctipCim}
-$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new(); $ownedPrecision[32232]='CimMicrosecond'
+$script:StageOwnedProcessState.Identities=Tracked @{32232=$vctipCim}
+$script:StageOwnedProcessState.Precision=[Collections.Generic.Dictionary[uint32,string]]::new(); $script:StageOwnedProcessState.Precision[32232]='CimMicrosecond'
 $vctipRow=[pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath=$vctipPath}
 $handle=New-FakeHandle '2026-10-17T06:19:00.0000001Z'
 $stop=@(Stop-StageOwnedCompilerTelemetry @($vctipRow))
@@ -245,5 +245,39 @@ $stop=@(Stop-StageOwnedCompilerTelemetry @(
     [pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath='C:\Temp\VCTIP.EXE'},
     [pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath=$null}))
 Assert (!$handle.Killed -and $stop.Count -eq 0) 'Only an owned VCTIP image in an MSVC bin directory qualifies; nothing else is opened.'
+
+# F-Zero run01/326a6969: the caller reused $owned for installed receipt names.
+# Both an existing caller value at dot-source time and a later assignment must
+# stay independent of tracking. This exercises the real Observe/Complete API;
+# census rows are synthetic and no child process or termination is used.
+$owned = @('FZeroDeluxe.exe', 'dbce_shim.dll')
+$ownedPrecision = 'caller precision note'
+$ownedRoots = 'caller receipt roots'
+$processQuerySafe = 'caller receipt status'
+$ownedRunnerIdentity = 'caller identity note'
+$openOwnedProcess = 'caller handle note'
+. (Join-Path $PSScriptRoot 'Stage-OwnedProcess.ps1')
+Assert (($owned -join ',') -ceq 'FZeroDeluxe.exe,dbce_shim.dll') 'Dot-sourcing does not overwrite the caller receipt names.'
+$script:StageOwnedProcessState.Identities = Tracked @{100=$root}
+$sourceRoot='Z:\synthetic-owned-source'
+$outputRoot='Z:\synthetic-owned-output'
+$observeExternal=$null
+$fixtureRunnerParent=0
+$fixtureCimRows=@(
+    [pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine='owned-root'},
+    [pscustomobject]@{ProcessId=200;ParentProcessId=100;CreationDate=(Stamp $child);CommandLine='owned-child'})
+$owned = @('FZeroDeluxe.exe', 'dbce_shim.dll', 'install-receipt.json')
+$observed=@(Observe-Owned)
+Assert-Ids @($observed.ProcessId) @(100,200) 'Caller $owned reassignment cannot replace the tracker or prevent child adoption.'
+Assert ($script:StageOwnedProcessState.Precision[200] -ceq 'CimMicrosecond') 'Caller variables do not replace carried descendant precision.'
+$fixtureCimRows=@() # The original synthetic processes exit.
+$result=[ordered]@{}
+Complete-Owned
+Assert ($result.processQuerySafe -and $result.childrenQuiescent -and @($result.remainingScopedChildren).Count -eq 0) 'Cleanup completes after caller $owned reassignment.'
+Assert-Ids @($result.ownedLineage.pid) @(100,200) 'Cleanup receipts retain original owned identities after the caller collision.'
+Assert (($owned -join ',') -ceq 'FZeroDeluxe.exe,dbce_shim.dll,install-receipt.json' -and
+    $ownedPrecision -ceq 'caller precision note' -and $ownedRoots -ceq 'caller receipt roots' -and
+    $processQuerySafe -ceq 'caller receipt status' -and $ownedRunnerIdentity -ceq 'caller identity note' -and
+    $openOwnedProcess -ceq 'caller handle note') 'The helper leaves ordinary caller bookkeeping untouched.'
 
 "Test-StageOwnedProcess: $checks checks passed; synthetic snapshots only"

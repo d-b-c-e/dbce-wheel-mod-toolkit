@@ -113,13 +113,18 @@ function Get-StageRunnerAncestorIds {
     return $ancestors.ToArray()
 }
 
-$owned = [Collections.Generic.Dictionary[uint32,DateTime]]::new()
-$ownedPrecision = [Collections.Generic.Dictionary[uint32,string]]::new()
-$ownedRoots = [Collections.Generic.List[Diagnostics.Process]]::new()
-# Seam for the cleanup handle; synthetic fixtures substitute an object with StartTime, Kill, WaitForExit, Dispose.
-$openOwnedProcess = { param([uint32]$Id) [Diagnostics.Process]::GetProcessById([int]$Id) }
-$processQuerySafe = $true
-$ownedRunnerIdentity=$null
+# Dot-sourcing shares the caller's script scope. Keep persistent tracking data
+# behind a helper-specific name so ordinary caller variables (notably $owned)
+# cannot replace dictionaries or shadow reads through PowerShell's dynamic scope.
+$script:StageOwnedProcessState = [pscustomobject]@{
+    Identities = [Collections.Generic.Dictionary[uint32,DateTime]]::new()
+    Precision = [Collections.Generic.Dictionary[uint32,string]]::new()
+    Roots = [Collections.Generic.List[Diagnostics.Process]]::new()
+    # Synthetic fixtures replace this seam; production opens only a verified handle.
+    OpenProcess = { param([uint32]$Id) [Diagnostics.Process]::GetProcessById([int]$Id) }
+    QuerySafe = $true
+    RunnerIdentity = $null
+}
 function Save-Result {
     [IO.File]::WriteAllText((Join-Path $outputRoot 'result.json'), ($script:result | ConvertTo-Json -Depth 12))
 }
@@ -136,14 +141,14 @@ function Observe-Owned {
                 }
             })
         }
-        if($null -eq $ownedRunnerIdentity){
+        if($null -eq $script:StageOwnedProcessState.RunnerIdentity){
             $self=[Diagnostics.Process]::GetCurrentProcess()
-            try{$script:ownedRunnerIdentity=[pscustomobject]@{processId=$PID;createdUtc=$self.StartTime.ToUniversalTime();precision='Tick100ns'}}
+            try{$script:StageOwnedProcessState.RunnerIdentity=[pscustomobject]@{processId=$PID;createdUtc=$self.StartTime.ToUniversalTime();precision='Tick100ns'}}
             finally{$self.Dispose()}
         }
-        $ancestors=@(Get-StageRunnerAncestorIds -Runner $ownedRunnerIdentity -Snapshot $snapshot)
-        $observation = Update-StageOwnedProcessLineage -Owned $owned -Snapshot $snapshot -Precision $ownedPrecision
-    } catch { $script:processQuerySafe = $false; throw }
+        $ancestors=@(Get-StageRunnerAncestorIds -Runner $script:StageOwnedProcessState.RunnerIdentity -Snapshot $snapshot)
+        $observation = Update-StageOwnedProcessLineage -Owned $script:StageOwnedProcessState.Identities -Snapshot $snapshot -Precision $script:StageOwnedProcessState.Precision
+    } catch { $script:StageOwnedProcessState.QuerySafe = $false; throw }
     @($rows | Where-Object {
         ($observation.originalAliveProcessIds -contains [uint32]$_.ProcessId) -or
         ($_.ProcessId -ne $PID -and $_.ProcessId -notin $ancestors -and $_.CommandLine -and
@@ -159,27 +164,27 @@ function Invoke-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Argu
     $start.Environment['DOTNET_CLI_USE_MSBUILD_SERVER'] = '0'
     foreach ($arg in $Arguments) { $start.ArgumentList.Add($arg) }
     $child = [Diagnostics.Process]::Start($start)
-    $ownedRoots.Add($child)
+    $script:StageOwnedProcessState.Roots.Add($child)
     try {
         $script:result.steps[-1].process = [ordered]@{pid=$child.Id; createdUtc=$null; executable=$Executable; arguments=$Arguments; timeoutSeconds=$TimeoutSeconds}
         Save-Result
-        $owned[[uint32]$child.Id] = $child.StartTime.ToUniversalTime()
-        $ownedPrecision[[uint32]$child.Id] = 'Tick100ns'
-        $script:result.steps[-1].process = [ordered]@{pid=$child.Id; createdUtc=$owned[[uint32]$child.Id].ToString('O'); executable=$Executable; arguments=$Arguments; timeoutSeconds=$TimeoutSeconds}
+        $script:StageOwnedProcessState.Identities[[uint32]$child.Id] = $child.StartTime.ToUniversalTime()
+        $script:StageOwnedProcessState.Precision[[uint32]$child.Id] = 'Tick100ns'
+        $script:result.steps[-1].process = [ordered]@{pid=$child.Id; createdUtc=$script:StageOwnedProcessState.Identities[[uint32]$child.Id].ToString('O'); executable=$Executable; arguments=$Arguments; timeoutSeconds=$TimeoutSeconds}
         Save-Result
-    } catch { $script:processQuerySafe = $false; throw }
+    } catch { $script:StageOwnedProcessState.QuerySafe = $false; throw }
     $stdout = $child.StandardOutput.ReadToEndAsync(); $stderr = $child.StandardError.ReadToEndAsync()
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while (!$child.WaitForExit(100)) {
         [void]@(Observe-Owned)
         if ([DateTime]::UtcNow -gt $deadline) {
-            $script:processQuerySafe = $false
+            $script:StageOwnedProcessState.QuerySafe = $false
             throw "Owned $Name timed out; no forced termination; retain lease and recorded process identities"
         }
     }
     [void]@(Observe-Owned)
     if (!$stdout.Wait(5000) -or !$stderr.Wait(5000)) {
-        $script:processQuerySafe = $false
+        $script:StageOwnedProcessState.QuerySafe = $false
         throw "Owned $Name streams remain open; retain lease"
     }
     [IO.File]::WriteAllText((Join-Path $outputRoot ($Name+'.stdout.log')), $stdout.GetAwaiter().GetResult())
@@ -195,13 +200,13 @@ function Invoke-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Argu
 function Stop-StageOwnedCompilerTelemetry([object[]]$Remaining) {
     foreach ($row in $Remaining) {
         $id = [uint32]$row.ProcessId
-        if (!$owned.ContainsKey($id) -or [string]$row.Name -ine 'vctip.exe' -or
+        if (!$script:StageOwnedProcessState.Identities.ContainsKey($id) -or [string]$row.Name -ine 'vctip.exe' -or
             [string]$row.ExecutablePath -notmatch '\\VC\\Tools\\MSVC\\[^\\]+\\bin\\Host[^\\]+\\[^\\]+\\VCTIP\.EXE$') { continue }
-        $precision = $null; if (!$ownedPrecision.TryGetValue($id, [ref]$precision)) { $precision = 'Tick100ns' }
-        $recorded = [pscustomobject]@{ processId=$id; createdUtc=$owned[$id]; precision=$precision }
+        $precision = $null; if (!$script:StageOwnedProcessState.Precision.TryGetValue($id, [ref]$precision)) { $precision = 'Tick100ns' }
+        $recorded = [pscustomobject]@{ processId=$id; createdUtc=$script:StageOwnedProcessState.Identities[$id]; precision=$precision }
         $process = $null
         try {
-            $process = & $openOwnedProcess $id
+            $process = & $script:StageOwnedProcessState.OpenProcess $id
             $live = [pscustomobject]@{ querySucceeded=$true; rows=@([pscustomobject]@{
                 processId=$id; createdUtc=$process.StartTime.ToUniversalTime(); precision='Tick100ns' }) }
             $identity = Get-StageProcessIdentityDisposition -Recorded $recorded -Snapshot $live
@@ -227,14 +232,14 @@ function Complete-Owned {
                 do { $remaining = @(Observe-Owned) } while ($remaining.Count -gt 0 -and [DateTime]::UtcNow -lt $cleanupDeadline)
             }
         }
-    } catch { $script:processQuerySafe = $false; $remaining = @(); $script:result.processQueryError = $_.Exception.Message }
-    $script:result.ownedLineage = @($owned.GetEnumerator() | ForEach-Object {
-        $precision = $null; if (!$ownedPrecision.TryGetValue($_.Key, [ref]$precision)) { $precision = 'Tick100ns' }
+    } catch { $script:StageOwnedProcessState.QuerySafe = $false; $remaining = @(); $script:result.processQueryError = $_.Exception.Message }
+    $script:result.ownedLineage = @($script:StageOwnedProcessState.Identities.GetEnumerator() | ForEach-Object {
+        $precision = $null; if (!$script:StageOwnedProcessState.Precision.TryGetValue($_.Key, [ref]$precision)) { $precision = 'Tick100ns' }
         [ordered]@{pid=$_.Key; createdUtc=$_.Value.ToString('O'); precision=$precision} })
     $script:result.remainingScopedChildren = @($remaining | Select-Object ProcessId,ParentProcessId,CreationDate,Name,ExecutablePath,CommandLine)
-    $script:result.processQuerySafe = $processQuerySafe
-    $script:result.childrenQuiescent = $processQuerySafe -and $remaining.Count -eq 0
-    foreach ($child in $ownedRoots) {
+    $script:result.processQuerySafe = $script:StageOwnedProcessState.QuerySafe
+    $script:result.childrenQuiescent = $script:StageOwnedProcessState.QuerySafe -and $remaining.Count -eq 0
+    foreach ($child in $script:StageOwnedProcessState.Roots) {
         try {
             if ($child.HasExited) { $child.Dispose() }
             else { $script:result.childrenQuiescent = $false; $script:result.processQueryError = 'A retained process handle still reports alive' }
