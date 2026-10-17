@@ -93,6 +93,7 @@ namespace Dbce.Wheel.Ffb.Output
             {
                 Suspend("Source or output identity changed");
                 _epoch = source.Epoch; _device = target.Value; _window = window; _ticked = false;
+                if (!CanAttempt) return Last = Last.WithModelRequest(request); // A throwing cleanup latched force off.
             }
             if (_ticked && source.Tick == _tick)
             {
@@ -149,7 +150,8 @@ namespace Dbce.Wheel.Ffb.Output
     /// The existing shared output binding for a pinned managed/native pair beside the mod: hash both files, load,
     /// require the pinned native version, strict-GUID Initialise, 150 ms hold timeout, exit guards and an initial zero.
     /// Native ownership stays in the shared module. No read/aux device, no ShutdownAll, and no other producer's ready
-    /// device or refused module binding is cancelled.
+    /// device or refused module binding is cancelled. Every WheelFfbNative use is inside a delegate body, so creating a
+    /// sink loads neither the managed Dbce.Wheel.Ffb assembly nor the native module (a host may create it with FFB Off).
     /// </summary>
     public static class SharedFfbPair
     {
@@ -174,7 +176,7 @@ namespace Dbce.Wheel.Ffb.Output
                 WheelFfbNative.HoldTimeout(150);
                 if (!WheelFfbNative.ExitGuards()) return false; // The output gate requests cleanup after a partial open.
                 return WheelFfbNative.SetForce(0);
-            }, WheelFfbNative.SetForce, () =>
+            }, force => WheelFfbNative.SetForce(force), () =>
             {
                 if (!ownsAttempt) return;
                 try { Stop(); } finally { ownsAttempt = false; }

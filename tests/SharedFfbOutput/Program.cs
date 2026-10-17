@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Dbce.Wheel.Ffb;
 using Dbce.Wheel.Ffb.Output;
 
@@ -31,13 +32,33 @@ internal static class Program
     {
         try
         {
-            Gates(); Delivery(); Ticks(); Failures(); Pair();
-            Check(WheelFfbNative.LoadedFrom == null && !WheelFfbNative.Ready, "Fixture loaded or initialized the shared native binding");
+            // First, before any method naming WheelFfbNative is compiled: creating a sink must not load the managed
+            // Dbce.Wheel.Ffb assembly (Over the Hill creates its sink at load with FFB Off).
+            LazySink();
+            Gates(); Delivery(); Ticks(); Failures(); Pair(); NativeUntouched();
             Console.WriteLine("SHARED_FFB_OUTPUT_PASS " + _checks + " checks; fake sink only, no module load/device/game.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("SHARED_FFB_OUTPUT_FAIL after " + _checks + " checks: " + ex.Message); return 1; }
     }
+
+    private static bool FfbAssemblyLoaded() =>
+        AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "Dbce.Wheel.Ffb");
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void LazySink()
+    {
+        Check(!FfbAssemblyLoaded(), "Fixture loaded Dbce.Wheel.Ffb before the laziness check");
+        var sink = SharedFfbPair.CreateSink(Path.GetTempPath(), new string('A', 64), new string('A', 64), 901);
+        Check(sink != null && !FfbAssemblyLoaded(), "Creating a sink loaded the managed Dbce.Wheel.Ffb assembly");
+        var output = new FfbOutput(new Fake().Sink, true, false);
+        output.Update(Source(1), true, WheelA, 42, 1);
+        Check(!FfbAssemblyLoaded(), "Output gate or command scaling loaded the managed Dbce.Wheel.Ffb assembly");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void NativeUntouched() =>
+        Check(WheelFfbNative.LoadedFrom == null && !WheelFfbNative.Ready, "Fixture loaded or initialized the shared native binding");
 
     private static readonly Guid WheelA = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid WheelB = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -163,6 +184,23 @@ internal static class Program
                     output.Update(Source(1.04), true, WheelA, 42, 6.01);
                     Check(fake.Opens == 2, "Output did not retry after the 5 s wait");
                 }
+            }
+        }
+        foreach (int change in new[] { 0, 1, 2 })
+        {
+            // An identity change whose cleanup throws latches force off before any new open or write (lola217275).
+            var fake = new Fake();
+            using (var output = new FfbOutput(fake.Sink, true, false))
+            {
+                Check(output.Update(Source(1), true, WheelA, 42, 1).Accepted && fake.Opens == 1 && fake.Commands.Count == 1, "Identity fixture did not open");
+                fake.ThrowStop = true;
+                var receipt = output.Update(Source(1.02, epoch: change == 2 ? "carB" : "carA"), true, change == 0 ? WheelB : WheelA,
+                    change == 1 ? 43 : 42, 1.02);
+                Check(fake.Stops == 1 && fake.Opens == 1 && fake.Commands.Count == 1 && !receipt.Attempted && !output.CanAttempt &&
+                    receipt.Status.Contains("cleanup call failed") && receipt.ModelRequest == -.25f, "Muting identity change still opened or wrote");
+                output.Update(Source(1.04), true, WheelA, 42, 1.04);
+                output.Update(Source(1.06, epoch: "carC"), true, WheelB, 44, 1.06);
+                Check(fake.Opens == 1 && fake.Commands.Count == 1 && !output.CanAttempt, "Output resumed after a muting identity change");
             }
         }
         var lost = new Fake();

@@ -17,8 +17,11 @@ Hill (`d7fd2c2`) had copied:
   failures wait 5 s before another open. A clock fault or a throwing cleanup
   latches force off for the process.
 - `SharedFfbPair.CreateSink`: binds the pinned pair. The host passes the
-  directory, both SHA-256 pins and the native version. Nothing loads until the
-  first eligible `Open`; a refused hash or version never loads the module. It
+  directory, both SHA-256 pins and the native version. Creating the sink loads
+  neither the managed `Dbce.Wheel.Ffb` assembly nor the native module: every
+  `WheelFfbNative` use is inside a delegate body, so a host may create it at load
+  with FFB Off (Over the Hill does). Nothing loads until the first eligible
+  `Open`; a refused hash or version never loads the module. It
   uses strict-GUID `Initialise`, a 150 ms hold timeout, exit guards and an
   initial zero, and stops only an attempt it owns.
 - `UnityForegroundWindow.Focused`: the existing DRIVE/Truckful/Over the Hill
@@ -38,6 +41,9 @@ the plugin lifecycle (create, suspend before F6, dispose).
   rejects non-increasing ticks, so its output never received one.
 - **Repeated tick status:** "No new completed physics tick" (Over the Hill).
   Truckful said "sample". No test or tool reads the Truckful wording.
+- **Muting identity change:** when an epoch/device/window change requests
+  cleanup and that cleanup throws, `Update` returns at once with force latched
+  off. Both originals continued to open and write once in that same call.
 - **Tick type:** `double`. An integer `TickId` converts exactly.
 - **Hashing:** `SHA256.ComputeHash` and `BitConverter` hex, so the file builds
   on .NET Framework/Mono as well as .NET 6.
