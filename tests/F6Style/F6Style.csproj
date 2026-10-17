@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
-  <ItemGroup><Compile Include="../../shared/ui/F6Style.cs" Link="F6Style.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../shared/ui/F6Style.cs" Link="F6Style.cs" />
+    <Compile Include="../../shared/ui/SettingsPresentation.cs" Link="SettingsPresentation.cs" />
+    <Compile Include="../../shared/ui/BindingSaveStatus.cs" Link="BindingSaveStatus.cs" />
+  </ItemGroup>
 </Project>
