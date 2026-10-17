@@ -43,8 +43,9 @@ function Read-SupportLogTail([string]$Path, [ValidateRange(256,24000)][int]$MaxB
     Assert-LocalSupportPath $Path
     $type = Initialize-DbceSupportReport
     # Core owns link/encoding/binary validation, partial-line discard and bounded IO.
-    $content = $type::LogTail($Path, $MaxBytes)
-    return [pscustomobject]@{ Included=$true; FileName=[IO.Path]::GetFileName($Path); Content=$content }
+    $content = $type::Redact($type::LogTail($Path, $MaxBytes),[NullString]::Value)
+    return [pscustomobject]@{ Included=$true; FileName=[IO.Path]::GetFileName($Path); Content=$content;
+        Truncated=$content.StartsWith("[Last $MaxBytes bytes only; partial first line omitted]`n") }
 }
 
 function New-PreparedSupportReport(
