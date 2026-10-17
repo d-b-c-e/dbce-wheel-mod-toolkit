@@ -30,3 +30,6 @@ native/support/* text eol=lf
 tools/playback/UnityOperatorAdmission.mjs text eol=lf
 tools/playback/Test-UnityOperatorAdmission.mjs text eol=lf
 tools/playback/UnityOperatorAdmission.md text eol=lf
+
+# Preserve the exact portable optional first-device binding source for consumers.
+dotnet/Dbce.Wheel.Shim/ShimCandidateNative.cs text eol=lf
