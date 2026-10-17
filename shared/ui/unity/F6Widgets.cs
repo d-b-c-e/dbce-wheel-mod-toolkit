@@ -33,6 +33,9 @@ namespace Dbce.Wheel.Ui.Unity
         private GUISkin _builtSkin;
         private float _builtScale = -1f;
         private static readonly Dictionary<int, Texture2D> Textures = new Dictionary<int, Texture2D>();
+        // Unity's legacy Mono 2.0 profile has no Array.Empty. Explicit empty params
+        // keep the same layout while preventing the compiler from emitting it.
+        private static readonly GUILayoutOption[] NoOptions = new GUILayoutOption[0];
 
         private float S(float units) => units * Scale;
         private int Size(int points) => Mathf.Max(8, Mathf.RoundToInt(points * Scale));
@@ -79,7 +82,7 @@ namespace Dbce.Wheel.Ui.Unity
 
         public void Title(string title, string subtitle)
         {
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(NoOptions);
             GUILayout.Label(title, _title, GUILayout.ExpandWidth(false));
             if (!string.IsNullOrEmpty(subtitle)) { GUILayout.Space(S(12)); GUILayout.Label(subtitle, _subtitle, GUILayout.ExpandWidth(false)); }
             GUILayout.EndHorizontal();
@@ -119,7 +122,7 @@ namespace Dbce.Wheel.Ui.Unity
         public void Help(string text) => GUILayout.Label(text, _help, GUILayout.Width(S(BodyWidth)));
 
         /// <summary>Body text inside the host's horizontal group (no fixed width).</summary>
-        public void Inline(string text) => GUILayout.Label(text, _text);
+        public void Inline(string text) => GUILayout.Label(text, _text, NoOptions);
 
         /// <summary>Adds a host-drawn control (e.g. a text field named with GUI.SetNextControlName) to the Tab order.</summary>
         public void Register(string id) => _focusable.Add(id);
@@ -268,7 +271,7 @@ namespace Dbce.Wheel.Ui.Unity
             int item = 0;
             for (int line = 0; line < lineCount; line++)
             {
-                GUILayout.BeginHorizontal();
+                GUILayout.BeginHorizontal(NoOptions);
                 if (alignRight) GUILayout.FlexibleSpace();
                 for (; item < labels.Length && lines[item] == line; item++)
                     if (Segment(idPrefix + item, labels[item], item == selected, enabled, available)) clicked = item;
@@ -344,7 +347,7 @@ namespace Dbce.Wheel.Ui.Unity
             for (int i = 0; options != null && i < options.Length; i++)
                 needs += Mathf.Max(S(F6Metrics.SegmentMinWidth), _segment.CalcSize(new GUIContent(options[i])).x) / Scale + (i > 0 ? F6Metrics.RowGap : 0);
             var layout = BeginRow(label, help, Mathf.Min(needs, BodyWidth));
-            GUILayout.BeginVertical();
+            GUILayout.BeginVertical(NoOptions);
             int clicked = Segments(id + "-", options, selected, enabled, layout.EditorWidth, !layout.Stacked);
             GUILayout.EndVertical();
             EndRow(layout);
@@ -389,10 +392,10 @@ namespace Dbce.Wheel.Ui.Unity
             Rect start = GUILayoutUtility.GetRect(S(BodyWidth), 0, GUILayout.Width(S(BodyWidth)), GUILayout.Height(0));
             GUILayout.BeginHorizontal(GUILayout.Width(S(BodyWidth)));
             GUILayout.Space(S(14));
-            GUILayout.BeginVertical();
+            GUILayout.BeginVertical(NoOptions);
             GUILayout.Space(S(10));
-            GUILayout.Label(title, warning ? _warningTitle : _label);
-            if (!string.IsNullOrEmpty(detail)) GUILayout.Label(detail, _help);
+            GUILayout.Label(title, warning ? _warningTitle : _label, NoOptions);
+            if (!string.IsNullOrEmpty(detail)) GUILayout.Label(detail, _help, NoOptions);
             GUILayout.Space(S(10));
             GUILayout.EndVertical();
             bool clicked = false;
