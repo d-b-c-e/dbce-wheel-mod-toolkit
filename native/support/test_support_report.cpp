@@ -44,6 +44,12 @@ void run(const fs::path& root) {
     for (const auto& secret:{"fixture","user@example.com","Bearer abc","hidden","ghp_"})
         check(!contains(redacted,secret),"Existing redaction case");
     check(contains(redacted,"%USERPROFILE%") && contains(redacted,"game\\log.txt"),"Useful path suffix");
+    for (const std::string label:{"token","access_token","refresh_token","auth_token","access-token"})
+        check(redact(label+"=private-value")==label+"=[redacted]","Managed token label parity");
+    check(redact("{\"ToKeN\": \"private-value\"}\r\nUseful next line") ==
+          "{\"ToKeN\": [redacted]\r\nUseful next line","Quoted mixed-case token and next line");
+    check(redact("token count 3\nUseful next line")=="token count 3\nUseful next line",
+          "Token prose without credential delimiter retained");
     check(valid_repository("owner/repo-name"),"Valid repository");
     for (const auto& bad:{"https://github.com/owner/repo","owner/..","owner/repo\n","owner/repo?x=1","owner/repo/extra",
                          "owner/.repo","owner/-repo","/repo","owner/","ow ner/repo"})
@@ -55,6 +61,9 @@ void run(const fs::path& root) {
     write(path,"earlier\nLatest steering sample\n");
     std::vector<fs::path> paths={path};
     ReportProduct product("Fixture game","1.2.3","owner/repo");
+    auto token_report=prepare(product,"Token report","refresh_token=private-value\nUseful next line");
+    check(!contains(token_report.preview(),"private-value") && contains(token_report.body(),"Useful next line"),
+          "Prepared report redacts generic token credentials before preview");
     check(product.mod_page()=="https://github.com/owner/repo" &&
           product.wheelkit_page()=="https://github.com/d-b-c-e/dbce-wheelkit","Standard Help links");
     auto prepared=prepare(product,"Steering & camera?","Steps to reproduce",paths);

@@ -62,6 +62,12 @@ and uses the managed short description/setup/one-attachment instructions.
 Opening a draft transmits its prefilled text; attaching uploads immediately;
 neither action submits an issue. Both actions remain with the host/user.
 
+The native token-label parity successor also handles plain `token`,
+`refresh_token` and `auth_token`, including quoted and mixed-case keys, just as
+the managed helper does. It retains the label and redacts the line's value.
+This source change needs its focused native fixture build before consumer
+adoption; earlier 86-check results below cover the historical source only.
+
 ## Focused qualification
 
 `test_support_report.cpp` ports the existing inputs/assertions from

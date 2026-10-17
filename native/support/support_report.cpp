@@ -106,8 +106,10 @@ std::wstring redact_w(std::wstring text, std::wstring home) {
         if (token != i) { out += L"[redacted token]"; i = token; } else out += text[i++];
     }
     text = std::move(out); out.clear();
-    const std::array<std::wstring, 10> labels = {L"authorization",L"password",L"passwd",L"accesstoken",L"access_token",
-        L"access-token",L"apikey",L"api_key",L"api-key",L"secret"};
+    // Like managed SupportReport.Redact, token also matches suffix labels such
+    // as refresh_token and auth_token; keep the label and redact its line value.
+    const std::array<std::wstring, 11> labels = {L"authorization",L"password",L"passwd",L"accesstoken",L"access_token",
+        L"access-token",L"apikey",L"api_key",L"api-key",L"secret",L"token"};
     for (std::size_t i = 0; i < text.size();) {
         std::size_t value = i;
         for (const auto& label : labels) {
