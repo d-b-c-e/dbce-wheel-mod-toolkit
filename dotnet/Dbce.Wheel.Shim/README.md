@@ -68,6 +68,25 @@ or refused it; the host notes the frame before it takes or refuses a snapshot.
 Both files are portable C# (no records, spans or `BinaryPrimitives`) so .NET
 Standard 2.1, .NET Framework 4.8 and Mono consumers can vendor them byte-exact.
 
+`ShimCandidateNative.cs` binds the optional first-device candidate, extension 4
+(`native/shim/shim_dll/dbce_shim_candidate.h`; native README "First-device
+capture candidate"). It is the same portable C#.
+
+- **Binding.** `TryBind` takes the host's own export resolver over the module
+  it already loaded and hash-checked. An older DLL gives null with the reason,
+  and the host then offers no first-device route.
+- **Calls.** `RequestList`, `Select(instance, product)`, `Release` and
+  `Report`. `Report` returns the JSON, which the host parses with its existing
+  reader.
+- **Snapshot.** `SnapshotCallFor(handle)` feeds `ShimSnapshot.Take`. The
+  candidate's one-row snapshot uses extension 3's structs. Decode it into its
+  own `ShimSnapshotFeed` and capture flow, with its own epoch namespace, never
+  the ordinary snapshot's.
+- **Owner-thread rules.** List and select only on an explicit user action, on
+  the owner thread right after the ordinary tick. Take the candidate snapshot
+  every editable frame, which renews its 2 s lifetime. Release on panel close,
+  focus loss or a non-ordinary frame. Never deliver candidate values.
+
 The consumer supplies its reviewed DLL hash and verifies its installed receipt,
 game build, device isolation and keyboard-only native residual before admitting
 shared input. It owns the game-input thread for every handle call, and it must
