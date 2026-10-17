@@ -76,5 +76,7 @@ namespace Dbce.Wheel.Input
         /// Preserve it visibly; do not offer edits which this consumer cannot deliver.</summary>
         public static bool CanEditRow(SharedBindingAccess access, string? capturingAction, string? note) =>
             access == SharedBindingAccess.Editable && capturingAction == null && string.IsNullOrEmpty(note);
+        public static bool CanEditRow(SharedBindingAccess access, string? capturingAction, string? note, SharedBindingApplicability applicability) =>
+            applicability == SharedBindingApplicability.Supported && CanEditRow(access, capturingAction, note);
     }
 }

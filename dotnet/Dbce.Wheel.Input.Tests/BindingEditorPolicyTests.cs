@@ -41,6 +41,11 @@ internal static class BindingEditorPolicyTests
             Check(!SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.Editable, null, reason), "unavailable row refuses edit affordances: " + reason);
         Check(!SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.ReadOnly, null, "") && !SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.Missing, null, ""), "profile access still gates row edits");
         Check(!SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.Editable, "steer", ""), "an active capture locks row edits without hiding Cancel");
-        return checks;
+        var supported = new SharedBindingRowView { Note = "Select Sequential in setup." };
+        Check(supported.Applicability == SharedBindingApplicability.Supported, "old row producers default to supported");
+        Check(!SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.Editable, null, supported.Note, supported.Applicability), "temporary reason still blocks editing");
+        var unsupported = new SharedBindingRowView { Applicability = SharedBindingApplicability.Unsupported };
+        Check(!SharedBindingUiPolicy.CanEditRow(SharedBindingAccess.Editable, null, unsupported.Note, unsupported.Applicability), "explicit unsupported row refuses edits even without Note");
+        return checks + SharedBindingPanelTests.Run();
     }
 }
