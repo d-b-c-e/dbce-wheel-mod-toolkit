@@ -32,6 +32,11 @@ function Read-StageJsonLogReply {
 # their old handle; StreamReader disposal closes that handle on every path.
 function Read-StageSharedText {
     param([Parameter(Mandatory)][string]$Path, [ValidateRange(1,16777216)][int]$MaximumBytes=1048576)
+    # .NET invocation errors are otherwise nonterminating under a caller's
+    # Continue/SilentlyContinue preference, leaving null handles and masking
+    # the original IO failure with constructor/read/disposal errors. This
+    # function-local preference unwinds immediately and does not alter callers.
+    $ErrorActionPreference='Stop'
     $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
     try {
         if($stream.Length -gt $MaximumBytes){throw [IO.InvalidDataException]::new('Shared text exceeds its size limit.')}

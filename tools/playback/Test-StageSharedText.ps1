@@ -25,6 +25,25 @@ try {
     $missing=$false;try{Read-StageSharedText (Join-Path $root 'absent.json')|Out-Null}catch{$missing=$true}
     Check $missing 'Missing file was silently treated as published'
 
+    $phase='open failure preserves original error under caller preferences'
+    foreach($preference in @('Continue','SilentlyContinue','Stop')){
+        foreach($failureMode in @('missing','locked')){
+            $failedPath=if($failureMode -eq 'missing'){Join-Path $root 'absent.json'}else{$path}
+            if($failureMode -eq 'locked'){$held=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}
+            try {
+                $probe=& {
+                    param($path,$preference)
+                    $ErrorActionPreference=$preference;$caught=$null
+                    $output=@(try{Read-StageSharedText $path}catch{$caught=$_})
+                    [pscustomobject]@{error=$caught;output=$output;preference=$ErrorActionPreference}
+                } $failedPath $preference
+                $expected=if($failureMode -eq 'missing'){[IO.FileNotFoundException]}else{[IO.IOException]}
+                Check ($null -ne $probe.error -and $probe.error.Exception.GetBaseException() -is $expected -and
+                    $probe.output.Count -eq 0 -and $probe.preference -ceq $preference) "Original $failureMode IO error/preference lost under $preference"
+            } finally {if($held){$held.Dispose();$held=$null}}
+        }
+    }
+
     # Reproduce the old replacement failure while a legacy reader denies delete.
     $phase='legacy reader retry'
     $held=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
