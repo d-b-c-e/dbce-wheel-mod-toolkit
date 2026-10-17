@@ -35,7 +35,7 @@ namespace Dbce.Wheel.Input
             var unique = new HashSet<string>(StringComparer.Ordinal);
             var text = new StringBuilder("game " + game + "\ncontexts observed");
             foreach (string context in contexts) {
-                if (!Word(context, 32, false) || !unique.Add(context)) throw new ArgumentException("Invalid or duplicate extras context.");
+                if (!Word(context, 16, false) || !unique.Add(context)) throw new ArgumentException("Invalid or duplicate extras context.");
                 text.Append(' ').Append(context);
             }
             text.Append('\n');
