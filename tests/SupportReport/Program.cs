@@ -26,6 +26,17 @@ internal static class Program
             foreach (string bad in new[] { "https://github.com/owner/repo", "owner/..", "owner/repo\n", "owner/repo?x=1", "owner/repo/extra" })
                 Check(!SupportReport.ValidRepository(bad), "Refuse repository routing injection");
 
+            Refuses<ArgumentException>(() => SupportReport.Prepare(product: new ReportProduct("Game", "1", "owner/repo"), title: "\t\u2003 ", description: "description"));
+            Refuses<InvalidDataException>(() => SupportReport.SelectedLogs(new[] { "\t\u2003 " }));
+#if DBCE_SUPPORT_NET35
+            System.Collections.Generic.IList<string> legacyPaths = new System.Collections.Generic.List<string>();
+            Refuses<InvalidDataException>(() => SupportReport.SelectedLogs(legacyPaths));
+            Refuses<InvalidDataException>(() => SupportReport.Redact(new string('x', 50001), "C:\\Users\\fixture"));
+            string legacyHome = Environment.GetEnvironmentVariable("USERPROFILE");
+            if (!string.IsNullOrEmpty(legacyHome))
+                Check(!SupportReport.Redact(legacyHome + "\\mod.log").Contains(legacyHome), "Legacy default home redaction");
+#endif
+
             string utf8 = Path.Combine(root, "mod.log");
             File.WriteAllText(utf8, "earlier\nLatest steering sample\n", new UTF8Encoding(false));
             string[] paths = { utf8 };
