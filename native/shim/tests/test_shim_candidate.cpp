@@ -196,7 +196,7 @@ template <class Done> Cand tick_until(void* h, dbce_shim_frame& f, Done done, in
     }
     throw std::runtime_error(what + ": not reached in " + std::to_string(limit) + " ticks");
 }
-void* open(fakecom::Input* in, const std::string& profile, const char* folder) {
+void* open_handle(fakecom::Input* in, const std::string& profile, const char* folder) {
     const auto dir = scratch() / folder; std::filesystem::create_directories(dir);
     char why[256] = {}; void* h = nullptr;
     check(dbce_shim_open_with_input(in, dir.wstring().c_str(), "candnonce1", profile.data(), int32_t(profile.size()), nullptr, nullptr, &h, why, 256) == DBCE_SHIM_OK && h,
@@ -213,7 +213,7 @@ void test_unbound() {
     auto* in = new fakecom::Input;   // fake storage lives to process exit, like the host's own provider
     const auto slot = in->add(script(W, WP, L"MOZA R12 Base"));
     in->scripts[slot].interface_path = L"\\\\?\\hid#candidate";
-    void* h = open(in, Unbound, "unbound");
+    void* h = open_handle(in, Unbound, "unbound");
     dbce_shim_frame f{}; f.struct_size = sizeof f;
     for (int n = 0; n < 40; ++n) { check(dbce_shim_tick(h, &f) == DBCE_SHIM_OK, "unbound tick"); Sleep(5); }
     auto none = take(h, f.seq);
@@ -290,7 +290,7 @@ void test_bound() {
     auto* in = new fakecom::Input;
     const auto wheel = in->add(script(W, WP, L"MOZA R12 Base")), pedals = in->add(script(W2, WP2, L"Pedals"));
     in->scripts[wheel].interface_path = L"\\\\?\\hid#wheel";
-    void* h = open(in, Bound, "bound");
+    void* h = open_handle(in, Bound, "bound");
     dbce_shim_frame f{}; f.struct_size = sizeof f;
     bool live = false;
     for (int n = 0; n < 400 && !live; ++n) { check(dbce_shim_tick(h, &f) == DBCE_SHIM_OK, "tick"); live = f.action[idx("steer")].status == uint8_t(sh::Status::Live); if (!live) Sleep(5); }
