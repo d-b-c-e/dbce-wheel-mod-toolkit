@@ -216,7 +216,7 @@ class ProfileDraft {
                 if(inside)d.end=i;
                 inside=lower(t)=="[controls]";
                 if(inside&&found)throw std::invalid_argument("Repeated Controls section.");
-                if(inside)found=true;
+                if(inside){found=true;bytes=d.lines[i].body.size()+d.lines[i].eol.size();}
                 continue;
             }
             if(!inside)continue;
