@@ -46,7 +46,7 @@ namespace Dbce.Wheel.Ui
             }
 
             var rows = host.Rows;
-            if (rows.Count == 0) { ui.Help("No admitted control rows are available."); return; }
+            if (rows.Count == 0) { ui.Help("No admitted control rows are available."); Footer(host, ui, saveStatus, listening); return; }
 #if DBCE_INPUT_NET35
             // Avoid compiler-selected mscorlib Func references on old Unity profiles.
             var admitted = new List<SharedBindingRowView>();
@@ -54,15 +54,15 @@ namespace Dbce.Wheel.Ui
             bool found = false;
             foreach (var value in rows)
             {
-                if (string.IsNullOrEmpty(value.Note)) { admitted.Add(value); if (value.Action == action) found = true; }
+                if (value.Applicability == SharedBindingApplicability.Supported) { admitted.Add(value); if (value.Action == action) found = true; }
                 else refused.Add(value);
             }
             var delivered = admitted.ToArray();
             var unavailable = refused.ToArray();
             if (!found) action = delivered.Length == 0 ? null : delivered[0].Action;
 #else
-            var delivered = rows.Where(value => string.IsNullOrEmpty(value.Note)).ToArray();
-            var unavailable = rows.Where(value => !string.IsNullOrEmpty(value.Note)).ToArray();
+            var delivered = rows.Where(value => value.Applicability == SharedBindingApplicability.Supported).ToArray();
+            var unavailable = rows.Where(value => value.Applicability != SharedBindingApplicability.Supported).ToArray();
             if (!delivered.Any(value => value.Action == action)) action = delivered.FirstOrDefault()?.Action;
 #endif
             foreach (var choice in delivered)
@@ -77,13 +77,13 @@ namespace Dbce.Wheel.Ui
 #else
             var row = delivered.FirstOrDefault(value => value.Action == action);
 #endif
-            if (row == null) { if (!Blank(saveStatus)) ui.Help(saveStatus); return; }
+            if (row == null) { Footer(host, ui, saveStatus, listening); return; }
             ui.Label(row.Label);
             ui.Help("Active: " + row.Active.Text);
             if (row.NextStart.HasValue) ui.Help("Next start: " + row.NextStart.Value.Text);
             if (row.Draft.HasValue) ui.Help("Draft: " + row.Draft.Value.Text);
             if (!string.IsNullOrEmpty(row.Note)) ui.Help(row.Note);
-            bool editable = SharedBindingUiPolicy.CanEditRow(host.Access, capturing, row.Note);
+            bool editable = SharedBindingUiPolicy.CanEditRow(host.Access, capturing, row.Note, row.Applicability);
 
             var devices = host.Devices;
             selection.Reconcile(host, devices);
@@ -110,6 +110,10 @@ namespace Dbce.Wheel.Ui
             if (row.IsAxis && ui.Button("Invert " + row.Label + ": " +
                 ((row.DraftInverted ?? row.NextStartInverted ?? row.ActiveInverted) ? "On" : "Off"), editable))
                 host.SetInverted(row.Action, !(row.DraftInverted ?? row.NextStartInverted ?? row.ActiveInverted));
+            Footer(host, ui, saveStatus, listening);
+        }
+        private static void Footer(ISharedBindingHost host, ISharedBindingPanelUi ui, string saveStatus, bool listening)
+        {
             if (ui.Button("Save bindings for next start", host.Access == SharedBindingAccess.Editable && !listening && host.HasDraft))
                 host.Save(out _);
             if (ui.Button("Discard unsaved edits", !listening && host.HasDraft)) host.Discard();

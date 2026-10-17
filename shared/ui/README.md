@@ -50,6 +50,20 @@ just these source tests (`dotnet run --project tests/SessionStatus`).
 
 ## F6 panel rows
 
+`SharedBindingRowView.Applicability` defaults to `Supported` for existing hosts.
+Use `Unsupported` only for actions permanently absent from this adapter's
+declaration; the generic panel puts only those rows in its optional unsupported
+group. `Note` remains a visible temporary refusal and continues to disable edits
+without hiding a supported row. RowState still describes binding/capture/error
+state; do not infer applicability from its value or from wording in Note.
+
+Hosts that already filter unsupported actions need no change. When HCT or
+Truckful adopts this source, mark genuinely undeclared actions explicitly.
+HCT's temporary native menu-consumer/hash refusal remains Supported plus Note,
+unlike its fixed `ShimFrame.Unsupported` partition. Keep current qualified
+consumer pins until their own coherent adoption. Save/Discard remain reachable
+even if no supported row is selectable; their access/capture/draft gates remain.
+
 `F6Style.cs` holds the shared F6 presentation rules. It is engine-free C# 7.3, so it works in Unity 2019 Mono and
 in newer hosts:
 - the palette, taken from Wheelkit's dark theme (`F6Palette`);

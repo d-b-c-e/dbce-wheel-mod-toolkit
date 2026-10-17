@@ -10,6 +10,7 @@
     <DefineConstants>$(DefineConstants);DBCE_INPUT_NET35</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../shared/ui/SharedBindingPanel.cs" Link="SharedBindingPanel.cs" />
     <Compile Include="../Dbce.Wheel.Input/ControlBinding.cs" Link="ControlBinding.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingCapture.cs" Link="BindingCapture.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingCaptureFlow.cs" Link="BindingCaptureFlow.cs" />

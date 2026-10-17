@@ -13,6 +13,9 @@ namespace Dbce.Wheel.Input
 {
     public enum SharedBindingAccess { Missing, ReadOnly, Editable }
     public enum SharedBindingRowState { Unbound, Bound, Changed, Capturing, Error }
+    // Applicability is host-declared, not inferred from a temporary Note or editing state.
+    // Zero/default keeps existing filtered hosts source-compatible and their rows visible.
+    public enum SharedBindingApplicability { Supported, Unsupported }
     public interface ISharedBindingHost
     {
         SharedBindingAccess Access { get; }
@@ -46,6 +49,7 @@ namespace Dbce.Wheel.Input
         public bool? NextStartInverted { get; internal set; }
         public bool? DraftInverted { get; internal set; }
         public SharedBindingRowState State { get; internal set; }
+        public SharedBindingApplicability Applicability { get; internal set; }
         public string Note { get; internal set; } = "";
     }
     public struct SharedBindingValue
