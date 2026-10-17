@@ -133,3 +133,13 @@ Successful Save and explicit Discard resolve the warning; a new host starts clea
 The optional ISharedBindingSaveStatus companion leaves ISharedBindingHost
 compatible. No parser, writer, reader, native/force or file calls are added.
 Vendor the exact helper and MIT license with source commit/hash provenance.
+
+
+`DBCE_INPUT_NET35` also enables the legacy binding panel/status whitespace checks
+and predicate-free row grouping/selection. The modern LINQ path is unchanged.
+Some Unity consumer builds expose newer implicit reference assemblies even when
+supplying game references: a LINQ predicate can then compile to mscorlib Func,
+which old Mono defines only in System.Core. The legacy panel avoids that emitted
+reference. HCT actual-framework compile and affected plugin/API passed at
+shared54dbaa0/game6ac31a94; rendered UI remains unobserved. Input README records the
+focused legacy, host and x86 snapshot qualification and retained failures.
