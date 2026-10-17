@@ -35,8 +35,31 @@ six seconds. Original output: `.local/stage-owned-scope-tests.log`. `git diff
 --check` passed. No broad suite, build, game, rig operation or owner/runtime
 change occurred; no heavyweight verification was needed.
 
-Owned files are the helper, its existing fixture and this note. Canonical/shared
-source and historical pinned helper copies have not been modified by this
-isolated candidate. New consumers can adopt a qualified new pin after local
-integration; active/frozen recipes keep their existing recorded bytes until their
-owner deliberately reconciles them. No global runner rewrites are required.
+## Caller audit before promotion
+
+Maze reviewed `249165a` and authorized ordinary local integration in hcom 226564.
+The clean canonical target is `master` at `f9abfcf`, with no divergent commits.
+A tracked toolkit search for the helper filename/exported process entry points
+found no other PowerShell consumers outside its existing fixture. A separate
+tracked-file search checked normal/script-scoped/braced references to all six
+former state variables. The only other matches were unrelated `$owned` locals
+in `Stage-GameForeground.ps1`, `Watch-StageProcess.ps1` and
+`tools/tests/Test-LocalChecks.ps1`; their source does not import or consume this
+helper's tracking state. No existing supported toolkit caller depends on those
+bare variables as outputs, so no consumer boundary adaptation was needed.
+
+Owned files are the helper, its existing fixture and this note. Historical pinned
+helper copies remain untouched. Retain the 68 passing focused checks; promotion
+does not require a repeat build, suite, game or owner-state operation.
+
+## Prospective adoption
+
+For a later idle recipe, deliberately select and pin both the new
+`Stage-OwnedProcess.ps1` and unchanged sibling `Stage-ProcessIdentity.ps1` from
+the integrated source. Hash the actual files used: LF and CRLF checkouts have
+different byte hashes. Keep using the same caller inputs, exported functions
+and `$result` receipt fields. The helper's internal state is not a caller output
+or recovery import API. Active/frozen recipes and their historical helper bytes
+keep their existing pins until their owner explicitly reconciles the next entry.
+Preserve F-Zero's corrected `$receiptNames` caller and successful install
+evidence; no global runner rewrite or retroactive runtime claim is needed.
