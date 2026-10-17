@@ -133,3 +133,49 @@ admission/batch/end, terminal suppression, complete journal and resolved stop.
 The journal harness passes 366 checks; its reader also checks optional external
 source identity and drift. No game, DirectInput device, force, install or capture
 was opened. The earlier DLL hash above is historical, not this new candidate.
+
+## Ordinary copied input with declared extras, October 16
+
+The additive `dbce_shim_bridge_open_extras` entry requires a nonempty existing
+C4 declaration (at most 4096 bytes), reads controls schema 1, and refuses latched
+or capture flags. `dbce_shim_bridge_tick_extras` accepts the same copied sample
+batch and observed-context mask and returns both common and extras frames from
+one Core tick. No new device reader, force owner, callbacks or ABI layout exists.
+Base ABI 2, bridge ABI 1, extras ABI 1 and every existing export are preserved.
+Both new exports refuse x86, matching the existing copied bridge admission.
+
+The copied ProviderHost forwards the declaration to the existing Core planner.
+An extras bridge handle refuses base tick, ordinary extras tick and old bridge
+tick; callers must provide their physical sample batch through the new entry.
+Unknown contexts or malformed frame sizes refuse before sample sequence/Core
+advancement. Existing sequence/age/identity/capability rules, memory-only bounded
+stop and spent-handle refusal apply unchanged. Read-only `dbce_shim_extras`
+returns the same accepted frame and edges. Capturing extras or latched extras
+remains unsupported. This source alone does not adopt F-Zero's native snapshot
+candidate or qualify physical FFB/game response.
+
+### Focused bridge/extras qualification
+
+Product `d92656657a4322a37db9cfb82073350ed8d01dcc` built x64 `/MT` with
+ClangCL `/W4 /WX` and passed 224 existing ABI checks. The new copied fixture
+initially held its digital extra from first open and correctly remained in
+release-required rearm. That failed run is retained. Test-only
+`c1e2ddb502309c9a611d0e971355a9af1e1f6ad8` releases before pressing; the
+copied provider/Core/ABI fixture passed 101 checks. No product or old x64 DLL/ABI
+batch was repeated. The first x86 DLL/ABI batch then passed 177 checks, including
+refusal of both copied extras exports before a provider exists.
+
+Actual DLLs: x64 `83DD742F015FD384DC2A9BEE894ED8DCCCA0E204947E4FB158C3D276025888C2`,
+x86 `7DE31B3EA192498D00A2813BC329BACD5598C08789ABE1E01FC72B9DAF944B47`.
+Both machine/import/static-CRT checks and exact export/header checks passed:
+29 existing baseline exports plus two additive entries, none removed. The x64
+binary compiled at d926566 was retained; its generated final receipt names the
+qualification HEAD c1e2ddb. Only the fixture differs between those commits.
+`qualified-bridge.json` explicitly records both identities instead of treating
+the fixture correction as a product rebuild.
+
+Original hub evidence: `artifacts/bridge-extras-lola-20261016/run-01` (failed
+fixture; built x64 ABI passed) and `run-02` (corrected copied fixture and x86).
+All 35 owned identities closed; queries safe, scope zero and environment restored.
+The exact lease released at `2026-10-17T00:57:16.7859330Z` before docs/handoff.
+No hardware, real force, game, owner installation or runtime acceptance occurred.

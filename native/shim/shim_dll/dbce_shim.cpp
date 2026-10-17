@@ -230,8 +230,8 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
         // Test-mode admission stays tied to the entry point's own verified fences and process-latched mute (Astra 18000).
         if (latched && (!a.session_file || !a.batch_file || a.fences_verified != 1 || a.force_absent != 1))
             return refuse(DBCE_SHIM_REFUSED, "a latched open needs both session files, the caller's verified fences and its process-latched force mute");
-        if (extras && (latched || capture || bridge))   // extension 2 is ordinary input only
-            return refuse(DBCE_SHIM_REFUSED, "extras are ordinary input only: no latched control, capture or bridge");
+        if (extras && (latched || capture))   // declared extras remain ordinary input only
+            return refuse(DBCE_SHIM_REFUSED, "extras are ordinary input only: no latched control or capture");
         auto shell = std::make_unique<Shim>();
         shell->bridge = bridge;
         shell->latched = latched; shell->capture = capture;
@@ -274,7 +274,7 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
 #endif
         // From here the host owns the DirectInput reference, also when its construction throws.
         auto* in = input; input = nullptr;
-        if (bridge) shell->host = std::make_unique<Host>(a.folder,nonce,bridge,bytes,latched,std::move(recorder),caps);
+        if (bridge) shell->host = std::make_unique<Host>(a.folder,nonce,bridge,bytes,latched,std::move(recorder),caps,OrdinaryFreshUs,1,extras);
         else shell->host = std::make_unique<Host>(a.folder, nonce, in, bytes, latched, std::move(recorder), caps, static_cast<HWND>(a.hwnd),
                                                   OrdinaryFreshUs, nullptr, 1, extras);
         if (extras) { shell->extras = true; shell->context_mode = extras->mode; shell->context_bits = extras->context_bits(); }
@@ -410,13 +410,13 @@ int32_t dbce_shim_open_extras(const wchar_t* folder, const char* nonce, const ch
     if (!input) { if (out) *out = nullptr; return fail(DBCE_SHIM_REFUSED, "DirectInput8Create failed", why, why_len); }
     return dbce_shim_open_extras_with_input(input, folder, nonce, profile, profile_len, unsupported, hwnd, declaration, declaration_len, out, why, why_len);
 }
-int32_t dbce_shim_tick_extras(void* handle, uint32_t active_contexts, dbce_shim_frame* frame, dbce_shim_extras_frame* extras) {
-    Shim* s = nullptr;
-    if (const auto r = lookup(handle, s)) return r;
-    if (!s->extras || !extras || extras->struct_size != sizeof(dbce_shim_extras_frame)) return DBCE_SHIM_BAD_ARGUMENT;
-    // Unknown bits, or any bit where nothing is observed: refused before anything advances.
-    if ((active_contexts & ~s->context_bits) != 0 || (s->context_mode != sh::ContextMode::Observed && active_contexts != 0))
-        return DBCE_SHIM_BAD_ARGUMENT;
+static bool extras_arguments(const Shim* s, uint32_t active_contexts, const dbce_shim_frame* frame, const dbce_shim_extras_frame* extras) {
+    return s->extras && frame && frame->struct_size == sizeof(*frame) && extras && extras->struct_size == sizeof(*extras) &&
+        (active_contexts & ~s->context_bits) == 0 && (s->context_mode == sh::ContextMode::Observed || active_contexts == 0);
+}
+static int32_t tick_extras_impl(Shim* s, uint32_t active_contexts, dbce_shim_frame* frame, dbce_shim_extras_frame* extras) {
+    // Refuse malformed frames/contexts before advancing Core or source sequences.
+    if (!extras_arguments(s, active_contexts, frame, extras)) return DBCE_SHIM_BAD_ARGUMENT;
     const auto r = tick_impl(s, frame, &active_contexts);
     if (r != DBCE_SHIM_OK) return r;
     try {
@@ -431,6 +431,12 @@ int32_t dbce_shim_tick_extras(void* handle, uint32_t active_contexts, dbce_shim_
         *extras = f;
         return DBCE_SHIM_OK;
     } catch (...) { s->last_frame = nullptr; return DBCE_SHIM_REFUSED; }   // a refused tick offers no snapshot either
+}
+int32_t dbce_shim_tick_extras(void* handle, uint32_t active_contexts, dbce_shim_frame* frame, dbce_shim_extras_frame* extras) {
+    Shim* s = nullptr;
+    if (const auto r = lookup(handle, s)) return r;
+    if (s->bridge) return DBCE_SHIM_BAD_ARGUMENT; // copied handles must submit their source batch
+    return tick_extras_impl(s, active_contexts, frame, extras);
 }
 int32_t dbce_shim_extras(void* handle, uint64_t frame_seq, dbce_shim_extras_frame* out) {
     Shim* s = nullptr;
@@ -556,6 +562,25 @@ int32_t dbce_shim_bridge_open(const dbce_shim_open_args* args,void** out,char* w
     catch(...){return fail(DBCE_SHIM_REFUSED,"bridge allocation failed",why,why_len);}
 #endif
 }
+int32_t dbce_shim_bridge_open_extras(const dbce_shim_open_args* args,const char* declaration,int32_t declaration_len,
+                                      void** out,char* why,int32_t why_len) {
+    if(out)*out=nullptr;
+#if DBCE_SHIM_ORDINARY_ONLY
+    (void)args;(void)declaration;(void)declaration_len;
+    return fail(DBCE_SHIM_REFUSED,X86Refusal,why,why_len);
+#else
+    if(!args || args->struct_size!=sizeof(*args))return fail(DBCE_SHIM_BAD_ARGUMENT,"bridge args size",why,why_len);
+    if(args->flags & ~std::uint32_t(DBCE_SHIM_LATCHED | DBCE_SHIM_CAPTURE))return fail(DBCE_SHIM_BAD_ARGUMENT,"unknown bridge open flags",why,why_len);
+    if(args->flags)return fail(DBCE_SHIM_REFUSED,"bridge extras are ordinary input only",why,why_len);
+    sh::Declaration decl;std::string reason;
+    if(!declaration || declaration_len<=0 || declaration_len>int32_t(sh::MaxDeclarationBytes))
+        return fail(DBCE_SHIM_BAD_ARGUMENT,"the declaration length is not 1-4096 bytes",why,why_len);
+    if(!sh::parse_declaration(declaration,std::size_t(declaration_len),decl,reason))
+        return fail(DBCE_SHIM_BAD_ARGUMENT,"declaration: "+reason,why,why_len);
+    try{return open_impl(nullptr,*args,out,why,why_len,std::make_shared<sh::BridgeProvider>(bridge_clock),&decl);}
+    catch(...){return fail(DBCE_SHIM_REFUSED,"bridge allocation failed",why,why_len);}
+#endif
+}
 static int32_t bridge_devices_impl(void* handle,const dbce_shim_bridge_device_v1* devices,int32_t count,const wchar_t* const* paths){
     Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
     if(!s->bridge || count<0 || count>64 || (count && !devices))return DBCE_SHIM_BAD_ARGUMENT;
@@ -588,9 +613,10 @@ int32_t dbce_shim_bridge_devices_with_paths(void* handle,const dbce_shim_bridge_
     if(count && !paths)return DBCE_SHIM_BAD_ARGUMENT;
     return bridge_devices_impl(handle,devices,count,paths);
 }
-int32_t dbce_shim_bridge_tick(void* handle,const dbce_shim_bridge_sample_v1* samples,int32_t count,dbce_shim_frame* frame){
-    Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
-    if(!s->bridge)return DBCE_SHIM_BAD_ARGUMENT;
+static int32_t bridge_tick_impl(Shim* s,const dbce_shim_bridge_sample_v1* samples,int32_t count,dbce_shim_frame* frame,
+                                const uint32_t* contexts=nullptr,dbce_shim_extras_frame* extras=nullptr){
+    if(!s->bridge || s->extras != (contexts!=nullptr))return DBCE_SHIM_BAD_ARGUMENT;
+    if(contexts && !extras_arguments(s,*contexts,frame,extras))return DBCE_SHIM_BAD_ARGUMENT;
     s->bridge->finish_frame();
     if(!frame || frame->struct_size!=sizeof(*frame) || count<0 || count>64 || (count && !samples))return DBCE_SHIM_BAD_ARGUMENT;
     try{
@@ -604,8 +630,18 @@ int32_t dbce_shim_bridge_tick(void* handle,const dbce_shim_bridge_sample_v1* sam
             copied.push_back(v);
         }
         std::string why;if(!s->bridge->samples(copied,why))return DBCE_SHIM_REFUSED;
-        const auto result=tick_impl(s,frame);s->bridge->finish_frame();return result;
+        const auto result=contexts?tick_extras_impl(s,*contexts,frame,extras):tick_impl(s,frame);s->bridge->finish_frame();return result;
     }catch(...){s->bridge->finish_frame();return DBCE_SHIM_REFUSED;}
+}
+
+int32_t dbce_shim_bridge_tick(void* handle,const dbce_shim_bridge_sample_v1* samples,int32_t count,dbce_shim_frame* frame){
+    Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
+    return bridge_tick_impl(s,samples,count,frame);
+}
+int32_t dbce_shim_bridge_tick_extras(void* handle,const dbce_shim_bridge_sample_v1* samples,int32_t count,uint32_t contexts,
+                                   dbce_shim_frame* frame,dbce_shim_extras_frame* extras){
+    Shim* s=nullptr;if(const auto r=lookup(handle,s))return r;
+    return bridge_tick_impl(s,samples,count,frame,&contexts,extras);
 }
 
 int32_t dbce_shim_record(void* handle, uint64_t frame_seq, const double* values, int32_t count) {

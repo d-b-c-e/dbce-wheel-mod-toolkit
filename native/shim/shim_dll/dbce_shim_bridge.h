@@ -9,7 +9,7 @@
  * remains physical evidence; only accepted control batches are injected.
  * CAPTURE is refused: external sample provenance is not versioned in that
  * format. Existing ordinary ABI handles refuse bridge operations. */
-#include "dbce_shim.h"
+#include "dbce_shim_extras.h"
 #pragma pack(push,8)
 typedef struct dbce_shim_bridge_device_v1 {
     uint32_t struct_size,abi;uint64_t generation;
@@ -31,6 +31,12 @@ DBCE_SHIM_API int32_t dbce_shim_bridge_abi_version(void);
 DBCE_SHIM_API int32_t dbce_shim_bridge_device_size(void);
 DBCE_SHIM_API int32_t dbce_shim_bridge_sample_size(void);
 DBCE_SHIM_API int32_t dbce_shim_bridge_open(const dbce_shim_open_args*,void** out,char* why,int32_t why_len);
+/* Ordinary copied-input + declared extras. Requires a nonempty declaration;
+ * latched/capture refuse. Reads the same controls schema 1 as the base bridge.
+ * Tick this handle only through bridge_tick_extras: one copied batch/Core tick
+ * supplies both frames. No DirectInput reader or force owner is created. */
+DBCE_SHIM_API int32_t dbce_shim_bridge_open_extras(const dbce_shim_open_args*,const char* declaration,int32_t declaration_len,void** out,char* why,int32_t why_len);
+DBCE_SHIM_API int32_t dbce_shim_bridge_tick_extras(void*,const dbce_shim_bridge_sample_v1*,int32_t count,uint32_t active_contexts,dbce_shim_frame*,dbce_shim_extras_frame*);
 DBCE_SHIM_API int32_t dbce_shim_bridge_devices(void*,const dbce_shim_bridge_device_v1*,int32_t count);
 /* Optional additive export: publish metadata and exact owned interface paths in
  * one atomic batch. paths has count nonempty UTF-16 NUL-terminated strings,
