@@ -94,7 +94,8 @@ No attachment query parameter or automatic upload behavior is assumed.
 ## Legacy CLR 2 / .NET 3.5 hosts, October 16
 
 Compile the same source with `DBCE_SUPPORT_NET35` for HCT's legacy host.
-That opt-in uses `IList<string>` for selected log paths, `USERPROFILE` for
+That opt-in uses `IOException` for invalid report data (Unity Mono2 lacks
+`InvalidDataException`), `IList<string>` for selected log paths, `USERPROFILE` for
 home redaction, and a character whitespace check. It uses the legacy regex
 overload on fixed helper patterns with a 50,000-character input bound because
 CLR 2 lacks timeout overloads. Modern builds retain their existing
