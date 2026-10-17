@@ -7,6 +7,7 @@
 #include "shim.hpp"
 #include "host_lifecycle.hpp"
 #include "control_pump.hpp"
+#include "candidate.hpp"
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -23,6 +24,9 @@ struct WorkerState {
     std::shared_ptr<dbce::shim::ProviderOwner> provider;   // the DirectInput provider, or an owned copied-input provider
     std::shared_ptr<dbce::shim::Provider> front;   // optional, over `provider` (the WheelFfb bridge); the core reads it
     std::shared_ptr<dbce::shim::Core> core;
+    // Extension 4: inert until the owner thread requests a listing or selects a device. It uses `provider` itself,
+    // never `front`, so a force front never sees a candidate.
+    std::shared_ptr<dbce::shim::Candidate> candidate;
     std::atomic<bool> stop{false};
     std::mutex m; std::condition_variable cv; bool done = false;
     std::atomic<long long> passes{0};
@@ -109,11 +113,17 @@ private:
         // A game's declared extras are planned from the same bytes, with their devices after the common table.
         if (extras) w_->core->set_profile(dbce::shim::read_profile(profile, controls_reads), *extras, profile, controls_reads);
         else w_->core->set_profile(dbce::shim::read_profile(profile, controls_reads));
+        {
+            std::vector<std::string> bound;   // Core's table is immutable from here; extension 3 offers these devices
+            for (const auto& d : w_->core->device_reports()) bound.push_back(d.identity.dev);
+            w_->candidate = std::make_shared<dbce::shim::Candidate>(std::move(bound));
+        }
         report_ = CreateFileW((folder_ + L"\\host-shutdown.json").c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
         auto s = w_;
         worker_ = std::thread([s] {
             while (!s->stop.load()) {
                 s->core->service_devices();   // may sit inside a driver call (Acquire, EnumDevices, an open) for as long as the driver keeps it
+                s->candidate->service(*s->provider);   // no provider call unless the owner thread asked for one
                 ++s->passes;
                 std::unique_lock<std::mutex> l(s->m);
                 s->cv.wait_for(l, std::chrono::milliseconds(5), [&] { return s->stop.load(); });
@@ -145,6 +155,9 @@ public:
     std::vector<dbce::shim::DeviceReport> device_reports()const { return w_->core->device_reports(); } // input thread
     dbce::shim::StartReport start_report()const { return w_->core->start_report(); }           // input thread
     long long worker_passes() const { return w_->passes.load(); }
+    // Extension 4, input thread: requests go to the worker; candidate_tick reads an open candidate after Core's tick.
+    dbce::shim::Candidate& candidate() { return *w_->candidate; }
+    void candidate_tick(std::uint64_t frame_seq, std::int64_t tick_us) { w_->candidate->tick(*w_->provider, frame_seq, tick_us); }
     RecorderType& recorder() { return *recorder_; } // input thread; the host owns its full lifetime
     void close_control_admission(){
         if(std::this_thread::get_id()!=input_)throw std::logic_error("close control on input thread");

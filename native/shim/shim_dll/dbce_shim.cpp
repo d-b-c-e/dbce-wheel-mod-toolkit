@@ -10,6 +10,7 @@
 #include "dbce_shim_bridge.h"
 #include "dbce_shim_extras.h"
 #include "dbce_shim_snapshot.h"
+#include "dbce_shim_candidate.h"
 #include "bridge_provider.hpp"
 #include "json_text.hpp"
 #include "ordinary_only.hpp"
@@ -379,6 +380,11 @@ static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* a
             const auto& a = f.action[std::size_t(i)]; auto& o = frame->action[i];
             o.value = a.value; o.status = std::uint8_t(a.status); o.injected = a.injected; o.reserved[0] = o.reserved[1] = 0;
         }
+        // Extension 4: an open candidate's one read, after Core's. It never fails the ordinary tick.
+        if (!s->latched) {
+            try { s->host->candidate_tick(f.seq, f.tick_us); }
+            catch (...) { try { s->host->candidate().release("released after an internal error"); } catch (...) {} }
+        }
         s->last_frame = &f;   // published only once the whole tick succeeded
         return DBCE_SHIM_OK;
     } catch (...) { s->last_frame = nullptr; return DBCE_SHIM_REFUSED; }   // Core may have ticked: no snapshot until the next success
@@ -532,6 +538,111 @@ int32_t dbce_shim_snapshot(void* handle, uint64_t frame_seq, dbce_shim_snapshot_
         if (std::size_t(device_capacity) < rows.size() || std::size_t(sample_capacity) < reads.size()) return DBCE_SHIM_BAD_ARGUMENT;
         if (!rows.empty()) std::memcpy(devices, rows.data(), rows.size() * sizeof rows[0]);
         if (!reads.empty()) std::memcpy(samples, reads.data(), reads.size() * sizeof reads[0]);
+        return DBCE_SHIM_OK;
+    } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+
+// ---- extension 4: one explicit capture candidate (ordinary handles)
+static int32_t candidate_handle(void* handle, Shim*& s) {
+    if (const auto r = lookup(handle, s)) return r;
+    return s->latched || s->bridge ? DBCE_SHIM_REFUSED : DBCE_SHIM_OK;   // ordinary input only
+}
+int32_t dbce_shim_candidate_abi_version(void) { return DBCE_SHIM_CANDIDATE_ABI; }
+int32_t dbce_shim_candidate_list(void* handle) {
+    Shim* s = nullptr;
+    if (const auto r = candidate_handle(handle, s)) return r;
+    try { s->host->candidate().request_list(); return DBCE_SHIM_OK; } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+int32_t dbce_shim_candidate_select(void* handle, const char* instance, const char* product, char* why, int32_t why_len) {
+    Shim* s = nullptr;
+    if (const auto r = candidate_handle(handle, s)) return fail(r, r == DBCE_SHIM_REFUSED ? "ordinary handles only" : "", why, why_len);
+    if (!instance || !product) return fail(DBCE_SHIM_BAD_ARGUMENT, "instance and product are required", why, why_len);
+    try {
+        const std::string dev(instance), prod(product);
+        std::string reason;
+        if (s->host->candidate().select(dev, prod, reason)) { if (why && why_len > 0) why[0] = 0; return DBCE_SHIM_OK; }
+        return fail(sh::candidate_guid(dev) && sh::candidate_guid(prod) ? DBCE_SHIM_REFUSED : DBCE_SHIM_BAD_ARGUMENT, reason, why, why_len);
+    } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+int32_t dbce_shim_candidate_release(void* handle) {
+    Shim* s = nullptr;
+    if (const auto r = candidate_handle(handle, s)) return r;
+    try { s->host->candidate().release("released by the caller"); return DBCE_SHIM_OK; } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+int32_t dbce_shim_candidate_report(void* handle, char* text, int32_t len, int32_t* needed) {
+    Shim* s = nullptr;
+    if (const auto r = candidate_handle(handle, s)) return r;
+    try {
+        using dbce::shim::json_string;
+        const auto& c = s->host->candidate();
+        const auto& l = c.listing(); const auto& v = c.view();
+        std::string j = "{\"abi\":" + std::to_string(DBCE_SHIM_CANDIDATE_ABI) + ",\"listing\":{\"seq\":" + std::to_string(l.seq) +
+            ",\"pending\":" + (l.pending ? "true" : "false") + ",\"devices\":[";
+        for (std::size_t i = 0; i < l.devices.size(); ++i) {
+            const auto& d = l.devices[i];
+            j += std::string(i ? "," : "") + "{\"instance\":"; json_string(j, d.dev, 128);
+            j += ",\"product\":"; json_string(j, d.prod, 128); j += ",\"name\":"; if (!json_string(j, d.name, 1560)) j += "null";
+            j += std::string(",\"bound\":") + (c.bound(d.dev) ? "true" : "false") + "}";
+        }
+        j += std::string("]},\"candidate\":{\"state\":\"") + sh::candidate_state_name(v.state) + "\",\"instance\":"; json_string(j, v.identity.dev, 128);
+        j += ",\"product\":"; json_string(j, v.identity.prod, 128); j += ",\"name\":"; if (!json_string(j, v.identity.name, 1560)) j += "null";
+        j += ",\"interfacePath\":"; if (!json_string(j, v.identity.interface_path, 1560)) j += "\"\"";
+        j += ",\"epoch\":" + std::to_string(v.epoch) + ",\"opened\":" + (v.opened ? "true" : "false") + ",\"reason\":";
+        if (!json_string(j, v.reason, 1560)) j += "null";
+        return text_out(j + "}}", text, len, needed);
+    } catch (...) { return DBCE_SHIM_REFUSED; }
+}
+int32_t dbce_shim_candidate_snapshot(void* handle, uint64_t frame_seq, dbce_shim_snapshot_header* header, dbce_shim_snapshot_device* device,
+                                     int32_t device_capacity, dbce_shim_snapshot_sample* sample, int32_t sample_capacity) {
+    Shim* s = nullptr;
+    if (const auto r = lookup(handle, s)) return r;
+    if (!header || header->struct_size != sizeof(dbce_shim_snapshot_header) ||
+        header->device_struct_size != sizeof(dbce_shim_snapshot_device) || header->sample_struct_size != sizeof(dbce_shim_snapshot_sample) ||
+        device_capacity < 0 || sample_capacity < 0 || (device_capacity && !device) || (sample_capacity && !sample))
+        return DBCE_SHIM_BAD_ARGUMENT;
+    if (s->latched || s->bridge) return DBCE_SHIM_REFUSED;
+    if (!s->last_frame || s->last_frame->seq != frame_seq) return DBCE_SHIM_STALE;
+    try {
+        auto& c = s->host->candidate();
+        if (c.tick_seq() != frame_seq) return DBCE_SHIM_STALE;   // the candidate did not run in this frame
+        const auto& v = c.view();
+        const bool present = v.state != sh::CandidateState::None;
+        dbce_shim_snapshot_device row{}; dbce_shim_snapshot_sample read{};
+        if (present) {
+            row.struct_size = sizeof row; row.abi = DBCE_SHIM_SNAPSHOT_ABI; row.index = 0; row.epoch = v.epoch;
+            row.flags = (v.opened ? std::uint32_t(DBCE_SHIM_SNAPSHOT_OPENED) : 0u) |
+                        (v.opened && !v.identity.interface_path.empty() ? std::uint32_t(DBCE_SHIM_SNAPSHOT_PATH) : 0u);
+            if (v.opened) {
+                for (int a = 0; a < 8; ++a) {
+                    if (v.caps.axis[std::size_t(a)]) row.axis_mask |= 1u << a;
+                    if (v.caps.range_ok[std::size_t(a)]) row.range_mask |= 1u << a;
+                    row.minimum[a] = v.caps.min[std::size_t(a)]; row.maximum[a] = v.caps.max[std::size_t(a)];
+                }
+                for (int b = 0; b < 128; ++b)
+                    if (v.caps.button[std::size_t(b)]) row.button_mask[b / 8] = std::uint8_t(row.button_mask[b / 8] | (1u << (b % 8)));
+                for (int p = 0; p < 4; ++p) if (v.caps.pov[std::size_t(p)]) row.pov_mask |= 1u << p;
+            }
+            if (v.identity.dev.size() >= sizeof row.instance || v.identity.prod.size() >= sizeof row.product) return DBCE_SHIM_REFUSED;
+            std::memcpy(row.instance, v.identity.dev.data(), v.identity.dev.size());
+            std::memcpy(row.product, v.identity.prod.data(), v.identity.prod.size());
+        }
+        const auto& x = v.read;
+        const bool has_read = present && x.frame_seq == frame_seq;
+        if (has_read) {
+            read.struct_size = sizeof read; read.abi = DBCE_SHIM_SNAPSHOT_ABI; read.index = 0; read.epoch = x.epoch; read.device_seq = x.device_seq;
+            read.read_start_us = x.start_us; read.read_end_us = x.end_us;
+            read.poll_call = std::uint8_t(x.poll); read.state_call = std::uint8_t(x.state); read.valid = x.valid; read.stale = 0; read.ended = x.ended;
+            std::copy(x.physical.axes, x.physical.axes + 8, read.axes);
+            std::copy(x.physical.buttons, x.physical.buttons + 128, read.buttons);
+            std::copy(x.physical.povs, x.physical.povs + 4, read.pov);
+        }
+        header->abi = DBCE_SHIM_SNAPSHOT_ABI; header->frame_seq = frame_seq; header->tick_us = c.tick_us();
+        header->boundary_us = has_read ? x.end_us : c.tick_us(); header->fresh_us = OrdinaryFreshUs;
+        header->device_count = present ? 1u : 0u; header->sample_count = has_read ? 1u : 0u;
+        if (device_capacity < int32_t(header->device_count) || sample_capacity < int32_t(header->sample_count)) return DBCE_SHIM_BAD_ARGUMENT;
+        if (present) *device = row;
+        if (has_read) *sample = read;
+        c.observed(frame_seq);
         return DBCE_SHIM_OK;
     } catch (...) { return DBCE_SHIM_REFUSED; }
 }
