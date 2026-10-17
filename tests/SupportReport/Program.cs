@@ -25,6 +25,8 @@ internal static class Program
             foreach (string privateValue in new[] { "fixture", "user@example.com", "Bearer abc", "hidden", "ghp_" })
                 Check(!redacted.Contains(privateValue), "Redaction: " + privateValue);
             Check(redacted.Contains("%USERPROFILE%") && redacted.Contains("game\\log.txt"), "Useful path suffix retained");
+            foreach (string label in new[] { "token", "access_token", "refresh_token", "auth_token", "access-token" })
+                Check(SupportReport.Redact(label + "=private-value").Equals(label + "=[redacted]"), "Token label: " + label);
             Check(SupportReport.ValidRepository("owner/repo-name"), "Valid packaged repository");
             foreach (string bad in new[] { "https://github.com/owner/repo", "owner/..", "owner/repo\n", "owner/repo?x=1", "owner/repo/extra" })
                 Check(!SupportReport.ValidRepository(bad), "Refuse repository routing injection");

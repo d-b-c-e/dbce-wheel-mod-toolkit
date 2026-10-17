@@ -100,7 +100,8 @@ int main(int argc, char **argv)
     ImGui::GetIO().IniFilename = nullptr;
     ImGui_ImplDX11_Init(dev, ctx);
     const int sizes[][2] = {{1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}, {7680, 1440}};
-    const char *pages[] = {"FFB", "Cameras", "Telemetry", "Help"};
+    CHECK(!dbce::panel::StatusLineActive());
+    const char *pages[] = {"FFB", "Cameras", "Telemetry", "Help", "REC", "Saving", "Saved", "Hidden"};
     char ini[MAX_PATH];
     GetTempPathA(MAX_PATH, ini);
     strcat_s(ini, "dbce-panel-test.ini");
@@ -109,6 +110,9 @@ int main(int argc, char **argv)
         for (int view = 0; view < 2; ++view) {
             for (auto &sz : sizes) {
                 const int w = sz[0], h = sz[1];
+                const bool status = !strcmp(pg, "REC") || !strcmp(pg, "Saving") || !strcmp(pg, "Saved");
+                const bool hidden = !strcmp(pg, "Hidden");
+                if ((status || hidden) && view) continue;
                 if (view == 1 && w != 2560) continue;   // Advanced once, at the owner's monitor size
                 DeleteFileA(ini);
                 WritePrivateProfileStringA("Panel", "Page", pg, ini);
@@ -126,7 +130,17 @@ int main(int argc, char **argv)
                 c.ffbOn = ffbOn;
                 c.stopFfb = stopFfb;
                 dbce::panel::Configure(c);
-                dbce::panel::SetOpen(true);
+                dbce::panel::ClearStatusLine();
+                dbce::panel::SetOpen(!status && !hidden);
+                if (status) {
+                    char line[128];
+                    strcpy_s(line, !strcmp(pg, "REC") ? "REC  01:23  |  F11 to stop and save" :
+                        !strcmp(pg, "Saving") ? "Saving recording  01:23  |  Keep the game open" : "Recording saved  |  You can keep playing");
+                    dbce::panel::SetStatusLine(line, !strcmp(pg, "REC") ? dbce::panel::StatusTone::Recording :
+                        !strcmp(pg, "Saving") ? dbce::panel::StatusTone::Busy : dbce::panel::StatusTone::Success);
+                    line[0] = 0; // setter owns a copy, not the caller's buffer
+                    CHECK(dbce::panel::StatusLineActive());
+                }
                 g_ffb = true;
                 D3D11_TEXTURE2D_DESC td = {};
                 td.Width = w; td.Height = h; td.MipLevels = 1; td.ArraySize = 1; td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -149,11 +163,17 @@ int main(int argc, char **argv)
                     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
                 }
                 // Geometry: the panel window lies inside the frame, on the centre screen of a span.
-                ImGuiWindow *win = ImGui::FindWindowByName("##dbce-panel");
-                CHECK(win != nullptr);
-                if (win) {
+                ImGuiWindow *win = ImGui::FindWindowByName(status ? "##dbce-session-status" : "##dbce-panel");
+                if (hidden) CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
+                else CHECK(win != nullptr && win->Active);
+                if (win && !hidden) {
                     CHECK(win->Pos.x >= 0 && win->Pos.y >= 0 && win->Pos.x + win->Size.x <= w && win->Pos.y + win->Size.y <= h);
                     if (w >= h * 2.5f) CHECK(win->Pos.x >= w / 3.0f && win->Pos.x + win->Size.x <= 2.0f * w / 3.0f);
+                    if (status) {
+                        CHECK((win->Flags & ImGuiWindowFlags_NoInputs) == ImGuiWindowFlags_NoInputs);
+                        CHECK(!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard);
+                        CHECK(!dbce::panel::IsOpen());
+                    }
                 }
                 wchar_t path[MAX_PATH];
                 swprintf_s(path, L"%hs\\panel-%hs-%hs-%dx%d.png", outDir, pg, view ? "advanced" : "simple", w, h);
@@ -164,6 +184,8 @@ int main(int argc, char **argv)
         }
     }
     DeleteFileA(ini);
+    dbce::panel::SetStatusLine("", dbce::panel::StatusTone::Busy);
+    CHECK(!dbce::panel::StatusLineActive());
     ImGui_ImplDX11_Shutdown();
     ImGui::DestroyContext();
     printf(failures ? "FAIL %d panel render checks\n" : "PASS panel render checks (%d screenshots)\n", failures ? failures : shots);

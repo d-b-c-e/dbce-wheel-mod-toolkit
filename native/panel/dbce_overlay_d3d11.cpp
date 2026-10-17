@@ -40,7 +40,7 @@ void ensureImGui()
     io.IniFilename = nullptr;
     io.LogFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NoMouseCursorChange;
-    io.MouseDrawCursor = true;   // games hide the system cursor; the panel draws its own while open
+    io.MouseDrawCursor = dbce::panel::IsOpen();
     QueryPerformanceFrequency(&g_freq);
 }
 // After the renderer's NewFrame: size, time, queued input, the panel, Render.
@@ -48,6 +48,7 @@ void drawFrame(int w, int h)
 {
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)w, (float)h);
+    io.MouseDrawCursor = dbce::panel::IsOpen(); // passive status never draws or captures a cursor
     LARGE_INTEGER now;
     QueryPerformanceCounter(&now);
     io.DeltaTime = g_last.QuadPart ? (float)((double)(now.QuadPart - g_last.QuadPart) / (double)g_freq.QuadPart) : 1.0f / 60.0f;
@@ -413,9 +414,9 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
 void render(IDXGISwapChain *sc)
 {
     if (sc == g_chain) { dbce::panel::NoteFrame(); dbce::panel::PollDev(); }
-    if (sc == g_chain && !dbce::panel::IsOpen()) return;   // closed: nothing per frame on the game's chain
+    if (sc == g_chain && !dbce::panel::IsOpen() && !dbce::panel::StatusLineActive()) return;
     EnterCriticalSection(&g_cs);
-    if (!adopt(sc) || sc != g_chain || !dbce::panel::IsOpen()) { LeaveCriticalSection(&g_cs); return; }
+    if (!adopt(sc) || sc != g_chain || (!dbce::panel::IsOpen() && !dbce::panel::StatusLineActive())) { LeaveCriticalSection(&g_cs); return; }
     ID3D11Device *dev = nullptr;
     if (SUCCEEDED(sc->GetDevice(__uuidof(ID3D11Device), (void **)&dev)) && dev) {
         render11(sc, dev);

@@ -1,5 +1,13 @@
 # Shared F6 panel for native mods
 
+Internal hosts may call `SetStatusLine(text, StatusTone)` from a worker thread;
+`ClearStatusLine()` removes it. The default is hidden. Text is copied into a
+255-byte UTF-8 buffer. Use the existing `SessionStatusPresentation` wording and
+report Saved only after a complete sealed save; the host owns expiry. This is
+a passive banner on the center display, rendered by the existing D3D11/D3D12
+path even when F6 is closed. It never takes input or draws a closed-panel
+cursor. It adds no recorder, hotkey, config switch, force path or public UI.
+
 Help draws the host's `drawPage(PAGE_HELP, advanced)` content before the small
 repository text links. A host can place its separate issue/report action there;
 the shared renderer owns the link ordering and styling. This does not change
