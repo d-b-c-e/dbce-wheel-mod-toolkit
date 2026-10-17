@@ -9,10 +9,14 @@ function Update-StageOwnedProcessLineage {
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()]
         [Collections.Generic.Dictionary[uint32,DateTime]]$Owned,
-        [Parameter(Mandatory)][AllowNull()][object]$Snapshot
+        [Parameter(Mandatory)][AllowNull()][object]$Snapshot,
+        # Producer precision per tracked PID; a PID without an entry is a Process.StartTime root (Tick100ns).
+        # Adopted descendants are recorded as CimMicrosecond, so later live-handle checks compare correctly.
+        [Collections.Generic.Dictionary[uint32,string]]$Precision
     )
     # Work against one complete buffered census. Commit additions only after all
     # tracked/candidate identities have been checked; unknown never means absent.
+    $precisionOf = { param([uint32]$Id) $p=$null; if ($null -ne $Precision -and $Precision.TryGetValue($Id, [ref]$p)) { $p } else { 'Tick100ns' } }
     if ($null -eq $Snapshot -or $Snapshot.querySucceeded -isnot [bool] -or
         !$Snapshot.querySucceeded -or $null -eq $Snapshot.rows) {
         throw 'Complete process census unavailable for descendant adoption.'
@@ -34,7 +38,7 @@ function Update-StageOwnedProcessLineage {
     $states = [Collections.Generic.Dictionary[uint32,string]]::new()
     foreach ($entry in $Owned.GetEnumerator()) { $working.Add($entry.Key, $entry.Value) }
     foreach ($identityId in @($working.Keys)) {
-        $record = [pscustomobject]@{ processId=$identityId; createdUtc=$working[$identityId]; precision='Tick100ns' }
+        $record = [pscustomobject]@{ processId=$identityId; createdUtc=$working[$identityId]; precision=(& $precisionOf $identityId) }
         $disposition = Get-StageProcessIdentityDisposition -Recorded $record -Snapshot $Snapshot
         if ($disposition.state -ceq 'Unknown') { throw ('Tracked identity unknown: ' + $disposition.reason) }
         $states.Add($identityId, $disposition.state)
@@ -49,7 +53,7 @@ function Update-StageOwnedProcessLineage {
             # OriginalAlive was established against THIS snapshot, not just a
             # remembered PID. An absent/reused/unknown parent cannot admit a child.
             $childStamp = ConvertTo-StageCreationStamp $row.createdUtc $row.precision
-            $parentStamp = ConvertTo-StageCreationStamp $working[$parentId] 'Tick100ns'
+            $parentStamp = ConvertTo-StageCreationStamp $working[$parentId] (& $precisionOf $parentId)
             if ($null -eq $childStamp -or $null -eq $parentStamp) {
                 throw 'Candidate descendant creation identity unavailable.'
             }
@@ -65,7 +69,10 @@ function Update-StageOwnedProcessLineage {
             $adopted.Add($rowId); $added = $true
         }
     } while ($added)
-    foreach ($identityId in $adopted) { $Owned.Add($identityId, $working[$identityId]) }
+    foreach ($identityId in $adopted) {
+        $Owned.Add($identityId, $working[$identityId])
+        if ($null -ne $Precision) { $Precision[$identityId] = [string]$byId[$identityId].precision }
+    }
     [pscustomobject]@{
         originalAliveProcessIds=@($states.Keys | Where-Object { $states[$_] -ceq 'OriginalAlive' })
         adoptedProcessIds=@($adopted)
@@ -107,7 +114,10 @@ function Get-StageRunnerAncestorIds {
 }
 
 $owned = [Collections.Generic.Dictionary[uint32,DateTime]]::new()
+$ownedPrecision = [Collections.Generic.Dictionary[uint32,string]]::new()
 $ownedRoots = [Collections.Generic.List[Diagnostics.Process]]::new()
+# Seam for the cleanup handle; synthetic fixtures substitute an object with StartTime, Kill, WaitForExit, Dispose.
+$openOwnedProcess = { param([uint32]$Id) [Diagnostics.Process]::GetProcessById([int]$Id) }
 $processQuerySafe = $true
 $ownedRunnerIdentity=$null
 function Save-Result {
@@ -132,7 +142,7 @@ function Observe-Owned {
             finally{$self.Dispose()}
         }
         $ancestors=@(Get-StageRunnerAncestorIds -Runner $ownedRunnerIdentity -Snapshot $snapshot)
-        $observation = Update-StageOwnedProcessLineage -Owned $owned -Snapshot $snapshot
+        $observation = Update-StageOwnedProcessLineage -Owned $owned -Snapshot $snapshot -Precision $ownedPrecision
     } catch { $script:processQuerySafe = $false; throw }
     @($rows | Where-Object {
         ($observation.originalAliveProcessIds -contains [uint32]$_.ProcessId) -or
@@ -154,6 +164,7 @@ function Invoke-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Argu
         $script:result.steps[-1].process = [ordered]@{pid=$child.Id; createdUtc=$null; executable=$Executable; arguments=$Arguments; timeoutSeconds=$TimeoutSeconds}
         Save-Result
         $owned[[uint32]$child.Id] = $child.StartTime.ToUniversalTime()
+        $ownedPrecision[[uint32]$child.Id] = 'Tick100ns'
         $script:result.steps[-1].process = [ordered]@{pid=$child.Id; createdUtc=$owned[[uint32]$child.Id].ToString('O'); executable=$Executable; arguments=$Arguments; timeoutSeconds=$TimeoutSeconds}
         Save-Result
     } catch { $script:processQuerySafe = $false; throw }
@@ -178,12 +189,48 @@ function Invoke-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Argu
     Save-Result
     if ($child.ExitCode -ne 0) { throw "Owned $Name exited $($child.ExitCode)" }
 }
+# MSVC cl.exe starts VCTIP.EXE (compiler telemetry), which can outlive the compiler and hold the lease.
+# Only an owned lineage VCTIP from an MSVC bin directory is stopped, after its own handle's start time
+# matches the recorded identity at the recorded precision. Nothing else is terminated.
+function Stop-StageOwnedCompilerTelemetry([object[]]$Remaining) {
+    foreach ($row in $Remaining) {
+        $id = [uint32]$row.ProcessId
+        if (!$owned.ContainsKey($id) -or [string]$row.Name -ine 'vctip.exe' -or
+            [string]$row.ExecutablePath -notmatch '\\VC\\Tools\\MSVC\\[^\\]+\\bin\\Host[^\\]+\\[^\\]+\\VCTIP\.EXE$') { continue }
+        $precision = $null; if (!$ownedPrecision.TryGetValue($id, [ref]$precision)) { $precision = 'Tick100ns' }
+        $recorded = [pscustomobject]@{ processId=$id; createdUtc=$owned[$id]; precision=$precision }
+        $process = $null
+        try {
+            $process = & $openOwnedProcess $id
+            $live = [pscustomobject]@{ querySucceeded=$true; rows=@([pscustomobject]@{
+                processId=$id; createdUtc=$process.StartTime.ToUniversalTime(); precision='Tick100ns' }) }
+            $identity = Get-StageProcessIdentityDisposition -Recorded $recorded -Snapshot $live
+            if ($identity.state -cne 'OriginalAlive') {
+                [ordered]@{ pid=$id; stopped=$false; reason=$identity.reason }; continue
+            }
+            $process.Kill()
+            [ordered]@{ pid=$id; stopped=$true; createdUtc=$identity.recordedCreatedUtc; precision=$precision; exited=$process.WaitForExit(5000) }
+        } catch { [ordered]@{ pid=$id; stopped=$false; reason=$_.Exception.Message } }
+        finally { if ($null -ne $process) { $process.Dispose() } }
+    }
+}
 function Complete-Owned {
     try {
         $cleanupDeadline = [DateTime]::UtcNow.AddSeconds(5)
         do { $remaining = @(Observe-Owned) } while ($remaining.Count -gt 0 -and [DateTime]::UtcNow -lt $cleanupDeadline)
+        if ($remaining.Count -gt 0) {
+            $telemetry = @(Stop-StageOwnedCompilerTelemetry $remaining)
+            if ($telemetry.Count -gt 0) {
+                $script:result.compilerTelemetry = $telemetry
+                # A fresh complete census decides quiescence; a stop request alone proves nothing.
+                $cleanupDeadline = [DateTime]::UtcNow.AddSeconds(5)
+                do { $remaining = @(Observe-Owned) } while ($remaining.Count -gt 0 -and [DateTime]::UtcNow -lt $cleanupDeadline)
+            }
+        }
     } catch { $script:processQuerySafe = $false; $remaining = @(); $script:result.processQueryError = $_.Exception.Message }
-    $script:result.ownedLineage = @($owned.GetEnumerator() | ForEach-Object { [ordered]@{pid=$_.Key; createdUtc=$_.Value.ToString('O')} })
+    $script:result.ownedLineage = @($owned.GetEnumerator() | ForEach-Object {
+        $precision = $null; if (!$ownedPrecision.TryGetValue($_.Key, [ref]$precision)) { $precision = 'Tick100ns' }
+        [ordered]@{pid=$_.Key; createdUtc=$_.Value.ToString('O'); precision=$precision} })
     $script:result.remainingScopedChildren = @($remaining | Select-Object ProcessId,ParentProcessId,CreationDate,Name,ExecutablePath,CommandLine)
     $script:result.processQuerySafe = $processQuerySafe
     $script:result.childrenQuiescent = $processQuerySafe -and $remaining.Count -eq 0

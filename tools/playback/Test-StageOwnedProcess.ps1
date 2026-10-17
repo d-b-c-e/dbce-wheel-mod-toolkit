@@ -187,4 +187,63 @@ try { $null=Observe-Owned } catch { $refused=$true }
 Assert $refused 'Adapter refuses unknown tracked identity.'
 Assert (!$processQuerySafe) 'Adapter latches unknown identity as unsafe.'
 
+# Owned MSVC telemetry (haru shared run-01): VCTIP 32232 outlived cl.exe and held the lease. Its lineage
+# stamp came from CIM; the live handle carries 100 ns ticks. Fake handles only; nothing is terminated.
+$vctipPath='C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\VCTIP.EXE'
+$compiler='2026-10-17T06:17:07.6184430Z'
+$vctipCim='2026-10-17T06:17:07.9842080Z'
+$vctipLive='2026-10-17T06:17:07.9842087Z'
+$liveCensus=Snapshot @((Row 32232 0 (Stamp $vctipLive) 'Tick100ns'))
+$mislabeled=[pscustomobject]@{processId=32232;createdUtc=(Stamp $vctipCim);precision='Tick100ns'}
+Assert ((Get-StageProcessIdentityDisposition $mislabeled $liveCensus).state -ceq 'Reused') 'Run-01 cause: a CIM stamp labeled Tick100ns reads as reused against the live handle.'
+$identities=Tracked @{35916=$compiler}
+$precisions=[Collections.Generic.Dictionary[uint32,string]]::new()
+$r=Update-StageOwnedProcessLineage -Owned $identities -Snapshot (Snapshot @(
+    (Row 35916 0 $compiler), (Row 32232 35916 $vctipCim))) -Precision $precisions
+Assert-Ids $r.adoptedProcessIds @(32232) 'The compiler admits its telemetry child.'
+Assert ($precisions[32232] -ceq 'CimMicrosecond' -and !$precisions.ContainsKey(35916)) 'Adoption records CIM precision; a root without an entry stays Tick100ns.'
+$recorded=[pscustomobject]@{processId=32232;createdUtc=$identities[32232];precision=$precisions[32232]}
+Assert ((Get-StageProcessIdentityDisposition $recorded $liveCensus).state -ceq 'OriginalAlive') 'The carried precision matches the same process through its live handle.'
+
+function New-FakeHandle([string]$Start) {
+    $handle=[pscustomobject]@{StartTime=(Stamp $Start).ToLocalTime();Killed=$false;Disposed=$false}
+    $handle|Add-Member ScriptMethod Kill { $this.Killed=$true; $script:fixtureCimRows=@($script:fixtureCimRows|Where-Object ProcessId -ne 32232) }
+    $handle|Add-Member ScriptMethod WaitForExit { param($Milliseconds) $true }
+    $handle|Add-Member ScriptMethod Dispose { $this.Disposed=$true }
+    $handle
+}
+$openOwnedProcess={ param([uint32]$Id) if($Id -ne 32232){throw 'Unexpected handle.'}; $script:handle }
+$owned=Tracked @{35916=$compiler}
+$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new()
+$ownedRoots=[Collections.Generic.List[Diagnostics.Process]]::new()
+$processQuerySafe=$true
+$fixtureCimRows=@(
+    [pscustomobject]@{ProcessId=35916;ParentProcessId=0;CreationDate=(Stamp $compiler);CommandLine='cl';Name='cl.exe';ExecutablePath=($vctipPath -replace 'VCTIP','cl')},
+    [pscustomobject]@{ProcessId=32232;ParentProcessId=35916;CreationDate=(Stamp $vctipCim);CommandLine='vctip';Name='VCTIP.EXE';ExecutablePath=$vctipPath})
+$null=@(Observe-Owned)
+$fixtureCimRows=@($fixtureCimRows|Where-Object ProcessId -ne 35916) # the compiler exits; its telemetry child stays
+$handle=New-FakeHandle $vctipLive
+$result=[ordered]@{}
+Complete-Owned
+Assert ($handle.Killed -and $handle.Disposed) 'The owned VCTIP is stopped through its verified, released handle.'
+Assert ($result.childrenQuiescent -and @($result.remainingScopedChildren).Count -eq 0) 'A fresh census after the stop decides quiescence.'
+$stop=@($result.compilerTelemetry)
+Assert ($stop.Count -eq 1 -and $stop[0].stopped -and $stop[0].precision -ceq 'CimMicrosecond') 'The stop records the CIM identity it verified.'
+Assert (@($result.ownedLineage|Where-Object {$_.pid -eq 32232})[0].precision -ceq 'CimMicrosecond' -and
+    @($result.ownedLineage|Where-Object {$_.pid -eq 35916})[0].precision -ceq 'Tick100ns') 'ownedLineage carries each producer precision.'
+
+$owned=Tracked @{32232=$vctipCim}
+$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new(); $ownedPrecision[32232]='CimMicrosecond'
+$vctipRow=[pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath=$vctipPath}
+$handle=New-FakeHandle '2026-10-17T06:19:00.0000001Z'
+$stop=@(Stop-StageOwnedCompilerTelemetry @($vctipRow))
+Assert (!$handle.Killed -and $handle.Disposed -and $stop.Count -eq 1 -and !$stop[0].stopped) 'A reused PID is never stopped, and its handle is released.'
+$handle=New-FakeHandle $vctipLive
+$stop=@(Stop-StageOwnedCompilerTelemetry @(
+    [pscustomobject]@{ProcessId=4444;Name='VCTIP.EXE';ExecutablePath=$vctipPath},
+    [pscustomobject]@{ProcessId=32232;Name='cl.exe';ExecutablePath=($vctipPath -replace 'VCTIP','cl')},
+    [pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath='C:\Temp\VCTIP.EXE'},
+    [pscustomobject]@{ProcessId=32232;Name='VCTIP.EXE';ExecutablePath=$null}))
+Assert (!$handle.Killed -and $stop.Count -eq 0) 'Only an owned VCTIP image in an MSVC bin directory qualifies; nothing else is opened.'
+
 "Test-StageOwnedProcess: $checks checks passed; synthetic snapshots only"
