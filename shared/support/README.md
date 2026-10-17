@@ -90,3 +90,28 @@ No compilation, semantic binding, fixture execution or game/UI run occurred.
 GitHub documents [issue URL title/body parameters](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue)
 and [supported attachments and immediate upload timing](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files).
 No attachment query parameter or automatic upload behavior is assumed.
+
+## Legacy CLR 2 / .NET 3.5 hosts, October 16
+
+Compile the same source with `DBCE_SUPPORT_NET35` for HCT's legacy host.
+That opt-in uses `IList<string>` for selected log paths, `USERPROFILE` for
+home redaction, and a character whitespace check. It uses the legacy regex
+overload on fixed helper patterns with a 50,000-character input bound because
+CLR 2 lacks timeout overloads. Modern builds retain their existing
+`IReadOnlyList<string>` API, user-profile discovery and one-second regex timeout.
+No file discovery, automatic selection, sending or overwrite behavior changes.
+
+Product `20b269fe164cf14184bd5cc7f1313a07bc7bc1ba` passed the existing
+C# 7.3 report fixture on .NET 8 (47 checks), and compiled against the installed
+CLR 2 mscorlib/System plus .NET 3.5 System.Core and ran on CLR 2 (50 checks).
+The legacy additions cover collection compatibility, default home redaction,
+whitespace refusal and the bounded legacy regex input. Both compiles passed
+with warnings treated as errors. Source SHA-256:
+`BC89C07A873F9C42B3E840550415447ED7EE55FA2E02CAD344E345FBE7715B56`.
+
+Original evidence: hub `artifacts/support-net35-lola-20261016/run-03`.
+The earlier runner setup failure has an unknown build outcome; its separate
+recovery closure and a contention-only refusal are preserved in `run-01/02`.
+The passing batch closed all six owned process identities, restored its process
+environment, and released its exact lease at `2026-10-17T00:33:16.9685425Z`.
+These checks do not qualify a rendered HCT Help panel or game behavior.
