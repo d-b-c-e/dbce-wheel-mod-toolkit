@@ -1,0 +1,16 @@
+{
+  "sourceRepository": "dbce-mods-iracing-arcade",
+  "sourcePath": "components/wheel/src/IRacingArcadeWheel.Plugin/ShimModActionRoute.cs",
+  "sourceCommit": "3c83fa173d0a7e3029d55efd19b6523e3745ad7c",
+  "sourceSha256": "05F89349F4658E1BA37B98731B83C3BA431530362718F295A26ED1DE433C040D",
+  "changes": [
+    "public shared namespace/type names",
+    "game-owned effect dispatch excluded",
+    "edge algorithm unchanged"
+  ],
+  "consumers": [
+    "iRacing original source retained",
+    "Truckful wheel settings successor"
+  ],
+  "sharedSha256": "F850C7A97BBA4F3C4BC6213D0375F0EDBA3F7EF706DA38A9112B20263A212458"
+}
