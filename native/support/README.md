@@ -65,8 +65,17 @@ neither action submits an issue. Both actions remain with the host/user.
 The native token-label parity successor also handles plain `token`,
 `refresh_token` and `auth_token`, including quoted and mixed-case keys, just as
 the managed helper does. It retains the label and redacts the line's value.
-This source change needs its focused native fixture build before consumer
-adoption; earlier 86-check results below cover the historical source only.
+Source `5090bf9` passed the focused MSVC 19.44 Release `/W4 /WX /utf-8
+/permissive-` build with zero warnings/errors and all94 native fixture checks
+(no skips). Original stdout/stderr, JUnit and cleanup result are at
+`E:/Source/dbce-project-mgmt/artifacts/native-support-token-mivu-20261017`.
+The literal lease was released after verified scoped-process cleanup at
+18:43:24.8880393Z; Mubi and Kobe received the direct handoff before docs.
+Consumer adoption/packaging and rendered Help checks remain with their owners;
+no owner install, runtime, issue submission or public push occurred.
+Qualified successor `support_report.cpp` SHA-256 (normal checkout bytes):
+`64630BEE1C01117800B939E0FBDD3E7750B8BBBBA4AD728774D972D5E9A4D0D6`;
+Git blob `4e881d73f49f4e8e73f3fe82552adc8a1f2cb740`. The header is unchanged.
 
 ## Focused qualification
 
