@@ -67,7 +67,7 @@ namespace Dbce.Wheel.Input
         }
         public bool Contains(string id) { return definitions.ContainsKey(id); }
         public ControlShape ShapeOf(string id) {
-            DeclaredControlExtra definition;
+            DeclaredControlExtra? definition;
             return definitions.TryGetValue(id, out definition) ? definition.Shape : ControlBinding.ShapeOf(id);
         }
     }
