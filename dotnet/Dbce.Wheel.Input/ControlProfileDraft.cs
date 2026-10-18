@@ -32,15 +32,19 @@ namespace Dbce.Wheel.Input
         private string savedHash;
         private readonly string activeHash;
         private readonly int maxProfileBytes;
+        private readonly DeclaredControlExtras? extras;
         public bool SavedPendingRestart => savedHash != activeHash;
         public bool HasDraft => changes.Count > 0;
 
         public ControlProfileDraft(byte[] bytes, int maxProfileBytes = 1024 * 1024)
+            : this(bytes, null, maxProfileBytes) { }
+        public ControlProfileDraft(byte[] bytes, DeclaredControlExtras? extras, int maxProfileBytes = 1024 * 1024)
         {
+            this.extras = extras;
             if (maxProfileBytes < 1 || maxProfileBytes > 1024 * 1024) throw new ArgumentOutOfRangeException(nameof(maxProfileBytes));
             this.maxProfileBytes = maxProfileBytes;
             if (bytes.Length == 0 || bytes.Length > maxProfileBytes) throw new InvalidDataException("The shared profile exceeds this host's size limit.");
-            Active = Saved = new ControlProfileDocument(new UTF8Encoding(false, true).GetString(bytes));
+            Active = Saved = new ControlProfileDocument(new UTF8Encoding(false, true).GetString(bytes), extras);
             savedHash = activeHash = Hash(bytes);
         }
         public ControlBinding? Binding(string action)
@@ -54,7 +58,14 @@ namespace Dbce.Wheel.Input
         }
         public void Set(string action, string? value)
         {
-            if (ControlBinding.ShapeOf(action) == ControlShape.Unknown) throw new ArgumentException("Unknown shared action.", nameof(action));
+            var shape = extras == null ? ControlBinding.ShapeOf(action) : extras.ShapeOf(action);
+            if (shape == ControlShape.Unknown) throw new ArgumentException("Unknown shared action.", nameof(action));
+            if (extras != null && extras.Contains(action) && value != null)
+            {
+                if (!ControlBinding.TryParse(value, out var parsed, out _) || parsed == null || parsed.Fits(shape).Length != 0 ||
+                    parsed.Device == Guid.Empty || parsed.Product == Guid.Empty) throw new ArgumentException("Invalid declared extra binding.", nameof(value));
+                value = parsed.ToString();
+            }
             string? saved = Saved.Bindings.TryGetValue(action, out var binding) ? binding.ToString() : null;
             if (value == saved) changes.Remove(action); else changes[action] = value;
         }
@@ -89,7 +100,7 @@ namespace Dbce.Wheel.Input
                 string nextHash = Hash(next);
                 if (Hash(ReadExisting(path)) != nextHash)
                     throw new IOException("Controls were replaced but did not read back as expected. The backup and draft were kept; restart before editing again.");
-                Saved = new ControlProfileDocument(text); savedHash = nextHash; changes.Clear();
+                Saved = new ControlProfileDocument(text, extras); savedHash = nextHash; changes.Clear();
                 message = "Bindings saved. Restart the game to use them; active bindings are unchanged.";
                 return true;
             }

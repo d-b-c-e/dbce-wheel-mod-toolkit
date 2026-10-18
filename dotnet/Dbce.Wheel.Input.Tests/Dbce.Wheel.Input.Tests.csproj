@@ -16,6 +16,8 @@
     <Compile Include="../Dbce.Wheel.Input/BindingCaptureFlow.cs" Link="BindingCaptureFlow.cs" />
     <Compile Include="../Dbce.Wheel.Input/ControlProfileDocument.cs" Link="ControlProfileDocument.cs" />
     <Compile Include="../Dbce.Wheel.Input/ControlProfileDraft.cs" Link="ControlProfileDraft.cs" />
+    <Compile Include="../Dbce.Wheel.Input/DeclaredControlExtras.cs" Link="DeclaredControlExtras.cs" />
+    <Compile Include="../Dbce.Wheel.Input/DeclaredExtrasFrame.cs" Link="DeclaredExtrasFrame.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingEditorContract.cs" Link="BindingEditorContract.cs" />
     <Compile Include="../Dbce.Wheel.Input/BindingEditorPolicy.cs" Link="BindingEditorPolicy.cs" />
     <Compile Include="../Dbce.Wheel.Input/ShimSteering.cs" Link="ShimSteering.cs" />
