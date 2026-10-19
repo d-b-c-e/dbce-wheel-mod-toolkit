@@ -23,6 +23,7 @@ Background and SimHub internals: hub report `docs/reviews/2026-10-18-course-map-
 | `CourseTracker` | Turns positions into progress, laps and completion; the rules are below |
 | `CourseSample` | One snapshot: id, name, length, loop flag, progress, laps, finished, position, yaw, lap time, session id, discontinuity count, spectator/replay/control flags. `TryValidate` checks the invariants |
 | `SimHubCourseFeed` | Draft "dbce course + dash v1" external-sim layout, with an encoder and a decoder. No socket, no SimHub files |
+| `CourseComparison` | Offline judge for a route capture. It runs the tracker over a trajectory on the game's route and reports: fix, discontinuities, off-course and invalid counts, unflagged backward steps, p95/max offset, course distance against the plan path, and the game-progress scale and deltas. The game's unit is estimated, not assumed. Thresholds belong to the caller |
 
 ### Identity rules
 
