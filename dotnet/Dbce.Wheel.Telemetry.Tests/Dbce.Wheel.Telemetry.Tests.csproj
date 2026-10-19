@@ -15,6 +15,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dbce.Wheel.Telemetry\Dbce.Wheel.Telemetry.csproj" />
+    <!-- Offline course tooling (net8.0); the runtime assemblies above stay netstandard2.0. -->
+    <ProjectReference Include="..\Dbce.Wheel.Course\Dbce.Wheel.Course.csproj" />
   </ItemGroup>
 
 </Project>
