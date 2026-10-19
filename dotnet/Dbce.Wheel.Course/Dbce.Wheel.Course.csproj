@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Offline course tooling: reads route captures (dbce.course-route@1) and recorded trajectories
+    (dbce.trajectory@1, through Dbce.Wheel.Playback) and judges them with the Course types in
+    Dbce.Wheel.Telemetry. It is never loaded into a game, so the netstandard2.0 constraint on the
+    runtime assemblies does not apply; net8.0 provides the in-box JSON reader.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Dbce.Wheel.Course</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Course</RootNamespace>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dbce.Wheel.Telemetry\Dbce.Wheel.Telemetry.csproj" />
+    <ProjectReference Include="..\Dbce.Wheel.Playback\Dbce.Wheel.Playback.csproj" />
+  </ItemGroup>
+
+</Project>

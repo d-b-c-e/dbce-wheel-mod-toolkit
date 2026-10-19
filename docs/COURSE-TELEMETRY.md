@@ -23,6 +23,7 @@ Background and SimHub internals: hub report `docs/reviews/2026-10-18-course-map-
 | `CourseTracker` | Turns positions into progress, laps and completion; the rules are below |
 | `CourseSample` | One snapshot: id, name, length, loop flag, progress, laps, finished, position, yaw, lap time, session id, discontinuity count, spectator/replay/control flags. `TryValidate` checks the invariants |
 | `SimHubCourseFeed` | Draft "dbce course + dash v1" external-sim layout, with an encoder and a decoder. No socket, no SimHub files |
+| `Dbce.Wheel.Course` (net8.0, offline only) | `CourseRouteFile.Read` reads a `dbce.course-route@1` capture folder without changing it. It checks sizes before hashing or parsing (8 MB), then the seal through Playback's `ArtifactSeal`, then the schema: exact `schema`/`frame`, `state` Completed or LimitReached, sha256/request-id/UTC formats, 2-20,000 `[x, y, z]` float waypoints matching `waypointCount`, at most 20,001 distances, no duplicate properties, and every `progress.tsv` row (8 columns, finite numbers, time never going back, row count matching `rows`). Points map once through `CourseAxes.FromUnity`. `CourseCaptureCheck` judges a capture's own drive (game progress included) and a recorded trajectory read by Playback's existing `TrajectoryTape` (`dbce.trajectory@1`), so no second trajectory reader exists |
 | `CourseComparison` | Offline judge for a route capture. It runs the tracker over a trajectory on the game's route and reports: fix, discontinuities, off-course and invalid counts, unflagged backward steps, p95/max offset, course distance against the plan path, and the game-progress scale and deltas. The game's unit is estimated, not assumed. Thresholds belong to the caller |
 
 ### Identity rules
@@ -110,6 +111,12 @@ singleton exists during a stage, floating-origin offsets) are unread until a gam
 - `SyntheticCourses.cs`: the generated stage, circuit and figure-eight drives.
 
 No owner capture is committed or needed. Every expected value follows from the generated geometry.
+
+`CourseFilesTests.cs` builds synthetic captures in Woden's exact format. It covers axis mapping, read-only access,
+own-drive unit recovery and trajectory judging, plus refusal of 14 malformed route fields, 4 kinds of unclean JSON,
+6 kinds of malformed progress rows, and changed, unsealed, missing or oversized captures. `CourseCaptureEvidenceTests`
+applies the handoff's pass thresholds to an actual capture folder named by `DBCE_COURSE_CAPTURE`, and, if
+`DBCE_COURSE_REFERENCE` names one, to a recorded trajectory of the same course. Otherwise it is skipped.
 
 `PrivateEvidenceTests.cs` runs only when `DBCE_COURSE_PRIVATE` names a folder of private copies of the owner's SimHub
 map cache, and is skipped otherwise. It is pinned by sha256: one EA WRC stage and three PCars3 circuits, each a lap
