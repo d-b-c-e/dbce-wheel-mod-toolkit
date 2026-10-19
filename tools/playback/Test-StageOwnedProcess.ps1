@@ -280,4 +280,103 @@ Assert (($owned -join ',') -ceq 'FZeroDeluxe.exe,dbce_shim.dll,install-receipt.j
     $processQuerySafe -ceq 'caller receipt status' -and $ownedRunnerIdentity -ceq 'caller identity note' -and
     $openOwnedProcess -ceq 'caller handle note') 'The helper leaves ordinary caller bookkeeping untouched.'
 
+# Optional preflight admissions: no receipt file read, real census, live handle or service operation.
+$entry='2026-10-15T23:00:10.0000000Z'
+function Admission {
+    [pscustomobject]@{processId=900;createdUtc=$child;precision='CimMicrosecond';admittedAtUtc='2026-10-15T23:00:05.0000000Z';
+        coordinator='fixture-coordinator';role='fixture-keeper';custodyReceipt=[pscustomobject]@{path='Z:\synthetic\custody.json';sha256=('a'*64)}}
+}
+function Reset-PersistentFixture {
+    $script:StageOwnedProcessState.Identities=Tracked @{}
+    $script:StageOwnedProcessState.Precision=[Collections.Generic.Dictionary[uint32,string]]::new()
+    $script:StageOwnedProcessState.Roots=[Collections.Generic.List[Diagnostics.Process]]::new()
+    $script:StageOwnedProcessState.QuerySafe=$true
+    $script:StageOwnedProcessState.ObservationStarted=$false
+    $script:StageOwnedProcessState.PersistentConfigured=$false
+    $script:StageOwnedProcessState.PersistentServices=@()
+    $script:StageOwnedProcessState.AdmittedPersistentServices=@()
+    $script:StageOwnedProcessState.PersistentClassificationSafe=$true
+}
+Reset-PersistentFixture
+$fixtureCimRows=@([pscustomobject]@{ProcessId=900;ParentProcessId=0;CreationDate=(Stamp $child);CommandLine=$sourceRoot})
+Assert-Ids @((Observe-Owned).ProcessId) @(900) 'Default callers retain the original supplemental path scope.'
+$late=$false
+try{Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @((Admission))}catch{$late=$true}
+Assert $late 'Admissions cannot be configured after observation.'
+
+Reset-PersistentFixture
+$service=Admission
+Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @($service)
+$service.processId=901;$service.custodyReceipt.path='Z:\different\custody.json'
+Assert (@(Observe-Owned).Count -eq 0) 'Only an exact pre-entry identity is admitted from supplemental scope.'
+$result=[ordered]@{}
+Complete-Owned
+Assert ($result.processQuerySafe -and $result.childrenQuiescent -and $result.persistentServiceClassificationSafe) 'An exact persistent service does not retain transient cleanup.'
+Assert-Ids @($result.admittedPersistentServices.processId) @(900) 'Admitted persistent identities are reported separately.'
+Assert ($result.admittedPersistentServices[0].custodyReceipt.path -ceq 'Z:\synthetic\custody.json' -and
+    $result.admittedPersistentServices[0].coordinator -ceq 'fixture-coordinator') 'The copied original custody reference and role survive caller mutation.'
+$again=$false
+try{Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @()}catch{$again=$true}
+Assert $again 'Admissions cannot be replaced or widened after configuration.'
+
+Reset-PersistentFixture
+Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @((Admission))
+$script:StageOwnedProcessState.Identities=Tracked @{100=$root}
+$fixtureCimRows=@(
+    [pscustomobject]@{ProcessId=100;ParentProcessId=0;CreationDate=(Stamp $rootCim);CommandLine='owned'},
+    [pscustomobject]@{ProcessId=900;ParentProcessId=100;CreationDate=(Stamp $child);CommandLine=$sourceRoot})
+Assert-Ids @((Observe-Owned).ProcessId) @(100,900) 'Actual adopted worker lineage wins over an otherwise exact persistent admission.'
+Assert (@($script:StageOwnedProcessState.AdmittedPersistentServices).Count -eq 0) 'A true descendant is never labeled an admitted persistent service.'
+
+Reset-PersistentFixture
+Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @((Admission))
+$fixtureCimRows=@([pscustomobject]@{ProcessId=900;ParentProcessId=0;CreationDate=(Stamp $replacement);CommandLine=$sourceRoot})
+Assert-Ids @((Observe-Owned).ProcessId) @(900) 'A reused admission PID does not exempt its replacement supplemental match.'
+Assert (@($script:StageOwnedProcessState.AdmittedPersistentServices).Count -eq 0) 'Reused identity never receives an admission receipt.'
+$fixtureCimRows=@()
+Assert (@(Observe-Owned).Count -eq 0 -and @($script:StageOwnedProcessState.AdmittedPersistentServices).Count -eq 0) 'A known absent service is not reported as still admitted.'
+$fixtureCimRows=@([pscustomobject]@{ProcessId=900;ParentProcessId=0;CreationDate=(Stamp $child);CommandLine='unrelated-service'})
+Assert (@(Observe-Owned).Count -eq 0 -and @($script:StageOwnedProcessState.AdmittedPersistentServices).Count -eq 0) 'Admissions classify only supplemental matches, not every process in the census.'
+$fixtureCimRows=@([pscustomobject]@{ProcessId=900;ParentProcessId=0;CreationDate=$null;CommandLine=$sourceRoot})
+$unknown=$false
+try{$null=Observe-Owned}catch{$unknown=$true}
+Assert ($unknown -and !$script:StageOwnedProcessState.QuerySafe -and !$script:StageOwnedProcessState.PersistentClassificationSafe) 'Unknown observed creation fails closed and latches unsafe classification.'
+Assert (@($script:StageOwnedProcessState.AdmittedPersistentServices).Count -eq 0) 'An unsafe observation cannot retain stale admissions.'
+
+foreach($change in @('missing-creation','invalid-precision','at-entry','ambiguous-entry','late-admission','missing-admission','missing-receipt','bad-hash','relative-receipt','blank-role','blank-coordinator')){
+    Reset-PersistentFixture
+    $service=Admission
+    switch($change){
+        'missing-creation' {$service.createdUtc=$null}
+        'invalid-precision' {$service.precision='Unknown'}
+        'at-entry' {$service.createdUtc=$entry}
+        'ambiguous-entry' {$service.createdUtc='2026-10-15T23:00:10.0000000Z';$service.admittedAtUtc='2026-10-15T23:00:10.0000001Z'}
+        'late-admission' {$service.admittedAtUtc=$entry}
+        'missing-admission' {$service.admittedAtUtc=$null}
+        'missing-receipt' {$service.custodyReceipt=$null}
+        'bad-hash' {$service.custodyReceipt.sha256='not-a-hash'}
+        'relative-receipt' {$service.custodyReceipt.path='relative.json'}
+        'blank-role' {$service.role=''}
+        'blank-coordinator' {$service.coordinator=''}
+    }
+    $refused=$false
+    $caseEntry=if($change -ceq 'ambiguous-entry'){'2026-10-15T23:00:10.0000007Z'}else{$entry}
+    try{Set-StageOwnedPersistentServices -EnteredUtc $caseEntry -Services @($service)}catch{$refused=$true}
+    Assert ($refused -and !$script:StageOwnedProcessState.PersistentConfigured -and @($script:StageOwnedProcessState.PersistentServices).Count -eq 0) ('Invalid preflight is atomic and refuses: '+$change)
+}
+Reset-PersistentFixture
+$refused=$false
+try{Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @((Admission),(Admission))}catch{$refused=$true}
+Assert $refused 'Duplicate admission PIDs refuse.'
+$refused=$false
+try{Set-StageOwnedPersistentServices -EnteredUtc $entry -Services @((1..9|ForEach-Object{Admission}))}catch{$refused=$true}
+Assert $refused 'An admission list is bounded to eight records.'
+$refused=$false
+try{$null=Get-StageOwnedPersistentClassification -Snapshot (Snapshot @() $false) -SupplementalProcessIds @() -TrackedProcessIds @() -Services @()}catch{$refused=$true}
+Assert $refused 'Failed census cannot become a successful empty persistent classification.'
+$service=Admission;$service|Add-Member NoteProperty enteredUtc $entry
+$refused=$false
+try{$null=Get-StageOwnedPersistentClassification -Snapshot (Snapshot @((Row 900 0 $child),(Row 900 0 $child))) -SupplementalProcessIds @(900) -TrackedProcessIds @() -Services @($service)}catch{$refused=$true}
+Assert $refused 'Duplicate service rows in the same census refuse classification.'
+
 "Test-StageOwnedProcess: $checks checks passed; synthetic snapshots only"
