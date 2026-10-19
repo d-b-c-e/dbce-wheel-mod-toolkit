@@ -124,14 +124,68 @@ progress must match SimHub's stored progress: median under 5 m, p95 under 15 m, 
 - Signatures, registration (`%LOCALAPPDATA%\SimHub\ExternalSims`) and SimHub's online-map upload are owner
   decisions, listed in the hub report.
 
-## Next: the smallest real integration
+## Next: Woden route extraction handoff (reserved)
 
-**Woden, read-only.**
-- The mod already records the course id inputs.
-- A private 60 s Kenya SS1 trajectory reference exists.
-- A dev-only dump at stage load would capture the `WaypointCircuit` positions, loop flag and length, plus the
-  game's `progressDistance` and `PlayerPercentage` samples, to a private file. No UDP, no SimHub.
-- Then, offline, `CourseTracker` runs over the dumped circuit and the recorded trajectory, and its progress is
-  compared with the game's own.
+**Status (kobe 277046):** reserved behind Fleet completion and game-release work. There is no launch grant. This is
+not an Art or DRIVE release gate, and nothing here registers anything with SimHub. The prototype above is qualified
+offline only; it is not integrated and draws no live map.
 
-This needs one bounded kobe runtime grant.
+**What it is.** A dev-only, read-only dump in the Woden repo (`components/wheel/src/WodenRallyEdge.Plugin`, a new
+`CourseRouteDump`), off unless `DBCE_COURSE_EXTRACT=1` is set. It runs as a postfix beside `GameSampler` on
+`MainCar.FixedUpdate`, so it never skips or changes game code. No UDP, no SimHub, no settings, no game-state writes.
+It needs only Unity and the interop; the toolkit Course types are used offline afterwards.
+
+### Exact inputs
+
+| Value | Source (interop, Woden build `f422894d…`) | Type |
+|---|---|---|
+| Car | `Runtime.Local` (`MainCar`), as `GameSampler` uses it | |
+| Progress tracker | `car.field_Private_WaypointProgressTracker_0`. The name is obfuscated, so check it again after any interop regeneration | `WaypointProgressTracker` |
+| Route | `tracker.circuit`. Also record whether `Object.FindObjectOfType<StageProgress>().MyCircuit` is the same instance | `WaypointCircuit` |
+| Waypoints | `circuit.waypointList.items[i].position`, in order | `Transform[]`, giving Unity world `Vector3` |
+| Route facts | `circuit.isClosedCircuit`, `length`, `Kms`, `unitConversionFactor`, `distances` | bool, float, float, float, `float[]` |
+| Identity | `race.MyGameround.Track.name` (trackAsset) and `.CircuitName`, from `car.field_Private_RaceConditions_0` as `StageCaptureContext` reads them; `RaceConditions.ReverseTrack`, `RaceConditions.TotalLaps`, `Runtime.GameAssemblyHash` | strings, bool, int |
+| Per tick | car `transform.position`, `tracker.progressDistance`, `StageProgress.PlayerPercentage`, `car.Status`, the sampler's simulation seconds | floats, enum |
+
+The route is read once, on the first tick with `Status == RACE`; waypoints do not move. Samples are taken every
+physics tick from then until `END` or `DESTROYED`, 600 s, or the row cap.
+
+### Output and bounds
+
+All output is private and never committed. It goes to
+`%LOCALAPPDATA%\Dbce\CourseExtraction\woden-<slug(trackAsset)>-<fwd|rev>-<UTC yyyyMMddTHHmmssZ>\`:
+- **`route.json`** (`dbce.course-route@1`): game, `gameAssemblySha256`, `trackAsset`, `trackName`, `reverseTrack`,
+  `totalLaps`, `isClosedCircuit`, `length`, `kms`, `unitConversionFactor`, `waypointCount`, `waypoints`
+  (`[[x,y,z],…]`, float32 round-trip text), `distances`, `circuitSameAsStageProgress`, `capturedUtc`.
+- **`progress.tsv`**, with the header `tick	sim_s	px	py	pz	progress_distance	player_percentage	status`.
+- **`complete.tsv`**: names, sizes and sha256 in the existing `dbce-playback-seal-v1` form.
+
+Limits:
+- **Caps:** at most 20,000 waypoints (refuse above that) and 36,000 rows (600 s at 60 Hz), then stop. Under 8 MB
+  in total.
+- **Writing:** buffer in memory and write once at the end into a temporary directory, then rename it. A new
+  directory each run (`CreateNew`, never overwrite). A failure leaves nothing partial.
+
+### Comparison (offline, after the run)
+
+1. **Route to path:** `CourseAxes.FromUnity` per waypoint, with `isLoop = isClosedCircuit`. Record
+   `CoursePath.LengthM` against `length` (and `Kms` × 1000). If `length` is in metres they agree within 1%; that is
+   not verified yet.
+2. **Identity:** `CourseIdentity.Create("woden", Slug(trackAsset), isClosedCircuit ? "circuit" : "stage",
+   reverseTrack ? Reverse : Forward)`. That gives `dbce.woden.kenya-ss1.stage.fwd` if Kenya SS1 is not closed.
+   Record `HashPath(waypoints)` as the route's identity.
+3. **Existing reference** (no new driving is needed for this step):
+   - Inputs: `StagePlayback/references/woden-kenya-20261005/trajectory.tsv` (sha256 ea870d11…, 3,601 rows, 60 s at
+     60 Hz) and `stage-context.json` (711747d3…: Kenya SS1, not reversed, 1 lap, car 8). The reference was recorded
+     on game build `f422894d…`, the same as the installed game.
+   - Run `CourseTracker` over `px/py/pz`.
+   - Pass if: the first row gets a fix within 30 m; there are 0 discontinuities; p95 offset is at most 10 m;
+     progress never decreases outside `WrongWay` spans; and the distance covered is within ±5% of the trajectory's
+     own plan path, about 1,730 m.
+4. **Game progress against the tracker** (`progress.tsv`):
+   - Find the unit first. `progressDistance` is scaled by the median ratio to tracker distance; that is 1 if it is
+     in metres. `PlayerPercentage` is 0-1 or 0-100, judged from its maximum.
+   - Pass if: median |tracker − game| is at most 5 m and p95 at most 15 m. Report a systematic offset; never tune
+     it away.
+5. **Report:** the hashes of `route.json` and `progress.tsv`, the id, and the numbers. No claim of a live SimHub
+   map.
