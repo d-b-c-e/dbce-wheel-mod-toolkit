@@ -300,6 +300,16 @@ namespace Dbce.Wheel.Telemetry.Tests
         }
     }
 
+    /// <summary>Runs only when <see cref="CourseCaptureFactAttribute.ReferenceVariable"/> names a recorded trajectory folder.</summary>
+    public sealed class CourseReferenceFactAttribute : FactAttribute
+    {
+        public CourseReferenceFactAttribute()
+        {
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(CourseCaptureFactAttribute.ReferenceVariable)))
+                Skip = CourseCaptureFactAttribute.ReferenceVariable + " is not set; recorded trajectories stay private";
+        }
+    }
+
     /// <summary>
     /// The pass thresholds from docs/COURSE-TELEMETRY.md ("Woden route extraction handoff"), applied to an actual
     /// capture folder and, when <see cref="CourseCaptureFactAttribute.ReferenceVariable"/> names one, a recorded
@@ -310,6 +320,24 @@ namespace Dbce.Wheel.Telemetry.Tests
         private readonly ITestOutputHelper _output;
 
         public CourseCaptureEvidenceTests(ITestOutputHelper output) => _output = output;
+
+        [CourseReferenceFact]
+        public void ReferenceTrajectoryReadsThroughTheSharedTapeReader()
+        {
+            // The reference a capture is judged against must pass Playback's own seal, metadata and timeline checks.
+            var tape = TrajectoryTape.Read(Environment.GetEnvironmentVariable(CourseCaptureFactAttribute.ReferenceVariable));
+            double plan = 0;
+            for (int i = 1; i < tape.Frames.Length; i++)
+            {
+                var a = CourseAxes.FromUnity(tape.Frames[i - 1].Values[0], tape.Frames[i - 1].Values[1], tape.Frames[i - 1].Values[2]);
+                var b = CourseAxes.FromUnity(tape.Frames[i].Values[0], tape.Frames[i].Values[1], tape.Frames[i].Values[2]);
+                plan += Math.Sqrt((b.North - a.North) * (b.North - a.North) + (b.East - a.East) * (b.East - a.East));
+            }
+            _output.WriteLine($"{tape.Metadata["game"]} | {tape.Metadata["scenario"]} | build {tape.Metadata["gameSha256"].Substring(0, 8)} | " +
+                              $"{tape.Frames.Length} frames at {tape.Metadata["fixedDeltaTime"]} s | plan path {plan:0.0} m");
+            Assert.True(tape.Frames.Length >= 2);
+            Assert.True(plan > 0);
+        }
 
         [CourseCaptureFact]
         public void ActualCaptureMeetsTheHandoffThresholds()
