@@ -124,11 +124,94 @@ $script:StageOwnedProcessState = [pscustomobject]@{
     OpenProcess = { param([uint32]$Id) [Diagnostics.Process]::GetProcessById([int]$Id) }
     QuerySafe = $true
     RunnerIdentity = $null
+    ObservationStarted = $false
+    PersistentConfigured = $false
+    PersistentServices = @()
+    AdmittedPersistentServices = @()
+    PersistentClassificationSafe = $true
+}
+
+function ConvertTo-StageOwnedPersistentServices {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$EnteredUtc,
+          [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Services)
+    $entry=ConvertTo-StageCreationStamp $EnteredUtc 'Tick100ns'
+    if($null -eq $entry -or $Services.Count -gt 8){throw 'A valid entry timestamp and at most eight persistent services are required.'}
+    $seen=[Collections.Generic.HashSet[uint32]]::new()
+    $accepted=@(foreach($service in $Services){
+        $identityId=0L
+        if($null -eq $service -or ![long]::TryParse([string]$service.processId,[ref]$identityId) -or
+           $identityId -le 0 -or $identityId -gt [uint32]::MaxValue -or !$seen.Add([uint32]$identityId)){
+            throw 'Persistent service PID is invalid or duplicated.'
+        }
+        $created=ConvertTo-StageCreationStamp $service.createdUtc $service.precision
+        $admitted=ConvertTo-StageCreationStamp $service.admittedAtUtc 'Tick100ns'
+        if($null -eq $created -or $null -eq $admitted){throw 'Persistent service creation, precision and admission timestamp are required.'}
+        $quantum=[Math]::Max($created.quantum,$entry.quantum)
+        if(($created.ticks-($created.ticks%$quantum)) -ge ($entry.ticks-($entry.ticks%$quantum)) -or
+           $admitted.ticks -ge $entry.ticks -or $admitted.ticks -lt $created.ticks){
+            throw 'Persistent service creation and explicit admission must precede entry without an ambiguous precision bucket.'
+        }
+        foreach($field in @('coordinator','role')){
+            if($service.$field -isnot [string] -or !($service.$field).Trim() -or ($service.$field).Length -gt 128 -or
+               $service.$field -match '[\r\n]'){throw 'Persistent service coordinator and role are required bounded names.'}
+        }
+        $receipt=$service.custodyReceipt
+        if($null -eq $receipt -or $receipt.path -isnot [string] -or $receipt.path.Length -gt 4096 -or
+           ![IO.Path]::IsPathFullyQualified($receipt.path) -or $receipt.sha256 -isnot [string] -or
+           $receipt.sha256 -cnotmatch '^[a-fA-F0-9]{64}$'){throw 'A pinned absolute custody receipt path and SHA256 are required.'}
+        [pscustomobject]@{processId=[uint32]$identityId;createdUtc=[DateTime]::new($created.ticks,[DateTimeKind]::Utc).ToString('O');
+            precision=[string]$service.precision;admittedAtUtc=[DateTime]::new($admitted.ticks,[DateTimeKind]::Utc).ToString('O');
+            enteredUtc=[DateTime]::new($entry.ticks,[DateTimeKind]::Utc).ToString('O');coordinator=$service.coordinator;role=$service.role;
+            custodyReceipt=[pscustomobject]@{path=$receipt.path;sha256=$receipt.sha256.ToUpperInvariant()}}
+    })
+    $accepted
+}
+function Set-StageOwnedPersistentServices {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$EnteredUtc,
+          [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Services)
+    # Explicit preflight only. The caller verifies custody receipt contents/hash and coordinator authorization;
+    # this helper copies the pinned reference as evidence, never discovers or infers custody from a name/path.
+    if($script:StageOwnedProcessState.ObservationStarted -or $script:StageOwnedProcessState.Identities.Count -or
+       $script:StageOwnedProcessState.Roots.Count -or !$script:StageOwnedProcessState.QuerySafe -or
+       $script:StageOwnedProcessState.PersistentConfigured){throw 'Persistent services must be configured once before observation or child launch.'}
+    $accepted=@(ConvertTo-StageOwnedPersistentServices -EnteredUtc $EnteredUtc -Services $Services)
+    # Publish only after the entire list validates; later mutation of caller objects cannot widen this copy.
+    $script:StageOwnedProcessState.PersistentServices=$accepted
+    $script:StageOwnedProcessState.PersistentConfigured=$true
+}
+
+function Get-StageOwnedPersistentClassification {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Snapshot,
+          [Parameter(Mandatory)][AllowEmptyCollection()][uint32[]]$SupplementalProcessIds,
+          [Parameter(Mandatory)][AllowEmptyCollection()][uint32[]]$TrackedProcessIds,
+          [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Services)
+    if($Snapshot.querySucceeded -isnot [bool] -or !$Snapshot.querySucceeded -or $null -eq $Snapshot.rows){throw 'Complete process census required for persistent classification.'}
+    $records=@()
+    if($Services.Count){$records=@(ConvertTo-StageOwnedPersistentServices -EnteredUtc $Services[0].enteredUtc -Services $Services)}
+    $admitted=@(foreach($service in $records){
+        # Validate even a nonmatching configured service; unknown evidence cannot support a cleanup PASS.
+        $identity=Get-StageProcessIdentityDisposition -Recorded $service -Snapshot $Snapshot
+        if($identity.state -ceq 'Unknown'){throw ('Persistent service identity unknown: '+$identity.reason)}
+        if($identity.state -ceq 'OriginalAlive' -and $service.processId -in $SupplementalProcessIds -and
+           $service.processId -notin $TrackedProcessIds){
+            [pscustomobject]@{processId=$service.processId;createdUtc=$service.createdUtc;precision=$service.precision;
+                admittedAtUtc=$service.admittedAtUtc;enteredUtc=$service.enteredUtc;coordinator=$service.coordinator;role=$service.role;
+                custodyReceipt=$service.custodyReceipt;observedCreatedUtc=$identity.observedCreatedUtc;
+                comparisonQuantumTicks=$identity.comparisonQuantumTicks}
+        }
+    })
+    [pscustomobject]@{admittedPersistentServices=$admitted;retainedSupplementalProcessIds=@($SupplementalProcessIds|Where-Object{$_ -notin @($admitted.processId)})}
 }
 function Save-Result {
     [IO.File]::WriteAllText((Join-Path $outputRoot 'result.json'), ($script:result | ConvertTo-Json -Depth 12))
 }
 function Observe-Owned {
+    $script:StageOwnedProcessState.ObservationStarted=$true
+    $script:StageOwnedProcessState.AdmittedPersistentServices=@()
+    $script:StageOwnedProcessState.PersistentClassificationSafe=$false
     try {
         if ($observeExternal) { & $observeExternal }
         $rows = @(Get-CimInstance Win32_Process -ErrorAction Stop)
@@ -148,12 +231,19 @@ function Observe-Owned {
         }
         $ancestors=@(Get-StageRunnerAncestorIds -Runner $script:StageOwnedProcessState.RunnerIdentity -Snapshot $snapshot)
         $observation = Update-StageOwnedProcessLineage -Owned $script:StageOwnedProcessState.Identities -Snapshot $snapshot -Precision $script:StageOwnedProcessState.Precision
+        $supplemental=@($rows | Where-Object {
+            $_.ProcessId -ne $PID -and $_.ProcessId -notin $ancestors -and $_.CommandLine -and
+            ($_.CommandLine.IndexOf($sourceRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+             $_.CommandLine.IndexOf($outputRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0)
+        } | ForEach-Object{[uint32]$_.ProcessId})
+        $classification=Get-StageOwnedPersistentClassification -Snapshot $snapshot -SupplementalProcessIds $supplemental `
+            -TrackedProcessIds @($script:StageOwnedProcessState.Identities.Keys) -Services $script:StageOwnedProcessState.PersistentServices
+        $script:StageOwnedProcessState.AdmittedPersistentServices=@($classification.admittedPersistentServices)
+        $script:StageOwnedProcessState.PersistentClassificationSafe=$true
     } catch { $script:StageOwnedProcessState.QuerySafe = $false; throw }
     @($rows | Where-Object {
         ($observation.originalAliveProcessIds -contains [uint32]$_.ProcessId) -or
-        ($_.ProcessId -ne $PID -and $_.ProcessId -notin $ancestors -and $_.CommandLine -and
-            ($_.CommandLine.IndexOf($sourceRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-             $_.CommandLine.IndexOf($outputRoot,[StringComparison]::OrdinalIgnoreCase) -ge 0))
+        ([uint32]$_.ProcessId -in $classification.retainedSupplementalProcessIds)
     })
 }
 function Invoke-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Arguments, [int]$TimeoutSeconds) {
@@ -238,6 +328,8 @@ function Complete-Owned {
         [ordered]@{pid=$_.Key; createdUtc=$_.Value.ToString('O'); precision=$precision} })
     $script:result.remainingScopedChildren = @($remaining | Select-Object ProcessId,ParentProcessId,CreationDate,Name,ExecutablePath,CommandLine)
     $script:result.processQuerySafe = $script:StageOwnedProcessState.QuerySafe
+    $script:result.admittedPersistentServices = @($script:StageOwnedProcessState.AdmittedPersistentServices)
+    $script:result.persistentServiceClassificationSafe = $script:StageOwnedProcessState.PersistentClassificationSafe
     $script:result.childrenQuiescent = $script:StageOwnedProcessState.QuerySafe -and $remaining.Count -eq 0
     foreach ($child in $script:StageOwnedProcessState.Roots) {
         try {
