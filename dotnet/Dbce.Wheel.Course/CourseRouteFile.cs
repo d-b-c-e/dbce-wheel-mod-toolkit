@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using Dbce.Wheel.Playback;
 using Dbce.Wheel.Telemetry;
@@ -14,8 +15,8 @@ public sealed record CourseRouteRow(long Tick, double SimSeconds, CourseVector P
     double? PlayerPercentage, string Status);
 
 /// <summary>
-/// Reader for a <c>dbce.course-route@1</c> capture folder (<c>route.json</c>, <c>progress.tsv</c> and the
-/// <c>complete.tsv</c> seal), as Woden's CourseRouteCapture writes it.
+/// Reader for sealed course captures: Woden's <c>dbce.course-route@1</c> and the game-specific raw
+/// Art/DRIVE/iRacing schemas. All use route.json, progress.tsv and complete.tsv.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,12 +25,12 @@ public sealed record CourseRouteRow(long Tick, double SimSeconds, CourseVector P
 /// every sealed byte), then the schema. Any violation is an <see cref="InvalidDataException"/> naming the field.
 /// </para>
 /// <para>
-/// Points are stored as unconverted Unity world <c>[x, y, z]</c> (<c>frame: unity-world</c>); this reader maps
-/// them with <see cref="CourseAxes.FromUnity"/>, the one place that conversion lives. Unknown extra properties
-/// are ignored; duplicates are refused.
+/// Woden points are mapped with <see cref="CourseAxes.FromUnity"/> as before. Raw imports preserve XYZ and
+/// full cloned metadata in <see cref="Raw"/>; the Woden conversion/comparison accessors refuse those imports.
+/// Duplicate properties (including nested extras) are refused. Unknown raw metadata is preserved.
 /// </para>
 /// </remarks>
-public sealed class CourseRouteFile
+public sealed partial class CourseRouteFile
 {
     public const string Schema = "dbce.course-route@1";
     public const string Frame = "unity-world";
@@ -40,25 +41,43 @@ public sealed class CourseRouteFile
 
     private CourseRouteFile() { }
 
+    /// <summary>The exact admitted schema. Raw imports do not imply a qualified course.</summary>
+    public string SchemaId { get; private init; } = Schema;
+    /// <summary>Unconverted game-specific data, or null for the original Woden format.</summary>
+    public RawCourseRoute? Raw { get; private init; }
+
     public string Game { get; private init; } = "";
     public string RequestId { get; private init; } = "";
     public string GameAssemblySha256 { get; private init; } = "";
-    public string TrackAsset { get; private init; } = "";
-    public string? TrackName { get; private init; }
-    public bool ReverseTrack { get; private init; }
-    public int TotalLaps { get; private init; }
-    public bool IsClosedCircuit { get; private init; }
-    public double Length { get; private init; }
-    public double Kms { get; private init; }
-    public double UnitConversionFactor { get; private init; }
-    public IReadOnlyList<CourseVector> Waypoints { get; private init; } = Array.Empty<CourseVector>();
-    public IReadOnlyList<double> Distances { get; private init; } = Array.Empty<double>();
-    public bool? CircuitSameAsStageProgress { get; private init; }
+    private string trackAsset = "";
+    private string? trackName;
+    private bool reverseTrack, isClosedCircuit;
+    private int totalLaps;
+    private double length, kms, unitConversionFactor;
+    private IReadOnlyList<CourseVector> waypoints = Array.Empty<CourseVector>();
+    private IReadOnlyList<double> distances = Array.Empty<double>();
+    private bool? circuitSameAsStageProgress;
+    private DateTime capturedUtc;
+    private IReadOnlyList<CourseRouteRow> progress = Array.Empty<CourseRouteRow>();
+    public string TrackAsset { get => Woden(trackAsset); private init => trackAsset = value; }
+    public string? TrackName { get => Woden(trackName); private init => trackName = value; }
+    public bool ReverseTrack { get => Woden(reverseTrack); private init => reverseTrack = value; }
+    public int TotalLaps { get => Woden(totalLaps); private init => totalLaps = value; }
+    public bool IsClosedCircuit { get => Woden(isClosedCircuit); private init => isClosedCircuit = value; }
+    public double Length { get => Woden(length); private init => length = value; }
+    public double Kms { get => Woden(kms); private init => kms = value; }
+    public double UnitConversionFactor { get => Woden(unitConversionFactor); private init => unitConversionFactor = value; }
+    public IReadOnlyList<CourseVector> Waypoints { get => Woden(waypoints); private init => waypoints = value; }
+    public IReadOnlyList<double> Distances { get => Woden(distances); private init => distances = value; }
+    public bool? CircuitSameAsStageProgress { get => Woden(circuitSameAsStageProgress); private init => circuitSameAsStageProgress = value; }
     public string State { get; private init; } = "";
     public string? Reason { get; private init; }
     public int SkippedRows { get; private init; }
-    public DateTime CapturedUtc { get; private init; }
-    public IReadOnlyList<CourseRouteRow> Progress { get; private init; } = Array.Empty<CourseRouteRow>();
+    public DateTime CapturedUtc { get => Woden(capturedUtc); private init => capturedUtc = value; }
+    public IReadOnlyList<CourseRouteRow> Progress { get => Woden(progress); private init => progress = value; }
+
+    private T Woden<T>(T value) => Raw == null ? value : throw new InvalidOperationException(
+        "Raw course import has unqualified semantics; inspect Raw metadata/XYZ/fields instead of Woden course conversion.");
 
     /// <summary>The captured route as a course path, looping when the game's circuit is closed.</summary>
     public CoursePath ToPath() => CoursePath.Create(Waypoints.ToList(), IsClosedCircuit);
@@ -70,8 +89,14 @@ public sealed class CourseRouteFile
         string progressPath = Path.Combine(directory, "progress.tsv");
         foreach (var path in new[] { routePath, progressPath, Path.Combine(directory, "complete.tsv") })
             if (!File.Exists(path)) throw new InvalidDataException("Course route capture is missing " + Path.GetFileName(path));
-        if (new FileInfo(routePath).Length + new FileInfo(progressPath).Length > MaxBytes)
+        long sealBytes = new FileInfo(Path.Combine(directory, "complete.tsv")).Length;
+        if (sealBytes > 4096 || new FileInfo(routePath).Length + new FileInfo(progressPath).Length + sealBytes > MaxBytes)
             throw new InvalidDataException("Course route capture exceeds 8 MB");
+        // Do not let an otherwise valid seal send the shared verifier hashing arbitrary extra/unbounded files.
+        var seal = StrictLines(Path.Combine(directory, "complete.tsv"));
+        var sealedNames = seal.Skip(1).Select(l => l.Split('\t')[0]).ToArray();
+        if (seal.Length != 3 || !sealedNames.OrderBy(n => n, StringComparer.Ordinal).SequenceEqual(new[] { "progress.tsv", "route.json" }))
+            throw Bad("completion seal must bind exactly route.json and progress.tsv");
         ArtifactSeal.Verify(directory, "route.json", "progress.tsv");
 
         JsonDocument json;
@@ -87,11 +112,11 @@ public sealed class CourseRouteFile
         {
             var root = json.RootElement;
             if (root.ValueKind != JsonValueKind.Object) throw Bad("route.json root is not an object");
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var p in root.EnumerateObject())
-                if (!seen.Add(p.Name)) throw Bad("route.json repeats " + p.Name);
+            CheckDuplicates(root);
 
-            if (Text(root, "schema") != Schema) throw Bad("schema is not " + Schema);
+            string schema = Text(root, "schema");
+            if (schema != Schema && !RawSchemas.Contains(schema)) throw Bad("unsupported schema " + schema);
+            if (schema != Schema) return ReadRaw(root, schema, progressPath);
             if (Text(root, "frame") != Frame) throw Bad("frame is not " + Frame);
             string state = Text(root, "state");
             if (state is not ("Completed" or "LimitReached")) throw Bad("state " + state + " is not a written capture");
@@ -165,7 +190,7 @@ public sealed class CourseRouteFile
 
     private static List<CourseRouteRow> ReadProgress(string path, int declaredRows)
     {
-        var lines = File.ReadAllLines(path);
+        var lines = StrictLines(path);
         if (lines.Length == 0 || lines[0] != ProgressHeader) throw Bad("progress.tsv header differs");
         if (lines.Length - 1 != declaredRows) throw Bad("progress.tsv has " + (lines.Length - 1) + " rows; route.json declares " + declaredRows);
         var rows = new List<CourseRouteRow>(declaredRows);
@@ -239,4 +264,34 @@ public sealed class CourseRouteFile
     }
 
     private static InvalidDataException Bad(string message) => new("Course route capture: " + message);
+
+    private static string[] StrictLines(string path)
+    {
+        // This preflight also reads the seal before ArtifactSeal.Verify. Refuse linked paths before any text read.
+        for (string? current = Path.GetFullPath(path); current != null; current = Path.GetDirectoryName(current))
+            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw Bad("capture path is a reparse point");
+        try
+        {
+            using var reader = new StreamReader(path, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: false);
+            var lines = new List<string>();
+            for (string? line = reader.ReadLine(); line != null; line = reader.ReadLine()) lines.Add(line);
+            return lines.ToArray();
+        }
+        catch (DecoderFallbackException ex) { throw new InvalidDataException("Course route capture: invalid UTF-8", ex); }
+    }
+
+    private static void CheckDuplicates(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var p in value.EnumerateObject())
+            {
+                if (!seen.Add(p.Name)) throw Bad("route.json repeats " + p.Name);
+                CheckDuplicates(p.Value);
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+            foreach (var item in value.EnumerateArray()) CheckDuplicates(item);
+    }
 }

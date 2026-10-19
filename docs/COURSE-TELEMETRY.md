@@ -15,6 +15,75 @@ Background and SimHub internals: hub report `docs/reviews/2026-10-18-course-map-
 
 ## Types (`dotnet/Dbce.Wheel.Telemetry`, netstandard2.0)
 
+### October 19: game-specific raw import (Kobe287774)
+
+`CourseRouteFile.Read(folder)` now recognizes these completed raw producers
+through the existing offline `Dbce.Wheel.Course` reader:
+
+| Schema | Producer source | Native progress columns |
+|---|---|---|
+| `dbce.art-course-route@1` | Art `3f31b6f`, `CourseRouteCapture.cs` | coarse `waypoint_index`, native `status` |
+| `dbce.drive-course-route@1` | DRIVE `d91c394`, `CourseRouteCapture.cs` | `progress_raw`, nullable `offset_x/y/z`, native race flags |
+| `dbce.iracing-course-route@1` | iRacing `8763420` (capture `08357c0`), `CourseRouteCapture.cs` | nullable `raw_time`, `raw_clamped_time`, `participant_index` |
+
+All use `route.json`, `progress.tsv` and the existing `dbce-playback-seal-v1`
+seal. The same reader checks sizes before verification, rejects a seal over
+4 KiB or one naming anything except those two payloads, calls Playback's
+`ArtifactSeal.Verify`, then checks JSON/schema and every TSV row. The 8 MiB total
+includes the seal; caps remain 20,000 points and 36,000 rows. Duplicate JSON keys
+at any depth, malformed JSON/UTF-8, unknown schema versions, mismatched game/frame,
+non-finite or malformed numbers, wrong columns, partial nullable tuples,
+backward time/ticks, count mismatches and unwritten states are refused. Seal
+hashes bind exact bytes: same-size tampering is refused as well as truncation.
+
+For raw schemas, `file.Raw` is a `RawCourseRoute`. Its `Waypoints` and each row's
+`Position` are **native X/Y/Z**, without compass mapping, scaling, list reversal,
+clamping, projection or floating-origin correction. `Progress[i].Fields` preserves
+the schema's extra columns as immutable strings, including empty values and raw
+progress drops. `Metadata` is a cloned JSON element containing all original
+known and unknown fields, nulls, units/direction qualification text, reported
+distances, origin offsets and native identity fields. Art's missing `courseSample`
+and iRacing's missing `capturedUtc` remain absent. Producer `pathHash` is retained
+as a producer claim (hex shape checked); it is not reinterpreted as a qualified
+course identity. The playback seal verifies the actual metadata/geometry bytes.
+
+```csharp
+var file = CourseRouteFile.Read(folder); // read-only, sealed and schema checked
+if (file.Raw is { } raw) {
+    var nativeXYZ = raw.Waypoints[0];
+    var qualification = raw.Metadata.GetProperty("directionStatus").GetString();
+    // Inspect raw evidence; this does not supply a qualified CourseSample.
+}
+```
+
+The existing Woden `Waypoints`, `Progress`, distance/direction/track fields,
+`CapturedUtc`, `ToPath()` and geometric comparison methods retain their original behavior
+for Woden. They throw for raw imports, directing the caller to `Raw`, so unknown
+raw values cannot become fabricated zeros, meters, forward directions or mapped
+coordinates. `SchemaId` identifies the admitted schema; `Raw == null` identifies
+the original Woden path. Common game/request/build/state/reason fields stay
+available on the parent result for all schemas.
+
+This is one reader entry point and one seal-validation path. There is no new
+writer, runtime dependency, UDP/SimHub output or consumer binary repin. Actual
+game captures, physical units, route direction/origin coherence and conversion
+to `CourseSample` remain separate gates. Synthetic raw fixtures and the affected
+existing Woden read/comparison fixtures run with:
+
+```powershell
+dotnet test dotnet/Dbce.Wheel.Telemetry.Tests/Dbce.Wheel.Telemetry.Tests.csproj -c Release --filter 'FullyQualifiedName~RawCourseFilesTests|FullyQualifiedName~CourseFilesTests' -m:1 -nr:false -p:UseSharedCompilation=false
+```
+
+Source qualification: all 43 affected tests passed (14 raw-schema cases and 29
+existing Woden reader/comparison cases), zero failures/skips. Final original log,
+TRX and source hashes are recorded in hub
+`.local/course-raw-readers-samo-20261019/result.json`. No real captures were read,
+no files were changed by imports, and no SimHub or game ran. This successor is
+based on the existing private course prototype `90f14a0`; it does not independently
+integrate that prototype into canonical toolkit main or repin any consumer.
+
+### Original prototype types
+
 | Type | Role |
 |---|---|
 | `CourseVector`, `CourseAxes` | Metres on north/east/up axes. Unity: north = +Z, east = +X, up = +Y, yaw = `eulerAngles.y`. This is the only mapping under which Unity's yaw already matches SimHub's "0 = north, clockwise, 90 = east". `ToSimHubCarCoordinates` shows the `[-north, up, east]` array SimHub builds |
