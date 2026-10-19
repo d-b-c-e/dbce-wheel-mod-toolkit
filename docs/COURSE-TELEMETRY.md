@@ -130,10 +130,14 @@ progress must match SimHub's stored progress: median under 5 m, p95 under 15 m, 
 not an Art or DRIVE release gate, and nothing here registers anything with SimHub. The prototype above is qualified
 offline only; it is not integrated and draws no live map.
 
-**What it is.** A dev-only, read-only dump in the Woden repo (`components/wheel/src/WodenRallyEdge.Plugin`, a new
-`CourseRouteDump`), off unless `DBCE_COURSE_EXTRACT=1` is set. It runs as a postfix beside `GameSampler` on
-`MainCar.FixedUpdate`, so it never skips or changes game code. No UDP, no SimHub, no settings, no game-state writes.
-It needs only Unity and the interop; the toolkit Course types are used offline afterwards.
+**What it is.** A read-only dump in the Woden repo: `CourseRouteDump` in the plugin and `CourseRouteCapture` in
+Core. It is implemented on Woden branch `zola/woden-course-route-20261019`; see that repo's
+`docs/COURSE-ROUTE-CAPTURE.md`.
+- **Off by default.** Arming takes a one-launch request file, `BepInEx\config\woden-course-route-next-launch.json`,
+  which is claimed before reading like `DiagnosticLaunch`.
+- **Hook.** It runs as a postfix beside `GameSampler` on `MainCar.FixedUpdate`, so it never skips or changes game
+  code. No UDP, no SimHub, no settings, no game-state writes.
+- **Dependencies.** It needs only Unity and the interop; the toolkit Course types are used offline afterwards.
 
 ### Exact inputs
 
