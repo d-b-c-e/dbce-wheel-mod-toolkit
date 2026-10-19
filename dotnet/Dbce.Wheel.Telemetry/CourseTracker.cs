@@ -164,9 +164,10 @@ namespace Dbce.Wheel.Telemetry
                 _backwards = 0;
                 _distance = near.DistanceM;
                 // Follow the car into whichever lap it landed in, but credit no lap for the jump: a
-                // forward jump over the line is not a lap, and after a backward jump over it the
-                // next crossing re-enters a lap already counted.
+                // forward jump over the line is not a lap (the lap it lands in counts as entered),
+                // and after a backward jump over it the next crossing re-enters a lap already counted.
                 _unwrapped += step;
+                _highestLap = Math.Max(_highestLap, LapIndex(_unwrapped));
                 return Report(near.OffsetM, flags);
             }
 
