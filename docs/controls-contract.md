@@ -29,12 +29,28 @@ The ids are Wheelkit's (`MappingProfile.Actions`), case-sensitive, and the same 
 | In car | `camera`, `lookBack`, `reset`, `horn` | digital |
 | Mod | `modMenu`, `muteFfb` | digital |
 | Camera adjustment | `cameraForward`, `cameraBack`, `cameraUp`, `cameraDown`, `cameraLeft`, `cameraRight`, `cameraTiltDown`, `cameraTiltUp`, `cameraZoomIn`, `cameraZoomOut`, `cameraReset` | digital |
+| Native buttons | `nativeX`, `nativeY`, `nativeL`, `nativeR` | digital: a button or a hat direction |
+| Native tools | `saveStateMenu`, `rewind` | digital: a button or a hat direction |
 
 Camera actions append at indexes31..41; original indexes0..30 are unchanged. ZoomIn narrows FOV and ZoomOut widens it (STD-048). Source Core/observer3 support42 actions. The existing DLL ABI2 retains31 actions/296 bytes and reports/skips camera actions as unsupported until a separate ABI decision; managed consumers and installed pins are unchanged. Recording readers accept the wholly absent legacy camera extension and refuse partial extensions. Source device-table/sample bounds rise from31 to42 (device indexes0..41), matching the maximum one distinct device per action; v2 recordings keep31/0..30 bounds. The observer transport still admits at most8 sampled devices per observation. See [compatibility fixtures](../native/shim/tests/camera_actions/README.md).
 
 
 A binding whose kind does not fit its action's shape (steering on a button, a menu action on an axis) is invalid.
 Unknown action ids are reported and skipped, never guessed.
+
+The six Native ids above are stable shared contract additions for F-Zero's Native adapter. `nativeX`, `nativeY`,
+`nativeL` and `nativeR` target Native X, Y, L and R respectively; `saveStateMenu` opens the save-state menu, and
+`rewind` requests rewind. These are logical destinations, not keyboard hotkeys or default physical bindings.
+Their declaration does not imply support in an existing producer, mapper or Shared/Core action table.
+
+Use these exact case-sensitive ids as profile action names and `[Controls]` keys in either schema, with the existing
+section 4 binding text as the value. For example, `nativeX = button 9 dev={...} prod={...}` binds Native X, while
+`nativeX =` explicitly unbinds it. An absent `nativeX` key makes no request and must not clear the game's canonical
+binding (section 5a); the same rule applies independently to all six ids. They reject axis bindings; existing
+attribute and calibration rules remain unchanged, with no schema bump. Producers and consumers must report an unknown
+or unsupported id and refuse to apply it, including a case mismatch such as `NativeX`; never alias it, infer a hotkey
+or silently claim it applied.
+Lossless editors may preserve unknown fields without treating them as accepted actions.
 
 Profile-level values: `Transmission` = `Automatic` | `Sequential` | `H-pattern` (Wheelkit's words).
 
