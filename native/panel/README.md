@@ -23,6 +23,7 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
 | `dbce_panel_input.h/.cpp` | Input without replacing the window procedure: a thread-local `WH_GETMESSAGE` hook on the game window's thread. F6 toggles, F8 stops force feedback, Esc closes; while open, keyboard, mouse and raw input go to the panel (Alt+Tab, Alt+F4 and Windows keys excepted). Events are queued and drained on the render thread. |
 | `dbce_overlay_d3d11.h/.cpp` | D3D11 overlay: patches the DXGI swap-chain `Present`/`Present1`/`ResizeBuffers` table entries (found on a temporary device on a hidden window, from a worker thread), adopts the largest swap chain's window, draws only while the panel is open and restores the game's render targets. D3D12 swap chains are drawn by the optional D3D12 renderer when enabled. |
 | `dbce_overlay_d3d12.h/.cpp` | Optional D3D12 support (`EnableD3D12()` before `StartD3D11`): the shared present hook draws D3D12 swap chains with the game's own present queue, captured from `ID3D12CommandQueue::ExecuteCommandLists` (patched on a probe queue); per back buffer an allocator, RTV and fence value; ResizeBuffers waits for the GPU and releases the buffers. Checked offline on WARP (`test_overlay_d3d12.cpp`: the real hooks, a flip-model swap chain, the panel read back from the presented buffer). |
+| `dbce_overlay_d3d9.h/.cpp` | D3D9 overlay: `StartD3D9(device, log)` with the game's own `IDirect3DDevice9`, since D3D9 gives every device its own method table (on the heap) and a probe device cannot reach the game's. Replaces that device's Present and Reset entries with the shared loop-safe slot hook, attaches input to the device window on the first Present, draws only while open on the back buffer inside its own BeginScene/EndScene when the device is not lost, and puts back the game's render targets, depth surface and viewport. Reset releases ImGui's default-pool objects first. Refuses pure devices. Not covered: D3D9Ex PresentEx/ResetEx and `IDirect3DSwapChain9::Present`; a recreated device needs another call. Also link `dbce_overlay_d3d11.cpp` and `imgui_impl_dx11.cpp` (the shared hook core). Checked offline on x64 and x86 with the GPU's D3D9 device on a hidden window (`test_overlay_d3d9.cpp`: closed/open/closed pixels, game state kept, Reset at a new size). |
 | `test_panel_render.cpp`, `build_test.ps1` | Offline render check on WARP: every page in Simple (and Advanced at 2560x1440) at 1280x720, 1920x1080, 2560x1440, 3840x2160 and 7680x1440, PNGs in `build\` for visual review, with geometry checks (inside the window; centre screen of a span). |
 
 ## Using it in a mod
@@ -31,6 +32,8 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
    files, `imgui.cpp`, `imgui_draw.cpp`, `imgui_tables.cpp`, `imgui_widgets.cpp` and `backends/imgui_impl_dx11.cpp`.
 2. At initialization (not in `DllMain`): fill `dbce::panel::Config` (pages the mod offers, `drawPage`, `ffbOn` and
    `stopFfb` when it can stop forces, the canonical ini path), call `Configure`, then `dbce::overlay::StartD3D11(log)`.
+   A D3D9 game instead calls `dbce::overlay::StartD3D9(device, log)` once its device exists, and also compiles
+   `dbce_overlay_d3d9.cpp` and `backends/imgui_impl_dx9.cpp`.
 3. Draw each page with the panel widgets; save settings to the mod's own ini (Wheelkit reads the same file).
 4. While `dbce::panel::IsOpen()`, suppress driving input the mod can see (DirectInput buttons, keyboard, mouse).
 
@@ -58,7 +61,8 @@ separately for reviewed report preparation and data-only browser drafts.
 ## Limits (2026-10-08)
 
 Rendered offline only; not yet seen in a game. No binding capture, wheel/pad navigation of the panel or Settings button
-yet. XInput pads are not suppressed while the panel is open. A D3D9 overlay is still to do.
+yet. XInput pads are not suppressed while the panel is open. The D3D9 overlay (2026-10-23) is checked offline only;
+no D3D9 game uses it yet.
 
 ## Living with the Steam overlay (2026-10-09)
 

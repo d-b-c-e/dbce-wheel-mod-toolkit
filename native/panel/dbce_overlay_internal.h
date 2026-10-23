@@ -6,6 +6,7 @@
 
 namespace dbce { namespace overlay { namespace detail {
 
+extern void (*g_log)(const char *); // set by StartD3D11/StartD3D9
 void logf(const char *fmt, ...);
 void ensureImGui();                 // one ImGui context for the process, whichever renderer draws it
 void drawFrame(int w, int h);       // after the renderer's NewFrame: size, time, queued input, the panel, ImGui::Render
