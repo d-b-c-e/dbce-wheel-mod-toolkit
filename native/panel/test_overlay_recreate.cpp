@@ -5,7 +5,8 @@
 //      opened a panel nobody saw);
 //   2. a flip-model chain can then be made on that window, after the overlay drew on the previous one;
 //   3. a D3D12 chain with the D3D12 renderer off, which it cannot draw on: the open panel closes and F6 and other keys
-//      reach the game.
+//      reach the game;
+//   4. a second such chain, on a larger window: the same.
 #define NOMINMAX
 #include <windows.h>
 #include <d3d11.h>
@@ -21,15 +22,15 @@
 #pragma comment(lib, "user32.lib")
 
 static int failures;
-static bool g_installed, g_notDrawable;
-static int g_adopted;
+static bool g_installed;
+static int g_adopted, g_notDrawable;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); ++failures; } } while (0)
 static void logLine(const char *s)
 {
     printf("  log: %s\n", s);
     if (strstr(s, "present hook installed")) g_installed = true;
     if (strstr(s, "drawing on the swap chain")) ++g_adopted;
-    if (strstr(s, "neither D3D11 nor an enabled D3D12")) g_notDrawable = true;
+    if (strstr(s, "neither D3D11 nor an enabled D3D12")) ++g_notDrawable;
 }
 static void drawPage(dbce::panel::Page, bool) {}
 
@@ -155,11 +156,29 @@ int main()
     if (fourth) {
         dbce::panel::SetOpen(true);
         CHECK(SUCCEEDED(fourth->Present(0, 0)));
-        CHECK(g_notDrawable && !dbce::panel::IsOpen());
+        CHECK(g_notDrawable == 1 && !dbce::panel::IsOpen());
         CHECK(keyReachesGame(hwnd, VK_F6) && !dbce::panel::IsOpen());
         CHECK(keyReachesGame(hwnd, 'A'));
         CHECK(SUCCEEDED(fourth->Present(0, 0)));
         CHECK(!dbce::panel::IsOpen());
+        // 4. A second undrawable chain, on a larger window so that it really is adopted (a replacement at the old
+        //    address would only count as the same chain): its input is the game's too (before, only the first undrawable
+        //    chain of the process let go of it, and the second's F6 opened a panel nobody saw).
+        HWND larger = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP, 0, 0, 2560, 1440, nullptr, nullptr, wc.hInstance, nullptr);
+        DXGI_SWAP_CHAIN_DESC1 flipLarge = flip;
+        flipLarge.Width = 2560; flipLarge.Height = 1440;
+        IDXGISwapChain1 *fifth = nullptr;
+        CHECK(larger && SUCCEEDED(factory4->CreateSwapChainForHwnd(queue, larger, &flipLarge, nullptr, nullptr, &fifth)) && fifth);
+        if (fifth) {
+            const int adopted = g_adopted;
+            CHECK(SUCCEEDED(fifth->Present(0, 0)));
+            CHECK(g_adopted == adopted + 1 && g_notDrawable == 2);
+            CHECK(keyReachesGame(larger, VK_F6) && !dbce::panel::IsOpen());
+            CHECK(keyReachesGame(larger, 'A'));
+            CHECK(SUCCEEDED(fifth->Present(0, 0)));
+            CHECK(!dbce::panel::IsOpen());
+            fifth->Release();
+        }
         fourth->Release();
     }
     if (queue) queue->Release();

@@ -16,7 +16,7 @@ namespace dbce { namespace overlay {
 
 namespace detail {
 void (*g_log)(const char *);
-bool (*render12)(IDXGISwapChain *);
+bool (*render12)(IDXGISwapChain *, bool);
 void (*resize12)(IDXGISwapChain *);
 void (*probe12)();
 void logf(const char *fmt, ...)
@@ -341,11 +341,15 @@ typedef HRESULT(STDMETHODCALLTYPE *ResizeFn)(IDXGISwapChain *, UINT, UINT, UINT,
 detail::SlotHook g_present = {"Present"}, g_present1 = {"Present1"}, g_resize = {"ResizeBuffers"};
 
 CRITICAL_SECTION g_cs;              // the render state below: Present and ResizeBuffers can come from different threads
-IDXGISwapChain *g_chain;            // the swap chain the panel draws on (its window has the input hook); not owned
+IDXGISwapChain *g_chain;            // the swap chain the panel draws on; not owned
+HWND g_window;                      // its window
 ID3D11Device *g_device;             // owned reference while ImGui's DX11 backend uses it
 ID3D11DeviceContext *g_context;
 ID3D11RenderTargetView *g_rtv;
-bool g_backend, g_otherNoted;
+bool g_backend;
+bool g_inputOn;                     // the panel's input hook is on g_window: only while g_chain can be drawn on
+HWND g_attachFailed;                // a window whose input hook could not be set (not tried again)
+IDXGISwapChain *g_undrawableNoted;  // the last chain logged as one the panel cannot draw on
 
 void releaseTarget() { if (g_rtv) { g_rtv->Release(); g_rtv = nullptr; } }
 
@@ -365,16 +369,15 @@ bool adopt(IDXGISwapChain *sc)
     if (FAILED(sc->GetDesc(&d)) || !d.OutputWindow) return false;
     RECT r;
     LONG area = GetClientRect(d.OutputWindow, &r) ? (r.right - r.left) * (r.bottom - r.top) : 0;
-    LONG current = 0;
-    HWND cw = dbce::panel::InputWindow();
-    if (g_chain && cw && IsWindow(cw) && GetClientRect(cw, &r)) current = (r.right - r.left) * (r.bottom - r.top);
+    LONG current = 0;   // the adopted chain's window, kept from its own description (input may be off)
+    if (g_chain && g_window && IsWindow(g_window) && GetClientRect(g_window, &r)) current = (r.right - r.left) * (r.bottom - r.top);
     // A new swap chain on the panel's own window replaces the old one (the game recreated it); elsewhere only a larger one.
-    if (g_chain && d.OutputWindow != cw && area <= current) return false;
+    if (g_chain && d.OutputWindow != g_window && area <= current) return false;
     shutdownBackend();
     g_chain = sc;
-    bool hooked = dbce::panel::AttachInput(d.OutputWindow);
-    logf("overlay: drawing on the swap chain of window %p (%ldx%ld)%s", (void *)d.OutputWindow, (long)d.BufferDesc.Width,
-         (long)d.BufferDesc.Height, hooked ? "; F6 input attached" : "; input hook FAILED");
+    g_window = d.OutputWindow;   // input follows in render(), once this chain is known to be drawable
+    logf("overlay: drawing on the swap chain of window %p (%ldx%ld)", (void *)d.OutputWindow, (long)d.BufferDesc.Width,
+         (long)d.BufferDesc.Height);
     return true;
 }
 
@@ -418,17 +421,35 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
 void render(IDXGISwapChain *sc)
 {
     if (sc == g_chain) { dbce::panel::NoteFrame(); dbce::panel::PollDev(); }
-    if (sc == g_chain && !dbce::panel::IsOpen() && !dbce::panel::StatusLineActive()) return;
+    const bool wanted = dbce::panel::IsOpen() || dbce::panel::StatusLineActive();
+    if (sc == g_chain && g_inputOn && !wanted) return;   // the usual closed frame; otherwise drawability is checked
+    // A chain not drawable yet (a D3D12 renderer that has not started) is looked at again every 30th Present.
+    static int sinceProbe;
+    if (sc == g_chain && !g_inputOn && !wanted && ++sinceProbe < 30) return;
+    sinceProbe = 0;
     EnterCriticalSection(&g_cs);
-    if (!adopt(sc) || sc != g_chain || (!dbce::panel::IsOpen() && !dbce::panel::StatusLineActive())) { LeaveCriticalSection(&g_cs); return; }
+    if (!adopt(sc) || sc != g_chain) { LeaveCriticalSection(&g_cs); return; }
+    bool drawable = false;
     ID3D11Device *dev = nullptr;
     if (SUCCEEDED(sc->GetDevice(__uuidof(ID3D11Device), (void **)&dev)) && dev) {
-        render11(sc, dev);
+        drawable = true;
+        if (wanted) render11(sc, dev);
         dev->Release();
-    } else if (!(detail::render12 && detail::render12(sc)) && !g_otherNoted) {
-        logf("overlay: the game's swap chain is neither D3D11 nor an enabled D3D12 one; panel not drawn, input left to the game");
-        g_otherNoted = true;
-        dbce::panel::DetachInput();   // closes it: an undrawn panel must not take the game's input or reopen on F6
+    } else if (detail::render12) {
+        drawable = detail::render12(sc, wanted);   // also while closed: a renderer that can start gets input back
+    }
+    // The input is the panel's only while it can be drawn on this chain: F6 must never open a panel nobody sees.
+    if (drawable && (!g_inputOn || dbce::panel::InputWindow() != g_window) && g_attachFailed != g_window) {
+        g_inputOn = dbce::panel::AttachInput(g_window);
+        if (!g_inputOn) g_attachFailed = g_window;
+        logf(g_inputOn ? "overlay: F6 input attached to window %p" : "overlay: F6 input hook FAILED on window %p", (void *)g_window);
+    } else if (!drawable && (g_inputOn || dbce::panel::IsOpen())) {
+        dbce::panel::DetachInput();   // closes it as well
+        g_inputOn = false;
+    }
+    if (!drawable && g_undrawableNoted != sc) {
+        g_undrawableNoted = sc;
+        logf("overlay: the game's swap chain is neither D3D11 nor an enabled D3D12 one it can draw; panel not drawn, input left to the game");
     }
     LeaveCriticalSection(&g_cs);
 }

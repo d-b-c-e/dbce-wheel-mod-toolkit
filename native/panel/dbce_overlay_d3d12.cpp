@@ -46,6 +46,7 @@ Frame g_frames[kMaxBuffers];
 UINT g_count;
 DXGI_FORMAT g_format;
 bool g_backend, g_queueNoted;
+IDXGISwapChain *g_failNoted;   // the last chain whose renderer could not start was logged (once per chain)
 
 void waitIdle()
 {
@@ -93,7 +94,11 @@ bool fetchBuffers(IDXGISwapChain *sc)
 bool setup(IDXGISwapChain *sc, ID3D12Device *dev)
 {
     DXGI_SWAP_CHAIN_DESC d;
-    if (FAILED(sc->GetDesc(&d)) || d.BufferCount == 0 || d.BufferCount > kMaxBuffers) return false;
+    if (FAILED(sc->GetDesc(&d))) return false;
+    if (d.BufferCount == 0 || d.BufferCount > kMaxBuffers) {
+        if (g_failNoted != sc) { logf("overlay: the D3D12 renderer cannot take a swap chain of %u buffers; panel not drawn", d.BufferCount); g_failNoted = sc; }
+        return false;
+    }
     ID3D12CommandQueue *q = g_lastDirect;
     ID3D12Device *qdev = nullptr;
     if (!q || FAILED(q->GetDevice(IID_PPV_ARGS(&qdev))) || qdev != dev) {
@@ -124,8 +129,9 @@ bool setup(IDXGISwapChain *sc, ID3D12Device *dev)
                                         g_srvHeap->GetGPUDescriptorHandleForHeapStart());
         ok = g_backend;
     }
-    logf(ok ? "overlay: D3D12 renderer ready (%u buffers, format %d)" : "overlay: D3D12 renderer could not start (%u buffers, format %d)", g_count, (int)g_format);
-    if (!ok) teardown();
+    if (ok || g_failNoted != sc)   // a failure once per chain: a chain that cannot be drawn on is tried again now and then
+        logf(ok ? "overlay: D3D12 renderer ready (%u buffers, format %d)" : "overlay: D3D12 renderer could not start (%u buffers, format %d)", g_count, (int)g_format);
+    if (!ok) { g_failNoted = sc; teardown(); }
     return ok;
 }
 
@@ -140,13 +146,13 @@ void barrier(ID3D12Resource *r, D3D12_RESOURCE_STATES from, D3D12_RESOURCE_STATE
     g_list->ResourceBarrier(1, &b);
 }
 
-// Called by the shared present hook (under its lock) while the panel is open.
-bool render12(IDXGISwapChain *sc)
+// Called by the shared present hook (under its lock): with draw while the panel is open, without it to find out whether
+// a chain the panel has no input on yet can be drawn on (detail::render12).
+bool render12(IDXGISwapChain *sc, bool draw)
 {
     ID3D12Device *dev = nullptr;
     if (FAILED(sc->GetDevice(IID_PPV_ARGS(&dev))) || !dev) return false;   // not a D3D12 swap chain
-    // A renderer that cannot start draws nothing: the panel closes rather than sit invisible on the game's input.
-    if (sc != g_chain || dev != g_dev) { teardown(); if (!setup(sc, dev)) { dev->Release(); dbce::panel::SetOpen(false); return true; } }
+    if (sc != g_chain || dev != g_dev) { teardown(); if (!setup(sc, dev)) { dev->Release(); return false; } }
     dev->Release();
     if (!g_frames[0].buffer) {   // after a resize: the same buffers again, or a full rebuild if their count or format changed
         DXGI_SWAP_CHAIN_DESC d;
@@ -156,9 +162,10 @@ bool render12(IDXGISwapChain *sc)
             ID3D12Device *dv = nullptr;
             const bool ok = SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dv))) && dv && setup(sc, dv);
             if (dv) dv->Release();
-            if (!ok) { dbce::panel::SetOpen(false); return true; }
+            if (!ok) return false;
         } else if (!fetchBuffers(sc)) return true;
     }
+    if (!draw) return true;
     IDXGISwapChain3 *sc3 = nullptr;
     if (FAILED(sc->QueryInterface(IID_PPV_ARGS(&sc3))) || !sc3) return true;
     const UINT idx = sc3->GetCurrentBackBufferIndex();

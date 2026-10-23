@@ -1,7 +1,8 @@
 // Offline check of the D3D12 overlay path on WARP: the real present hook and queue capture (dbce_overlay_d3d11/d3d12),
 // a flip-model swap chain on a hidden window, three presented frames with the panel open, the last one read back to
-// build\overlay-d3d12.png. Before it, a 16-buffer chain the renderer cannot take closes the opened panel, and its
-// replacement on the same window is the one drawn on. No game, no device.
+// build\overlay-d3d12.png. Before it, a 16-buffer chain the renderer cannot take closes the opened panel and leaves F6
+// and other keys to the game; its replacement on the same window is drawn on and F6 is the panel's again. No game, no
+// device.
 #define NOMINMAX
 #include <windows.h>
 #include <d3d12.h>
@@ -26,6 +27,14 @@ static void logLine(const char *s)
     printf("  log: %s\n", s);
     if (strstr(s, "queue capture installed")) g_ready = true;
     if (strstr(s, "D3D12 renderer ready")) g_drawn = true;
+}
+// As the game would take a key press off its queue, through the panel's real WH_GETMESSAGE hook: true when it got it.
+static bool keyReachesGame(HWND hwnd, int vk)
+{
+    PostMessageW(hwnd, WM_KEYDOWN, (WPARAM)vk, 1);
+    MSG m = {};
+    if (!PeekMessageW(&m, hwnd, WM_KEYDOWN, WM_KEYDOWN, PM_REMOVE)) return false;
+    return m.message == WM_KEYDOWN;
 }
 static bool ffbOn() { return true; }
 static void stopFfb() {}
@@ -87,6 +96,9 @@ int main(int argc, char **argv)
         dbce::panel::SetOpen(true);
         CHECK(SUCCEEDED(wide->Present(0, 0)));
         CHECK(!dbce::panel::IsOpen());
+        // Nothing can show the panel on this chain, so the window's input is the game's: F6 does not reopen it.
+        CHECK(keyReachesGame(hwnd, VK_F6) && !dbce::panel::IsOpen());
+        CHECK(keyReachesGame(hwnd, 'A'));
         wide->Release();
     }
     sd.BufferCount = 2;
@@ -150,6 +162,8 @@ int main(int argc, char **argv)
     swprintf_s(path, L"%hs\\overlay-d3d12.png", outDir);
     CHECK(savePng(p, fp.Footprint.RowPitch, W, H, path));
     rb->Unmap(0, nullptr);
+    // The replacement is drawable, so the input is the panel's again: F6 closes it and the game does not see it.
+    CHECK(!keyReachesGame(hwnd, VK_F6) && !dbce::panel::IsOpen());
     dbce::panel::SetOpen(false);
     printf(failures ? "FAIL %d D3D12 overlay checks\n" : "PASS D3D12 overlay check (panel drawn through the present hook)\n", failures);
     return failures ? 1 : 0;
