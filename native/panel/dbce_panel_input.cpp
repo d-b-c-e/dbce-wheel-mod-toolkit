@@ -80,7 +80,12 @@ LRESULT CALLBACK getMessageHook(int code, WPARAM wp, LPARAM lp)
 {
     if (code == HC_ACTION && wp == PM_REMOVE) {
         MSG *m = (MSG *)lp;
-        if (m && ownsWindow(m->hwnd) && handle(m)) m->message = WM_NULL;
+        // The window check and the handling under the lock DetachInput takes: once it returns, nothing it let go of is
+        // handled (a callback may still be running after UnhookWindowsHookEx returns). Not held across CallNextHookEx.
+        EnterCriticalSection(&g_cs);
+        const bool consumed = m && ownsWindow(m->hwnd) && handle(m);
+        LeaveCriticalSection(&g_cs);
+        if (consumed) m->message = WM_NULL;
     }
     return CallNextHookEx(nullptr, code, wp, lp);
 }
@@ -132,6 +137,19 @@ bool AttachInput(HWND w)
     }
     LeaveCriticalSection(&g_cs);
     return ok;
+}
+
+void DetachInput()
+{
+    InitOnceExecuteOnce(&g_once, initOnce, nullptr, nullptr);
+    EnterCriticalSection(&g_cs);
+    if (g_hook) { UnhookWindowsHookEx(g_hook); g_hook = nullptr; }
+    g_hookThread = 0;
+    g_hwnd = nullptr;
+    g_head = g_count = 0;   // queued events belong to the window let go of
+    g_wasOpen = false;      // the next open starts from fresh input state
+    SetOpen(false);         // inside the lock: no handler admitted before this can reopen it after
+    LeaveCriticalSection(&g_cs);
 }
 
 HWND InputWindow() { return g_hwnd; }

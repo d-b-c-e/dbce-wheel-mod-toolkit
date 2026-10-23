@@ -368,7 +368,8 @@ bool adopt(IDXGISwapChain *sc)
     LONG current = 0;
     HWND cw = dbce::panel::InputWindow();
     if (g_chain && cw && IsWindow(cw) && GetClientRect(cw, &r)) current = (r.right - r.left) * (r.bottom - r.top);
-    if (g_chain && area <= current) return false;
+    // A new swap chain on the panel's own window replaces the old one (the game recreated it); elsewhere only a larger one.
+    if (g_chain && d.OutputWindow != cw && area <= current) return false;
     shutdownBackend();
     g_chain = sc;
     bool hooked = dbce::panel::AttachInput(d.OutputWindow);
@@ -409,6 +410,9 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
     g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, saved, savedDepth);
     for (auto *v : saved) if (v) v->Release();
     if (savedDepth) savedDepth->Release();
+    // No view of the game's back buffer outlives its Present: one would keep a released swap chain alive, and a
+    // flip-model replacement on the same window then fails (test_overlay_recreate.cpp).
+    releaseTarget();
 }
 
 void render(IDXGISwapChain *sc)
@@ -422,8 +426,9 @@ void render(IDXGISwapChain *sc)
         render11(sc, dev);
         dev->Release();
     } else if (!(detail::render12 && detail::render12(sc)) && !g_otherNoted) {
-        logf("overlay: the game's swap chain is neither D3D11 nor an enabled D3D12 one; panel not drawn");
+        logf("overlay: the game's swap chain is neither D3D11 nor an enabled D3D12 one; panel not drawn, input left to the game");
         g_otherNoted = true;
+        dbce::panel::DetachInput();   // closes it: an undrawn panel must not take the game's input or reopen on F6
     }
     LeaveCriticalSection(&g_cs);
 }

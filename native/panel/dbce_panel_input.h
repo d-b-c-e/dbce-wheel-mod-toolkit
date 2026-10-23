@@ -10,6 +10,10 @@ namespace dbce { namespace panel {
 
 // Attach to the game window (idempotent per window; a new window moves the hook). Safe from any thread.
 bool AttachInput(HWND gameWindow);
+// Let go of the window (idempotent), from any thread: the panel closes, the hook goes, queued events are dropped, and
+// F6, F8 and every other message reach the game again. It waits for a message already being handled, so none is
+// handled after it returns. For a host that stops drawing; AttachInput takes a window again.
+void DetachInput();
 HWND InputWindow();
 // Render thread, after the renderer's NewFrame and before ImGui::NewFrame: queued events into ImGui's IO, with mouse
 // positions mapped from the window's client area to the back buffer.

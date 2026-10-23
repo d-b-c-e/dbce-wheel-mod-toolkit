@@ -1,6 +1,7 @@
 // Offline check of the D3D12 overlay path on WARP: the real present hook and queue capture (dbce_overlay_d3d11/d3d12),
 // a flip-model swap chain on a hidden window, three presented frames with the panel open, the last one read back to
-// build\overlay-d3d12.png. No game, no device.
+// build\overlay-d3d12.png. Before it, a 16-buffer chain the renderer cannot take closes the opened panel, and its
+// replacement on the same window is the one drawn on. No game, no device.
 #define NOMINMAX
 #include <windows.h>
 #include <d3d12.h>
@@ -77,7 +78,18 @@ int main(int argc, char **argv)
     HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP, 0, 0, W, H, nullptr, nullptr, wc.hInstance, nullptr);
     DXGI_SWAP_CHAIN_DESC1 sd = {};
     sd.Width = W; sd.Height = H; sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM; sd.SampleDesc.Count = 1;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; sd.BufferCount = 2; sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; sd.BufferCount = 16; sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    // First a chain the renderer cannot take (more than its 8 buffers): the opened panel closes instead of sitting
+    // invisible on the game's input. The game then replaces it on the same window with the chain drawn on below.
+    IDXGISwapChain1 *wide = nullptr;
+    CHECK(SUCCEEDED(fac->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &wide)) && wide);
+    if (wide) {
+        dbce::panel::SetOpen(true);
+        CHECK(SUCCEEDED(wide->Present(0, 0)));
+        CHECK(!dbce::panel::IsOpen());
+        wide->Release();
+    }
+    sd.BufferCount = 2;
     IDXGISwapChain1 *sc1 = nullptr; IDXGISwapChain3 *sc = nullptr;
     CHECK(SUCCEEDED(fac->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &sc1)) && SUCCEEDED(sc1->QueryInterface(IID_PPV_ARGS(&sc))));
     if (failures) return 1;

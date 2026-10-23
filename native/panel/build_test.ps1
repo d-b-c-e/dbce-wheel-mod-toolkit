@@ -30,6 +30,13 @@ $outRe = cmd /c $cmdRe 2>&1
 $outRe | Select-String -Pattern ' warning | error |FAIL|PASS|log:' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $outRe | Select-Object -Last 25; throw 'present hook re-hook check failed' }
 
+# Swap chains the game recreates on its window are followed; one the overlay cannot draw on leaves the game's input
+# alone (WARP, hidden window).
+$cmdRc = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_recreate.cpp /Fo`"$build\\`" $($objs -join ' ') /Fe`"$build\test_overlay_recreate.exe`" /link user32.lib && `"$build\test_overlay_recreate.exe`""
+$outRc = cmd /c $cmdRc 2>&1
+$outRc | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|flip chain' | ForEach-Object { $_.Line }
+if ($LASTEXITCODE) { $outRc | Select-Object -Last 25; throw 'D3D11 recreate check failed' }
+
 # D3D9 overlay with this machine's D3D9 device on a hidden window (no WARP for D3D9): Present/Reset lifecycle, on x64
 # and on x86, which most D3D9 games are.
 $cmd9 = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d9.cpp dbce_overlay_d3d9.cpp /Fo`"$build\\`" $($objs -join ' ') `"$build\imgui_impl_dx9.obj`" /Fe`"$build\test_overlay_d3d9.exe`" && `"$build\test_overlay_d3d9.exe`" `"$build`""
@@ -40,6 +47,6 @@ $objs32 = 'imgui', 'imgui_draw', 'imgui_tables', 'imgui_widgets', 'imgui_impl_dx
 $cmd9x86 = "`"$(Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat')`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui32 /Fo`"$b32\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d9.cpp dbce_overlay_d3d9.cpp dbce_overlay_d3d11.cpp dbce_panel.cpp dbce_panel_input.cpp /Fo`"$b32\\`" $($objs32 -join ' ') /Fe`"$b32\test_overlay_d3d9.exe`" && `"$b32\test_overlay_d3d9.exe`" `"$b32`""
 foreach ($c9 in $cmd9, $cmd9x86) {
     $out9 = cmd /c $c9 2>&1
-    $out9 | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|Reset:' | ForEach-Object { $_.Line }
+    $out9 | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|Reset:|in-flight' | ForEach-Object { $_.Line }
     if ($LASTEXITCODE) { $out9 | Select-Object -Last 25; throw 'D3D9 overlay check failed' }
 }

@@ -25,9 +25,12 @@ namespace dbce { namespace overlay {
 // device's ImGui objects and reference are released at once.
 bool StartD3D9(IDirect3DDevice9 *device, void (*log)(const char *line));
 
-// Just before the game releases the device StartD3D9 was given, on the thread that releases it (with nothing else using
-// the device then): the panel closes, ImGui's objects on it and its reference go, and nothing is drawn on it again; its
-// entries stay ours and only forward. Another device, or none, changes nothing. StartD3D9 with the next device resumes.
+// Just before the game releases the device StartD3D9 was given, on the thread that releases it, while nothing else uses
+// the device (the game's own teardown window): the panel closes and lets go of the window's input (F6 and every key
+// reach the game; a message already being handled finishes first), ImGui's objects on the device and its reference go,
+// and nothing is drawn on it again; its entries stay ours and only forward. That Release is never the device's last
+// (the game still holds its own), and nothing here calls Reset, CreateDevice or TestCooperativeLevel, which D3D9 keeps
+// on the window's thread. Another device, or none, changes nothing. StartD3D9 with the next device resumes.
 void StopD3D9(IDirect3DDevice9 *device);
 
 }} // namespace dbce::overlay

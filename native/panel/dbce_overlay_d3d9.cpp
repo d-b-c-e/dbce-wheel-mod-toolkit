@@ -106,19 +106,21 @@ void draw(IDirect3DDevice9 *dev)
 
 void render(IDirect3DDevice9 *dev, HWND override)
 {
-    if (dev != g_target) return;
-    dbce::panel::NoteFrame();
-    dbce::panel::PollDev();
-    if (g_adopted && !dbce::panel::IsOpen() && !dbce::panel::StatusLineActive()) return;
+    // All of it under the host lock, so StopD3D9 on another thread cannot interleave with any of it (the lock is
+    // uncontended on every other frame).
     EnterCriticalSection(&g_cs);
-    if (dev == g_target && !g_adopted) {
-        g_adopted = true;
-        HWND w = windowOf(dev, override);
-        const bool hooked = w && dbce::panel::AttachInput(w);
-        logf("overlay: drawing on D3D9 device %p, window %p%s", (void *)dev, (void *)w, hooked ? "; F6 input attached" : "; input hook FAILED");
+    if (dev == g_target) {
+        dbce::panel::NoteFrame();
+        dbce::panel::PollDev();
+        if (!g_adopted) {
+            g_adopted = true;
+            HWND w = windowOf(dev, override);
+            const bool hooked = w && dbce::panel::AttachInput(w);
+            logf("overlay: drawing on D3D9 device %p, window %p%s", (void *)dev, (void *)w, hooked ? "; F6 input attached" : "; input hook FAILED");
+        }
+        // A lost device (or one waiting for Reset) draws nothing until the game has reset it.
+        if ((dbce::panel::IsOpen() || dbce::panel::StatusLineActive()) && dev->TestCooperativeLevel() == D3D_OK) draw(dev);
     }
-    // A lost device (or one waiting for Reset) draws nothing until the game has reset it.
-    if (dev == g_target && (dbce::panel::IsOpen() || dbce::panel::StatusLineActive()) && dev->TestCooperativeLevel() == D3D_OK) draw(dev);
     LeaveCriticalSection(&g_cs);
 }
 
@@ -196,7 +198,9 @@ void StopD3D9(IDirect3DDevice9 *device)
         letGo();
         g_target = nullptr;
         g_adopted = false;
-        dbce::panel::SetOpen(false);   // nothing would show it: it must not keep taking the game's input
+        // Nothing would show the panel: it closes and stops taking the game's input or F6 (an F6 already being handled
+        // finishes first); the next adopted Present attaches again.
+        dbce::panel::DetachInput();
     }
     LeaveCriticalSection(&g_cs);
     if (current) logf("overlay: let go of D3D9 device %p before the game releases it; no panel until the next device", (void *)device);

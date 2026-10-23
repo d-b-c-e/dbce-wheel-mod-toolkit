@@ -145,7 +145,8 @@ bool render12(IDXGISwapChain *sc)
 {
     ID3D12Device *dev = nullptr;
     if (FAILED(sc->GetDevice(IID_PPV_ARGS(&dev))) || !dev) return false;   // not a D3D12 swap chain
-    if (sc != g_chain || dev != g_dev) { teardown(); if (!setup(sc, dev)) { dev->Release(); return true; } }
+    // A renderer that cannot start draws nothing: the panel closes rather than sit invisible on the game's input.
+    if (sc != g_chain || dev != g_dev) { teardown(); if (!setup(sc, dev)) { dev->Release(); dbce::panel::SetOpen(false); return true; } }
     dev->Release();
     if (!g_frames[0].buffer) {   // after a resize: the same buffers again, or a full rebuild if their count or format changed
         DXGI_SWAP_CHAIN_DESC d;
@@ -155,7 +156,7 @@ bool render12(IDXGISwapChain *sc)
             ID3D12Device *dv = nullptr;
             const bool ok = SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dv))) && dv && setup(sc, dv);
             if (dv) dv->Release();
-            if (!ok) return true;
+            if (!ok) { dbce::panel::SetOpen(false); return true; }
         } else if (!fetchBuffers(sc)) return true;
     }
     IDXGISwapChain3 *sc3 = nullptr;

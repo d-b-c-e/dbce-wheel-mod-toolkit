@@ -5,8 +5,10 @@
 // is drawn; while open the panel is drawn through the Present hook and the game's render target, depth surface,
 // viewport, render states and world/view/projection transforms are as it left them; Reset succeeds (it fails while
 // any default-pool object is alive, so ImGui's were released first) and the panel is drawn again at the new size.
-// Last, StopD3D9 before the game frees the second device: the open panel closes, nothing is drawn after, and the test's
-// reference is the device's last. Writes build\overlay-d3d9-*.png.
+// Last, StopD3D9 on another thread before the game frees the second device, while the window's thread is inside the
+// panel's input handler: it returns only after that handler; the open panel closes, nothing is drawn after, F6 and other
+// keys reach the game through the real input hook, StartD3D9 again resumes drawing and F6, and after a final StopD3D9
+// the test's reference is the device's last. Writes build\overlay-d3d9-*.png.
 #define NOMINMAX
 #include <windows.h>
 #include <d3d9.h>
@@ -32,7 +34,25 @@ static void logLine(const char *s)
     if (strstr(s, "no panel")) g_refused = true;
 }
 static bool ffbOn() { return true; }
-static void stopFfb() {}
+// The ordered teardown check: an F8 whose Stop FFB callback (this) holds the window's thread inside the panel's input
+// handler while StopD3D9 runs on another thread.
+static volatile LONG g_seq, g_handlerDone, g_stopReturned;
+static HANDLE g_inHandler;
+static volatile bool g_holdInHandler;
+static void stopFfb()
+{
+    if (!g_holdInHandler) return;
+    SetEvent(g_inHandler);
+    Sleep(300);   // StopD3D9 is running meanwhile; it must not return before this handler has finished
+    InterlockedExchange(&g_handlerDone, InterlockedIncrement(&g_seq));
+}
+static DWORD WINAPI stopOnAnotherThread(LPVOID device)
+{
+    WaitForSingleObject(g_inHandler, 5000);
+    dbce::overlay::StopD3D9((IDirect3DDevice9 *)device);
+    InterlockedExchange(&g_stopReturned, InterlockedIncrement(&g_seq));
+    return 0;
+}
 static void drawPage(dbce::panel::Page page, bool)
 {
     if (page == dbce::panel::PAGE_FFB) { dbce::panel::BeginGroup("g"); bool on = true; dbce::panel::OffOn("FFB", &on, "D3D9 overlay check."); dbce::panel::EndGroup(); }
@@ -77,6 +97,16 @@ static bool readPixel(IDirect3DDevice9 *dev, UINT x, UINT y, unsigned char rgb[3
     if (back) back->Release();
     printf("  pixel (%u, %u): %u %u %u\n", x, y, rgb[0], rgb[1], rgb[2]);
     return ok;
+}
+
+// A key press posted to the game window and taken off the queue as the game would, through the panel's real
+// WH_GETMESSAGE hook: true when it reached the game (the panel did not turn it into WM_NULL).
+static bool keyReachesGame(HWND hwnd, int vk)
+{
+    PostMessageW(hwnd, WM_KEYDOWN, (WPARAM)vk, 1);
+    MSG m = {};
+    if (!PeekMessageW(&m, hwnd, WM_KEYDOWN, WM_KEYDOWN, PM_REMOVE)) return false;
+    return m.message == WM_KEYDOWN;
 }
 
 // Distinct, non-identity transforms the game leaves set at Present (ImGui's backend reads and writes all three).
@@ -178,14 +208,37 @@ static IDirect3DDevice9 *scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const
     CHECK(frame(nullptr));
     CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isGreen());
     if (stopAtEnd) {
-        // The game about to free its device: the host lets go first; the open panel closes and nothing is drawn after.
+        // The game about to free its device: the host lets go first. The open panel closes, nothing is drawn after, and
+        // the window's input is the game's again: F6 does not reopen it and keys are not taken.
         dbce::panel::SetOpen(true);
         CHECK(frame(nullptr));
         CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isPanel());
-        dbce::overlay::StopD3D9(dev);
+        CHECK(!keyReachesGame(hwnd, 'A'));   // open and drawn: the panel takes keys
+        // The teardown on another thread while this (the window's) thread is inside the panel's input handler: StopD3D9
+        // returns only after that handler has finished, so nothing it lets go of is handled after it (before, a handler
+        // already past its window check could reopen the panel unseen once Stop had closed it).
+        g_inHandler = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        g_holdInHandler = true;
+        HANDLE other = CreateThread(nullptr, 0, stopOnAnotherThread, dev, 0, nullptr);
+        CHECK(other && !keyReachesGame(hwnd, VK_F8));   // F8 is the panel's (Stop FFB), held in the handler by stopFfb
+        g_holdInHandler = false;
+        CHECK(other && WaitForSingleObject(other, 5000) == WAIT_OBJECT_0);
+        printf("  in-flight handler finished at %ld, StopD3D9 on the other thread returned at %ld\n", g_handlerDone, g_stopReturned);
+        CHECK(g_handlerDone > 0 && g_stopReturned > g_handlerDone);
+        if (other) CloseHandle(other);
+        CloseHandle(g_inHandler);
         CHECK(!dbce::panel::IsOpen());
+        CHECK(keyReachesGame(hwnd, VK_F6) && !dbce::panel::IsOpen());
+        CHECK(keyReachesGame(hwnd, 'A'));
         CHECK(frame(nullptr));
         CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isGreen());
+        // Resumed: the next adopted Present takes the window again; F6 opens the panel and it is drawn.
+        CHECK(dbce::overlay::StartD3D9(dev, logLine));
+        CHECK(frame(nullptr));
+        CHECK(!keyReachesGame(hwnd, VK_F6) && dbce::panel::IsOpen());
+        CHECK(frame(nullptr));
+        CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isPanel());
+        dbce::overlay::StopD3D9(dev);   // let go again before the test's Release
     }
     return dev;
 }
