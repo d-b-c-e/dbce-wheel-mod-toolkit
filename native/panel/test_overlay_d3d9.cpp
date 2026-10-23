@@ -5,13 +5,15 @@
 // is drawn; while open the panel is drawn through the Present hook and the game's render target, depth surface,
 // viewport, render states and world/view/projection transforms are as it left them; Reset succeeds (it fails while
 // any default-pool object is alive, so ImGui's were released first) and the panel is drawn again at the new size.
-// Writes build\overlay-d3d9-*.png.
+// Last, StopD3D9 before the game frees the second device: the open panel closes, nothing is drawn after, and the test's
+// reference is the device's last. Writes build\overlay-d3d9-*.png.
 #define NOMINMAX
 #include <windows.h>
 #include <d3d9.h>
 #include <wincodec.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include "dbce_panel.h"
 #include "dbce_overlay_d3d9.h"
 #pragma comment(lib, "d3d9.lib")
@@ -38,13 +40,17 @@ static void drawPage(dbce::panel::Page page, bool)
 
 static bool savePng(const BYTE *bgrx, UINT pitch, UINT w, UINT h, const wchar_t *path)
 {
+    // PNG has no 32bppBGR (WIC would quietly pick 24 bpp): write BGRA with the unused byte made opaque.
+    std::string px((const char *)bgrx, (size_t)pitch * h);
+    for (UINT y = 0; y < h; ++y) for (UINT x = 0; x < w; ++x) px[(size_t)y * pitch + (size_t)x * 4 + 3] = '\xff';
     IWICImagingFactory *f = nullptr; IWICBitmapEncoder *enc = nullptr; IWICBitmapFrameEncode *fr = nullptr; IWICStream *s = nullptr;
-    WICPixelFormatGUID fmt = GUID_WICPixelFormat32bppBGR;
+    WICPixelFormatGUID fmt = GUID_WICPixelFormat32bppBGRA;
     bool ok = SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&f))) &&
               SUCCEEDED(f->CreateStream(&s)) && SUCCEEDED(s->InitializeFromFilename(path, GENERIC_WRITE)) &&
               SUCCEEDED(f->CreateEncoder(GUID_ContainerFormatPng, nullptr, &enc)) && SUCCEEDED(enc->Initialize(s, WICBitmapEncoderNoCache)) &&
               SUCCEEDED(enc->CreateNewFrame(&fr, nullptr)) && SUCCEEDED(fr->Initialize(nullptr)) && SUCCEEDED(fr->SetSize(w, h)) &&
-              SUCCEEDED(fr->SetPixelFormat(&fmt)) && SUCCEEDED(fr->WritePixels(h, pitch, pitch * h, (BYTE *)bgrx)) &&
+              SUCCEEDED(fr->SetPixelFormat(&fmt)) && IsEqualGUID(fmt, GUID_WICPixelFormat32bppBGRA) &&
+              SUCCEEDED(fr->WritePixels(h, pitch, (UINT)px.size(), (BYTE *)&px[0])) &&
               SUCCEEDED(fr->Commit()) && SUCCEEDED(enc->Commit());
     if (fr) fr->Release(); if (enc) enc->Release(); if (s) s->Release(); if (f) f->Release();
     return ok;
@@ -88,7 +94,7 @@ static bool sameTransform(IDirect3DDevice9 *dev, D3DTRANSFORMSTATETYPE t, const 
 }
 
 // One "game" device with these creation flags, from StartD3D9 through Reset. The device is returned still held.
-static IDirect3DDevice9 *scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, const char *outDir, IDirect3DDevice9 *previous)
+static IDirect3DDevice9 *scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, const char *outDir, IDirect3DDevice9 *previous, bool stopAtEnd)
 {
     printf("%s device (flags 0x%02lx)\n", tag, (unsigned long)flags);
     UINT W = 1920, H = 1080;
@@ -171,6 +177,16 @@ static IDirect3DDevice9 *scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const
     dbce::panel::SetOpen(false);
     CHECK(frame(nullptr));
     CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isGreen());
+    if (stopAtEnd) {
+        // The game about to free its device: the host lets go first; the open panel closes and nothing is drawn after.
+        dbce::panel::SetOpen(true);
+        CHECK(frame(nullptr));
+        CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isPanel());
+        dbce::overlay::StopD3D9(dev);
+        CHECK(!dbce::panel::IsOpen());
+        CHECK(frame(nullptr));
+        CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isGreen());
+    }
     return dev;
 }
 
@@ -194,9 +210,9 @@ int main(int argc, char **argv)
     CHECK(d3d != nullptr);
     if (failures) return 1;
     CHECK(!dbce::overlay::StartD3D9(nullptr, logLine));
-    IDirect3DDevice9 *pure = scenario(d3d, hwnd, D3DCREATE_PUREDEVICE | D3DCREATE_HARDWARE_VERTEXPROCESSING, "pure", outDir, nullptr);   // 0x50, as Revo creates it
-    IDirect3DDevice9 *hal = scenario(d3d, hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, "hal", outDir, pure);   // the game recreating it
-    if (hal) hal->Release();
+    IDirect3DDevice9 *pure = scenario(d3d, hwnd, D3DCREATE_PUREDEVICE | D3DCREATE_HARDWARE_VERTEXPROCESSING, "pure", outDir, nullptr, false);   // 0x50, as Revo creates it
+    IDirect3DDevice9 *hal = scenario(d3d, hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, "hal", outDir, pure, true);   // the game recreating it
+    CHECK(!hal || hal->Release() == 0);   // after StopD3D9 the test's reference is the last one
     printf(failures ? "FAIL %d D3D9 overlay checks\n" : "PASS D3D9 overlay check (pure and ordinary device: panel drawn through the Present hook, state kept, Reset)\n", failures);
     return failures ? 1 : 0;
 }

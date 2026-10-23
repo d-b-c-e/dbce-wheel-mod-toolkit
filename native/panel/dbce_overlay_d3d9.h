@@ -9,9 +9,9 @@
 // (ImGui's state block restores the rest). Reset releases ImGui's default-pool objects first, so the game's Reset can
 // succeed; they are recreated on the next drawn frame. A pure device (D3DCREATE_PUREDEVICE) is used when it answers
 // Get* calls, as the Windows 10/11 runtime does (checked on x86 and x64), and refused when it does not.
-// ImGui's backend holds one reference to the device it draws on until StartD3D9 is given another one.
-// Not covered: PresentEx/ResetEx (D3D9Ex) and IDirect3DSwapChain9::Present; a recreated device needs another call, and
-// there is no detach for a game that must free its old device before creating the next (exclusive fullscreen).
+// ImGui's backend holds one reference to the device it draws on until StartD3D9 is given another one or StopD3D9 lets
+// go of it, which a game that frees its device (before creating the next, in exclusive fullscreen) needs first.
+// Not covered: PresentEx/ResetEx (D3D9Ex) and IDirect3DSwapChain9::Present; a recreated device needs another call.
 // Also link dbce_overlay_d3d11.cpp and imgui_impl_dx11.cpp: the shared hook core lives there, as for D3D12.
 #pragma once
 
@@ -24,5 +24,10 @@ namespace dbce { namespace overlay {
 // for the same device changes nothing; a new device (the game recreated it) becomes the one drawn on, and the previous
 // device's ImGui objects and reference are released at once.
 bool StartD3D9(IDirect3DDevice9 *device, void (*log)(const char *line));
+
+// Just before the game releases the device StartD3D9 was given, on the thread that releases it (with nothing else using
+// the device then): the panel closes, ImGui's objects on it and its reference go, and nothing is drawn on it again; its
+// entries stay ours and only forward. Another device, or none, changes nothing. StartD3D9 with the next device resumes.
+void StopD3D9(IDirect3DDevice9 *device);
 
 }} // namespace dbce::overlay

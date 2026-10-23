@@ -62,10 +62,17 @@ HWND windowOf(IDirect3DDevice9 *dev, HWND override)
     return w;
 }
 
+// ImGui's objects on the drawn device and its reference to it go (under g_cs).
+void letGo()
+{
+    if (g_backend) { ImGui_ImplDX9_Shutdown(); g_backend = false; }
+    g_drawn = nullptr;
+}
+
 void draw(IDirect3DDevice9 *dev)
 {
     if (dev != g_drawn) {   // first frame, or the game recreated its device
-        if (g_backend) { ImGui_ImplDX9_Shutdown(); g_backend = false; }
+        letGo();
         detail::ensureImGui();
         g_backend = ImGui_ImplDX9_Init(dev);
         g_drawn = dev;
@@ -171,15 +178,28 @@ bool StartD3D9(IDirect3DDevice9 *device, void (*log)(const char *))
     EnterCriticalSection(&g_cs);
     const bool ok = patch(vt, 16, (void *)&hkReset, g_reset) && patch(vt, 17, (void *)&hkPresent, g_present);
     if (ok && device != g_target) {
-        // The previous device's ImGui objects and its reference go now, not on the next drawn frame.
-        if (g_backend) { ImGui_ImplDX9_Shutdown(); g_backend = false; }
-        g_drawn = nullptr;
+        letGo();   // the previous device's, now rather than on the next drawn frame
         g_target = device;
         g_adopted = false;
     }
     LeaveCriticalSection(&g_cs);
     logf(ok ? "overlay: D3D9 present hook installed on device %p (F6 opens the panel)" : "overlay: D3D9 present hook could not be installed on device %p", (void *)device);
     return ok;
+}
+
+void StopD3D9(IDirect3DDevice9 *device)
+{
+    InitOnceExecuteOnce(&g_once, initOnce, nullptr, nullptr);
+    EnterCriticalSection(&g_cs);
+    const bool current = device && device == g_target;
+    if (current) {
+        letGo();
+        g_target = nullptr;
+        g_adopted = false;
+        dbce::panel::SetOpen(false);   // nothing would show it: it must not keep taking the game's input
+    }
+    LeaveCriticalSection(&g_cs);
+    if (current) logf("overlay: let go of D3D9 device %p before the game releases it; no panel until the next device", (void *)device);
 }
 
 }} // namespace dbce::overlay
