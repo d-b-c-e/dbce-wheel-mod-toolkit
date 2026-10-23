@@ -150,21 +150,33 @@ bool StartD3D9(IDirect3DDevice9 *device, void (*log)(const char *))
     InitOnceExecuteOnce(&g_once, initOnce, nullptr, nullptr);
     detail::g_log = log;
     if (!device) { logf("overlay: no D3D9 device given; no panel"); return false; }
-    // Drawing restores the game's state from Get* calls and ImGui's state block. A pure device may refuse Get* (the
-    // documented rule); the Windows 10/11 runtime answers them, so the device is asked, without changing anything.
+    // Drawing restores the game's state from Get* calls (the viewport here, the three transforms in ImGui's backend) and
+    // ImGui's state block. A pure device may refuse Get* (the documented rule); the Windows 10/11 runtime answers them,
+    // so the device is asked, without changing anything.
     D3DDEVICE_CREATION_PARAMETERS cp;
+    if (FAILED(device->GetCreationParameters(&cp))) {
+        logf("overlay: D3D9 device %p did not report how it was created; no panel", (void *)device);
+        return false;
+    }
     D3DVIEWPORT9 vp;
     D3DMATRIX m;
     DWORD v;
-    if (SUCCEEDED(device->GetCreationParameters(&cp)) && (cp.BehaviorFlags & D3DCREATE_PUREDEVICE) &&
-        (FAILED(device->GetViewport(&vp)) || FAILED(device->GetTransform(D3DTS_WORLD, &m)) || FAILED(device->GetRenderState(D3DRS_CULLMODE, &v)))) {
+    if ((cp.BehaviorFlags & D3DCREATE_PUREDEVICE) &&
+        (FAILED(device->GetViewport(&vp)) || FAILED(device->GetTransform(D3DTS_WORLD, &m)) || FAILED(device->GetTransform(D3DTS_VIEW, &m)) ||
+         FAILED(device->GetTransform(D3DTS_PROJECTION, &m)) || FAILED(device->GetRenderState(D3DRS_CULLMODE, &v)))) {
         logf("overlay: D3D9 device %p is a pure device that cannot read its state back to restore it; no panel", (void *)device);
         return false;
     }
     void **vt = *(void ***)device;
     EnterCriticalSection(&g_cs);
     const bool ok = patch(vt, 16, (void *)&hkReset, g_reset) && patch(vt, 17, (void *)&hkPresent, g_present);
-    if (ok && device != g_target) { g_target = device; g_adopted = false; }
+    if (ok && device != g_target) {
+        // The previous device's ImGui objects and its reference go now, not on the next drawn frame.
+        if (g_backend) { ImGui_ImplDX9_Shutdown(); g_backend = false; }
+        g_drawn = nullptr;
+        g_target = device;
+        g_adopted = false;
+    }
     LeaveCriticalSection(&g_cs);
     logf(ok ? "overlay: D3D9 present hook installed on device %p (F6 opens the panel)" : "overlay: D3D9 present hook could not be installed on device %p", (void *)device);
     return ok;

@@ -1,8 +1,9 @@
 // Offline check of the D3D9 overlay (dbce_overlay_d3d9) with this machine's D3D9 device on a hidden window: no game, no
 // display mode change, nothing shown. A null device is refused. Then, on a pure device with Sega Rally Revo's flags
-// (PUREDEVICE | HARDWARE_VERTEXPROCESSING) and afterwards on an ordinary one (the game recreating its device): StartD3D9
-// on the "game" device; while closed nothing is drawn; while open the panel is drawn through the Present hook and the
-// game's render target, depth surface, viewport and render states are as it left them; Reset succeeds (it fails while
+// (PUREDEVICE | HARDWARE_VERTEXPROCESSING) and afterwards on an ordinary one (the game recreating its device, which with
+// the panel closed releases everything held on the first at once): StartD3D9 on the "game" device; while closed nothing
+// is drawn; while open the panel is drawn through the Present hook and the game's render target, depth surface,
+// viewport, render states and world/view/projection transforms are as it left them; Reset succeeds (it fails while
 // any default-pool object is alive, so ImGui's were released first) and the panel is drawn again at the new size.
 // Writes build\overlay-d3d9-*.png.
 #define NOMINMAX
@@ -72,8 +73,22 @@ static bool readPixel(IDirect3DDevice9 *dev, UINT x, UINT y, unsigned char rgb[3
     return ok;
 }
 
-// One "game" device with these creation flags, from StartD3D9 through Reset.
-static void scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, const char *outDir)
+// Distinct, non-identity transforms the game leaves set at Present (ImGui's backend reads and writes all three).
+static D3DMATRIX matrix(float a)
+{
+    D3DMATRIX m = {};
+    m._11 = a; m._22 = a + 1; m._33 = a + 2; m._44 = 1; m._41 = a * 10; m._42 = -a;
+    return m;
+}
+static const D3DMATRIX kWorld = matrix(2), kView = matrix(3), kProjection = matrix(5);
+static bool sameTransform(IDirect3DDevice9 *dev, D3DTRANSFORMSTATETYPE t, const D3DMATRIX &want)
+{
+    D3DMATRIX m = {};
+    return SUCCEEDED(dev->GetTransform(t, &m)) && memcmp(&m, &want, sizeof m) == 0;
+}
+
+// One "game" device with these creation flags, from StartD3D9 through Reset. The device is returned still held.
+static IDirect3DDevice9 *scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, const char *outDir, IDirect3DDevice9 *previous)
 {
     printf("%s device (flags 0x%02lx)\n", tag, (unsigned long)flags);
     UINT W = 1920, H = 1080;
@@ -83,11 +98,14 @@ static void scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, c
     pp.EnableAutoDepthStencil = TRUE; pp.AutoDepthStencilFormat = D3DFMT_D24S8;
     IDirect3DDevice9 *dev = nullptr;
     CHECK(SUCCEEDED(d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, flags, &pp, &dev)) && dev);
-    if (!dev) return;
+    if (!dev) return nullptr;
     g_installed = g_drawing = g_refused = false;
     CHECK(dbce::overlay::StartD3D9(dev, logLine));
     CHECK(dbce::overlay::StartD3D9(dev, logLine));   // again: nothing changes
     CHECK(g_installed && !g_refused);
+    // The switch came with the panel closed and no frame drawn on this device: the previous device's ImGui objects and
+    // reference are gone already, so the test's own reference is its last.
+    if (previous) CHECK(previous->Release() == 0);
 
     // One "game" frame: clear the back buffer green, leave the game's own state set at Present.
     const D3DCOLOR green = D3DCOLOR_XRGB(0, 160, 0);
@@ -102,6 +120,9 @@ static void scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, c
         dev->SetViewport(&vp);
         dev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
         dev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+        dev->SetTransform(D3DTS_WORLD, &kWorld);
+        dev->SetTransform(D3DTS_VIEW, &kView);
+        dev->SetTransform(D3DTS_PROJECTION, &kProjection);
         return SUCCEEDED(dev->Present(nullptr, nullptr, nullptr, nullptr));
     };
     unsigned char px[3] = {};
@@ -127,6 +148,7 @@ static void scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, c
     CHECK(SUCCEEDED(dev->GetViewport(&vp)) && vp.X == 8 && vp.Y == 8 && vp.Width == 64 && vp.Height == 32);
     CHECK(SUCCEEDED(dev->GetRenderState(D3DRS_ALPHABLENDENABLE, &blend)) && blend == TRUE);
     CHECK(SUCCEEDED(dev->GetRenderState(D3DRS_CULLMODE, &cull)) && cull == D3DCULL_CW);
+    CHECK(sameTransform(dev, D3DTS_WORLD, kWorld) && sameTransform(dev, D3DTS_VIEW, kView) && sameTransform(dev, D3DTS_PROJECTION, kProjection));
     if (rt) rt->Release();
     if (ds) ds->Release();
     wchar_t path[MAX_PATH];
@@ -149,7 +171,7 @@ static void scenario(IDirect3D9 *d3d, HWND hwnd, DWORD flags, const char *tag, c
     dbce::panel::SetOpen(false);
     CHECK(frame(nullptr));
     CHECK(readPixel(dev, W / 2 - 300, H / 2, px, nullptr) && isGreen());
-    dev->Release();   // ImGui's backend keeps its reference until the next device takes over
+    return dev;
 }
 
 int main(int argc, char **argv)
@@ -172,8 +194,9 @@ int main(int argc, char **argv)
     CHECK(d3d != nullptr);
     if (failures) return 1;
     CHECK(!dbce::overlay::StartD3D9(nullptr, logLine));
-    scenario(d3d, hwnd, D3DCREATE_PUREDEVICE | D3DCREATE_HARDWARE_VERTEXPROCESSING, "pure", outDir);   // 0x50, as Revo creates it
-    scenario(d3d, hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, "hal", outDir);
+    IDirect3DDevice9 *pure = scenario(d3d, hwnd, D3DCREATE_PUREDEVICE | D3DCREATE_HARDWARE_VERTEXPROCESSING, "pure", outDir, nullptr);   // 0x50, as Revo creates it
+    IDirect3DDevice9 *hal = scenario(d3d, hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, "hal", outDir, pure);   // the game recreating it
+    if (hal) hal->Release();
     printf(failures ? "FAIL %d D3D9 overlay checks\n" : "PASS D3D9 overlay check (pure and ordinary device: panel drawn through the Present hook, state kept, Reset)\n", failures);
     return failures ? 1 : 0;
 }
