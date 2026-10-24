@@ -244,3 +244,12 @@ against a real base and recorded in `knowledge/`, with the wheel model and date.
   native PowerShell tool does. Deploy DLLs only when the game is closed.
 - Long heredocs in the Bash tool get mangled; write scripts to a file first.
 - `ilspycmd` is installed for decompiling game assemblies.
+
+## Shared product UI guidance (owner, October 18)
+
+Keep user interfaces simple and task-focused; do not expose every internal knob.
+Read the October 18 simple-UI section of
+`E:\Source\dbce-project-mgmt\docs\agent-work-policy.md` before UI work.
+Use selective Advanced controls and a separate developer opt-in. Group visual
+settings into explicit Off/Low/Medium/High/Ultra presets with expandable details
+and Custom for overrides; preserve saved settings and essential setup workflows.
