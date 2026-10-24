@@ -22,6 +22,7 @@ static Page g_page = PAGE_HELP;
 static bool g_pageChanged = true;
 static bool g_advanced;
 static int g_userScale = 100;          // percent, Help > UI scale
+static bool g_showFrameRate;
 static float g_scale = 1.0f;            // effective, from the window height and the user scale
 static float g_fontScale = 0.0f;        // scale the font atlas was built for
 static ImFont *g_body, *g_small, *g_heading;
@@ -29,6 +30,7 @@ static char g_note[160];
 static bool g_noteOk = true;
 static ULONGLONG g_noteAt;
 static FrameWindow g_frames;            // STD-023, present thread only
+static SmoothedFps g_smoothFps;          // STD-024, present thread only
 static LARGE_INTEGER g_frameFreq, g_frameLast;
 static ULONGLONG g_frameLoggedAt;
 
@@ -62,23 +64,28 @@ static void logf(const char *fmt, ...)
 // ---- preferences in [Panel] of the mod's ini ------------------------------------------------------------------
 static void loadPrefs()
 {
+    g_showFrameRate = false;
     if (!g_cfg.iniPath) return;
     char v[32] = "";
     GetPrivateProfileStringA("Panel", "View", "Simple", v, sizeof v, g_cfg.iniPath);
     g_advanced = _stricmp(v, "Advanced") == 0;
     g_userScale = (int)GetPrivateProfileIntA("Panel", "Scale", 100, g_cfg.iniPath);
     g_userScale = (std::min)(200, (std::max)(75, g_userScale));
+    GetPrivateProfileStringA("Panel", "ShowFrameRate", "Off", v, sizeof v, g_cfg.iniPath);
+    g_showFrameRate = _stricmp(v, "On") == 0;
     GetPrivateProfileStringA("Panel", "Page", "", v, sizeof v, g_cfg.iniPath);
     for (int p = 0; p < PAGE_COUNT; ++p)   // by name: a saved page keeps its meaning if pages are added (UX-01)
         if (!_stricmp(v, kPageNames[p]) && g_cfg.pages[p]) g_page = (Page)p;
 }
-static void savePref(const char *key, const char *value)
+static bool savePref(const char *key, const char *value)
 {
-    if (!g_cfg.iniPath) return;
+    if (!g_cfg.iniPath) return false;
     if (!WritePrivateProfileStringA("Panel", key, value, g_cfg.iniPath)) {
         NoteSaved(false, "Settings could not be saved");
         logf("panel: could not save [Panel] %s (%lu)", key, GetLastError());
+        return false;
     }
+    return true;
 }
 
 void Configure(const Config &config)
@@ -91,6 +98,7 @@ void Configure(const Config &config)
 }
 
 bool IsOpen() { return g_open != 0; }
+bool FrameCounterEnabled() { return g_showFrameRate; }
 void SetOpen(bool open)
 {
     InterlockedExchange(&g_open, open ? 1 : 0);
@@ -368,6 +376,7 @@ void NoteFrame()
     if (!g_frameFreq.QuadPart) QueryPerformanceFrequency(&g_frameFreq);
     if (g_frameLast.QuadPart) {
         const double ms = (double)(now.QuadPart - g_frameLast.QuadPart) * 1000.0 / (double)g_frameFreq.QuadPart;
+        g_smoothFps.Add(ms);
         if (g_frames.Add(ms)) {
             const ULONGLONG t = GetTickCount64();
             if (!g_frameLoggedAt || t - g_frameLoggedAt >= 30000) {
@@ -387,6 +396,10 @@ static void drawFrameRate()
     char line[160] = "Measuring (10 s)";
     if (s.valid) frameLine(line, sizeof line, s);
     Status("Frame rate", line);
+    bool show = g_showFrameRate;
+    if (OffOn("Show frame rate on screen", &show, "Top-right of the center screen: current fps and the last ten seconds' 1% low.")) {
+        if (savePref("ShowFrameRate", show ? "On" : "Off")) { g_showFrameRate = show; NoteSaved(true); }
+    }
     if (Advanced()) Text("The last ten seconds, measured at the game's present; the same line goes to the log every 30 s.");
     EndGroup();
 }
@@ -555,6 +568,23 @@ void Draw(int width, int height)
 {
     drawPanel(width, height);
     drawStatusLine(width, height);
+    if (g_showFrameRate && g_smoothFps.Value() > 0 && width >= 64 && height >= 64) {
+        char line[64];
+        const FrameSummary &s = g_frames.Last();
+        if (s.valid) snprintf(line, sizeof line, "%.0f fps | 1%% low %.0f", g_smoothFps.Value(), s.lowFps);
+        else snprintf(line, sizeof line, "%.0f fps | 1%% low --", g_smoothFps.Value());
+        const float edge = width >= height * 2.5f ? width * 2.0f / 3.0f : (float)width;
+        const ImVec2 size = ImGui::CalcTextSize(line);
+        const float inset = 16 * g_scale, outline = (std::max)(1.0f, g_scale);
+        const ImVec2 pos(edge - size.x - inset, inset);
+        ImDrawList *draw = ImGui::GetForegroundDrawList();
+        const ImU32 dark = IM_COL32(0, 0, 0, 230);
+        draw->AddText(ImVec2(pos.x - outline, pos.y), dark, line);
+        draw->AddText(ImVec2(pos.x + outline, pos.y), dark, line);
+        draw->AddText(ImVec2(pos.x, pos.y - outline), dark, line);
+        draw->AddText(ImVec2(pos.x, pos.y + outline), dark, line);
+        draw->AddText(pos, IM_COL32(255, 255, 255, 255), line);
+    }
 }
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------

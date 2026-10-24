@@ -47,6 +47,7 @@ void Configure(const Config &config);
 
 // True while the panel is open: the mod suppresses driving input and camera shortcuts (UX-03).
 bool IsOpen();
+bool FrameCounterEnabled();
 void SetOpen(bool open);
 void Toggle();
 // Internal, passive status only. Text is copied (up to 255 UTF-8 bytes); null/empty clears.

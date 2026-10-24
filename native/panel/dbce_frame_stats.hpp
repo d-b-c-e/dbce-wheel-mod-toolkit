@@ -50,6 +50,18 @@ private:
     FrameSummary last_;
 };
 
+class SmoothedFps {
+public:
+    void Add(double ms)
+    {
+        if (!(ms > 0) || ms > FrameWindow::kGapMs) { ms_ = 0; return; }
+        ms_ = ms_ ? ms_ * .9 + ms * .1 : ms;
+    }
+    double Value() const { return ms_ ? 1000.0 / ms_ : 0; }
+private:
+    double ms_ = 0;
+};
+
 // The readout's line: the three numbers, then what the display is. `display` (the mod's own words, for example
 // "Surround span, one wide view") wins over `triples` (-1 not reported, 0 off, 1 on), so a mod whose wide window is
 // one planar view never reports "triples on". Truncated to `size`, never overrun.

@@ -11,6 +11,14 @@ static bool near(double a, double b, double tol) { return fabs(a - b) <= tol; }
 int main()
 {
     using dbce::panel::FrameWindow;
+    dbce::panel::SmoothedFps smooth;
+    check(smooth.Value() == 0, "counter waits for a measured frame");
+    smooth.Add(20); smooth.Add(10);
+    check(near(smooth.Value(), 1000.0 / 19.0, 1e-9), "counter smooths current frame time");
+    smooth.Add(6000);
+    check(smooth.Value() == 0, "pause gap clears stale current fps");
+    smooth.Add(10);
+    check(near(smooth.Value(), 100, 1e-9), "counter restarts after pause");
     static FrameWindow w;   // large buffer: not on the stack
     check(!w.Last().valid, "nothing before the first window");
 
