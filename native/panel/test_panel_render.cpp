@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     ImGui_ImplDX11_Init(dev, ctx);
     const int sizes[][2] = {{1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}, {7680, 1440}};
     CHECK(!dbce::panel::StatusLineActive());
-    const char *pages[] = {"FFB", "Cameras", "Telemetry", "Help", "REC", "Saving", "Saved", "Hidden"};
+    const char *pages[] = {"FFB", "Cameras", "Telemetry", "Help", "REC", "Saving", "Saved", "Counter", "Hidden"};
     char ini[MAX_PATH];
     GetTempPathA(MAX_PATH, ini);
     strcat_s(ini, "dbce-panel-test.ini");
@@ -112,11 +112,14 @@ int main(int argc, char **argv)
                 const int w = sz[0], h = sz[1];
                 const bool status = !strcmp(pg, "REC") || !strcmp(pg, "Saving") || !strcmp(pg, "Saved");
                 const bool hidden = !strcmp(pg, "Hidden");
-                if ((status || hidden) && view) continue;
+                const bool counter = !strcmp(pg, "Counter");
+                if ((status || hidden || counter) && view) continue;
+                if (counter && w != 1920 && w != 7680) continue;
                 if (view == 1 && w != 2560) continue;   // Advanced once, at the owner's monitor size
                 DeleteFileA(ini);
                 WritePrivateProfileStringA("Panel", "Page", pg, ini);
                 WritePrivateProfileStringA("Panel", "View", view ? "Advanced" : "Simple", ini);
+                if (counter) WritePrivateProfileStringA("Panel", "ShowFrameRate", "On", ini);
                 dbce::panel::Config c;
                 c.modName = "Example mod 0.0.0 (panel render check)";
                 c.modRepositoryUrl = "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit";
@@ -131,7 +134,8 @@ int main(int argc, char **argv)
                 c.stopFfb = stopFfb;
                 dbce::panel::Configure(c);
                 dbce::panel::ClearStatusLine();
-                dbce::panel::SetOpen(!status && !hidden);
+                dbce::panel::SetOpen(!status && !hidden && !counter);
+                CHECK(dbce::panel::FrameCounterEnabled() == counter);
                 if (status) {
                     char line[128];
                     strcpy_s(line, !strcmp(pg, "REC") ? "REC  01:23  |  F11 to stop and save" :
@@ -149,6 +153,7 @@ int main(int argc, char **argv)
                 dev->CreateTexture2D(&td, nullptr, &tex);
                 dev->CreateRenderTargetView(tex, nullptr, &rtv);
                 for (int frame = 0; frame < 3; ++frame) {   // a few frames so auto-resized groups settle
+                    dbce::panel::NoteFrame();
                     if (dbce::panel::Prepare(w, h)) { dbce::panel::BuildFonts(); ImGui_ImplDX11_InvalidateDeviceObjects(); }
                     ImGui_ImplDX11_NewFrame();
                     ImGuiIO &io = ImGui::GetIO();
@@ -165,8 +170,16 @@ int main(int argc, char **argv)
                 // Geometry: the panel window lies inside the frame, on the centre screen of a span.
                 ImGuiWindow *win = ImGui::FindWindowByName(status ? "##dbce-session-status" : "##dbce-panel");
                 if (hidden) CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
-                else CHECK(win != nullptr && win->Active);
-                if (win && !hidden) {
+                else if (counter) {
+                    CHECK(!dbce::panel::IsOpen() && !ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard);
+                    auto *draw = ImGui::GetForegroundDrawList();
+                    CHECK(draw->VtxBuffer.Size > 0);
+                    for (const auto &v : draw->VtxBuffer) {
+                        CHECK(v.pos.x >= (w >= h * 2.5f ? w / 3.0f : 0) && v.pos.x <= (w >= h * 2.5f ? w * 2.0f / 3.0f : (float)w));
+                        CHECK(v.pos.y >= 0 && v.pos.y <= h);
+                    }
+                } else CHECK(win != nullptr && win->Active);
+                if (win && !hidden && !counter) {
                     CHECK(win->Pos.x >= 0 && win->Pos.y >= 0 && win->Pos.x + win->Size.x <= w && win->Pos.y + win->Size.y <= h);
                     if (w >= h * 2.5f) CHECK(win->Pos.x >= w / 3.0f && win->Pos.x + win->Size.x <= 2.0f * w / 3.0f);
                     if (status) {

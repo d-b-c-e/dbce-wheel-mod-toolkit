@@ -24,7 +24,7 @@ public:
     // One frame time in ms; true when a window closed and Last() changed.
     bool Add(double ms)
     {
-        if (!(ms > 0) || ms > kGapMs) { n_ = 0; sum_ = 0; return false; }
+        if (!(ms > 0) || ms > kGapMs) { n_ = 0; sum_ = 0; last_.valid = false; return false; }
         ms_[n_++] = ms;
         sum_ += ms;
         if (sum_ < kWindowMs && n_ < kMax) return false;

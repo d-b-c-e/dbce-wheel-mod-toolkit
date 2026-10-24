@@ -40,6 +40,7 @@ int main()
     check(near(s.avgFps, 94.6, 1e-9), "average over the whole window");
     // slowest 1% of 946 = 9 frames: the six 100 ms and three 10 ms -> 630 / 9 = 70 ms -> 14.29 fps
     check(near(s.lowFps, 1000.0 * 9 / 630.0, 0.01) && near(s.worstMs, 100.0, 1e-9), "1% low and worst frame");
+    check(!w.Add(6000.0) && !w.Last().valid, "pause expires the last completed window");
 
     // A gap (pause, minimise, load) restarts the window instead of counting as a frame.
     FrameWindow *g = new FrameWindow;
