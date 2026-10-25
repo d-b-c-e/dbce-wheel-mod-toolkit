@@ -742,3 +742,24 @@ that game. This supersedes the 2026-10-06 "a gamepad is fine if it gets the job 
 Affected today: Sonic CrossWorlds (its unshipped wheel companion uses ViGEm: redesign as UE4SS in-process input);
 ADRIFT (rc.1 synthesizes XInput in-process: check whether the game applies controller processing, and if so move to
 its vehicle input directly).
+
+## STD-040 — One simple download per game, for non-technical players
+
+Owner, 2026-10-25: "Above all I want simplicity for the end user ... Assume our users are non-technical. ... In an
+ideal world there's only one version of the mod - and if Wheelkit is present, it can easily work with that. If it's
+not present, then a small utility exists on disk that they can use to configure it, or where possible simply only use
+the F6 panel like they did before." (Prompted by an Art of Rally player confused by two 0.4.2 release ZIPs.)
+
+- Assume every player is non-technical. Judge each player-facing surface (release page, file names, install steps,
+  F6 panel, Wheelkit) by whether such a player gets it right the first time without help.
+- **One mod package per game per release**, one obvious download. Asset names and release notes carry no internal
+  jargon ("shared-input", "native", "shim", "companion", "rc"); checksum files may sit beside it. Say in the first
+  line of the notes which file to download and how to install it.
+- **The same package works with or without Wheelkit.** With Wheelkit, Wheelkit installs and configures that package.
+  Without it, the F6 panel does setup on its own wherever possible (create a missing controls profile, bind, save).
+  When a desktop tool is truly needed, a small utility ships inside the same package, on disk beside the mod; never
+  a separate download, and never a large bundle.
+- Wheelkit is not public yet: no release, install step or in-game message may require it.
+- Installing is one step (unzip into the game folder, or run the included Install), explained in plain language.
+- Existing releases are cleaned up at their next release (art of rally first). Supersedes any earlier guidance that
+  shipped optional companions as separate downloads.
