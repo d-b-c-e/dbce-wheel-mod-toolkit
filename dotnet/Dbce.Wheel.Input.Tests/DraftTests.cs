@@ -39,6 +39,7 @@ internal static class DraftTests
             draft.Set("steer", binding.ToString()); File.AppendAllText(path, new string('x', 2048));
             Check(!draft.Save(path, out message) && draft.HasDraft && message.Contains("size", StringComparison.Ordinal), "bounded changed-source refusal retains the draft");
             Check(Directory.GetFiles(root, "*.tmp").Length == 0, "failed Save leaves no temporary files");
+            checks += ExactSubset(binding);
             return checks;
         }
         finally
@@ -47,5 +48,33 @@ internal static class DraftTests
             if (string.Equals(Path.GetDirectoryName(Path.GetFullPath(root)), expectedParent, StringComparison.OrdinalIgnoreCase) &&
                 Path.GetFileName(root).StartsWith("shared-control-draft-", StringComparison.Ordinal)) Directory.Delete(root, true);
         }
+    }
+
+    // A scalar subset of an exact declaration that also declares a stick: hash is the exact text's, the stick's
+    // component keys survive an edit untouched, and a subset line missing from the exact text is refused.
+    static int ExactSubset(ControlBinding steer)
+    {
+        int checks = 0;
+        void Check(bool ok, string why) { checks++; if (!ok) throw new Exception(why); }
+        const string exact = "game truckful\ncontexts observed driving\ntruckful.look stick circle contexts=driving\ntruckful.slot digital contexts=driving\n";
+        var bytes = System.Text.Encoding.ASCII.GetBytes(exact);
+        var subset = new[] { new DeclaredControlExtra("truckful.slot", ControlShape.Digital, 1) };
+        var extras = new DeclaredControlExtras("truckful", new[] { "driving" }, subset, bytes);
+        string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+        Check(extras.Hash == hash && extras.Declaration.SequenceEqual(bytes), "exact subset keeps the host's declaration bytes and hash");
+        string button = ControlBinding.FromCapture(ControlShape.Digital, ControlKind.Button, 4, 1, 0, steer.Device, steer.Product, "Fixture").ToString();
+        string look = "truckful.look.x = " + steer;
+        string text = "[Controls]\nSchema = 1\nProfile = Fixture\nRevision = r\nTransmission = Automatic\nsteer = " + steer +
+            "\n[Extras]\nSchema = 1\nGame = truckful\nDeclaration = " + hash + "\n" + look + "\n";
+        var document = new ControlProfileDocument(text, extras);
+        Check(!document.Bindings.ContainsKey("truckful.slot"), "unbound subset slot reads as unbound");
+        string edited = document.Edit(new Dictionary<string, string?> { ["truckful.slot"] = button }, "r2");
+        Check(edited.Contains(look + "\n", StringComparison.Ordinal) && edited.Contains("Declaration = " + hash + "\n", StringComparison.Ordinal) &&
+            new ControlProfileDocument(edited, extras).Bindings["truckful.slot"].ToString() == button, "edit keeps stick components and the exact hash");
+        bool refused = false;
+        try { _ = new DeclaredControlExtras("truckful", new[] { "driving" }, subset, System.Text.Encoding.ASCII.GetBytes("game truckful\ncontexts observed driving\ntruckful.look stick circle contexts=driving\n")); }
+        catch (ArgumentException) { refused = true; }
+        Check(refused, "a subset line absent from the exact declaration is refused");
+        return checks;
     }
 }

@@ -60,6 +60,22 @@ namespace Dbce.Wheel.Input
             using (var sha = SHA256.Create()) Hash = BitConverter.ToString(sha.ComputeHash(declaration)).Replace("-", "");
             Actions = copied.AsReadOnly();
         }
+        /// <summary>Edits a scalar subset of a host's exact declaration, which may also declare extras this editor
+        /// never touches (a stick). The header and every subset line must appear verbatim; Hash is the exact text's.</summary>
+        public DeclaredControlExtras(string game, IList<string> contexts, IList<DeclaredControlExtra> actions, byte[] exactDeclaration)
+            : this(game, contexts, actions)
+        {
+            if (exactDeclaration == null || exactDeclaration.Length > 4096) throw new ArgumentException("Invalid exact extras declaration.");
+            foreach (byte b in exactDeclaration) if (b == 0 || b > 0x7f || b == '\r') throw new ArgumentException("The exact extras declaration is not LF ASCII.");
+            string exact = Encoding.ASCII.GetString(exactDeclaration);
+            var exactLines = new List<string>(exact.Split('\n'));
+            string[] subset = Encoding.ASCII.GetString(declaration).TrimEnd('\n').Split('\n');
+            if (!exact.EndsWith("\n", StringComparison.Ordinal) || exactLines.Count < 3 || exactLines[0] != subset[0] || exactLines[1] != subset[1])
+                throw new ArgumentException("The exact extras declaration has a different game or contexts header.");
+            foreach (string line in subset) if (!exactLines.Contains(line)) throw new ArgumentException("The exact extras declaration lacks: " + line);
+            declaration = (byte[])exactDeclaration.Clone();
+            using (var sha = SHA256.Create()) Hash = BitConverter.ToString(sha.ComputeHash(declaration)).Replace("-", "");
+        }
         private static bool Word(string value, int max, bool hyphen) {
             if (string.IsNullOrEmpty(value) || value.Length > max || value[0] < 'a' || value[0] > 'z') return false;
             foreach (char c in value) if (!(c >= 'a' && c <= 'z' || !hyphen && c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || hyphen && c == '-')) return false;
