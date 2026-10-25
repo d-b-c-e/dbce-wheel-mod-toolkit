@@ -11,6 +11,8 @@ shared/display/SpanTarget.cs text eol=lf
 shared/display/dbce_racing_row.hpp text eol=lf
 shared/display/dbce_windows_monitors.hpp text eol=lf
 shared/display/racing-row-vectors.txt text eol=lf
+shared/display/WindowLanding.cs text eol=lf
+shared/display/window-landing-vectors.txt text eol=lf
 
 # Preserve byte-exact vendored binding presentation policy.
 dotnet/Dbce.Wheel.Input/BindingEditorPolicy.cs text eol=lf

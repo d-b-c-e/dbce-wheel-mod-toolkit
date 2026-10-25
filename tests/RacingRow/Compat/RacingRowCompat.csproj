@@ -4,6 +4,7 @@
   <ItemGroup>
     <Compile Include="../../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
     <Compile Include="../../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
+    <Compile Include="../../../shared/display/WindowLanding.cs" Link="WindowLanding.cs" />
     <Compile Include="../../../shared/display/SpanTarget.cs" Link="SpanTarget.cs" />
   </ItemGroup>
 </Project>

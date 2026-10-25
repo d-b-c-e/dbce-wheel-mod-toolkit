@@ -7,6 +7,7 @@ MonitorRect M(int x, int y, int w, int h, bool primary = false) => new(x, y, w, 
 MonitorRect Left = M(-2560, 0, 2560, 1440), Center = M(0, 0, 2560, 1440, true), Right = M(2560, 0, 2560, 1440);
 MonitorRect Diagnostic = M(314, -1080, 1920, 1080);
 SpanTargetChecks.Run(Check);
+int landingVectors = WindowLandingChecks.Run(Check);
 
 void Separate(string label, IEnumerable<MonitorRect> monitors)
 {
@@ -85,4 +86,4 @@ Check(vectors >= 25 && otherAspect >= 4, $"shared vectors: {vectors} run here, {
 var live = WindowsMonitors.Read();
 Check(live.Count >= 1 && live.Count(m => m.Primary) == 1, "Windows reports at least one display and exactly one primary");
 Console.WriteLine("live displays: " + string.Join("; ", live) + " -> " + RacingRowPolicy.Select(live) + " (" + RacingRowPolicy.Select(live).Reason + ")");
-Console.WriteLine($"PASS racing row: {checks} checks");
+Console.WriteLine($"PASS racing row: {checks} checks ({vectors} row vectors, {landingVectors} landing vectors)");

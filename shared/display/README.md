@@ -65,6 +65,34 @@ selector/cache harness passed 159 assertions and read the active four-display ri
 still require consumer evidence. A transient failed query is cached too: a one-shot startup caller may keep its
 normal window if it runs during that failure interval, rather than using an old or invented span.
 
+## Window landing (source-vendored, Mono 2.0 and later)
+
+`WindowLanding.cs` decides where a game's window belongs on the racing row, and which engine display index to save so
+the next launch opens there. Engines remember a start monitor by index: Unity saves the `UnitySelectMonitor`
+PlayerPref, stored on Windows as `UnitySelectMonitor_h17969598`. On 2026-10-24, after Surround was turned on, Woden
+and DRIVE Rally both had index 1 saved from separate-monitor use. That index named the 1920x1080 dashboard display, and
+both games opened there. `WindowLandingPolicy.Decide(monitors, row, spanning, window, openedOn, engine, savedIndex)` returns:
+
+- **Target and Move.** The target is the home display, which is the primary: the whole row under Surround and the
+  center display of a separate row. A consumer that spans a Separate row targets the row's span instead. `Move` is set
+  when the window's center is on another display, or when a span is not exact. The target is never an auxiliary or
+  dashboard display. With no racing row, or a window on no single display (minimized), nothing moves.
+- **EngineIndex and Persist.** The engine's own display list (`EngineDisplay`, Unity's `Display.displays` system
+  sizes) is in the engine's order, which is not Windows' order, and it has no positions. The home display is mapped by
+  size. The index is known only when the lists have the same length and exactly one engine display has the home size.
+  `Persist`, the index to save, is set only when that holds and when the saved index (none saved means 0) names an
+  engine display of the size the game opened on. That proves the saved index and the list share one order. It is also
+  set only when the value differs. Anything ambiguous, such as three equal separate displays, saves nothing and says
+  why in `PersistReason`.
+
+The consumer keeps the engine glue: read the window rectangle and the display it opened on, move the window, and save
+the preference through the engine's own API (Unity: `PlayerPrefs.SetInt("UnitySelectMonitor", n)` and `Save`). It
+logs `Reason`, `PersistReason` and old -> new. It never writes the registry directly, and it skips the save in test
+launches that must not change owner state. `window-landing-vectors.txt` holds the cases: Surround with a stale
+dashboard index in either Windows or engine order, already landed, unknown or out-of-range indexes, Surround off with
+and without a span, one display, and ambiguous rows. `tests/RacingRow` runs every vector and a grid that proves the
+only targets are the home display or the span. The Compat and Compat35 builds include the file.
+
 ## Triple layout and settings draft (source-vendored, .NET 6+)
 
 TripleLayout.cs and TripleSettingsDraft.cs contain engine-free behavior extracted

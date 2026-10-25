@@ -3,8 +3,9 @@
   <ItemGroup>
     <Compile Include="../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
     <Compile Include="../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
+    <Compile Include="../../shared/display/WindowLanding.cs" Link="WindowLanding.cs" />
     <Compile Include="../../shared/display/SpanTarget.cs" Link="SpanTarget.cs" />
   </ItemGroup>
   <ItemGroup><Compile Remove="Compat/**" /><Compile Remove="Compat35/**" /></ItemGroup>
-  <ItemGroup><None Include="../../shared/display/racing-row-vectors.txt" Link="racing-row-vectors.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="../../shared/display/racing-row-vectors.txt" Link="racing-row-vectors.txt" CopyToOutputDirectory="PreserveNewest" /><None Include="../../shared/display/window-landing-vectors.txt" Link="window-landing-vectors.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>
