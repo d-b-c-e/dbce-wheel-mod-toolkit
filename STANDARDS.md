@@ -763,3 +763,9 @@ the F6 panel like they did before." (Prompted by an Art of Rally player confused
 - Installing is one step (unzip into the game folder, or run the included Install), explained in plain language.
 - Existing releases are cleaned up at their next release (art of rally first). Supersedes any earlier guidance that
   shipped optional companions as separate downloads.
+- **F6 parity with Wheelkit** (owner, same day): "It would be ideal if every bit of functionality from wheelkit was
+  available via F6 - i.e. menu navigation and extra game specific bindings. I realize that you can't navigate the F6
+  menu itself with the wheel - that's to be expected, but the user should be able to navigate the in-game menus."
+  Every binding Wheelkit can apply for a game (driving, gears, in-game menu navigation, game-specific actions) must also
+  be bindable in that game's F6 panel, so a player without Wheelkit loses nothing. The F6 panel itself stays mouse and
+  keyboard. Art of Rally first: its own F6 bindings lack menu navigation and the horn/look-back/recover routes.
