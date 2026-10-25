@@ -729,3 +729,16 @@ proves the mapping and the value differs; log old -> new; never save in test or 
 `shared/display/WindowLanding.cs`, vendored byte-identically (reference adoption: Woden `e1b834e`; observed in game
 2026-10-24: moved from the aux display to 7680x1440@0,0 and Unity then saved monitor 0 itself). Adoption order:
 Woden, DRIVE, iRacing, then art of rally, Over the Hill, Truckful and every other Unity mod.
+
+## STD-039 — Wheel input reaches the game's own steering directly, not through a virtual controller
+
+Owner, 2026-10-25: "I'm not fond of the virtual controller route - we don't have enough control over it to really
+make the steering realistic, and often if the game sees it as an Xbox controller lots of unnecessary processing gets
+done to the inputs." Deliver wheel, pedal and button input in-process to the game's own vehicle/steering inputs
+(Harmony/BepInEx, UE4SS, or a native hook) so the mod owns the mapping 1:1 and the game's gamepad deadzones,
+response curves and steering assists are not applied on top. Virtual controllers (ViGEm or similar) and synthesized
+XInput/gamepad states are a last resort, only where no in-process route exists, and need the owner's explicit OK for
+that game. This supersedes the 2026-10-06 "a gamepad is fine if it gets the job done" allowance for Sonic.
+Affected today: Sonic CrossWorlds (its unshipped wheel companion uses ViGEm: redesign as UE4SS in-process input);
+ADRIFT (rc.1 synthesizes XInput in-process: check whether the game applies controller processing, and if so move to
+its vehicle input directly).
