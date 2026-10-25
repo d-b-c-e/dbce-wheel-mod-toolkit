@@ -714,3 +714,18 @@ zero warnings/errors, all86 inert support cases/no skips and final report/IO
 review195705 after the reserved-device export correction. No full-suite rerun
 or host/provider/browser/runtime acceptance. See native/support/README.md for
 the exact source pins and original results; ADRIFT owns the first adapter.
+
+## STD-038 — The game window lands on the racing row
+
+Adopted 2026-10-24 after Woden, DRIVE and iRacing opened on a 1920x1080 diagnostic display: each game's saved
+Unity start monitor (`UnitySelectMonitor`) was stale after switching between separate monitors and NVIDIA Surround.
+A mod with a racing row (`RacingRowPolicy`: the Surround primary, or the primary-centered separate row) puts the game
+window on that row itself, with no registry or game-file workaround. At the game's own startup apply, and after a
+display change, a window on any other display moves to the row's home display (the primary, or the span when the mod
+spans separate monitors) at that display's size; at most one windowed apply per episode (STD-008). Never target an
+auxiliary or dashboard display, never move a minimized window, do nothing without a row. When the engine remembers a
+start monitor, save the home display's engine index through the engine's own API only when `WindowLandingPolicy`
+proves the mapping and the value differs; log old -> new; never save in test or muted launches. Decisions come from
+`shared/display/WindowLanding.cs`, vendored byte-identically (reference adoption: Woden `e1b834e`; observed in game
+2026-10-24: moved from the aux display to 7680x1440@0,0 and Unity then saved monitor 0 itself). Adoption order:
+Woden, DRIVE, iRacing, then art of rally, Over the Hill, Truckful and every other Unity mod.
