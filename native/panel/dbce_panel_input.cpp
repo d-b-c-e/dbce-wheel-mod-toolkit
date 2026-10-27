@@ -284,7 +284,7 @@ void DrainInput(int bw, int bh)
     Ev local[kQueue];
     int n = 0;
     EnterCriticalSection(&g_cs);
-    traceOpen(open);   // also observes dev-channel state changes on the render thread
+    traceOpen(IsOpen());   // current under the lock; the render snapshot may predate an F6 transition
     for (; n < g_count; ++n) local[n] = g_q[(g_head + n) % kQueue];
     g_head = 0; g_count = 0;
     LeaveCriticalSection(&g_cs);

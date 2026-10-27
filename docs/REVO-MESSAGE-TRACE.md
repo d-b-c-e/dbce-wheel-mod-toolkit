@@ -44,6 +44,14 @@ mouse enqueue/drain, detach/late callbacks, counter reset/saturation/report cap,
 logging outside the lock and failed/retried hook attachment. This proves no real
 queue/provider delivery and opens no OS window/hook/device.
 
+Source review corrected one diagnostic-only race: DrainInput's render `open`
+snapshot may predate a game-thread F6 callback. TraceOpen now reads IsOpen inside
+the existing queue lock, preserving the render snapshot. A fake GetClientRect
+interleaves an actual F6 handler call after the snapshot and before that lock;
+the assertion requires one open and zero phantom closes, and unchanged render
+state. The old traceOpen(open) would record a false close. Native execution of
+this regression is still pending scheduled qualification.
+
 Smallest registered command, after source review and scheduled shared lease:
 `./native/panel/build_test.ps1 -InputCustodyOnly` (x64+x86, CPU fake APIs).
 The normal panel runner includes these checks too. No build has run yet.

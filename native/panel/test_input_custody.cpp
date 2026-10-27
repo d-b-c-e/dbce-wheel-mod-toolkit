@@ -15,6 +15,7 @@ namespace {
 HWND panelWindow, foregroundWindow, mockPanelRoot, mockForegroundRoot;
 int clipCalls;
 bool panelOpen;
+void (*onClient)();
 HWND childWindow;
 int chainCalls, attachCalls, unhookCalls;
 bool attachFails;
@@ -36,7 +37,10 @@ HWND WINAPI fakeAncestor(HWND window, UINT) {
 }
 BOOL WINAPI fakeClip(const RECT*) { ++clipCalls; return TRUE; }
 BOOL WINAPI fakeCursor(POINT*) { return FALSE; }
-BOOL WINAPI fakeClient(HWND, RECT*) { return FALSE; }
+BOOL WINAPI fakeClient(HWND, RECT*) {
+    if (onClient) { const auto callback = onClient; onClient = nullptr; callback(); }
+    return FALSE;
+}
 BOOL WINAPI fakeScreen(HWND, POINT*) { return FALSE; }
 }
 
@@ -203,6 +207,18 @@ int main()
     TraceInput("snapshot", traceLog);
     verify(traceLines.size() == reportLines && g_traceReports == kTraceReports, "process-wide report cap fixed");
     verify(panelOpen == openBefore && g_count == queueBefore, "report cap does not affect input state");
+    panelOpen = false;
+    g_wasOpen = false;
+    TraceInput("on", nullptr);
+    onClient = [] {
+        MSG m{}; m.hwnd = panelWindow; m.message = WM_KEYDOWN; m.wParam = VK_F6;
+        verify(dbce::panel::getMessageHook(HC_ACTION, PM_REMOVE, reinterpret_cast<LPARAM>(&m)) == 71 && m.message == WM_NULL,
+               "F6 interleaves after render open snapshot, before queue lock");
+    };
+    DrainInput(1920, 1080);
+    verify(panelOpen && g_trace.open && g_trace.opened == 1 && g_trace.closed == 0,
+           "locked trace state has no phantom close from stale render snapshot");
+    verify(!g_wasOpen, "original render snapshot behavior unchanged by trace fix");
     TraceInput("off", nullptr);
     DetachInput();
     ImGui::DestroyContext();
