@@ -6,6 +6,7 @@
 #include "../controls/dbce_inject_table.hpp"
 #include "dbce_input_suppression.hpp"
 #include "dbce_shape_state.hpp"
+#include "dbce_raw_snapshot.hpp"
 #include <dinput.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -59,8 +60,9 @@ bool diagOk() { return InterlockedIncrement(&g_diagLines) <= 2000; }   // bounde
 
 // ---- vtable patching, one original per (hook, table) -------------------------------------------------------
 enum Hook { H_CREATEDEV, H_SETPROP, H_ACQUIRE, H_GETSTATE, H_GETDATA, H_SETCOOP, H_CREATEEFF, H_SENDFF,
-            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_D_RELEASE, H_SETACTION, H_COUNT };
-struct Slot { void **vt; void *orig; };
+            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_D_RELEASE, H_SETACTION,
+            H_UNACQUIRE, H_POLL, H_INITIALIZE, H_QUERYINTERFACE, H_COUNT };
+struct Slot { void **vt; void *orig; bool verified; };
 Slot g_slots[H_COUNT][8];
 // The answer for a table that was never recorded (should not happen): E_FAIL from a stub with the hook's own argument
 // count, so a 32-bit __stdcall caller's stack stays balanced (every argument here is pointer-sized on x86).
@@ -72,7 +74,7 @@ HRESULT STDMETHODCALLTYPE unrecorded5(void *, void *, void *, void *, void *) { 
 void *unrecorded(Hook h)
 {
     static void *const byArgs[6] = {nullptr, (void *)&unrecorded1, (void *)&unrecorded2, (void *)&unrecorded3, (void *)&unrecorded4, (void *)&unrecorded5};
-    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2, 1, 4};   // self included, in Hook order
+    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2, 1, 4, 1, 1, 4, 3};   // self included, in Hook order
     return byArgs[args[h]];
 }
 void *orig(Hook h, void *self)
@@ -96,13 +98,24 @@ void patch(Hook h, void *obj, int index, void *hook)
                 DWORD old;
                 if (VirtualProtect(&vt[index], sizeof(void *), PAGE_EXECUTE_READWRITE, &old)) {
                     s.vt = vt; s.orig = vt[index]; vt[index] = hook;
-                    VirtualProtect(&vt[index], sizeof(void *), old, &old);
+                    s.verified = VirtualProtect(&vt[index], sizeof(void *), old, &old) != FALSE && vt[index] == hook;
                 }
                 break;
             }
         }
     }
     LeaveCriticalSection(&g_cs);
+}
+bool snapshotHooksAdmitted(void *self);
+HRESULT reportedIdentity(void *self, GUID &reported) {
+    DIDEVICEINSTANCEW info{};
+    typedef HRESULT(STDMETHODCALLTYPE *InfoFn)(void *, void *);
+    void **vt=*(void ***)self;
+    info.dwSize=sizeof(DIDEVICEINSTANCEA);
+    HRESULT hr=((InfoFn)vt[15])(self,&info);
+    if(FAILED(hr)) { info.dwSize=sizeof(DIDEVICEINSTANCEW);hr=((InfoFn)vt[15])(self,&info); }
+    if(SUCCEEDED(hr))reported=info.guidInstance;
+    return hr;
 }
 
 // ---- effects -------------------------------------------------------------------------------------------------
@@ -371,6 +384,7 @@ HRESULT STDMETHODCALLTYPE hkCreateEffect(void *self, REFGUID g, LPCDIEFFECT e, L
 typedef HRESULT(STDMETHODCALLTYPE *SetPropFn)(void *, REFGUID, LPCDIPROPHEADER);
 HRESULT STDMETHODCALLTYPE hkSetProp(void *self, REFGUID prop, LPCDIPROPHEADER ph)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
     ULONG_PTR id = (ULONG_PTR)&prop;
     // Auto-centring is a force too (the wheel's own spring): while FFB is off or muted it is never switched on.
     if (blocked() && ph && id == (ULONG_PTR)&DIPROP_AUTOCENTER && ph->dwSize >= sizeof(DIPROPDWORD) && ((LPCDIPROPDWORD)ph)->dwData != DIPROPAUTOCENTER_OFF) {
@@ -390,6 +404,7 @@ HRESULT STDMETHODCALLTYPE hkSetProp(void *self, REFGUID prop, LPCDIPROPHEADER ph
 typedef HRESULT(STDMETHODCALLTYPE *DevNoArgFn)(void *);
 HRESULT STDMETHODCALLTYPE hkAcquire(void *self)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
     HRESULT hr = ((DevNoArgFn)orig(H_ACQUIRE, self))(self);
     static volatile LONG n;
     if ((InterlockedIncrement(&n) <= 20 || FAILED(hr)) && diagOk()) dlog("input: Acquire device %p -> 0x%08lx", self, (unsigned long)hr);
@@ -398,6 +413,7 @@ HRESULT STDMETHODCALLTYPE hkAcquire(void *self)
 typedef HRESULT(STDMETHODCALLTYPE *SetCoopFn)(void *, HWND, DWORD);
 HRESULT STDMETHODCALLTYPE hkSetCoop(void *self, HWND w, DWORD flags)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
     HRESULT hr = ((SetCoopFn)orig(H_SETCOOP, self))(self, w, flags);
     if (diagOk()) dlog("input: SetCooperativeLevel device %p flags=0x%lx -> 0x%08lx", self, flags, (unsigned long)hr);
     return hr;
@@ -488,7 +504,9 @@ void applyShapes(void *self, DWORD cb, LPVOID data, const dbce::controls::ShapeT
 typedef HRESULT(STDMETHODCALLTYPE *GetStateFn)(void *, DWORD, LPVOID);
 HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
 {
+    const auto ticket=g_opt.snapshots?g_opt.snapshots->BeginRead(self,GetTickCount64()):dbce::input::RawSnapshotStore::Ticket{};
     HRESULT hr = ((GetStateFn)orig(H_GETSTATE, self))(self, cb, data);
+    if(g_opt.snapshots)g_opt.snapshots->CompleteRead(ticket,hr,cb,data,GetTickCount64());
     if (SUCCEEDED(hr) && g_injectOk && g_table.any()) applyInjections(self, cb, data);
     if (SUCCEEDED(hr) && data && g_shapes) applyShapes(self, cb, data, *g_shapes);
     if (SUCCEEDED(hr) && data && dbce::panel::IsOpen()) dbce::input::suppressState(inputFormat(self), cb, data);
@@ -511,16 +529,20 @@ HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
 typedef HRESULT(STDMETHODCALLTYPE *SetFmtFn)(void *, LPCDIDATAFORMAT);
 HRESULT STDMETHODCALLTYPE hkSetFormat(void *self, LPCDIDATAFORMAT f)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self,true);
     HRESULT hr = ((SetFmtFn)orig(H_SETFMT, self))(self, f);
     if (SUCCEEDED(hr)) setInputFormat(self, dbce::input::format(f));
+    if(SUCCEEDED(hr))mutation.ValidatedFormat(dbce::input::format(f));
     return hr;
 }
 
 typedef HRESULT(STDMETHODCALLTYPE *SetActionFn)(void *, void *, const void *, DWORD);
 HRESULT STDMETHODCALLTYPE hkSetAction(void *self, void *f, const void *user, DWORD flags)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self,true);
     const HRESULT hr = ((SetActionFn)orig(H_SETACTION, self))(self, f, user, flags);
     if (SUCCEEDED(hr)) setInputFormat(self, 0);   // the action map establishes its own layout
+    if(SUCCEEDED(hr))mutation.ValidatedFormat(0);
     return hr;
 }
 
@@ -529,6 +551,8 @@ HRESULT STDMETHODCALLTYPE hkSetAction(void *self, void *f, const void *user, DWO
 typedef ULONG(STDMETHODCALLTYPE *DevReleaseFn)(void *);
 ULONG STDMETHODCALLTYPE hkDevRelease(void *self)
 {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
+    const auto snapshotGeneration=mutation.Generation();
     // The record's generation before the real Release: if the object is freed and its address is handed to a new device
     // (another thread, or inside this Release) before the cleanup below, that new record has another generation and stays.
     unsigned gen = 0;
@@ -536,6 +560,7 @@ ULONG STDMETHODCALLTYPE hkDevRelease(void *self)
     for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { gen = g_devs[i].gen; break; }
     LeaveCriticalSection(&g_cs);
     const ULONG n = ((DevReleaseFn)orig(H_D_RELEASE, self))(self);
+    if(n==0&&g_opt.snapshots)g_opt.snapshots->Retire(self,snapshotGeneration);
     if (n == 0 && gen) {
         EnterCriticalSection(&g_cs);
         for (int i = 0; i < g_devCount; ++i)
@@ -544,30 +569,72 @@ ULONG STDMETHODCALLTYPE hkDevRelease(void *self)
     }
     return n;
 }
+HRESULT STDMETHODCALLTYPE hkUnacquire(void *self) {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
+    return ((DevNoArgFn)orig(H_UNACQUIRE,self))(self);
+}
+HRESULT STDMETHODCALLTYPE hkPoll(void *self) {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
+    const HRESULT hr=((DevNoArgFn)orig(H_POLL,self))(self);
+    return hr;
+}
+typedef HRESULT(STDMETHODCALLTYPE *InitializeFn)(void *,HINSTANCE,DWORD,REFGUID);
+HRESULT STDMETHODCALLTYPE hkInitialize(void *self,HINSTANCE instance,DWORD version,REFGUID guid) {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self,true);
+    const auto generation=mutation.Generation();
+    const HRESULT hr=((InitializeFn)orig(H_INITIALIZE,self))(self,instance,version,guid);
+    if(SUCCEEDED(hr)&&g_opt.snapshots&&generation) {
+        GUID reported{};const HRESULT identity=reportedIdentity(self,reported);
+        g_opt.snapshots->Register(self,reported,SUCCEEDED(identity),snapshotHooksAdmitted(self),generation);
+    }
+    return hr;
+}
+typedef HRESULT(STDMETHODCALLTYPE *QueryFn)(void *,REFIID,void **);
+HRESULT STDMETHODCALLTYPE hkQueryInterface(void *self,REFIID iid,void **out) {
+    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self);
+    const HRESULT hr=((QueryFn)orig(H_QUERYINTERFACE,self))(self,iid,out);
+    // A new interface pointer has unproven alias/lifetime coverage. Do not add a
+    // reference or guess its vtable; conservatively disable optional snapshots.
+    if(SUCCEEDED(hr)&&out&&*out&&*out!=self&&g_opt.snapshots)g_opt.snapshots->Disable();
+    return hr;
+}
+bool snapshotHooksAdmitted(void *self) {
+    struct Required { Hook hook;int slot;void *entry; };
+    const Required needed[]={{H_GETSTATE,9,(void*)&hkGetState},{H_SETFMT,11,(void*)&hkSetFormat},
+        {H_ACQUIRE,7,(void*)&hkAcquire},{H_UNACQUIRE,8,(void*)&hkUnacquire},{H_POLL,25,(void*)&hkPoll},
+        {H_D_RELEASE,2,(void*)&hkDevRelease},{H_SETPROP,6,(void*)&hkSetProp},{H_SETCOOP,13,(void*)&hkSetCoop},
+        {H_SETACTION,30,(void*)&hkSetAction},{H_INITIALIZE,17,(void*)&hkInitialize},
+        {H_QUERYINTERFACE,0,(void*)&hkQueryInterface}};
+    void **vt=*(void ***)self;bool good=true;
+    EnterCriticalSection(&g_cs);
+    for(const auto &required:needed) {
+        bool recorded=false;
+        for(const auto &slot:g_slots[required.hook])if(slot.vt==vt&&slot.orig&&slot.verified)recorded=true;
+        good=good&&recorded&&vt[required.slot]==required.entry;
+    }
+    LeaveCriticalSection(&g_cs);return good;
+}
 
 typedef HRESULT(STDMETHODCALLTYPE *CreateDevFn)(void *, REFGUID, void **, LPUNKNOWN);
 HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUNKNOWN unk)
 {
     HRESULT hr = ((CreateDevFn)orig(H_CREATEDEV, self))(self, g, out, unk);
     if (SUCCEEDED(hr) && out && *out) {
+        dbce::input::RawSnapshotMutation registration(g_opt.snapshots,*out,true);
         HookDevice(*out);
         // The instance the device reports (GetDeviceInfo, slot 15; A and W differ only in the strings after
         // guidInstance, so a W-sized buffer is tried with the A size first, then the W size). Pedal shapes match it.
         GUID reported{};
         bool reportedOk = false;
-        if (g_shapes) {
-            DIDEVICEINSTANCEW info{};
-            typedef HRESULT(STDMETHODCALLTYPE *InfoFn)(void *, void *);
-            void **vt = *(void ***)*out;
-            info.dwSize = sizeof(DIDEVICEINSTANCEA);
-            HRESULT ih = ((InfoFn)vt[15])(*out, &info);
-            if (FAILED(ih)) { info.dwSize = sizeof(DIDEVICEINSTANCEW); ih = ((InfoFn)vt[15])(*out, &info); }
-            if (SUCCEEDED(ih)) { reported = info.guidInstance; reportedOk = true; }
-            else {
+        if (g_shapes || g_opt.snapshots) {
+            HRESULT ih=reportedIdentity(*out,reported);
+            if (SUCCEEDED(ih)) { reportedOk = true; }
+            else if(g_shapes) {
                 g_shapes->noteUnidentified();
                 dlog("shape: CreateDevice: the device's own instance could not be read (0x%08lx); any pedal rest correction it needs will not apply", ih);
             }
         }
+        if(g_opt.snapshots)g_opt.snapshots->Register(*out,reported,reportedOk,!unk&&snapshotHooksAdmitted(*out));
         EnterCriticalSection(&g_cs);   // the instance the game asked for, for test injection by instance
         int slot = -1;
         for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == *out) slot = i;
@@ -618,6 +685,12 @@ void HookDevice(void *dev)
 {
     ensure();
     if (!dev) return;
+    if(g_opt.snapshots) {
+        patch(H_QUERYINTERFACE,dev,0,(void*)&hkQueryInterface);
+        patch(H_UNACQUIRE,dev,8,(void*)&hkUnacquire);
+        patch(H_POLL,dev,25,(void*)&hkPoll);
+        patch(H_INITIALIZE,dev,17,(void*)&hkInitialize);
+    }
     patch(H_SETPROP, dev, 6, (void *)&hkSetProp);
     patch(H_ACQUIRE, dev, 7, (void *)&hkAcquire);
     patch(H_GETSTATE, dev, 9, (void *)&hkGetState);
