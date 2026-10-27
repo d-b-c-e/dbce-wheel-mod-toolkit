@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <algorithm>
 
 static int g_checks, g_fail;
 static void check(bool ok, const std::string &what) { ++g_checks; if (!ok) { ++g_fail; std::cerr << "FAIL " << what << "\n"; } }
@@ -16,11 +17,19 @@ static bool logged(const char *part) { for (auto &l : g_log) if (l.find(part) !=
 static const GUID kInst = {0x000000a1, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
 static const char *kInstText = "{000000a1-0000-0000-0000-000000000000}";
 
-struct FakeDevice final : IDirectInputDevice8A {
+template<class I> struct FakeDeviceImpl final : I {
+    using T = dbce::fence::DeviceTraits<I>;
     std::map<std::string, int> calls;
     LONG refs = 1;
     bool rangeFails = false;
     HRESULT stateResult = DI_OK;   // what GetDeviceState answers; a failure writes nothing
+    bool rawState = false;
+    HRESULT formatResult = DI_OK, actionResult = DI_OK;
+    std::vector<DIDEVICEOBJECTDATA> events;
+    HRESULT dataResult = DI_OK;
+    DWORD dataStride = 0, dataFlags = 0, dataCapacity = 0;
+    void *dataPointer = nullptr;
+    LPDWORD countPointer = nullptr;
     LONG lo = -32768, hi = 32767;
     DWORD lastSetProp = 0;
     void hit(const char *m) { ++calls[m]; }
@@ -29,7 +38,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     STDMETHODIMP_(ULONG) AddRef() override { return ++refs; }
     STDMETHODIMP_(ULONG) Release() override { hit("Release"); return --refs; }
     STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { hit("GetCapabilities"); if (c) c->dwFlags = DIDC_ATTACHED | DIDC_FORCEFEEDBACK; return DI_OK; }
-    STDMETHODIMP EnumObjects(LPDIENUMDEVICEOBJECTSCALLBACKA, LPVOID, DWORD) override { hit("EnumObjects"); return DI_OK; }
+    STDMETHODIMP EnumObjects(typename T::ObjCb, LPVOID, DWORD) override { hit("EnumObjects"); return DI_OK; }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override
     {
         hit("GetProperty");
@@ -54,34 +63,48 @@ struct FakeDevice final : IDirectInputDevice8A {
     {
         hit("GetDeviceState");
         if (FAILED(stateResult)) return stateResult;
+        if (!d) return DIERR_INVALIDPARAM;
+        if (rawState) { memset(d, 0x5a, cb); return stateResult; }
         memset(d, 0, cb);
         auto *s = (DIJOYSTATE *)d;
         s->lX = 576; s->lZ = -32768; s->rgdwPOV[0] = (DWORD)-1; s->rgdwPOV[1] = s->rgdwPOV[2] = s->rgdwPOV[3] = (DWORD)-1;
         return DI_OK;
     }
-    STDMETHODIMP GetDeviceData(DWORD, LPDIDEVICEOBJECTDATA, LPDWORD k, DWORD) override { hit("GetDeviceData"); if (k) *k = 0; return DI_OK; }
-    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { hit("SetDataFormat"); return DI_OK; }
+    STDMETHODIMP GetDeviceData(DWORD stride, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD flags) override
+    {
+        hit("GetDeviceData"); dataStride = stride; dataFlags = flags; dataPointer = d; countPointer = k; dataCapacity = k ? *k : 0;
+        if (FAILED(dataResult)) return dataResult;
+        if (!k || (stride != sizeof(DIDEVICEOBJECTDATA) && stride != sizeof(DIDEVICEOBJECTDATA_DX3)) || (flags & ~DIGDD_PEEK)) return DIERR_INVALIDPARAM;
+        const DWORD n = (std::min)(*k, (DWORD)events.size());
+        if (d) for (DWORD i = 0; i < n; ++i) memcpy((char *)d + i * stride, &events[i], stride);
+        if (!(flags & DIGDD_PEEK)) events.erase(events.begin(), events.begin() + n);
+        *k = n;
+        return dataResult;
+    }
+    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { hit("SetDataFormat"); return formatResult; }
     STDMETHODIMP SetEventNotification(HANDLE) override { hit("SetEventNotification"); return DI_OK; }
     STDMETHODIMP SetCooperativeLevel(HWND, DWORD) override { hit("SetCooperativeLevel"); return DI_OK; }
-    STDMETHODIMP GetObjectInfo(LPDIDEVICEOBJECTINSTANCEA, DWORD, DWORD) override { hit("GetObjectInfo"); return DI_OK; }
-    STDMETHODIMP GetDeviceInfo(LPDIDEVICEINSTANCEA d) override { hit("GetDeviceInfo"); if (d) d->guidInstance = kInst; return DI_OK; }
+    STDMETHODIMP GetObjectInfo(typename T::ObjInst, DWORD, DWORD) override { hit("GetObjectInfo"); return DI_OK; }
+    STDMETHODIMP GetDeviceInfo(typename T::DevInst d) override { hit("GetDeviceInfo"); if (d) d->guidInstance = kInst; return DI_OK; }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { hit("RunControlPanel"); return DI_OK; }
     STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { hit("Initialize"); return DI_OK; }
     STDMETHODIMP CreateEffect(REFGUID, LPCDIEFFECT, LPDIRECTINPUTEFFECT *, LPUNKNOWN) override { hit("CreateEffect"); return DI_OK; }
-    STDMETHODIMP EnumEffects(LPDIENUMEFFECTSCALLBACKA, LPVOID, DWORD) override { hit("EnumEffects"); return DI_OK; }
-    STDMETHODIMP GetEffectInfo(LPDIEFFECTINFOA, REFGUID) override { hit("GetEffectInfo"); return DI_OK; }
+    STDMETHODIMP EnumEffects(typename T::EffCb, LPVOID, DWORD) override { hit("EnumEffects"); return DI_OK; }
+    STDMETHODIMP GetEffectInfo(typename T::EffInfo, REFGUID) override { hit("GetEffectInfo"); return DI_OK; }
     STDMETHODIMP GetForceFeedbackState(LPDWORD) override { hit("GetForceFeedbackState"); return DI_OK; }
     STDMETHODIMP SendForceFeedbackCommand(DWORD) override { hit("SendForceFeedbackCommand"); return DI_OK; }
     STDMETHODIMP EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK, LPVOID, DWORD) override { hit("EnumCreatedEffectObjects"); return DI_OK; }
     STDMETHODIMP Escape(LPDIEFFESCAPE) override { hit("Escape"); return DI_OK; }
     STDMETHODIMP Poll() override { hit("Poll"); return DI_OK; }
     STDMETHODIMP SendDeviceData(DWORD, LPCDIDEVICEOBJECTDATA, LPDWORD, DWORD) override { hit("SendDeviceData"); return DI_OK; }
-    STDMETHODIMP EnumEffectsInFile(LPCSTR, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { hit("EnumEffectsInFile"); return DI_OK; }
-    STDMETHODIMP WriteEffectToFile(LPCSTR, DWORD, LPDIFILEEFFECT, DWORD) override { hit("WriteEffectToFile"); return DI_OK; }
-    STDMETHODIMP BuildActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { hit("BuildActionMap"); return DI_OK; }
-    STDMETHODIMP SetActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { hit("SetActionMap"); return DI_OK; }
-    STDMETHODIMP GetImageInfo(LPDIDEVICEIMAGEINFOHEADERA) override { hit("GetImageInfo"); return DI_OK; }
+    STDMETHODIMP EnumEffectsInFile(typename T::Str, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { hit("EnumEffectsInFile"); return DI_OK; }
+    STDMETHODIMP WriteEffectToFile(typename T::Str, DWORD, LPDIFILEEFFECT, DWORD) override { hit("WriteEffectToFile"); return DI_OK; }
+    STDMETHODIMP BuildActionMap(typename T::ActFmt, typename T::Str, DWORD) override { hit("BuildActionMap"); return DI_OK; }
+    STDMETHODIMP SetActionMap(typename T::ActFmt, typename T::Str, DWORD) override { hit("SetActionMap"); return actionResult; }
+    STDMETHODIMP GetImageInfo(typename T::Image) override { hit("GetImageInfo"); return DI_OK; }
 };
+
+using FakeDevice = FakeDeviceImpl<IDirectInputDevice8A>;
 
 struct FakeInput final : IDirectInput8A {
     std::map<std::string, int> calls;
@@ -108,8 +131,12 @@ static BOOL CALLBACK semCb(LPCDIDEVICEINSTANCEA, LPDIRECTINPUTDEVICE8A, DWORD, D
 template struct dbce::fence::FencedDevice<IDirectInputDevice8W>;
 template struct dbce::fence::FencedDirectInput<IDirectInput8W>;
 
+#include "test_input_suppression.inc"
+
 int main()
 {
+    neutralizerChecks<IDirectInputDevice8A>();
+    neutralizerChecks<IDirectInputDevice8W>();
     using namespace dbce::fence;
     settings().log = logLine;
     dbce::controls::InjectionTable table;

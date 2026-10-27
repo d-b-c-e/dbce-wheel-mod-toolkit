@@ -4,7 +4,7 @@
 #include "dbce_ffb_gain.hpp"
 #include "../panel/dbce_panel.h"
 #include "../controls/dbce_inject_table.hpp"
-#include "dbce_joyformat.hpp"
+#include "dbce_input_suppression.hpp"
 #include "dbce_shape_state.hpp"
 #include <dinput.h>
 #include <stdarg.h>
@@ -27,7 +27,7 @@ void *g_wheelDev;
 // table and delivery as the fenced wrapper, dbce_fence.hpp).
 // instance: the GUID the game passed to CreateDevice (test injection); reported: the instance GUID the device itself
 // reports (GetDeviceInfo), which pedal shapes match, as the fence does.
-struct DevRec { void *dev; GUID instance; int format; GUID reported; bool reportedOk; unsigned gen; };   // format: 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 other
+struct DevRec { void *dev; GUID instance; int format; GUID reported; bool reportedOk; unsigned gen; };   // input::format; joystick injection/shaping only for exact 1/2
 DevRec g_devs[32];
 int g_devCount;
 unsigned g_devGen;   // each recorded CreateDevice gets a new generation (a freed address can come back as a new device)
@@ -59,7 +59,7 @@ bool diagOk() { return InterlockedIncrement(&g_diagLines) <= 2000; }   // bounde
 
 // ---- vtable patching, one original per (hook, table) -------------------------------------------------------
 enum Hook { H_CREATEDEV, H_SETPROP, H_ACQUIRE, H_GETSTATE, H_GETDATA, H_SETCOOP, H_CREATEEFF, H_SENDFF,
-            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_D_RELEASE, H_COUNT };
+            H_E_RELEASE, H_E_SETPARAMS, H_E_START, H_E_STOP, H_E_DOWNLOAD, H_SETFMT, H_D_RELEASE, H_SETACTION, H_COUNT };
 struct Slot { void **vt; void *orig; };
 Slot g_slots[H_COUNT][8];
 // The answer for a table that was never recorded (should not happen): E_FAIL from a stub with the hook's own argument
@@ -72,7 +72,7 @@ HRESULT STDMETHODCALLTYPE unrecorded5(void *, void *, void *, void *, void *) { 
 void *unrecorded(Hook h)
 {
     static void *const byArgs[6] = {nullptr, (void *)&unrecorded1, (void *)&unrecorded2, (void *)&unrecorded3, (void *)&unrecorded4, (void *)&unrecorded5};
-    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2, 1};   // self included, in Hook order
+    static const int args[H_COUNT] = {4, 3, 1, 3, 5, 3, 5, 2, 1, 3, 3, 1, 1, 2, 1, 4};   // self included, in Hook order
     return byArgs[args[h]];
 }
 void *orig(Hook h, void *self)
@@ -407,20 +407,26 @@ HRESULT STDMETHODCALLTYPE hkSendFf(void *self, DWORD cmd)
     if (diagOk()) dlog("ffb: SendForceFeedbackCommand 0x%lx (1 reset 2 stopall 4 pause 8 continue 0x10 actuators on 0x20 off)%s", cmd, g_opt.mute ? " (muted)" : "");
     return ((SendFfFn)orig(H_SENDFF, self))(self, cmd);
 }
-// While the F6 panel is open the game gets no keyboard, mouse or wheel buttons (UX-03); the wheel's axes pass through so a
-// car in motion is not suddenly steered or braked by the mod.
-void suppressForPanel(DWORD cb, LPVOID data)
+// Reads use the same format-checked input-only policy as the closed force fence.
+int inputFormat(void *self)
 {
-    if (!data || !dbce::panel::IsOpen()) return;
-    if (cb == 256 || cb == sizeof(DIMOUSESTATE) || cb == sizeof(DIMOUSESTATE2)) memset(data, 0, cb);
-    else if (cb == sizeof(DIJOYSTATE)) { auto s = (DIJOYSTATE *)data; memset(s->rgbButtons, 0, sizeof s->rgbButtons); for (auto &p : s->rgdwPOV) p = (DWORD)-1; }
-    else if (cb == sizeof(DIJOYSTATE2)) { auto s = (DIJOYSTATE2 *)data; memset(s->rgbButtons, 0, sizeof s->rgbButtons); for (auto &p : s->rgdwPOV) p = (DWORD)-1; }
+    int layout = 0;
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) { layout = g_devs[i].format; break; }
+    LeaveCriticalSection(&g_cs);
+    return layout;
+}
+void setInputFormat(void *self, int layout)
+{
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) g_devs[i].format = layout;
+    LeaveCriticalSection(&g_cs);
 }
 typedef HRESULT(STDMETHODCALLTYPE *GetDataFn)(void *, DWORD, LPDIDEVICEOBJECTDATA, LPDWORD, DWORD);
 HRESULT STDMETHODCALLTYPE hkGetData(void *self, DWORD cbObj, LPDIDEVICEOBJECTDATA rgdod, LPDWORD inOut, DWORD flags)
 {
     HRESULT hr = ((GetDataFn)orig(H_GETDATA, self))(self, cbObj, rgdod, inOut, flags);
-    if (SUCCEEDED(hr) && inOut && dbce::panel::IsOpen() && !(flags & DIGDD_PEEK)) *inOut = 0;   // consumed, not delivered
+    if (SUCCEEDED(hr) && inOut && dbce::panel::IsOpen()) dbce::input::suppressData(inOut);
     return hr;
 }
 // Running test injections on this device replace its raw sample (before the game resolves its bindings). Axis values
@@ -483,9 +489,9 @@ typedef HRESULT(STDMETHODCALLTYPE *GetStateFn)(void *, DWORD, LPVOID);
 HRESULT STDMETHODCALLTYPE hkGetState(void *self, DWORD cb, LPVOID data)
 {
     HRESULT hr = ((GetStateFn)orig(H_GETSTATE, self))(self, cb, data);
-    if (SUCCEEDED(hr)) suppressForPanel(cb, data);
     if (SUCCEEDED(hr) && g_injectOk && g_table.any()) applyInjections(self, cb, data);
     if (SUCCEEDED(hr) && data && g_shapes) applyShapes(self, cb, data, *g_shapes);
+    if (SUCCEEDED(hr) && data && dbce::panel::IsOpen()) dbce::input::suppressState(inputFormat(self), cb, data);
     if (SUCCEEDED(hr) && data && (cb == sizeof(DIJOYSTATE) || cb == sizeof(DIJOYSTATE2))) {   // the first five reads, then every 10 s
         static volatile LONG n;
         static ULONGLONG last;
@@ -506,12 +512,15 @@ typedef HRESULT(STDMETHODCALLTYPE *SetFmtFn)(void *, LPCDIDATAFORMAT);
 HRESULT STDMETHODCALLTYPE hkSetFormat(void *self, LPCDIDATAFORMAT f)
 {
     HRESULT hr = ((SetFmtFn)orig(H_SETFMT, self))(self, f);
-    if (SUCCEEDED(hr)) {   // test injection writes standard fields only into a standard format
-        const int k = dbce::fence::standardFormat(f);
-        EnterCriticalSection(&g_cs);
-        for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == self) g_devs[i].format = k;
-        LeaveCriticalSection(&g_cs);
-    }
+    if (SUCCEEDED(hr)) setInputFormat(self, dbce::input::format(f));
+    return hr;
+}
+
+typedef HRESULT(STDMETHODCALLTYPE *SetActionFn)(void *, void *, const void *, DWORD);
+HRESULT STDMETHODCALLTYPE hkSetAction(void *self, void *f, const void *user, DWORD flags)
+{
+    const HRESULT hr = ((SetActionFn)orig(H_SETACTION, self))(self, f, user, flags);
+    if (SUCCEEDED(hr)) setInputFormat(self, 0);   // the action map establishes its own layout
     return hr;
 }
 
@@ -614,6 +623,7 @@ void HookDevice(void *dev)
     patch(H_GETSTATE, dev, 9, (void *)&hkGetState);
     patch(H_GETDATA, dev, 10, (void *)&hkGetData);
     patch(H_SETFMT, dev, 11, (void *)&hkSetFormat);
+    patch(H_SETACTION, dev, 30, (void *)&hkSetAction);
     patch(H_SETCOOP, dev, 13, (void *)&hkSetCoop);
     patch(H_CREATEEFF, dev, 18, (void *)&hkCreateEffect);
     patch(H_SENDFF, dev, 22, (void *)&hkSendFf);

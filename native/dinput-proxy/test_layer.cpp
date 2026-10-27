@@ -12,6 +12,7 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 static int g_checks, g_fail;
 static void check(bool ok, const std::string &what) { ++g_checks; if (!ok) { ++g_fail; std::cerr << "FAIL " << what << "\n"; } }
@@ -52,6 +53,9 @@ struct FakeDevice : IDirectInputDevice8A {
     bool infoFails = false, rangeFails = false;
     FakeEffect *effect = nullptr;
     int stopAll = 0, properties = 0;
+    bool rawState = false;
+    HRESULT stateResult = DI_OK, formatResult = DI_OK, actionResult = DI_OK, dataResult = DI_OK;
+    DWORD queued = 0, lastFlags = 0, lastStride = 0;
     LONG rz = 1743;   // the pedal's raw sample (the game's range is 0..65535 here)
     void (*onFinalRelease)() = nullptr;   // runs after the object is gone, before Release returns
     explicit FakeDevice(const GUID &g) : inst(g) { ++g_live; }
@@ -76,14 +80,27 @@ struct FakeDevice : IDirectInputDevice8A {
     STDMETHODIMP Unacquire() override { return DI_OK; }
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID d) override
     {
+        if (FAILED(stateResult)) return stateResult;
+        if (!d) return DIERR_INVALIDPARAM;
+        if (rawState) { memset(d, 0x5a, cb); return stateResult; }
         memset(d, 0, cb);
         auto *s = (DIJOYSTATE *)d;
         s->lX = 33265; s->lZ = 0; s->lRz = rz;
         for (auto &p : s->rgdwPOV) p = (DWORD)-1;
         return DI_OK;
     }
-    STDMETHODIMP GetDeviceData(DWORD, LPDIDEVICEOBJECTDATA, LPDWORD k, DWORD) override { if (k) *k = 0; return DI_OK; }
-    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { return DI_OK; }
+    STDMETHODIMP GetDeviceData(DWORD stride, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD flags) override
+    {
+        lastFlags = flags; lastStride = stride;
+        if (FAILED(dataResult)) return dataResult;
+        if (!k || (stride != sizeof(DIDEVICEOBJECTDATA) && stride != sizeof(DIDEVICEOBJECTDATA_DX3)) || (flags & ~DIGDD_PEEK)) return DIERR_INVALIDPARAM;
+        const DWORD n = (std::min)(*k, queued);
+        if (d) memset(d, 0x5a, n * stride);
+        if (!(flags & DIGDD_PEEK)) queued -= n;
+        *k = n;
+        return dataResult;
+    }
+    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { return formatResult; }
     STDMETHODIMP SetEventNotification(HANDLE) override { return DI_OK; }
     STDMETHODIMP SetCooperativeLevel(HWND, DWORD) override { return DI_OK; }
     STDMETHODIMP GetObjectInfo(LPDIDEVICEOBJECTINSTANCEA, DWORD, DWORD) override { return DI_OK; }
@@ -107,7 +124,7 @@ struct FakeDevice : IDirectInputDevice8A {
     STDMETHODIMP EnumEffectsInFile(LPCSTR, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { return DI_OK; }
     STDMETHODIMP WriteEffectToFile(LPCSTR, DWORD, LPDIFILEEFFECT, DWORD) override { return DI_OK; }
     STDMETHODIMP BuildActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { return DI_OK; }
-    STDMETHODIMP SetActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { return DI_OK; }
+    STDMETHODIMP SetActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { return actionResult; }
     STDMETHODIMP GetImageInfo(LPDIDEVICEIMAGEINFOHEADERA) override { return DI_OK; }
 };
 
@@ -261,6 +278,65 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     check(DeleteFileA(good.c_str()) && RemoveDirectoryA(bad.c_str()) && RemoveDirectoryA(root), "private INI and directories removed");
 }
 
+static void inputSuppressionChecks(IDirectInputDevice8A *dev)
+{
+    auto *fake = static_cast<FakeDevice *>(dev);
+    fake->rawState = true;
+    dbce::panel::SetOpen(true);
+    for (const DIDATAFORMAT *f : {&c_dfDIJoystick, &c_dfDIJoystick2, &c_dfDIKeyboard, &c_dfDIMouse, &c_dfDIMouse2}) {
+        alignas(DIJOYSTATE2) unsigned char storage[288]; memset(storage, 0x7b, sizeof storage);
+        dev->SetDataFormat(f); dev->GetDeviceState(f->dwDataSize, storage);
+        const bool joy = f == &c_dfDIJoystick || f == &c_dfDIJoystick2;
+        check(storage[joy ? DIJOFS_BUTTON(0) : 0] == 0 && storage[f->dwDataSize] == 0x7b, "production hook: neutral state with canary");
+        if (joy) check(((DIJOYSTATE *)storage)->lX == 0x5a5a5a5a && ((DIJOYSTATE *)storage)->rgdwPOV[0] == (DWORD)-1, "production hook: joystick axes preserved, POV neutral");
+    }
+    dev->SetDataFormat(&c_dfDIJoystick2);
+    DIJOYSTATE2 got{};
+    fake->formatResult = DIERR_INVALIDPARAM;
+    check(dev->SetDataFormat(nullptr) == DIERR_INVALIDPARAM, "hook format failure preserved");
+    dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[0] == 0, "hook failed format keeps layout");
+    fake->formatResult = DI_OK; fake->actionResult = DIERR_INVALIDPARAM;
+    check(dev->SetActionMap(nullptr, nullptr, 0) == DIERR_INVALIDPARAM, "hook action-map failure preserved");
+    dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[0] == 0, "hook failed action map keeps layout");
+    fake->actionResult = DI_OK; dev->SetActionMap(nullptr, nullptr, 0);
+    dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[0] == 0x5a, "hook successful action map clears layout");
+    dev->SetDataFormat(&c_dfDIJoystick2);
+    char why[200]; dbce::ffb::AllowInjection(true);
+    check(dbce::ffb::Inject(kAskedFor, 2, 40, 1, 0, 1, 2000, why, sizeof why), "hook button injection accepted");
+    dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[40] == 0, "hook final suppression follows injection");
+    dbce::ffb::AllowInjection(false);
+    std::vector<DIOBJECTDATAFORMAT> objects(c_dfDIJoystick2.rgodf, c_dfDIJoystick2.rgodf + c_dfDIJoystick2.dwNumObjs);
+    std::swap(objects[0].dwOfs, objects[1].dwOfs);
+    DIDATAFORMAT custom = c_dfDIJoystick2; custom.rgodf = objects.data();
+    dev->SetDataFormat(&custom); dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[0] == 0x5a, "hook custom same-size state untouched");
+    fake->stateResult = DIERR_INPUTLOST;
+    memset(&got, 0x7b, sizeof got);
+    check(dev->GetDeviceState(sizeof got, &got) == DIERR_INPUTLOST && got.rgbButtons[0] == 0x7b, "hook failed state untouched");
+    fake->stateResult = DI_OK;
+    for (DWORD flags : {(DWORD)0, (DWORD)DIGDD_PEEK}) for (HRESULT hr : {DI_OK, DI_BUFFEROVERFLOW}) {
+        DIDEVICEOBJECTDATA data[2]; fake->queued = 2; fake->dataResult = hr;
+        DWORD n = 2;
+        check(dev->GetDeviceData(sizeof data[0], data, &n, flags) == hr && n == 0 && fake->lastFlags == flags && fake->lastStride == sizeof data[0], "production buffered hook hides events and preserves flags/HRESULT");
+        check(fake->queued == ((flags & DIGDD_PEEK) ? 2u : 0u), "production buffered hook preserves PEEK non-consumption");
+    }
+    fake->queued = 2; fake->dataResult = DI_OK;
+    DWORD n = INFINITE;
+    check(dev->GetDeviceData(sizeof(DIDEVICEOBJECTDATA_DX3), nullptr, &n, DIGDD_PEEK) == DI_OK && n == 0 && fake->queued == 2, "hook legacy/count-only PEEK hidden without drain");
+    fake->dataResult = DIERR_INPUTLOST; n = 2;
+    check(dev->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), nullptr, &n, 0) == DIERR_INPUTLOST && n == 2 && fake->queued == 2, "hook failed buffered call untouched");
+    fake->dataResult = DI_OK;
+    dbce::panel::SetOpen(false); n = 2;
+    check(dev->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), nullptr, &n, 0) == DI_OK && n == 2 && fake->queued == 0, "hook close resumes normal buffered delivery");
+    dev->SetDataFormat(&c_dfDIJoystick2); dev->GetDeviceState(sizeof got, &got);
+    check(got.rgbButtons[0] == 0x5a, "hook close resumes immediate held button");
+    fake->rawState = false;
+}
+
 int main()
 {
     dbce::ffb::Options o;
@@ -301,6 +377,8 @@ int main()
     const auto lines = dbce::controls::describe(*table);
     check(lines[0].find("corrected, but some reads were not") != std::string::npos, "status: corrected, with the earlier miss kept: " + lines[0]);
     check(table->state(0).shaped == 2 && table->state(0).unavailable == 1, "per-shape counts");
+
+    inputSuppressionChecks(dev);
 
     // Churn: far more than 32 devices created and released; each new one is still tracked and shaped.
     bool allShaped = true;
