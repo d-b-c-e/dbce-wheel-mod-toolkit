@@ -19,4 +19,9 @@ HWND InputWindow();
 // positions mapped from the window's client area to the back buffer.
 void DrainInput(int backBufferWidth, int backBufferHeight);
 
+// Development channel only: on resets/enables counters, snapshot reports, off
+// disables/reports. Never changes input/panel state. Reports at most 8 times per
+// process, through the supplied logger after releasing the input lock.
+void TraceInput(const char *command, void (*log)(const char *));
+
 }} // namespace dbce::panel
