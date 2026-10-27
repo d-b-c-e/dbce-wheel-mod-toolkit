@@ -55,7 +55,7 @@ struct FakeDevice : IDirectInputDevice8A {
     FakeEffect *effect = nullptr;
     int stopAll = 0, properties = 0;
     bool rawState = false;
-    HRESULT acquireResult=DI_OK,unacquireResult=DI_OK,pollResult=DI_OK;
+    HRESULT acquireResult=DI_OK,unacquireResult=DI_OK,pollResult=DI_OK,initializeResult=DI_OK;
     void (*onState)()=nullptr;
     void (*onFormat)()=nullptr;
     void *queryAlias=nullptr;
@@ -117,7 +117,7 @@ struct FakeDevice : IDirectInputDevice8A {
         return DI_OK;
     }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { return DI_OK; }
-    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return DI_OK; }
+    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return initializeResult; }
     STDMETHODIMP CreateEffect(REFGUID, LPCDIEFFECT, LPDIRECTINPUTEFFECT *e, LPUNKNOWN) override { if (e) *e = effect; return effect ? DI_OK : DIERR_UNSUPPORTED; }
     STDMETHODIMP EnumEffects(LPDIENUMEFFECTSCALLBACKA, LPVOID, DWORD) override { return DI_OK; }
     STDMETHODIMP GetEffectInfo(LPDIEFFECTINFOA, REFGUID) override { return DI_OK; }
@@ -351,9 +351,40 @@ template<int N> struct SnapshotSlotDevice final:FakeDevice {
     STDMETHODIMP GetDeviceState(DWORD cb,LPVOID data) override { return FakeDevice::GetDeviceState(cb,data); }
 };
 template<int N> static FakeDevice *snapshotFactory() { return new SnapshotSlotDevice<N>; }
+static void rawInitializeReentryChecks() {
+    using Store=dbce::input::RawSnapshotStore;
+    static IDirectInputDevice8A *during=nullptr;static Store *activeStore=nullptr;
+    static std::uint64_t activeEpoch=0;
+    static bool entered=false,insideAdmission=false,insideSeal=false;
+    static HRESULT initResult=E_FAIL,formatResult=E_FAIL,readResult=E_FAIL;
+    for(HRESULT outcome:{DI_OK,DIERR_INPUTLOST}) {
+        Store store;dbce::ffb::Options options;options.snapshots=&store;options.mute=true;dbce::ffb::Init(options);
+        FakeInput input;input.next=kWheel;IDirectInput8A *di=&input;dbce::ffb::HookDirectInput(di);
+        IDirectInputDevice8A *dev=nullptr;di->CreateDevice(kAskedFor,&dev,nullptr);dev->SetDataFormat(&c_dfDIJoystick2);
+        auto *fake=static_cast<FakeDevice *>(dev);fake->initializeResult=outcome;
+        const auto generation=store.Generation(dev);during=dev;activeStore=&store;activeEpoch=store.BeginInvocation();entered=false;
+        fake->onFormat=[] {
+            entered=true;initResult=during->Initialize(nullptr,0x0800,kOther);
+            formatResult=during->SetDataFormat(&c_dfDIJoystick2);
+            DIJOYSTATE2 data{};readResult=during->GetDeviceState(sizeof data,&data);
+            insideSeal=activeStore->Seal(activeEpoch);Store::Snapshot out;
+            insideAdmission=activeStore->ReadUnique(kWheel,activeEpoch,GetTickCount64(),1000,out);
+        };
+        check(dev->SetDataFormat(&c_dfDIJoystick2)==DI_OK&&entered&&initResult==outcome&&formatResult==DI_OK&&readResult==DI_OK,
+              "raw layer: outer mutation reenters original Initialize then format/read with HRESULTs preserved");
+        check(!insideSeal&&!insideAdmission&&store.Generation(dev)==generation,
+              "raw layer: Initialize disables before reentrant publication without replacing outstanding mutation");
+        DIJOYSTATE2 data{};dev->SetDataFormat(&c_dfDIJoystick2);dev->GetDeviceState(sizeof data,&data);store.Seal(activeEpoch);Store::Snapshot out;
+        check(data.lRz==0&&!store.ReadUnique(kWheel,activeEpoch,GetTickCount64(),1000,out),
+              "raw layer: after outer completion legacy shaping remains, Initialize admission stays disabled");
+        store.EndInvocation(activeEpoch);check(store.BeginInvocation()==0,"raw layer: Initialize cannot reopen store via a fresh invocation");
+        dev->Release();options.snapshots=nullptr;dbce::ffb::Init(options);during=nullptr;activeStore=nullptr;
+    }
+}
 static void rawSnapshotLayerChecks() {
     using Store=dbce::input::RawSnapshotStore;
     rawSnapshotStoreChecks();
+    rawInitializeReentryChecks();
     Store store;dbce::ffb::Options options;options.snapshots=&store;options.mute=true;
     dbce::ffb::Init(options);
     FakeInput input;input.next=kWheel;IDirectInput8A *di=&input;dbce::ffb::HookDirectInput(di);
@@ -369,10 +400,6 @@ static void rawSnapshotLayerChecks() {
     fake->acquireResult=DIERR_INPUTLOST;
     check(dev->Acquire()==DIERR_INPUTLOST&&!store.ReadUnique(kWheel,epoch,GetTickCount64(),1000,out),"raw layer: Acquire failure preserves HRESULT and invalidates");
     store.EndInvocation(epoch);fake->acquireResult=DI_OK;
-    fake->inst=kOther;const auto prior=store.Generation(dev);dev->Initialize(nullptr,0x0800,kOther);dev->SetDataFormat(&c_dfDIJoystick2);
-    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof state,&state);store.Seal(epoch);
-    check(store.ReadUnique(kOther,epoch,GetTickCount64(),1000,out)&&out.generation>prior,"raw layer: Initialize retarget requires fresh identity generation/format");store.EndInvocation(epoch);
-    fake->inst=kWheel;dev->Initialize(nullptr,0x0800,kWheel);dev->SetDataFormat(&c_dfDIJoystick2);
     epoch=store.BeginInvocation();dev->GetDeviceState(sizeof state,&state);store.Seal(epoch);dev->Unacquire();
     check(!store.ReadUnique(kWheel,epoch,GetTickCount64(),1000,out),"raw layer: Unacquire invalidates sealed sample");store.EndInvocation(epoch);
     DIPROPRANGE range{};range.diph.dwSize=sizeof range;range.diph.dwHeaderSize=sizeof range.diph;range.diph.dwHow=DIPH_DEVICE;range.lMax=65535;

@@ -34,14 +34,13 @@ public:
     RawSnapshotStore &operator=(const RawSnapshotStore &)=delete;
     void Disable() { std::lock_guard<std::mutex> lock(mutex_);disable(); }
 
-    std::uint64_t Register(const void *device, const GUID &reported, bool identified, bool hooksAdmitted=true, std::uint64_t expectedGeneration=0) {
+    std::uint64_t Register(const void *device, const GUID &reported, bool identified, bool hooksAdmitted=true) {
         if(!device)return 0;
         const auto generation=nextGeneration(); // Separate lock; never nested with this store's mutex.
         std::lock_guard<std::mutex> lock(mutex_);
         if (!device || !healthy_) return 0;
         if(!hooksAdmitted) { disable();return 0; }
         Entry *e=find(device);
-        if(expectedGeneration&&(!e||e->generation!=expectedGeneration))return 0;
         if (e) invalidateGuid(e->instance);
         if (!e) for (auto &candidate:entries_) if (!candidate.device) { e=&candidate; break; }
         if (!e || !generation) { disable(); return 0; }

@@ -33,8 +33,10 @@ hook admission disables the store. The bounds are 64 live records and eight
 overlapping mutations per record; exhaustion disables admission.
 
 Acquire, Unacquire, Poll, property/cooperative-level changes, format/action-map,
-Initialize and every Release invalidate and hold mutation occupancy across the
-forwarded call. Poll/Acquire success is not a sample. Failed format calls preserve
+and every Release invalidate and hold mutation occupancy across the
+forwarded call. Ordinary Initialize disables the optional store before forwarding
+the original call, including failure; it cannot replace an entry during another
+outstanding mutation. Poll/Acquire success is not a sample. Failed format calls preserve
 legacy transformation layout while raw layout becomes unknown. Final Release
 retires only its saved generation, including same-address reuse during Release.
 Fenced Initialize remains refused, with raw descriptor invalidation.

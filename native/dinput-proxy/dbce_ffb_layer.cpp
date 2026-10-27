@@ -580,14 +580,9 @@ HRESULT STDMETHODCALLTYPE hkPoll(void *self) {
 }
 typedef HRESULT(STDMETHODCALLTYPE *InitializeFn)(void *,HINSTANCE,DWORD,REFGUID);
 HRESULT STDMETHODCALLTYPE hkInitialize(void *self,HINSTANCE instance,DWORD version,REFGUID guid) {
-    dbce::input::RawSnapshotMutation mutation(g_opt.snapshots,self,true);
-    const auto generation=mutation.Generation();
-    const HRESULT hr=((InitializeFn)orig(H_INITIALIZE,self))(self,instance,version,guid);
-    if(SUCCEEDED(hr)&&g_opt.snapshots&&generation) {
-        GUID reported{};const HRESULT identity=reportedIdentity(self,reported);
-        g_opt.snapshots->Register(self,reported,SUCCEEDED(identity),snapshotHooksAdmitted(self),generation);
-    }
-    return hr;
+    // Retargeting may reenter an outstanding mutation; never erase its occupancy.
+    if(g_opt.snapshots)g_opt.snapshots->Disable();
+    return ((InitializeFn)orig(H_INITIALIZE,self))(self,instance,version,guid);
 }
 typedef HRESULT(STDMETHODCALLTYPE *QueryFn)(void *,REFIID,void **);
 HRESULT STDMETHODCALLTYPE hkQueryInterface(void *self,REFIID iid,void **out) {
