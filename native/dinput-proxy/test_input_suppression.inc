@@ -98,7 +98,7 @@ template<class I> static void neutralizerChecks()
     fake.rawState = false;
     dbce::controls::Binding brake; std::string shapeWhy;
     dbce::controls::ShapeTable shapes;
-    check(dbce::controls::parse(std::string("axis 5 dev=") + kInstText + " range=0..65535 rest=1743 travel=+1", brake, shapeWhy) && shapes.add("brake", brake, shapeWhy), "panel shape fixture admitted");
+    check(dbce::controls::parse(std::string("axis 5 dev=") + kInstText + " prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=1743 travel=+1", brake, shapeWhy) && shapes.add("brake", brake, shapeWhy), "panel shape fixture admitted");
     settings().shapes = &shapes;
     inputOpen = false; DIJOYSTATE2 shaped{}; dev->GetDeviceState(sizeof shaped, &shaped);
     inputOpen = true; dev->GetDeviceState(sizeof got.state, &got.state);
