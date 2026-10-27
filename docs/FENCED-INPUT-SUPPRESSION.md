@@ -1,7 +1,17 @@
 # Panel input suppression in the closed DirectInput wrapper
 
-October 27, 2026. Candidate based on `e4d84fb`; source/fixture preparation only
-until the registered checks below have a receipt. No installation or game run.
+October 27, 2026. Candidate based on `e4d84fb`; registered checks PASS on
+`09cc89f` (production identical to `566b2d2`). No installation or game run.
+
+One leased `build_ffb_layer.ps1` batch first failed two A/W fixture admissions
+because a test pedal binding omitted the required product GUID. Test-only
+`09cc89f` adds that captured identity; the original failure remains retained.
+The second registered batch passes 20 gain checks, 322 actual A/W force-fence
+checks on each of x86/x64, 156 production-hook checks on each architecture,
+and the existing x86 layer/panel compile. No warnings. Safe child census is
+empty; lease `c534188d011f441ead44a883601c8309` released after completion.
+Evidence: hub `artifacts/revo-input-neutralizer-dume-20261027/`, logs
+`toolkit-01.log` and `toolkit-02.log`, cleanup JSON and lease/release receipts.
 
 `fence::Settings::panelOpen` is an opt-in process-long predicate, configured
 before DirectInput creation. Null preserves the old forwarding behavior. The
