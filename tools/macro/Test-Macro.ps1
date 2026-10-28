@@ -43,6 +43,11 @@ try {
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun -RequireForeground 2>&1 | Out-Null
         Check ($LASTEXITCODE -ne 0) "malformed key step: $bad"
     }
+    foreach ($bad in 'expect ref.bmp NaN', 'expect ref.bmp Infinity', 'expect ref.bmp -1', 'expect ref.bmp 256') {
+        Set-Content -LiteralPath $hand -Value @($bad)
+        & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun 2>&1 | Out-Null
+        Check ($LASTEXITCODE -ne 0) "non-finite or out-of-range checkpoint limit refused: $bad"
+    }
     # Unbounded times and an unsafe -Game are refused before anything runs, dry run or not.
     foreach ($bad in 'NaN wheel button 1 1', 'Infinity wheel button 1 1', '1e300 wheel button 1 1', '+3000 wheel button 1 1') {
         Set-Content -LiteralPath $hand -Value @('dev wheel {00000000-0000-0000-0000-0000000000ff}', '+1000 wheel button 1 1', $bad)

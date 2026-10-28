@@ -53,7 +53,7 @@ foreach ($raw in Get-Content -LiteralPath $Macro) {
     $last = $at
     if ($t[1] -eq 'expect') {
         $limit = 20.0
-        if ($t.Count -notin 3, 4 -or ($t.Count -eq 4 -and (![double]::TryParse($t[3], [Globalization.NumberStyles]::Float, $inv, [ref]$limit) -or $limit -lt 0 -or $limit -gt 255))) { & $bad '[<seconds>] expect <reference.bmp> [maxDiff 0-255]' }
+        if ($t.Count -notin 3, 4 -or ($t.Count -eq 4 -and (![double]::TryParse($t[3], [Globalization.NumberStyles]::Float, $inv, [ref]$limit) -or ![double]::IsFinite($limit) -or $limit -lt 0 -or $limit -gt 255))) { & $bad '[<seconds>] expect <reference.bmp> [maxDiff 0-255]' }
         $ref = Join-Path (Split-Path -Parent (Resolve-Path -LiteralPath $Macro)) $t[2]
         if (!$RecordCheckpoint -and !(Test-Path -LiteralPath $ref -PathType Leaf)) { & $bad "no reference $ref (make it with -RecordCheckpoint)" }
         $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'expect'; Ref = $ref; MaxDiff = $limit; Line = $n })

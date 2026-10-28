@@ -28,7 +28,8 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
 - A down, an angle or an axis value is held until the same object's next event, or for `ms=` (50-15000). Up and
   centred send nothing: the real device is at rest. Holds are cut at 15 s (the injection limit).
 - `[<seconds>] expect <reference.bmp> [maxDiff]`: a checkpoint (without a time, right after the previous line). Give
-  the screen time to settle first, as in the example. The lines after a checkpoint keep their spacing.
+  the screen time to settle first, as in the example. The lines after a checkpoint keep their spacing. Place checkpoints only after every hold and key has been released:
+  the capture wait delays scheduled releases, so a 300 ms press would stay down while the frame is fetched.
 - `[<seconds>] key <scan> [ms=<50-15000>]`: a keyboard key by hardware scan code (`0x1C` or `28` is Enter; plain
   codes 0x01-0x7F, no E0-extended keys), held for `ms` (default 300), sent with `SendInput` and `KEYEVENTF_SCANCODE`.
   For screens that ignore the wheel (GRID 2019's title "PRESS A" takes only Enter). Keys go to whatever window is in
