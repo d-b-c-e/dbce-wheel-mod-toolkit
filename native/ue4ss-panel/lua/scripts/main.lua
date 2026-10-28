@@ -8,7 +8,8 @@ local function log(s) print("[DbcePanel] " .. s) end
 local function modDir()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")   -- level 1: this function, in this file
   local src = info and info.source or ""
-  if src:sub(1, 1) == "@" then return src:sub(2):match("^(.*)[\\/]scripts[\\/][^\\/]+$") end
+  -- UE4SS names the chunk ...\Mods\<name>\Scripts\main.lua (capital S on some builds): match the folder case-blind.
+  if src:sub(1, 1) == "@" then return src:sub(2):match("^(.*)[\\/][Ss][Cc][Rr][Ii][Pp][Tt][Ss][\\/][^\\/]+$") end
   return nil
 end
 
