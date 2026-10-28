@@ -66,6 +66,20 @@ pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print
 - Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` (needs the lease) makes one
   `Stage-GameForeground` request and stops, sending nothing, if foreground is unmet. Afterwards every check also
   observes (read-only, never re-requested) that the same game window is the foreground window and belongs to the game.
+- Foreground at startup, once, in this order (`tools/macro/MacroForeground.ps1`): the game window already in front;
+  else the ordinary `Stage-GameForeground` request (input-free); else a reobservation; else ONE activation-key
+  fallback, because unattended launches on the rig never get focus (foreground lock timeout at its maximum; novi
+  found that one F24 press through `SendInput`, then `SetForegroundWindow`, brings the game to the front). The
+  fallback first revalidates the lease, the game's birth time and path, and that its exact window is visible and not
+  minimized; it sends nothing if Shift, Ctrl, Alt, Windows or F24 is already held; it sends F24 down and up in one
+  `SendInput` call and releases F24 if only one event went in or the call failed; then `SetForegroundWindow` on that
+  window. Success comes only from observing that exact window in front, never from an API return. It is logged
+  (attempted, events inserted, result) and reported as `foreground` in the JSON result; it is never retried, and
+  nothing activates after playback starts (losing focus then aborts through the guarded waits).
+- `SendInput` is global input. We cannot claim that no key reaches another window, nor that F24 is unbound in every
+  program: the F24 press goes to whatever is in front at that moment. It is a deliberate, minimal, logged exception,
+  only with `-RequireForeground`, and only after the ordinary request is genuinely unmet. No timeout, policy or
+  elevation changes.
 - When playback stops early, every hold still running gets a 50 ms release sample; a complete run waits for its
   last hold to end. A malformed macro fails (exit 1) before anything is launched or sent.
 - The last stdout line is a JSON result:

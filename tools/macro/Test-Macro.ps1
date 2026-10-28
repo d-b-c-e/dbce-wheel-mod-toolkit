@@ -163,4 +163,45 @@ try {
         $env:LOCALAPPDATA = $saved
     }
 } finally { Remove-Item -LiteralPath $hand -ErrorAction SilentlyContinue }
+
+# Foreground with mocks (MacroForeground.ps1): no real window, key or SendInput.
+. (Join-Path $PSScriptRoot 'MacroForeground.ps1')
+function Fg([hashtable]$o = @{}) {
+    $s = @{ front = @(@{ Window = 5; Owner = 9 }); n = 0; request = 'unmet'; held = $false; sent = 0; released = 0; activated = 0; validated = 0; log = @() }
+    foreach ($k in $o.Keys) { $s[$k] = $o[$k] }
+    $r = Invoke-MacroForeground -ProcessId 42 -Observe { $f = $s.front[[Math]::Min($s.n, $s.front.Count - 1)]; $s.n++; [pscustomobject]$f } `
+        -Request { if ($s.requestThrows) { throw $s.requestThrows }; [pscustomobject]@{ status = $s.request; window = 77; reason = 'Windows refused the ordinary foreground request' } } `
+        -Validate { param($w) $s.validated++; if ($s.invalid) { throw $s.invalid } } -KeysHeld { $s.held } `
+        -SendF24 { $s.sent++; if ($s.sendThrows) { throw 'boom' }; $s.inserted ?? 2 } -Release { $s.released++ } `
+        -Activate { param($w) $s.activated++; $false } -Log { param($l) $s.log += $l }
+    [pscustomobject]@{ r = $r; s = $s }
+}
+$x = Fg @{ front = @(@{ Window = 77; Owner = 42 }) }
+Check ($x.r.status -eq 'observed' -and $x.r.via -eq 'already in front' -and $x.s.sent -eq 0) 'foreground: already in front, no key'
+$x = Fg @{ request = 'observed' }
+Check ($x.r.status -eq 'observed' -and $x.r.via -eq 'ordinary request' -and $x.s.sent -eq 0 -and $x.s.validated -eq 0) 'foreground: ordinary success, no key'
+$x = Fg @{ front = @(@{ Window = 5; Owner = 9 }, @{ Window = 77; Owner = 42 }) }
+Check ($x.r.status -eq 'observed' -and $x.r.via -like 'reobserved*' -and $x.s.sent -eq 0) 'foreground: in front on reobservation despite a false return, no key'
+foreach ($why in 'game process 42 is Reused', 'lease token mismatch') {
+    $x = Fg @{ invalid = $why }
+    Check ($x.r.status -eq 'unmet' -and $x.s.sent -eq 0 -and !$x.r.fallbackAttempted -and $x.r.reason -match [regex]::Escape($why)) "foreground: refused ($why), no key"
+}
+$threw = $false; try { Fg @{ requestThrows = 'lease token mismatch' } | Out-Null } catch { $threw = $true }
+Check $threw 'foreground: a lease refused by the ordinary request stops before any fallback'
+$x = Fg @{ held = $true }
+Check ($x.r.status -eq 'unmet' -and $x.s.sent -eq 0 -and $x.r.reason -match 'held') 'foreground: a modifier or F24 held, no key'
+$x = Fg @{ front = @(@{ Window = 5; Owner = 9 }, @{ Window = 5; Owner = 9 }, @{ Window = 77; Owner = 42 }) }
+Check ($x.r.status -eq 'observed' -and $x.r.via -eq 'activation-key fallback' -and $x.s.sent -eq 1 -and $x.r.eventsInserted -eq 2 -and $x.s.activated -eq 1 -and $x.s.released -eq 0) 'foreground: one fallback success'
+Check ($x.s.log.Count -eq 1 -and $x.s.log[0] -match 'attempted=True events inserted=2 result=observed') "foreground: the fallback is logged: $($x.s.log)"
+$x = Fg @{}
+Check ($x.r.status -eq 'unmet' -and $x.s.sent -eq 1 -and $x.s.activated -eq 1 -and $x.r.reason -match 'not in front after') 'foreground: one fallback failure, never retried'
+$x = Fg @{ inserted = 1 }
+Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.s.activated -eq 0 -and $x.r.reason -match 'inserted 1 of 2') 'foreground: a partial insert is released, no activation'
+$x = Fg @{ sendThrows = $true }
+Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.s.activated -eq 0) 'foreground: a SendInput error is released'
+$x = Fg @{ inserted = 0 }
+Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 0 -and $x.s.activated -eq 0) 'foreground: nothing inserted, nothing to release'
+Assert-MacroForeground 77 42 { [pscustomobject]@{ Window = 77; Owner = 42 } }
+$lost = $false; try { Assert-MacroForeground 77 42 { [pscustomobject]@{ Window = 5; Owner = 9 } } } catch { $lost = $_.Exception.Message -eq 'the game window lost the foreground' }
+Check $lost 'foreground: loss during playback throws, so the guarded wait aborts and releases'
 "PASS $checks macro checks"
