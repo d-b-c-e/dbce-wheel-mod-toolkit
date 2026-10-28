@@ -420,6 +420,7 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
 }
 
 void (*volatile g_beforePanel)(IDXGISwapChain *, ID3D11Device *);
+void (*volatile g_afterPanel)(IDXGISwapChain *, ID3D11Device *);
 
 void render(IDXGISwapChain *sc)
 {
@@ -442,6 +443,7 @@ void render(IDXGISwapChain *sc)
     if (SUCCEEDED(sc->GetDevice(__uuidof(ID3D11Device), (void **)&dev)) && dev) {
         drawable = true;
         if (wanted) render11(sc, dev);
+        if (auto *after = g_afterPanel) after(sc, dev);   // the finished frame, panel included
         dev->Release();
     } else if (detail::render12) {
         drawable = detail::render12(sc, wanted);   // also while closed: a renderer that can start gets input back
@@ -551,6 +553,7 @@ BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *) { InitializeCriticalSection(&
 } // namespace
 
 void SetBeforePanelD3D11(void (*hook)(IDXGISwapChain *, ID3D11Device *)) { g_beforePanel = hook; }
+void SetAfterPanelD3D11(void (*hook)(IDXGISwapChain *, ID3D11Device *)) { g_afterPanel = hook; }
 
 bool StartD3D11(void (*log)(const char *))
 {

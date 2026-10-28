@@ -19,5 +19,8 @@ bool StartD3D11(void (*log)(const char *line));
 // frame (for example a triple-screen compositor) with the panel staying on top. Present's thread; keep it short.
 // nullptr clears it. Not called for D3D12 chains.
 void SetBeforePanelD3D11(void (*hook)(IDXGISwapChain *chain, ID3D11Device *device));
+// Optional: called after the panel (or the frame counter / status line) has been drawn, on frames the overlay draws,
+// so a mod can capture the finished frame (development frame dumps of the F6 UI). Not called on the usual closed frame.
+void SetAfterPanelD3D11(void (*hook)(IDXGISwapChain *chain, ID3D11Device *device));
 
 }} // namespace dbce::overlay
