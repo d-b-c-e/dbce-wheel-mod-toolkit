@@ -28,5 +28,49 @@ try {
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun 2>&1 | Out-Null
         Check ($LASTEXITCODE -ne 0) "malformed macro exits nonzero: $bad"
     }
+    # Unbounded times and an unsafe -Game are refused before anything runs, dry run or not.
+    foreach ($bad in 'NaN wheel button 1 1', 'Infinity wheel button 1 1', '1e300 wheel button 1 1', '+3000 wheel button 1 1') {
+        Set-Content -LiteralPath $hand -Value @('dev wheel {00000000-0000-0000-0000-0000000000ff}', '+1000 wheel button 1 1', $bad)
+        foreach ($mode in @('-DryRun'), @('-ProcessId', $PID)) {
+            $o = & pwsh -NoProfile -File $play -Macro $hand -Game test @mode 2>&1
+            Check ($LASTEXITCODE -ne 0 -and "$o" -match 'bad time|time past') "unbounded time refused ($mode): $bad"
+        }
+    }
+    foreach ($g in '..\x', 'a/b', 'a b', '') {
+        & pwsh -NoProfile -File $play -Macro (Join-Path $fx 'recorded.macro') -Game $g -DryRun 2>&1 | Out-Null
+        Check ($LASTEXITCODE -ne 0) "-Game must be a plain folder token: '$g'"
+    }
+
+    # Real playback into a temporary LOCALAPPDATA, with a sleeping pwsh standing in for the game (no game, no device).
+    $saved = $env:LOCALAPPDATA
+    $env:LOCALAPPDATA = Join-Path ([IO.Path]::GetTempPath()) "dbce-macro-local-$PID"
+    $flags = New-Item -ItemType Directory -Force (Join-Path $env:LOCALAPPDATA 'dbce\macrotest')
+    'ffb-fence.on', 'inject.on' | ForEach-Object { New-Item -ItemType File -Force (Join-Path $flags $_) | Out-Null }
+    $injectFile = Join-Path $flags 'inject.txt'
+    $g = '{000000b2-0000-0000-0000-000000000000}'
+    try {
+        Set-Content -LiteralPath $hand -Value @("dev g $g", '0.1 g button 3 1 ms=600')
+        & pwsh -NoProfile -File $play -Macro $hand -Game macrotest 2>&1 | Out-Null
+        Check ($LASTEXITCODE -ne 0 -and !(Test-Path $injectFile)) 'no -ProcessId or -Launch: refused, nothing sent'
+
+        $game = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 30' -PassThru -WindowStyle Hidden
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        $json = (& pwsh -NoProfile -File $play -Macro $hand -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -eq 0 -and $json.macroDispatched -and $json.stepsSent -eq 1 -and $null -eq $json.stoppedReason -and $null -eq $json.gameplayReady) "complete run: JSON result $($json | ConvertTo-Json -Compress)"
+        Check ($timer.ElapsedMilliseconds -ge 700) "complete run waits for the last hold to finish ($($timer.ElapsedMilliseconds) ms)"
+        Check ((Get-Content $injectFile) -eq "inject raw button 3 dev=$g value=1 ms=600") 'complete run: the press was sent, no release needed'
+        Stop-Process -Id $game.Id
+
+        # The game exits during a long hold: playback stops, the hold gets its release, nothing later is sent.
+        Set-Content -LiteralPath $hand -Value @("dev g $g", '0.1 g button 3 1 ms=8000', '6 g button 4 1')
+        $game = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 2' -PassThru -WindowStyle Hidden
+        $json = (& pwsh -NoProfile -File $play -Macro $hand -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -ne 0 -and !$json.macroDispatched -and $json.stepsSent -eq 1 -and $json.stoppedReason -match 'Absent') "lost game: stopped ($($json | ConvertTo-Json -Compress))"
+        Check ((Get-Content $injectFile) -eq "inject raw button 3 dev=$g value=0 ms=50") "lost game: the running hold was released: $(Get-Content $injectFile)"
+    } finally {
+        if ($game -and !$game.HasExited) { Stop-Process -Id $game.Id }
+        Remove-Item -Recurse -Force -LiteralPath $env:LOCALAPPDATA -ErrorAction SilentlyContinue
+        $env:LOCALAPPDATA = $saved
+    }
 } finally { Remove-Item -LiteralPath $hand -ErrorAction SilentlyContinue }
 "PASS $checks macro checks"

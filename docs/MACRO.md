@@ -36,14 +36,26 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
 `inject.on` and `ffb-fence.on` must have existed when the game started.
 
 ```
-pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> [-Device wheel={guid}]
-pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -Launch <exe> [-LaunchWaitSeconds 60] [-LeasePath p -LeaseToken t]
+pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -ProcessId <pid> [-Device wheel={guid}] [-LeasePath p -LeaseToken t]
+pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -Launch <exe> [-LaunchWaitSeconds 60]
+pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -Launch <appid|steam://...> -GameExe <game exe> [-LaunchWaitSeconds 60]
 pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print the injection lines only
 ```
 
-Fenced controllers are read in the background, so focus is optional; with a rig lease the player asks for the
-game's foreground through `tools/playback/Stage-GameForeground.ps1`. It stops if the game process exits, and a
-malformed macro fails (exit 1) before anything is sent. Tests: `tools/macro/Test-Macro.ps1` (offline) and the
+- `-Game` is a plain folder token (letters, digits, `-`, `_`). Times must be finite and at most one hour.
+- The game is identified by PID and creation time (`tools/playback/Stage-ProcessIdentity.ps1`); a Steam launch follows
+  the one new `-GameExe` process, not Steam's. Before every batch and at least every second of a wait, the identity
+  and (with `-LeasePath`) the rig lease are rechecked; on loss playback stops.
+- Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` (needs the lease) makes one
+  `Stage-GameForeground` request and stops, sending nothing, if foreground is unmet.
+- When playback stops early, every hold still running gets a 50 ms release sample; a complete run waits for its
+  last hold to end. A malformed macro fails (exit 1) before anything is launched or sent.
+- The last stdout line is a JSON result:
+  `{"macroDispatched":true,"stepsSent":12,"stepsTotal":12,"stoppedReason":null,"gameplayReady":null}`. Exit 0 only
+  when `macroDispatched`. `gameplayReady` is always null here: the player only knows what it sent. The game's own
+  adapter (a frame dump, telemetry or log line) supplies the witness that gameplay was reached.
+
+Tests: `tools/macro/Test-Macro.ps1` (offline, a sleeping pwsh stands in for the game) and the
 recorder section of `native/dinput-proxy/test_fence.cpp` (`build_ffb_layer.ps1`), which share
 `tools/macro/fixtures/recorded.macro`.
 
