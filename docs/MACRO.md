@@ -42,6 +42,8 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
   (BepInEx/Unity, UE4SS), `-FrameSource WindowCapture` takes one PNG of the game's largest visible window with
   `tools/window-capture` (build it first; no focus change or input) and converts it to the same 24-bit BMP. It needs
   `-ProcessId` or `-Launch`, also for `-RecordCheckpoint`. Record references with the same source you replay with.
+  `-FrameWidth <px>` downscales those captures (aspect kept, never upscaled), e.g. 1920 turns a 33 MB 7680x1440
+  reference into about 2 MB; use the same width for recording and playback.
 - `[<seconds>] cmd <text>`: appends the rest of the line (comment and outer spaces trimmed) plus CRLF to the file given
   by `-CommandFile`, for a game whose menus take no wheel or key input but has its own command channel (ADRIFT's UE4SS
   dev channel `cmd.txt`). Refused without `-CommandFile` (dry runs too). Each append follows a passing lease and

@@ -22,12 +22,14 @@ param(
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
     [string]$DeliveryLog,                         # the mod's log: every inject step must show up there (docs/MACRO.md)
     [ValidateSet('Game', 'WindowCapture')][string]$FrameSource = 'Game',   # WindowCapture: tools/window-capture, for games without frame-dump.req
+    [ValidateRange(64, 16384)][int]$FrameWidth,  # WindowCapture: downscale frames to this width (smaller references)
     [string]$CommandFile,                         # "cmd" steps are appended here (e.g. a UE4SS dev channel's cmd.txt)
     [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $maxSeconds = 3600   # a macro longer than an hour is a mistake, not a route
 $checkEveryMs = 1000
+if ($FrameWidth -and $FrameSource -ne 'WindowCapture') { throw '-FrameWidth is for -FrameSource WindowCapture.' }
 
 function Get-Guid([string]$text) {
     $g = [Guid]::Empty
@@ -194,7 +196,7 @@ function Get-CaptureFrame([scriptblock]$Guard) {
     & $Guard
     $png = Join-Path ([IO.Path]::GetTempPath()) "dbce-macro-frame-$PID.png"
     try {
-        $o = & $exe $id $png 2>&1
+        $o = if ($FrameWidth) { & $exe $id $png --width $FrameWidth 2>&1 } else { & $exe $id $png 2>&1 }
         if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $png)) { throw "window capture failed: $o" }
         & $Guard
         Add-Type -AssemblyName System.Drawing

@@ -65,6 +65,8 @@ try {
     Set-Content -LiteralPath $hand -Value @('expect ref.bmp')
     $o = & pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -FrameSource WindowCapture -RecordCheckpoint ref 2>&1
     Check ($LASTEXITCODE -ne 0 -and "$o" -match 'needs -ProcessId') 'window-capture checkpoint without a process refused'
+    $o = & pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -FrameWidth 1920 -DryRun 2>&1
+    Check ($LASTEXITCODE -ne 0 -and "$o" -match 'FrameWidth is for') '-FrameWidth without WindowCapture refused'
     foreach ($bad in 'expect ref.bmp NaN', 'expect ref.bmp Infinity', 'expect ref.bmp -1', 'expect ref.bmp 256') {
         Set-Content -LiteralPath $hand -Value @($bad)
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun 2>&1 | Out-Null
