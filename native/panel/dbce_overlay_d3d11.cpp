@@ -418,9 +418,15 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
     releaseTarget();
 }
 
+void (*volatile g_beforePanel)(IDXGISwapChain *, ID3D11Device *);
+
 void render(IDXGISwapChain *sc)
 {
     if (sc == g_chain) { dbce::panel::NoteFrame(); dbce::panel::PollDev(); }
+    if (auto *before = g_beforePanel; before && sc == g_chain) {
+        ID3D11Device *dev = nullptr;
+        if (SUCCEEDED(sc->GetDevice(__uuidof(ID3D11Device), (void **)&dev)) && dev) { before(sc, dev); dev->Release(); }
+    }
     const bool wanted = dbce::panel::IsOpen() || dbce::panel::StatusLineActive();
     if (sc == g_chain && g_inputOn && !wanted) return;   // the usual closed frame; otherwise drawability is checked
     // A chain not drawable yet (a D3D12 renderer that has not started) is looked at again every 30th Present.
@@ -541,6 +547,8 @@ DWORD WINAPI worker(LPVOID)
 INIT_ONCE g_once = INIT_ONCE_STATIC_INIT;
 BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *) { InitializeCriticalSection(&g_cs); return TRUE; }
 } // namespace
+
+void SetBeforePanelD3D11(void (*hook)(IDXGISwapChain *, ID3D11Device *)) { g_beforePanel = hook; }
 
 bool StartD3D11(void (*log)(const char *))
 {

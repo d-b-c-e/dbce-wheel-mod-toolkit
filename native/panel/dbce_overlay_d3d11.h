@@ -7,9 +7,17 @@
 // D3D11 device) is left alone. Nothing is done from DllMain; call Start once from the mod's initialization.
 #pragma once
 
+struct IDXGISwapChain;
+struct ID3D11Device;
+
 namespace dbce { namespace overlay {
 
 // Returns false when the worker could not be started; the outcome is logged.
 bool StartD3D11(void (*log)(const char *line));
+
+// Optional: called on the game's swap chain at every Present, before the panel draws, so a mod can post-process the
+// frame (for example a triple-screen compositor) with the panel staying on top. Present's thread; keep it short.
+// nullptr clears it. Not called for D3D12 chains.
+void SetBeforePanelD3D11(void (*hook)(IDXGISwapChain *chain, ID3D11Device *device));
 
 }} // namespace dbce::overlay
