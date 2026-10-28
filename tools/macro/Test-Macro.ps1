@@ -43,6 +43,24 @@ try {
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun -RequireForeground 2>&1 | Out-Null
         Check ($LASTEXITCODE -ne 0) "malformed key step: $bad"
     }
+    # Command-file steps: the text verbatim, refused without -CommandFile, appended with CRLF in order; a cmd-only
+    # macro needs no fence flags (no wheel injection). The "game" here is a short-lived pwsh.
+    Set-Content -LiteralPath $hand -Value @('0.1 cmd widgets W_List   # comment', 'cmd call A_*.B$  Fn', '+0.2 cmd vehicle')
+    $got = Lines (& $play -Macro $hand -Game test-cmd-none -DryRun -CommandFile x)
+    Check (($got -join '|') -eq '0.100 cmd widgets W_List|0.100 cmd call A_*.B$  Fn|0.300 cmd vehicle') "cmd steps: $($got -join ' | ')"
+    $o = & pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -DryRun 2>&1
+    Check ($LASTEXITCODE -ne 0 -and "$o" -match 'need -CommandFile') 'cmd without -CommandFile refused'
+    Set-Content -LiteralPath $hand -Value @('cmd')
+    & pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -DryRun -CommandFile x 2>&1 | Out-Null
+    Check ($LASTEXITCODE -ne 0) 'empty cmd step is malformed'
+    $cmdFile = Join-Path ([IO.Path]::GetTempPath()) "dbce-macro-cmd-$PID.txt"
+    $stand = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 20' -PassThru -WindowStyle Hidden
+    try {
+        Set-Content -LiteralPath $hand -Value @('0.1 cmd one', '+0.1 cmd two words')
+        $o = @(& pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -ProcessId $stand.Id -CommandFile $cmdFile 2>$null)
+        $r = $o[-1] | ConvertFrom-Json
+        Check ($LASTEXITCODE -eq 0 -and $r.stepsSent -eq 2 -and [IO.File]::ReadAllText($cmdFile) -eq "one`r`ntwo words`r`n") "cmd steps appended to the command file: $($o[-1])"
+    } finally { Stop-Process -Id $stand.Id -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $cmdFile -ErrorAction SilentlyContinue }
     foreach ($bad in 'expect ref.bmp NaN', 'expect ref.bmp Infinity', 'expect ref.bmp -1', 'expect ref.bmp 256') {
         Set-Content -LiteralPath $hand -Value @($bad)
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun 2>&1 | Out-Null

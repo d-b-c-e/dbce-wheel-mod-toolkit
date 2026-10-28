@@ -6,7 +6,8 @@
 # so focus is opt-in (-RequireForeground: at startup only, the ordinary Stage-GameForeground request and, if that is
 # genuinely unmet, one logged F24 activation-key fallback (MacroForeground.ps1); then only observed).
 # "expect <ref.bmp>" lines compare one game frame with a reference and stop on mismatch; -RecordCheckpoint <name>
-# saves the current frame as <name>.bmp beside the macro. "key <scan>" steps (SendInput) need -RequireForeground. Holds still running when playback stops get a release
+# saves the current frame as <name>.bmp beside the macro. "key <scan>" steps (SendInput) need -RequireForeground.
+# "cmd <text>" steps append <text> + CRLF to -CommandFile (a game's own command channel). Holds still running when playback stops get a release
 # sample. The last line is a JSON result; exit 0 only when the whole macro was sent and every checkpoint matched.
 # -DryRun prints "<seconds> <inject line>" for each step and sends nothing. A malformed macro throws (exit 1).
 param(
@@ -20,6 +21,7 @@ param(
     [switch]$RequireForeground,
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
     [string]$DeliveryLog,                         # the mod's log: every inject step must show up there (docs/MACRO.md)
+    [string]$CommandFile,                         # "cmd" steps are appended here (e.g. a UE4SS dev channel's cmd.txt)
     [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -44,8 +46,8 @@ foreach ($raw in Get-Content -LiteralPath $Macro) {
         if ($t.Count -ne 3 -or !($g = Get-Guid $t[2]) -or (Get-Guid $t[1])) { & $bad 'dev <name> <guid>' }
         $devs[$t[1]] = $g; continue
     }
-    if ($t[0] -in 'expect', 'key') { $t = @("+0") + $t }   # untimed: right after the previous step
-    if ($t[1] -notin 'expect', 'key' -and $t.Count -lt 5) { & $bad '<seconds> <dev> <button|hat|axis> <index> <value> [ms=<50-15000>] [range=<min>..<max>]' }
+    if ($t[0] -in 'expect', 'key', 'cmd') { $t = @("+0") + $t }   # untimed: right after the previous step
+    if ($t[1] -notin 'expect', 'key', 'cmd' -and $t.Count -lt 5) { & $bad '<seconds> <dev> <button|hat|axis> <index> <value> [ms=<50-15000>] [range=<min>..<max>]' }
     $rel = $t[0].StartsWith('+')
     $s = 0.0
     if (![double]::TryParse($t[0].TrimStart('+'), [Globalization.NumberStyles]::Float, $inv, [ref]$s) -or ![double]::IsFinite($s) -or $s -lt 0) { & $bad 'bad time' }
@@ -66,6 +68,12 @@ foreach ($raw in Get-Content -LiteralPath $Macro) {
         $ref = Join-Path (Split-Path -Parent (Resolve-Path -LiteralPath $Macro)) $t[2]
         if (!$RecordCheckpoint -and !(Test-Path -LiteralPath $ref -PathType Leaf)) { & $bad "no reference $ref (make it with -RecordCheckpoint)" }
         $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'expect'; Ref = $ref; MaxDiff = $limit; Region = $region; Line = $n })
+        continue
+    }
+    if ($t[1] -eq 'cmd') {   # the rest of the line, verbatim (inner spacing kept, comment and ends trimmed)
+        if ($t.Count -lt 3) { & $bad '[<seconds>] cmd <text>' }
+        $text = (($raw -replace '#.*$', '').Trim() -replace '^(\S+\s+)?cmd\s+', '')
+        $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'cmd'; Text = $text; Line = $n })
         continue
     }
     if ($t[1] -eq 'key') {   # a keyboard key by hardware scan code (SendInput): only for a game in the foreground
@@ -108,6 +116,7 @@ $steps = @(for ($i = 0; $i -lt $events.Count; $i++) {
         $where = if ($e.Region) { ' region=' + ($e.Region -join ',') }
         [pscustomobject]@{ At = $e.At; Expect = $e.Ref; MaxDiff = $e.MaxDiff; Region = $e.Region; Line = "expect $($e.Ref) $($e.MaxDiff)$where" }; continue
     }
+    if ($e.Kind -eq 'cmd') { [pscustomobject]@{ At = $e.At; Expect = $null; KeyScan = $null; Cmd = $e.Text; Line = "cmd $($e.Text)" }; continue }
     if ($e.Kind -eq 'key') {   # a key is released by its own step (SendInput keys do not expire like injections)
         $hex = '0x{0:X2}' -f $e.Scan
         [pscustomobject]@{ At = $e.At; Expect = $null; KeyScan = $e.Scan; KeyUp = $false; Ms = $e.Ms; Line = "key $hex down ms=$($e.Ms)" }
@@ -135,6 +144,8 @@ for ($k = 0; $k -lt $steps.Count; $k++) { $steps[$k] | Add-Member -NotePropertyN
 if (!$RecordCheckpoint -and !$RequireForeground -and ($steps | Where-Object { $null -ne $_.KeyScan })) {
     throw "${Macro}: key steps go to whatever window is in front, so they need -RequireForeground (and the rig lease)"
 }
+$hasCmd = [bool]($steps | Where-Object { $_.Cmd })
+if (!$RecordCheckpoint -and $hasCmd -and !$CommandFile) { throw "${Macro}: cmd steps need -CommandFile (the game's command file)" }
 if ($DryRun) { foreach ($s in $steps) { '{0} {1}' -f $s.At.ToString('0.000', $inv), $s.Line }; return }
 
 $dir = Join-Path $env:LOCALAPPDATA "dbce\$Game"
@@ -198,7 +209,9 @@ if ($RecordCheckpoint) {
 }
 
 # Everything that can be refused is refused before a launch.
-foreach ($flag in 'ffb-fence.on', 'inject.on') {
+$hasInject = [bool]($steps | Where-Object { !$_.Expect -and !$_.Cmd -and $null -eq $_.KeyScan })
+if ($hasCmd -and !(Test-Path -LiteralPath (Split-Path -Parent ([IO.Path]::GetFullPath($CommandFile))) -PathType Container)) { throw "No folder for -CommandFile $CommandFile; nothing sent." }
+foreach ($flag in @('ffb-fence.on', 'inject.on') | Where-Object { $hasInject }) {   # only wheel injections need the fence
     if (!(Test-Path -LiteralPath (Join-Path $dir $flag))) { throw "Missing $dir\$flag (needed when the game starts); nothing sent." }
 }
 if (!$Launch -and !$ProcessId) { throw 'Name the game: -ProcessId or -Launch.' }
@@ -363,6 +376,13 @@ try {
             [Console]::Error.WriteLine(('{0} checkpoint {1} matched ({2})' -f $start.ToString('0.000', $inv), $name, $diff.ToString('0.0', $inv)))
             continue
         }
+        if ($steps[$i].Cmd) {   # Wait-Until has just checked the lease and the game; no foreground needed
+            $c = $steps[$i++]
+            [IO.File]::AppendAllText($CommandFile, $c.Cmd + "`r`n", [Text.UTF8Encoding]::new($false))
+            $result.stepsSent++
+            [Console]::Error.WriteLine(('{0} {1}' -f $start.ToString('0.000', $inv), $c.Line))
+            continue
+        }
         if ($null -ne $steps[$i].KeyScan) {   # Wait-Until has just checked the lease, the game and its foreground window
             $k = $steps[$i++]
             Send-Key $k.KeyScan $k.KeyUp
@@ -372,7 +392,7 @@ try {
             [Console]::Error.WriteLine(('{0} {1}' -f $start.ToString('0.000', $inv), $k.Line))
             continue
         }
-        $batch = @(); while ($i -lt $steps.Count -and !$steps[$i].Expect -and $null -eq $steps[$i].KeyScan -and $steps[$i].At - $start -lt 0.06) { $batch += $steps[$i]; $i++ }
+        $batch = @(); while ($i -lt $steps.Count -and !$steps[$i].Expect -and !$steps[$i].Cmd -and $null -eq $steps[$i].KeyScan -and $steps[$i].At - $start -lt 0.06) { $batch += $steps[$i]; $i++ }
         $logAt = if ($DeliveryLog) { Get-DeliveryOffset }
         Send $batch.Line
         if ($DeliveryLog) {

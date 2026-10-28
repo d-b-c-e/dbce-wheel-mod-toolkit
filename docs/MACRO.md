@@ -38,6 +38,11 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
   front, so a macro with a key step is refused unless the run has `-RequireForeground` (dry runs too), and each key
   send follows a passing lease, identity and foreground-window check. A key still down when playback stops gets its
   key-up in the same cleanup as holds. The recorder does not record keys; add them by hand.
+- `[<seconds>] cmd <text>`: appends the rest of the line (comment and outer spaces trimmed) plus CRLF to the file given
+  by `-CommandFile`, for a game whose menus take no wheel or key input but has its own command channel (ADRIFT's UE4SS
+  dev channel `cmd.txt`). Refused without `-CommandFile` (dry runs too). Each append follows a passing lease and
+  identity check; no foreground is needed. A macro with only `cmd` steps needs no `ffb-fence.on`/`inject.on`. The text
+  is not interpreted: a game-side name lookup belongs in the game's channel, not in the macro.
 
 ## Record (the owner)
 
