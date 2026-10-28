@@ -81,6 +81,14 @@ pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print
   program: the F24 press goes to whatever is in front at that moment. It is a deliberate, minimal, logged exception,
   only with `-RequireForeground`, and only after the ordinary request is genuinely unmet. No timeout, policy or
   elevation changes.
+- `-DeliveryLog <the mod's log>`: stop sending when input is not reaching the game. Before each inject step (button,
+  hat, axis) the player notes the log's length; the step then needs a line written after that point naming its kind,
+  index and device GUID (case-insensitive; lines with "refused" or "not delivered" never count) within its ms + 1000.
+  DiRT 3 logs `inject: "inject raw button 31 dev={...} value=1 ms=300" -> button 31 sample 1 on {...} for 300 ms`;
+  GRID's pad path `inject (pad): inject: button N on {...} ended`. A miss stops with `step N not delivered` (N counts
+  the macro's steps in time order), releases running holds and sends nothing further. It is checked in every guarded
+  wait, so a later step can go out before an earlier step's deadline. The result adds `stepsDelivered`. Key steps
+  are not checked here (they keep the foreground guard).
 - When playback stops early, every hold still running gets a 50 ms release sample; a complete run waits for its
   last hold to end. A malformed macro fails (exit 1) before anything is launched or sent.
 - The last stdout line is a JSON result:

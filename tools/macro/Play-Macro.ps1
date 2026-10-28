@@ -19,6 +19,7 @@ param(
     [string]$LeasePath, [string]$LeaseToken,
     [switch]$RequireForeground,
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
+    [string]$DeliveryLog,                         # the mod's log: every inject step must show up there (docs/MACRO.md)
     [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -130,6 +131,7 @@ $steps = @(for ($i = 0; $i -lt $events.Count; $i++) {
     [pscustomobject]@{ At = $e.At; Expect = $null; KeyScan = $null; Line = $line; Ms = $ms; Key = "$g $($e.Kind) $($e.Index)"; Release = $release }
 })
 $steps = @($steps | Sort-Object At -Stable)   # key-ups land at their time
+for ($k = 0; $k -lt $steps.Count; $k++) { $steps[$k] | Add-Member -NotePropertyName N -NotePropertyValue ($k + 1) }
 if (!$RecordCheckpoint -and !$RequireForeground -and ($steps | Where-Object { $null -ne $_.KeyScan })) {
     throw "${Macro}: key steps go to whatever window is in front, so they need -RequireForeground (and the rig lease)"
 }
@@ -208,8 +210,9 @@ if ($steam -and !$GameExe) { throw 'A Steam -Launch needs -GameExe (the game exe
 if ($LeasePath) { . (Join-Path $PSScriptRoot '..\playback\Stage-RigLease.ps1'); Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
 
 $sendCount = @($steps | Where-Object { !$_.Expect }).Count
-$result = [ordered]@{ macroDispatched = $false; stepsSent = 0; stepsTotal = $sendCount; checkpointsPassed = 0; checkpoints = @(); stoppedReason = $null; gameplayReady = $null }
+$result = [ordered]@{ macroDispatched = $false; stepsSent = 0; stepsTotal = $sendCount; checkpointsPassed = 0; checkpoints = @(); stepsDelivered = $null; stoppedReason = $null; gameplayReady = $null }
 $holds = @{}
+if ($DeliveryLog) { $result.stepsDelivered = 0 }
 $clock = [Diagnostics.Stopwatch]::StartNew()
 $path = Join-Path $dir 'inject.txt'
 $script:fgWindow = 0L
@@ -254,9 +257,42 @@ public static bool Key(ushort scan, bool up) {
     if (![Dbce.MacroKeys]::Key([uint16]$scan, $up)) { throw "SendInput refused key 0x$('{0:X2}' -f $scan)" }
 }
 # Every wait is guarded: checked at least every second and immediately after the last sleep.
+# -DeliveryLog: each inject step waits for its device, kind and index in a log line written after the step was sent
+# (the mod's acceptance or delivery line; "refused" and "not delivered" lines never count), within its ms + 1000.
+$script:pending = [Collections.Generic.List[object]]::new()
+$script:logLines = [Collections.Generic.List[object]]::new()
+$script:logPos = 0L
+function Read-DeliveryLog {
+    if (!(Test-Path -LiteralPath $DeliveryLog)) { return }
+    $fs = [IO.File]::Open($DeliveryLog, 'Open', 'Read', 'ReadWrite, Delete')
+    try {
+        if ($fs.Length -lt $script:logPos) { $script:logPos = 0L }   # the mod started a new log
+        $fs.Position = $script:logPos
+        $b = [byte[]]::new($fs.Length - $script:logPos); $got = $fs.Read($b, 0, $b.Length)
+    } finally { $fs.Dispose() }
+    $start = 0
+    for ($k = 0; $k -lt $got; $k++) {
+        if ($b[$k] -ne 10) { continue }
+        $script:logLines.Add([pscustomobject]@{ Offset = $script:logPos + $start; Text = [Text.Encoding]::UTF8.GetString($b, $start, $k - $start) })
+        $start = $k + 1
+    }
+    $script:logPos += $start   # a partial last line is read again next time
+}
+function Get-DeliveryOffset { Read-DeliveryLog; if (Test-Path -LiteralPath $DeliveryLog) { (Get-Item -LiteralPath $DeliveryLog).Length } else { 0L } }
+function Test-Delivery([switch]$Final) {
+    if (!$script:pending.Count) { return }
+    Read-DeliveryLog
+    foreach ($d in @($script:pending)) {
+        $hit = $script:logLines | Where-Object { $_.Offset -ge $d.Offset -and $_.Text -notmatch 'refused|not delivered' -and
+            $_.Text.IndexOf($d.Dev, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $_.Text -match "\b$($d.Kind)\s+$($d.Index)\b" } | Select-Object -First 1
+        if ($hit) { [void]$script:pending.Remove($d); $result.stepsDelivered++ }
+        elseif ($Final -or $clock.ElapsedMilliseconds -gt $d.Deadline) { throw "step $($d.N) not delivered" }
+    }
+}
 function Wait-Until([long]$dueMs) {
     while ($true) {
         Assert-Game
+        if ($DeliveryLog) { Test-Delivery }
         $left = $dueMs - $clock.ElapsedMilliseconds
         if ($left -le 0) { return }
         Start-Sleep -Milliseconds ([Math]::Min($left, $checkEveryMs))
@@ -337,13 +373,21 @@ try {
             continue
         }
         $batch = @(); while ($i -lt $steps.Count -and !$steps[$i].Expect -and $null -eq $steps[$i].KeyScan -and $steps[$i].At - $start -lt 0.06) { $batch += $steps[$i]; $i++ }
+        $logAt = if ($DeliveryLog) { Get-DeliveryOffset }
         Send $batch.Line
+        if ($DeliveryLog) {
+            foreach ($s in $batch) {
+                $dev, $kind, $index = $s.Key -split ' '
+                $script:pending.Add([pscustomobject]@{ N = $s.N; Dev = $dev; Kind = $kind; Index = $index; Offset = $logAt; Deadline = $clock.ElapsedMilliseconds + $s.Ms + 1000 })
+            }
+        }
         foreach ($s in $batch) { $holds[$s.Key] = [pscustomobject]@{ Until = $clock.ElapsedMilliseconds + $s.Ms; Release = $s.Release } }
         $result.stepsSent += $batch.Count
         [Console]::Error.WriteLine(('{0} {1}' -f $start.ToString('0.000', $inv), ($batch.Line -join ' | ')))
     }
-    $end = ($holds.Values | Measure-Object Until -Maximum).Maximum
-    if ($end) { Wait-Until ([long]$end) }   # the last hold completes under the same checks
+    $end = (@($holds.Values.Until) + @($script:pending.Deadline) | Measure-Object -Maximum).Maximum
+    if ($end) { Wait-Until ([long]$end) }   # the last hold completes (and the last deliveries are due) under the same checks
+    if ($DeliveryLog) { Test-Delivery -Final }
     $result.macroDispatched = $true
 } catch {
     $result.stoppedReason = $_.Exception.Message

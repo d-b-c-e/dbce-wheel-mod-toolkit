@@ -152,6 +152,31 @@ try {
         Set-Content -LiteralPath $rm -Value @("dev g $g", '0.1 g button 3 1 ms=100', '+0.3 expect item2.bmp 20 region=0.09,0.17,0.24,0.83')
         $json = (& pwsh -NoProfile -File $play -Macro $rm -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
         Check ($whole -le 20 -and $LASTEXITCODE -ne 0 -and $json.stoppedReason -match '^checkpoint item2 mismatch' -and $json.checkpoints[0].diff -gt 20) "region: a moved highlight the whole frame misses ($whole) is caught ($($json.checkpoints[0].diff))"
+        # -DeliveryLog: a stand-in mod that logs each inject line the way DiRT 3 does, and one that logs nothing.
+        $modLog = Join-Path $work 'mod.log'
+        Set-Content -LiteralPath $modLog -Value "inject: `"inject raw button 3 dev=$g value=1 ms=200`" -> button 3 sample 1 on $g for 200 ms   (an earlier run)"
+        $echo = "`$f = '$injectFile'; `$last = `$null; `$end = (Get-Date).AddSeconds(30); while ((Get-Date) -lt `$end) { " +
+                "if ((Test-Path `$f) -and (Get-Item `$f).LastWriteTimeUtc -ne `$last) { `$last = (Get-Item `$f).LastWriteTimeUtc; " +
+                "foreach (`$l in Get-Content `$f) { if (`$l -match '^inject raw (\w+) (\d+) .*dev=(\{[^}]+\}).*ms=(\d+)') { " +
+                "Add-Content '$modLog' ('inject: `"' + `$l + '`" -> ' + `$Matches[1] + ' ' + `$Matches[2] + ' sample 1 on ' + `$Matches[3] + ' for ' + `$Matches[4] + ' ms') } } }; Start-Sleep -Milliseconds 40 }"
+        $dm = Join-Path $work 'deliver.macro'
+        Set-Content -LiteralPath $dm -Value @("dev g $g", '0.1 g button 3 1 ms=200', '0.5 g hat 0 18000 ms=200')
+        $mod = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', $echo -PassThru -WindowStyle Hidden
+        try {
+            Remove-Item -LiteralPath $injectFile -ErrorAction SilentlyContinue
+            $json = (& pwsh -NoProfile -File $play -Macro $dm -Game macrotest -ProcessId $mod.Id -DeliveryLog $modLog 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+            Check ($LASTEXITCODE -eq 0 -and $json.macroDispatched -and $json.stepsDelivered -eq 2) "delivery: every step logged by the mod ($($json | ConvertTo-Json -Compress))"
+        } finally { Stop-Process -Id $mod.Id -ErrorAction SilentlyContinue }
+        # The game's log stays silent (input not reaching it): the old matching line from before the step does not
+        # count; playback stops at the deadline, releases the running hold and sends nothing further.
+        Set-Content -LiteralPath $dm -Value @("dev g $g", '0.1 g button 3 1 ms=200', '0.5 g button 4 1 ms=5000', '3 g button 5 1')
+        $json = (& pwsh -NoProfile -File $play -Macro $dm -Game macrotest -ProcessId $game.Id -DeliveryLog $modLog 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -ne 0 -and !$json.macroDispatched -and $json.stoppedReason -eq 'step 1 not delivered' -and $json.stepsSent -eq 2 -and $json.stepsDelivered -eq 0) "delivery: a line from before the step does not count; the miss stops ($($json | ConvertTo-Json -Compress))"
+        Check ((Get-Content $injectFile) -eq "inject raw button 4 dev=$g value=0 ms=50") "delivery miss: the running hold released, nothing further sent: $(Get-Content $injectFile)"
+        Remove-Item -LiteralPath $modLog
+        $json = (& pwsh -NoProfile -File $play -Macro $dm -Game macrotest -ProcessId $game.Id -DeliveryLog $modLog 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -ne 0 -and $json.stoppedReason -eq 'step 1 not delivered') 'delivery: no log at all is a miss'
+
         foreach ($bad in 'region=0,0,1', 'region=0.5,0,0.4,1', 'region=0,0,1,1.5', 'region=a,b,c,d') {
             Set-Content -LiteralPath $rm -Value @("expect item2.bmp $bad")
             & pwsh -NoProfile -File $play -Macro $rm -Game macrotest -DryRun 2>&1 | Out-Null
