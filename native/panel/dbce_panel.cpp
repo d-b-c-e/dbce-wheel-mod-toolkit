@@ -70,7 +70,11 @@ static void loadPrefs()
     g_advanced = _stricmp(v, "Advanced") == 0;
     g_userScale = (int)GetPrivateProfileIntA("Panel", "Scale", 100, g_cfg.iniPath);
     g_userScale = (std::min)(200, (std::max)(75, g_userScale));
-    g_showFps = GetPrivateProfileIntA("Panel", "ShowFrameRate", 0, g_cfg.iniPath) != 0;
+    {   // "1" as written here; "On" (GRID 0.2.3-0.2.5 saved settings) and "true" (Wheelkit bool rows) read the same
+        char fps[16] = "";
+        GetPrivateProfileStringA("Panel", "ShowFrameRate", "0", fps, sizeof fps, g_cfg.iniPath);
+        g_showFps = !_stricmp(fps, "On") || !_stricmp(fps, "true") || atoi(fps) != 0;
+    }
     GetPrivateProfileStringA("Panel", "Page", "", v, sizeof v, g_cfg.iniPath);
     for (int p = 0; p < PAGE_COUNT; ++p)   // by name: a saved page keeps its meaning if pages are added (UX-01)
         if (!_stricmp(v, kPageNames[p]) && g_cfg.pages[p]) g_page = (Page)p;
