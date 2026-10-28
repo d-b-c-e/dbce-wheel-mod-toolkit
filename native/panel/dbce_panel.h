@@ -56,6 +56,8 @@ enum class StatusTone { Recording, Busy, Success, Problem, Playback };
 void SetStatusLine(const char *utf8Text, StatusTone tone);
 void ClearStatusLine();
 bool StatusLineActive();
+// STD-024: the on-screen frame-rate counter ([Panel] ShowFrameRate) is on; the overlay draws closed frames for it too.
+bool FrameCounterOn();
 // F8 (dbce_panel_input): Stop FFB when the mod offers it.
 bool StopFfbAvailable();
 void StopFfbFromKey();

@@ -119,7 +119,7 @@ void render(IDirect3DDevice9 *dev, HWND override)
             logf("overlay: drawing on D3D9 device %p, window %p%s", (void *)dev, (void *)w, hooked ? "; F6 input attached" : "; input hook FAILED");
         }
         // A lost device (or one waiting for Reset) draws nothing until the game has reset it.
-        if ((dbce::panel::IsOpen() || dbce::panel::StatusLineActive()) && dev->TestCooperativeLevel() == D3D_OK) draw(dev);
+        if ((dbce::panel::IsOpen() || dbce::panel::StatusLineActive() || dbce::panel::FrameCounterOn()) && dev->TestCooperativeLevel() == D3D_OK) draw(dev);
     }
     LeaveCriticalSection(&g_cs);
 }

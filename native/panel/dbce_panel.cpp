@@ -31,6 +31,8 @@ static ULONGLONG g_noteAt;
 static FrameWindow g_frames;            // STD-023, present thread only
 static LARGE_INTEGER g_frameFreq, g_frameLast;
 static ULONGLONG g_frameLoggedAt;
+static double g_smoothMs;              // STD-024 on-screen counter: smoothed frame time, present thread
+static bool g_showFps;                  // STD-024: [Panel] ShowFrameRate, off by default
 
 static const char *const kPageNames[PAGE_COUNT] = {"Controls", "FFB", "Cameras", "Telemetry", "Help"};
 
@@ -68,6 +70,7 @@ static void loadPrefs()
     g_advanced = _stricmp(v, "Advanced") == 0;
     g_userScale = (int)GetPrivateProfileIntA("Panel", "Scale", 100, g_cfg.iniPath);
     g_userScale = (std::min)(200, (std::max)(75, g_userScale));
+    g_showFps = GetPrivateProfileIntA("Panel", "ShowFrameRate", 0, g_cfg.iniPath) != 0;
     GetPrivateProfileStringA("Panel", "Page", "", v, sizeof v, g_cfg.iniPath);
     for (int p = 0; p < PAGE_COUNT; ++p)   // by name: a saved page keeps its meaning if pages are added (UX-01)
         if (!_stricmp(v, kPageNames[p]) && g_cfg.pages[p]) g_page = (Page)p;
@@ -98,6 +101,7 @@ void SetOpen(bool open)
 }
 void Toggle() { SetOpen(!IsOpen()); }
 bool StatusLineActive() { return InterlockedCompareExchange(&g_statusActive, 0, 0) != 0; }
+bool FrameCounterOn() { return g_showFps; }
 void SetStatusLine(const char *text, StatusTone tone)
 {
     size_t length = 0;
@@ -368,6 +372,7 @@ void NoteFrame()
     if (!g_frameFreq.QuadPart) QueryPerformanceFrequency(&g_frameFreq);
     if (g_frameLast.QuadPart) {
         const double ms = (double)(now.QuadPart - g_frameLast.QuadPart) * 1000.0 / (double)g_frameFreq.QuadPart;
+        if (ms > 0 && ms <= FrameWindow::kGapMs) g_smoothMs = g_smoothMs > 0 ? g_smoothMs * 0.95 + ms * 0.05 : ms;
         if (g_frames.Add(ms)) {
             const ULONGLONG t = GetTickCount64();
             if (!g_frameLoggedAt || t - g_frameLoggedAt >= 30000) {
@@ -387,6 +392,8 @@ static void drawFrameRate()
     char line[160] = "Measuring (10 s)";
     if (s.valid) frameLine(line, sizeof line, s);
     Status("Frame rate", line);
+    if (OffOn("Show frame rate on screen", &g_showFps, "A small counter in the top-right corner, also while this panel is closed."))
+        savePref("ShowFrameRate", g_showFps ? "1" : "0");
     if (Advanced()) Text("The last ten seconds, measured at the game's present; the same line goes to the log every 30 s.");
     EndGroup();
 }
@@ -463,6 +470,25 @@ static void drawStatusLine(int width, int height)
     ImGui::End();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(2);
+}
+
+// STD-024: top-right of the centre screen (centre third of a triple-wide span), outlined; no window, so never input.
+static void drawFrameCounter(int width, int height)
+{
+    if (!g_showFps || !g_heading || width < 64 || height < 64) return;
+    char text[48] = "-- fps";
+    const FrameSummary &s = g_frames.Last();
+    if (g_smoothMs > 0 && s.valid) snprintf(text, sizeof text, "%.0f fps  1%% low %.0f", 1000.0 / g_smoothMs, s.lowFps);
+    else if (g_smoothMs > 0) snprintf(text, sizeof text, "%.0f fps", 1000.0 / g_smoothMs);
+    const float size = g_heading->FontSize, m = 12 * g_scale, o = (std::max)(1.0f, std::floor(g_scale + 0.5f));
+    const ImVec2 ts = g_heading->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+    const float right = width >= height * 2.5f ? 2.0f * width / 3.0f : (float)width;
+    const ImVec2 p(std::floor(right - m - ts.x), std::floor(m));
+    ImDrawList *dl = ImGui::GetForegroundDrawList();
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (dx || dy) dl->AddText(g_heading, size, ImVec2(p.x + dx * o, p.y + dy * o), IM_COL32(0, 0, 0, 230), text);
+    dl->AddText(g_heading, size, p, IM_COL32(255, 255, 255, 255), text);
 }
 
 static void drawPanel(int width, int height)
@@ -555,6 +581,7 @@ void Draw(int width, int height)
 {
     drawPanel(width, height);
     drawStatusLine(width, height);
+    drawFrameCounter(width, height);
 }
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------

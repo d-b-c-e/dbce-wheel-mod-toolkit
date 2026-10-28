@@ -8,6 +8,7 @@
 #include <wincodec.h>
 #include <stdio.h>
 #include <string>
+#include <algorithm>
 #include "dbce_panel.h"
 #include "../third_party/imgui/imgui.h"
 #include "../third_party/imgui/imgui_internal.h"
@@ -86,6 +87,31 @@ static bool savePng(ID3D11Device *dev, ID3D11DeviceContext *ctx, ID3D11Texture2D
     if (fr) fr->Release(); if (enc) enc->Release(); if (s) s->Release(); if (f) f->Release();
     ctx->Unmap(st, 0); st->Release();
     return ok;
+}
+
+// The box of pixels that differ from the bottom-left one (the cleared backdrop); false when there are none.
+static bool inkBox(ID3D11Device *dev, ID3D11DeviceContext *ctx, ID3D11Texture2D *tex, int w, int h, RECT *box)
+{
+    D3D11_TEXTURE2D_DESC d;
+    tex->GetDesc(&d);
+    d.Usage = D3D11_USAGE_STAGING; d.BindFlags = 0; d.CPUAccessFlags = D3D11_CPU_ACCESS_READ; d.MiscFlags = 0;
+    ID3D11Texture2D *st = nullptr;
+    if (FAILED(dev->CreateTexture2D(&d, nullptr, &st))) return false;
+    ctx->CopyResource(st, tex);
+    D3D11_MAPPED_SUBRESOURCE m;
+    if (FAILED(ctx->Map(st, 0, D3D11_MAP_READ, 0, &m))) { st->Release(); return false; }
+    const UINT32 *row0 = (const UINT32 *)m.pData;
+    const UINT32 bg = *(const UINT32 *)((const char *)row0 + (size_t)(h - 1) * m.RowPitch);
+    *box = {w, h, -1, -1};
+    for (int y = 0; y < h; ++y) {
+        const UINT32 *row = (const UINT32 *)((const char *)row0 + (size_t)y * m.RowPitch);
+        for (int x = 0; x < w; ++x) if (row[x] != bg) {
+            box->left = (std::min)(box->left, (LONG)x); box->right = (std::max)(box->right, (LONG)x);
+            box->top = (std::min)(box->top, (LONG)y); box->bottom = (std::max)(box->bottom, (LONG)y);
+        }
+    }
+    ctx->Unmap(st, 0); st->Release();
+    return box->right >= 0;
 }
 
 int main(int argc, char **argv)
@@ -181,6 +207,56 @@ int main(int argc, char **argv)
                 ++shots;
                 rtv->Release(); tex->Release();
             }
+        }
+    }
+    // STD-024: with the panel closed the counter draws only when [Panel] ShowFrameRate is on, in the top-right corner of
+    // the centre screen (the centre third of a 3:1 span, the whole 16:9 window), and takes no input.
+    const int counterSizes[][2] = {{1920, 1080}, {5760, 1920}};
+    for (auto &sz : counterSizes) {
+        for (int on = 0; on < 2; ++on) {
+            const int w = sz[0], h = sz[1];
+            DeleteFileA(ini);
+            WritePrivateProfileStringA("Panel", "ShowFrameRate", on ? "1" : "0", ini);
+            dbce::panel::Config c;
+            c.iniPath = ini;
+            dbce::panel::Configure(c);
+            dbce::panel::ClearStatusLine();
+            dbce::panel::SetOpen(false);
+            CHECK(dbce::panel::FrameCounterOn() == (on != 0));
+            D3D11_TEXTURE2D_DESC td = {};
+            td.Width = w; td.Height = h; td.MipLevels = 1; td.ArraySize = 1; td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            td.SampleDesc.Count = 1; td.Usage = D3D11_USAGE_DEFAULT; td.BindFlags = D3D11_BIND_RENDER_TARGET;
+            ID3D11Texture2D *tex = nullptr; ID3D11RenderTargetView *rtv = nullptr;
+            dev->CreateTexture2D(&td, nullptr, &tex);
+            dev->CreateRenderTargetView(tex, nullptr, &rtv);
+            for (int frame = 0; frame < 2; ++frame) {
+                dbce::panel::NoteFrame();
+                if (dbce::panel::Prepare(w, h)) { dbce::panel::BuildFonts(); ImGui_ImplDX11_InvalidateDeviceObjects(); }
+                ImGui_ImplDX11_NewFrame();
+                ImGui::GetIO().DisplaySize = ImVec2((float)w, (float)h);
+                ImGui::GetIO().DeltaTime = 1.0f / 60.0f;
+                ImGui::NewFrame();
+                dbce::panel::Draw(w, h);
+                ImGui::Render();
+                const float bg[4] = {0.30f, 0.36f, 0.42f, 1.0f};
+                ctx->ClearRenderTargetView(rtv, bg);
+                ctx->OMSetRenderTargets(1, &rtv, nullptr);
+                ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+            }
+            CHECK(!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard && !dbce::panel::IsOpen());
+            RECT box;
+            const bool ink = inkBox(dev, ctx, tex, w, h, &box);
+            if (!on) CHECK(!ink && ImGui::GetDrawData()->TotalVtxCount == 0);
+            else {
+                const float left = w >= h * 2.5f ? w / 3.0f : 0.0f, right = w >= h * 2.5f ? 2.0f * w / 3.0f : (float)w;
+                CHECK(ink);
+                CHECK(box.right < right && box.left > left + (right - left) * 0.75f && box.top >= 0 && box.bottom < h / 8);
+                printf("counter %dx%d: ink x %ld-%ld, y %ld-%ld\n", w, h, box.left, box.right, box.top, box.bottom);
+                wchar_t path[MAX_PATH];
+                swprintf_s(path, L"%hs\\panel-counter-%dx%d.png", outDir, w, h);
+                CHECK(savePng(dev, ctx, tex, w, h, path));
+            }
+            rtv->Release(); tex->Release();
         }
     }
     DeleteFileA(ini);
