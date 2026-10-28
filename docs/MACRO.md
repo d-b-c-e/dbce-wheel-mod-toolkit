@@ -19,6 +19,7 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
 1.500 wheel axis 0 16384 range=-32768..32767         # an axis value in that range (default 0..65535)
 +2 wheel button 31 1 ms=300                          # "+" = seconds after the previous line (3.500); ms= = explicit hold
 +1.5 expect title.bmp 20                             # checkpoint: a reference beside the macro, max mean difference
++2 expect main-menu.bmp 15 region=0.05,0.3,0.35,0.7  # only that crop of the frame (the menu's highlighted items)
 ```
 
 - Time: seconds from the start of playback (the recorder: from the moment `record.on` was seen), non-decreasing,
@@ -27,7 +28,8 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
 - `button <0-127> <1|0>` down or up; `hat <0-3> <0-35999|-1>` angle or centred; `axis <0-7> <value> [range=a..b]`.
 - A down, an angle or an axis value is held until the same object's next event, or for `ms=` (50-15000). Up and
   centred send nothing: the real device is at rest. Holds are cut at 15 s (the injection limit).
-- `[<seconds>] expect <reference.bmp> [maxDiff]`: a checkpoint (without a time, right after the previous line). Give
+- `[<seconds>] expect <reference.bmp> [maxDiff] [region=x0,y0,x1,y1]`: a checkpoint (without a time, right after the
+  previous line); the region is in 0-1 frame coordinates, top-left origin. Give
   the screen time to settle first, as in the example. The lines after a checkpoint keep their spacing. Place checkpoints only after every hold and key has been released:
   the capture wait delays scheduled releases, so a 300 ms press would stay down while the frame is fetched.
 - `[<seconds>] key <scan> [ms=<50-15000>]`: a keyboard key by hardware scan code (`0x1C` or `28` is Enter; plain
@@ -67,7 +69,8 @@ pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print
 - When playback stops early, every hold still running gets a 50 ms release sample; a complete run waits for its
   last hold to end. A malformed macro fails (exit 1) before anything is launched or sent.
 - The last stdout line is a JSON result:
-  `{"macroDispatched":true,"stepsSent":12,"stepsTotal":12,"checkpointsPassed":2,"stoppedReason":null,"gameplayReady":null}`.
+  `{"macroDispatched":true,"stepsSent":12,"stepsTotal":12,"checkpointsPassed":2,"checkpoints":[{"name":"title","diff":4.2,"maxDiff":20,"passed":true},...],"stoppedReason":null,"gameplayReady":null}`.
+  Every checkpoint run, passed or failed, reports its measured `diff`, so limits can be tuned from evidence.
   Exit 0 only when `macroDispatched` (every step sent, every checkpoint matched, the last hold over).
   `gameplayReady` is always null here: the player only knows what it sent. The game's own adapter (a frame dump,
   telemetry or log line) supplies the witness that gameplay was reached.
@@ -77,8 +80,10 @@ pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print
 The game mod must answer `%LOCALAPPDATA%\dbce\<game>\frame-dump.req`: it deletes the request and writes
 `frame-HHMMSS-<tag>.bmp` (24-bit, any size; DiRT 3 writes quarter size through the triple-screen toolkit's
 `dbce_frame_dump_d3d11.hpp`) in the same folder. The player creates the request, takes the first BMP written after it
-(waiting up to 5 s; an unanswered request is removed), reduces both images to a 64x12 grid of cell means and compares
-the mean absolute difference per channel (0-255; default `maxDiff` 20). A mismatch stops the run with `stoppedReason`
+(waiting up to 5 s; an unanswered request is removed), reduces both images to a 64x12 grid of cell means (with a
+`region`: that crop only, on a finer 48x24 grid) and compares the mean absolute difference per channel (0-255; default
+`maxDiff` 20). A whole frame cannot tell which item of a menu over an animated background is highlighted (DiRT 3
+passed its main-menu checkpoint at 30 and then drifted into the credits): give menus a region around their items. A mismatch stops the run with `stoppedReason`
 `checkpoint <name> mismatch <value>` and releases running holds; no frame is `checkpoint <name> failed: ...`.
 
 Make a reference once, with the game on the screen the checkpoint expects (an agent or the owner):

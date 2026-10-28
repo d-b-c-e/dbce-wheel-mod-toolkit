@@ -52,11 +52,18 @@ foreach ($raw in Get-Content -LiteralPath $Macro) {
     if ($at -lt $last) { & $bad 'time goes backwards' }
     $last = $at
     if ($t[1] -eq 'expect') {
-        $limit = 20.0
-        if ($t.Count -notin 3, 4 -or ($t.Count -eq 4 -and (![double]::TryParse($t[3], [Globalization.NumberStyles]::Float, $inv, [ref]$limit) -or ![double]::IsFinite($limit) -or $limit -lt 0 -or $limit -gt 255))) { & $bad '[<seconds>] expect <reference.bmp> [maxDiff 0-255]' }
+        $limit = 20.0; $region = $null; $usage = '[<seconds>] expect <reference.bmp> [maxDiff 0-255] [region=x0,y0,x1,y1 in 0-1]'
+        if ($t.Count -lt 3 -or $t.Count -gt 5) { & $bad $usage }
+        foreach ($opt in $t | Select-Object -Skip 3) {
+            if ($opt -like 'region=*' -and !$region) {
+                $v = @($opt.Substring(7) -split ',' | ForEach-Object { $x = 0.0; if ([double]::TryParse($_, [Globalization.NumberStyles]::Float, $inv, [ref]$x)) { $x } else { [double]::NaN } })
+                if ($v.Count -ne 4 -or ($v | Where-Object { ![double]::IsFinite($_) -or $_ -lt 0 -or $_ -gt 1 }) -or $v[2] -le $v[0] -or $v[3] -le $v[1]) { & $bad $usage }
+                $region = [double[]]$v
+            } elseif (![double]::TryParse($opt, [Globalization.NumberStyles]::Float, $inv, [ref]$limit) -or ![double]::IsFinite($limit) -or $limit -lt 0 -or $limit -gt 255) { & $bad $usage }
+        }
         $ref = Join-Path (Split-Path -Parent (Resolve-Path -LiteralPath $Macro)) $t[2]
         if (!$RecordCheckpoint -and !(Test-Path -LiteralPath $ref -PathType Leaf)) { & $bad "no reference $ref (make it with -RecordCheckpoint)" }
-        $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'expect'; Ref = $ref; MaxDiff = $limit; Line = $n })
+        $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'expect'; Ref = $ref; MaxDiff = $limit; Region = $region; Line = $n })
         continue
     }
     if ($t[1] -eq 'key') {   # a keyboard key by hardware scan code (SendInput): only for a game in the foreground
@@ -95,7 +102,10 @@ foreach ($d in $Device) {
 # shortcut: a hold is cut at 15 s (the injection limit); re-send long holds if a game ever needs them.
 $steps = @(for ($i = 0; $i -lt $events.Count; $i++) {
     $e = $events[$i]
-    if ($e.Kind -eq 'expect') { [pscustomobject]@{ At = $e.At; Expect = $e.Ref; MaxDiff = $e.MaxDiff; Line = "expect $($e.Ref) $($e.MaxDiff)" }; continue }
+    if ($e.Kind -eq 'expect') {
+        $where = if ($e.Region) { ' region=' + ($e.Region -join ',') }
+        [pscustomobject]@{ At = $e.At; Expect = $e.Ref; MaxDiff = $e.MaxDiff; Region = $e.Region; Line = "expect $($e.Ref) $($e.MaxDiff)$where" }; continue
+    }
     if ($e.Kind -eq 'key') {   # a key is released by its own step (SendInput keys do not expire like injections)
         $hex = '0x{0:X2}' -f $e.Scan
         [pscustomobject]@{ At = $e.At; Expect = $null; KeyScan = $e.Scan; KeyUp = $false; Ms = $e.Ms; Line = "key $hex down ms=$($e.Ms)" }
@@ -128,29 +138,33 @@ $dir = Join-Path $env:LOCALAPPDATA "dbce\$Game"
 
 # Checkpoints: one frame from the game (frame-dump.req -> frame-HHMMSS-<tag>.bmp, 24-bit), reduced to a 64x12 grid of
 # cell means (4x4 samples each), compared as the mean absolute difference per channel, 0-255.
-function Get-BmpGrid([byte[]]$b) {
+# With a region (x0,y0,x1,y1 in 0-1 of the frame, top-left origin) only that crop is compared, on a finer 48x24 grid,
+# so a menu highlight is not drowned by an animated background.
+function Get-BmpGrid([byte[]]$b, [double[]]$region = @(0, 0, 1, 1), [int]$gw = 64, [int]$gh = 12) {
     if ($b.Length -lt 54 -or $b[0] -ne 0x42 -or $b[1] -ne 0x4D -or [BitConverter]::ToUInt16($b, 28) -ne 24 -or [BitConverter]::ToUInt32($b, 30) -ne 0) { throw 'not a 24-bit uncompressed BMP' }
     $off = [BitConverter]::ToUInt32($b, 10); $w = [BitConverter]::ToInt32($b, 18); $h = [BitConverter]::ToInt32($b, 22)
     $topDown = $h -lt 0; $h = [Math]::Abs($h); $row = ($w * 3 + 3) -band -4
     if ($w -le 0 -or $h -eq 0 -or $off + [long]$row * $h -gt $b.Length) { throw 'truncated BMP' }
-    $grid = [double[]]::new(64 * 12 * 3)
-    for ($gy = 0; $gy -lt 12; $gy++) { for ($gx = 0; $gx -lt 64; $gx++) {
+    $grid = [double[]]::new($gw * $gh * 3)
+    $cw = ($region[2] - $region[0]) * $w; $ch = ($region[3] - $region[1]) * $h
+    for ($gy = 0; $gy -lt $gh; $gy++) { for ($gx = 0; $gx -lt $gw; $gx++) {
         $sb = 0; $sg = 0; $sr = 0
         for ($sy = 0; $sy -lt 4; $sy++) {
-            $y = [int][Math]::Floor(($gy + ($sy + 0.5) / 4) * $h / 12)
+            $y = [Math]::Min($h - 1, [int][Math]::Floor($region[1] * $h + ($gy + ($sy + 0.5) / 4) * $ch / $gh))
             $base = $off + $(if ($topDown) { $y } else { $h - 1 - $y }) * $row
             for ($sx = 0; $sx -lt 4; $sx++) {
-                $q = $base + [int][Math]::Floor(($gx + ($sx + 0.5) / 4) * $w / 64) * 3
+                $q = $base + [Math]::Min($w - 1, [int][Math]::Floor($region[0] * $w + ($gx + ($sx + 0.5) / 4) * $cw / $gw)) * 3
                 $sb += $b[$q]; $sg += $b[$q + 1]; $sr += $b[$q + 2]
             }
         }
-        $k = ($gy * 64 + $gx) * 3
+        $k = ($gy * $gw + $gx) * 3
         $grid[$k] = $sb / 16; $grid[$k + 1] = $sg / 16; $grid[$k + 2] = $sr / 16
     } }
     , $grid
 }
-function Compare-Bmp([byte[]]$a, [byte[]]$b) {
-    $x = Get-BmpGrid $a; $y = Get-BmpGrid $b; $sum = 0.0
+function Compare-Bmp([byte[]]$a, [byte[]]$b, [double[]]$region) {
+    $x, $y = if ($region) { (Get-BmpGrid $a $region 48 24), (Get-BmpGrid $b $region 48 24) } else { (Get-BmpGrid $a), (Get-BmpGrid $b) }
+    $sum = 0.0
     for ($k = 0; $k -lt $x.Length; $k++) { $sum += [Math]::Abs($x[$k] - $y[$k]) }
     $sum / $x.Length
 }
@@ -193,7 +207,7 @@ if ($steam -and !$GameExe) { throw 'A Steam -Launch needs -GameExe (the game exe
 if ($LeasePath) { . (Join-Path $PSScriptRoot '..\playback\Stage-RigLease.ps1'); Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
 
 $sendCount = @($steps | Where-Object { !$_.Expect }).Count
-$result = [ordered]@{ macroDispatched = $false; stepsSent = 0; stepsTotal = $sendCount; checkpointsPassed = 0; stoppedReason = $null; gameplayReady = $null }
+$result = [ordered]@{ macroDispatched = $false; stepsSent = 0; stepsTotal = $sendCount; checkpointsPassed = 0; checkpoints = @(); stoppedReason = $null; gameplayReady = $null }
 $holds = @{}
 $clock = [Diagnostics.Stopwatch]::StartNew()
 $path = Join-Path $dir 'inject.txt'
@@ -282,7 +296,8 @@ try {
             $c = $steps[$i++]; $t0 = $clock.ElapsedMilliseconds
             $name = [IO.Path]::GetFileNameWithoutExtension($c.Expect)
             $frame = try { Get-GameFrame { Assert-Game } } catch { throw "checkpoint $name failed: $($_.Exception.Message)" }
-            $diff = Compare-Bmp ([IO.File]::ReadAllBytes($c.Expect)) $frame
+            $diff = Compare-Bmp ([IO.File]::ReadAllBytes($c.Expect)) $frame $c.Region
+            $result.checkpoints += [ordered]@{ name = $name; diff = [Math]::Round($diff, 1); maxDiff = $c.MaxDiff; passed = $diff -le $c.MaxDiff }
             if ($diff -gt $c.MaxDiff) { throw ('checkpoint {0} mismatch {1}' -f $name, $diff.ToString('0.0', $inv)) }
             $result.checkpointsPassed++
             $shift += $clock.ElapsedMilliseconds - $t0

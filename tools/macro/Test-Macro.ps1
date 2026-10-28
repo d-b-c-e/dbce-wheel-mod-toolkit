@@ -130,6 +130,33 @@ try {
         Check ($LASTEXITCODE -ne 0 -and !$json.macroDispatched -and $json.stoppedReason -match '^checkpoint menu mismatch \d+\.\d$' -and $json.stepsSent -eq 1) "checkpoint mismatch stops ($($json | ConvertTo-Json -Compress))"
         Check ((Get-Content $injectFile) -eq "inject raw button 3 dev=$g value=1 ms=200") 'checkpoint mismatch: nothing after it was sent'
         Check (!(Test-Path "$flags\frame-dump.req")) 'no frame request is left behind'
+        Check ($json.checkpoints.Count -eq 1 -and $json.checkpoints[0].name -eq 'menu' -and $json.checkpoints[0].diff -gt 20 -and !$json.checkpoints[0].passed) 'a failed checkpoint reports its diff'
+
+        # A region: a grey menu panel over an animated background. The highlight is on item 2 of 4 (rows 30-40, 50-60, ...).
+        $menu = { param($item, $phase) { param($x, $y) $hl = $x -ge 20 -and $x -lt 60 -and $y -ge (20 + 20 * $item) -and $y -lt (30 + 20 * $item)
+            if ($hl) { @(250, 250, 250) } elseif ($x -ge 20 -and $x -lt 60 -and $y -ge 20 -and $y -lt 100) { @(90, 90, 90) }
+            else { @([byte](($x * 3 + $phase) % 256), [byte](($y * 5 + $phase) % 256), [byte](($phase * 2) % 256)) } }.GetNewClosure() }
+        New-Bmp (Join-Path $work 'item2.bmp') 240 120 (& $menu 1 0)
+        $rm = Join-Path $work 'region.macro'
+        Set-Content -LiteralPath $rm -Value @("dev g $g", '0.1 g button 3 1 ms=100', '+0.3 expect item2.bmp 20 region=0.09,0.17,0.24,0.83')
+        Check ((Lines (& $play -Macro $rm -Game macrotest -DryRun))[-1] -match 'expect .*item2\.bmp 20 region=0\.09,0\.17,0\.24,0\.83$') 'dry run shows the region'
+        New-Bmp $src 240 120 (& $menu 1 120)   # same highlight, the background moved on
+        $json = (& pwsh -NoProfile -File $play -Macro $rm -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -eq 0 -and $json.checkpoints[0].passed -and $json.checkpoints[0].diff -le 20) "region: a change outside the crop is ignored ($($json.checkpoints | ConvertTo-Json -Compress))"
+        Set-Content -LiteralPath $rm -Value @("dev g $g", '0.1 g button 3 1 ms=100', '+0.3 expect item2.bmp 20')
+        $json = (& pwsh -NoProfile -File $play -Macro $rm -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($LASTEXITCODE -ne 0 -and $json.checkpoints[0].diff -gt 20) "the same frame fails as a whole frame ($($json.checkpoints[0].diff))"
+        New-Bmp $src 240 120 (& $menu 2 0)     # same background, the highlight on the next item
+        $json = (& pwsh -NoProfile -File $play -Macro $rm -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        $whole = $json.checkpoints[0].diff
+        Set-Content -LiteralPath $rm -Value @("dev g $g", '0.1 g button 3 1 ms=100', '+0.3 expect item2.bmp 20 region=0.09,0.17,0.24,0.83')
+        $json = (& pwsh -NoProfile -File $play -Macro $rm -Game macrotest -ProcessId $game.Id 2>$null | Select-Object -Last 1) | ConvertFrom-Json
+        Check ($whole -le 20 -and $LASTEXITCODE -ne 0 -and $json.stoppedReason -match '^checkpoint item2 mismatch' -and $json.checkpoints[0].diff -gt 20) "region: a moved highlight the whole frame misses ($whole) is caught ($($json.checkpoints[0].diff))"
+        foreach ($bad in 'region=0,0,1', 'region=0.5,0,0.4,1', 'region=0,0,1,1.5', 'region=a,b,c,d') {
+            Set-Content -LiteralPath $rm -Value @("expect item2.bmp $bad")
+            & pwsh -NoProfile -File $play -Macro $rm -Game macrotest -DryRun 2>&1 | Out-Null
+            Check ($LASTEXITCODE -ne 0) "bad region refused: $bad"
+        }
     } finally {
         if ($game -and !$game.HasExited) { Stop-Process -Id $game.Id }
         Remove-Item -Recurse -Force -LiteralPath $env:LOCALAPPDATA -ErrorAction SilentlyContinue
