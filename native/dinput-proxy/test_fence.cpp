@@ -446,6 +446,64 @@ int main()
         settings().observe = nullptr;
     }
 
+    // Macro recording (dbce_macro_record.hpp): record.on starts a file; edges, hat changes and axis moves of 1/64 of the
+    // range are written with seconds from the start; removing the flag closes it. The output equals the player's fixture.
+    {
+        char full[MAX_PATH];
+        GetFullPathNameA("build\\macro-test", MAX_PATH, full, nullptr);
+        SetEnvironmentVariableA("LOCALAPPDATA", full);
+        const std::string dir = std::string(full) + "\\dbce\\fencetest", flag = dir + "\\record.on";
+        CreateDirectoryA(full, nullptr); CreateDirectoryA((std::string(full) + "\\dbce").c_str(), nullptr); CreateDirectoryA(dir.c_str(), nullptr);
+        auto touch = [](const std::string &p) { FILE *t = nullptr; if (fopen_s(&t, p.c_str(), "w") == 0) fclose(t); };
+        touch(flag);
+        dbce::macro::Recorder rec("fencetest");
+        long axes[8] = {}; unsigned char buttons[128] = {}; unsigned long povs[4] = {(DWORD)-1, (DWORD)-1, (DWORD)-1, (DWORD)-1};
+        dbce::controls::StateView v; v.axes = axes; v.buttons = buttons; v.buttonCount = 128; v.povs = povs;
+        auto range = [](int, long &mn, long &mx) { mn = -32768; mx = 32767; return true; };
+        auto at = [&](uint64_t ms) { rec.sample(kInstText, v, ms, range); };
+        at(1000);
+        buttons[31] = 0x80; at(1500);
+        buttons[31] = 0; at(1800);
+        povs[0] = 18000; at(2000);
+        povs[0] = (DWORD)-1; at(2300);
+        axes[0] = 500; at(2400);   // under 1/64 of the range: not written
+        axes[0] = 16384; at(2500);
+        axes[0] = 0; at(3000);
+        DeleteFileA(flag.c_str());
+        at(3300);
+        buttons[5] = 0x80; at(3400);   // after the flag is gone: not written
+        auto body = [](const std::string &p) {
+            std::string out, line; FILE *r = nullptr; char b[256];
+            if (!(r = _fsopen(p.c_str(), "r", _SH_DENYNO))) return std::string("(cannot open ") + p + ")";   // may still be open for writing
+            while (fgets(b, sizeof b, r)) if (b[0] != '#' && b[0] != '\n') out += b;
+            fclose(r);
+            return out;
+        };
+        const std::string got = body(rec.path()), want = body("..\\..\\tools\\macro\\fixtures\\recorded.macro");
+        check(!got.empty() && got == want, "recorder: the file equals tools/macro/fixtures/recorded.macro:\n" + got);
+        DeleteFileA(rec.path().c_str());   // the next recorder may start within the same second, so the same name
+
+        // Through the fence: an injected press on a fenced device is recorded as the game received it.
+        touch(dir + "\\record.on");
+        dbce::macro::Recorder wired("fencetest");
+        settings().recorder = &wired;
+        FakeInput fake5;
+        auto *di5 = new FencedDirectInput<IDirectInput8A>(&fake5);
+        IDirectInputDevice8A *dev5 = nullptr;
+        di5->CreateDevice(kInst, &dev5, nullptr);
+        dev5->SetDataFormat(&c_dfDIJoystick2);
+        DIJOYSTATE2 s5{};
+        dev5->GetDeviceState(sizeof s5, &s5);
+        check(inject(std::string("inject raw button 9 dev=") + kInstText + " value=1 ms=2000").empty(), "recorder: injection accepted");
+        dev5->GetDeviceState(sizeof s5, &s5);
+        settings().recorder = nullptr;
+        const std::string wiredOut = body(wired.path());
+        check(wiredOut.find(std::string("dev d0 ") + kInstText) == 0 && wiredOut.find(" d0 button 9 1\n") != std::string::npos,
+              "recorder: the fence passes its reads to the recorder:\n" + wiredOut);
+        DeleteFileA((dir + "\\record.on").c_str());
+        dev5->Release(); di5->Release();
+    }
+
     // Lifetime: releasing the wrapper releases the device once.
     const int before = f.n("Release");
     check(dev->Release() == 0 && f.n("Release") == before + 1, "the wrapper releases the device");

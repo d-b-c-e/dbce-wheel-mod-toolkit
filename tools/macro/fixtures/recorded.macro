@@ -1,0 +1,9 @@
+# What native/dinput-proxy/test_fence.cpp's recorder writes for its fixed sequence (it compares its output, comments
+# aside, to this file); Test-Macro.ps1 then checks the injection lines Play-Macro.ps1 makes of it.
+dev d0 {000000a1-0000-0000-0000-000000000000}
+0.500 d0 button 31 1
+0.800 d0 button 31 0
+1.000 d0 hat 0 18000
+1.300 d0 hat 0 -1
+1.500 d0 axis 0 16384 range=-32768..32767
+2.000 d0 axis 0 0 range=-32768..32767

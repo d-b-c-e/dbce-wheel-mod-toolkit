@@ -21,6 +21,7 @@
 // Pedal rest shaping (dbce_shape_state.hpp), when a proxy sets one, runs in the same place after injection. An observer
 // (Settings::observe), when a proxy sets one, then sees the final standard-format state: what the game receives. An
 // effect observer (Settings::observeEffect) sees the game's original force requests as the software effects keep them.
+// A macro recorder (Settings::recorder, dbce_macro_record.hpp) writes that same final state's changes while record.on exists.
 #pragma once
 #ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION 0x0800
@@ -34,6 +35,7 @@
 #include <vector>
 #include "../controls/dbce_inject_table.hpp"
 #include "dbce_joyformat.hpp"
+#include "dbce_macro_record.hpp"
 #include "dbce_shape_state.hpp"
 
 #pragma comment(lib, "dxguid.lib")
@@ -62,6 +64,7 @@ struct Settings {
     // to a device, and a throwing observer changes no result. nullptr: none.
     void (*observeEffect)(const void *device, const void *effect, REFGUID type, EffectEvent event, LPCDIEFFECT params,
                           DWORD flags, DWORD value) = nullptr;
+    dbce::macro::Recorder *recorder = nullptr;   // nullptr: no macro recording (set once, never freed)
 };
 inline Settings &settings() { static Settings s; return s; }
 
@@ -228,6 +231,16 @@ struct FencedDevice final : I {
         mn = r.lMin; mx = r.lMax;
         return true;
     }
+    static dbce::controls::StateView view(DWORD cb, LPVOID data)   // a standard-format read (DIJOYSTATE or DIJOYSTATE2)
+    {
+        auto *s = (DIJOYSTATE *)data;
+        dbce::controls::StateView v;
+        v.axes = (long *)&s->lX;
+        v.buttons = cb == sizeof(DIJOYSTATE2) ? ((DIJOYSTATE2 *)data)->rgbButtons : s->rgbButtons;
+        v.buttonCount = cb == sizeof(DIJOYSTATE2) ? 128 : 32;
+        v.povs = cb == sizeof(DIJOYSTATE2) ? (unsigned long *)((DIJOYSTATE2 *)data)->rgdwPOV : (unsigned long *)s->rgdwPOV;
+        return v;
+    }
     void inject(dbce::controls::InjectionTable &inj, DWORD cb, LPVOID data)
     {
         const bool standard = (format == 1 && cb == sizeof(DIJOYSTATE)) || (format == 2 && cb == sizeof(DIJOYSTATE2));
@@ -238,12 +251,7 @@ struct FencedDevice final : I {
             }
             return;
         }
-        auto *s = (DIJOYSTATE *)data;
-        dbce::controls::StateView v;
-        v.axes = (long *)&s->lX;
-        v.buttons = cb == sizeof(DIJOYSTATE2) ? ((DIJOYSTATE2 *)data)->rgbButtons : s->rgbButtons;
-        v.buttonCount = cb == sizeof(DIJOYSTATE2) ? 128 : 32;
-        v.povs = cb == sizeof(DIJOYSTATE2) ? (unsigned long *)((DIJOYSTATE2 *)data)->rgdwPOV : (unsigned long *)s->rgdwPOV;
+        dbce::controls::StateView v = view(cb, data);
         std::vector<std::string> lines;
         inj.apply(instance, v, GetTickCount64(), [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); }, lines);
         for (auto &l : lines) logf("%s", l.c_str());
@@ -257,11 +265,18 @@ struct FencedDevice final : I {
         if (const auto *shapes = settings().shapes)
             dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); },
                 [](const dbce::controls::PedalShape &s, dbce::controls::ShapeMiss m, long mn, long mx) { logf("%s", dbce::shape::firstLine(s, m, mn, mx).c_str()); });
+        const LONG f = format;
+        const bool standard = (f == 1 && cb == sizeof(DIJOYSTATE)) || (f == 2 && cb == sizeof(DIJOYSTATE2));
         if (const auto observe = settings().observe) {
-            const LONG f = format;
-            if ((f == 1 && cb == sizeof(DIJOYSTATE)) || (f == 2 && cb == sizeof(DIJOYSTATE2))) {
+            if (standard) {
                 try { observe(real, (int)f, cb, data); }
                 catch (...) { static volatile LONG n; if (sample(n)) logf("fence: a state observer threw; ignored"); }
+            }
+        }
+        if (auto *rec = settings().recorder) {
+            if (standard) {
+                try { rec->sample(instance, view(cb, data), GetTickCount64(), [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); }); }
+                catch (...) { static volatile LONG n; if (sample(n)) logf("fence: the macro recorder threw; ignored"); }
             }
         }
         return hr;
