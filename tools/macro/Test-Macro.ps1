@@ -61,6 +61,10 @@ try {
         $r = $o[-1] | ConvertFrom-Json
         Check ($LASTEXITCODE -eq 0 -and $r.stepsSent -eq 2 -and [IO.File]::ReadAllText($cmdFile) -eq "one`r`ntwo words`r`n") "cmd steps appended to the command file: $($o[-1])"
     } finally { Stop-Process -Id $stand.Id -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $cmdFile -ErrorAction SilentlyContinue }
+    # -FrameSource WindowCapture names its process; a checkpoint recorded without one is refused.
+    Set-Content -LiteralPath $hand -Value @('expect ref.bmp')
+    $o = & pwsh -NoProfile -File $play -Macro $hand -Game test-cmd-none -FrameSource WindowCapture -RecordCheckpoint ref 2>&1
+    Check ($LASTEXITCODE -ne 0 -and "$o" -match 'needs -ProcessId') 'window-capture checkpoint without a process refused'
     foreach ($bad in 'expect ref.bmp NaN', 'expect ref.bmp Infinity', 'expect ref.bmp -1', 'expect ref.bmp 256') {
         Set-Content -LiteralPath $hand -Value @($bad)
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun 2>&1 | Out-Null

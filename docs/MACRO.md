@@ -38,6 +38,10 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
   front, so a macro with a key step is refused unless the run has `-RequireForeground` (dry runs too), and each key
   send follows a passing lease, identity and foreground-window check. A key still down when playback stops gets its
   key-up in the same cleanup as holds. The recorder does not record keys; add them by hand.
+- Checkpoint frames come from the game's `frame-dump.req` responder (the dinput proxy). For a game without one
+  (BepInEx/Unity, UE4SS), `-FrameSource WindowCapture` takes one PNG of the game's largest visible window with
+  `tools/window-capture` (build it first; no focus change or input) and converts it to the same 24-bit BMP. It needs
+  `-ProcessId` or `-Launch`, also for `-RecordCheckpoint`. Record references with the same source you replay with.
 - `[<seconds>] cmd <text>`: appends the rest of the line (comment and outer spaces trimmed) plus CRLF to the file given
   by `-CommandFile`, for a game whose menus take no wheel or key input but has its own command channel (ADRIFT's UE4SS
   dev channel `cmd.txt`). Refused without `-CommandFile` (dry runs too). Each append follows a passing lease and

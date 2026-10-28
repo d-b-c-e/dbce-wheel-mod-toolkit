@@ -21,6 +21,7 @@ param(
     [switch]$RequireForeground,
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
     [string]$DeliveryLog,                         # the mod's log: every inject step must show up there (docs/MACRO.md)
+    [ValidateSet('Game', 'WindowCapture')][string]$FrameSource = 'Game',   # WindowCapture: tools/window-capture, for games without frame-dump.req
     [string]$CommandFile,                         # "cmd" steps are appended here (e.g. a UE4SS dev channel's cmd.txt)
     [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
@@ -182,7 +183,31 @@ function Compare-Bmp([byte[]]$a, [byte[]]$b, [double[]]$region) {
     for ($k = 0; $k -lt $x.Length; $k++) { $sum += [Math]::Abs($x[$k] - $y[$k]) }
     $sum / $x.Length
 }
+# -FrameSource WindowCapture: one PNG of the game's largest visible window (Windows Graphics Capture, no focus or input)
+# from tools/window-capture, converted to the same 24-bit BMP.
+# shortcut: largest-window policy only; add an --hwnd choice if a game with several windows needs checkpoints.
+function Get-CaptureFrame([scriptblock]$Guard) {
+    if (!$ProcessId -and !$script:identity) { throw '-FrameSource WindowCapture needs -ProcessId (or -Launch)' }
+    $id = if ($script:identity) { $script:identity.processId } else { $ProcessId }
+    $exe = Join-Path $PSScriptRoot '../window-capture/bin/Release/net8.0-windows10.0.22621.0/dbce-window-capture.exe'
+    if (!(Test-Path -LiteralPath $exe)) { throw "no $exe (dotnet build tools/window-capture -c Release)" }
+    & $Guard
+    $png = Join-Path ([IO.Path]::GetTempPath()) "dbce-macro-frame-$PID.png"
+    try {
+        $o = & $exe $id $png 2>&1
+        if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $png)) { throw "window capture failed: $o" }
+        & $Guard
+        Add-Type -AssemblyName System.Drawing
+        $src = [Drawing.Bitmap]::new($png)
+        try {
+            $bmp = $src.Clone([Drawing.Rectangle]::new(0, 0, $src.Width, $src.Height), [Drawing.Imaging.PixelFormat]::Format24bppRgb)
+            $ms = [IO.MemoryStream]::new()
+            try { $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Bmp); return , $ms.ToArray() } finally { $bmp.Dispose(); $ms.Dispose() }
+        } finally { $src.Dispose() }
+    } finally { Remove-Item -LiteralPath $png -ErrorAction SilentlyContinue }
+}
 function Get-GameFrame([scriptblock]$Guard) {
+    if ($FrameSource -eq 'WindowCapture') { return , (Get-CaptureFrame $Guard) }
     $since = [DateTime]::UtcNow
     $req = Join-Path $dir 'frame-dump.req'
     [IO.File]::WriteAllText($req, '')
