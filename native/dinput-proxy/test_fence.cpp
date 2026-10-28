@@ -481,7 +481,32 @@ int main()
         };
         const std::string got = body(rec.path()), want = body("..\\..\\tools\\macro\\fixtures\\recorded.macro");
         check(!got.empty() && got == want, "recorder: the file equals tools/macro/fixtures/recorded.macro:\n" + got);
-        DeleteFileA(rec.path().c_str());   // the next recorder may start within the same second, so the same name
+        DeleteFileA(rec.path().c_str());
+
+        // Never an existing file: the names for this second and the next already exist, so the recorder takes a new one
+        // and leaves them as they were.
+        {
+            std::vector<std::string> taken;
+            SYSTEMTIME now; FILETIME ft; GetLocalTime(&now); SystemTimeToFileTime(&now, &ft);
+            for (int sec = 0; sec < 2; ++sec) {
+                ULARGE_INTEGER u{}; u.LowPart = ft.dwLowDateTime; u.HighPart = ft.dwHighDateTime; u.QuadPart += 10000000ULL * sec;
+                FILETIME f2{u.LowPart, u.HighPart}; SYSTEMTIME at2; FileTimeToSystemTime(&f2, &at2);
+                char nm[64];
+                sprintf_s(nm, "\\macro-%04u%02u%02u-%02u%02u%02u.txt", at2.wYear, at2.wMonth, at2.wDay, at2.wHour, at2.wMinute, at2.wSecond);
+                taken.push_back(dir + nm);
+                FILE *t = nullptr; if (fopen_s(&t, taken.back().c_str(), "w") == 0) { fputs("keep\n", t); fclose(t); }
+            }
+            touch(flag);
+            dbce::macro::Recorder fresh("fencetest");
+            fresh.sample(kInstText, v, 0, range);
+            const std::string p = fresh.path();
+            check(!p.empty() && p != taken[0] && p != taken[1] && body(p).find("dev d0 ") == 0, "recorder: a taken name is never reused (" + p + ")");
+            check(body(taken[0]) == "keep\n" && body(taken[1]) == "keep\n", "recorder: an existing file is never appended to");
+            DeleteFileA(flag.c_str());
+            fresh.sample(kInstText, v, 300, range);   // closes
+            for (auto &x : taken) DeleteFileA(x.c_str());
+            DeleteFileA(p.c_str());
+        }
 
         // Through the fence: an injected press on a fenced device is recorded as the game received it.
         touch(dir + "\\record.on");

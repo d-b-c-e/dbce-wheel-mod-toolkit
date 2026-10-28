@@ -6,6 +6,7 @@
 // Header-only; x86 and x64.
 #pragma once
 #include <windows.h>
+#include <errno.h>
 #include <share.h>
 #include <stdio.h>
 #include <cstdint>
@@ -88,10 +89,16 @@ private:
         if (on && !f_) {
             SYSTEMTIME st;
             GetLocalTime(&st);
-            char name[48];
-            sprintf_s(name, "\\macro-%04u%02u%02u-%02u%02u%02u.txt", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
-            path_ = dir_ + name;
-            f_ = _fsopen(path_.c_str(), "a", _SH_DENYNO);   // readable while it is written (fopen_s would lock it)
+            char name[64];
+            // A new file every time, never an existing one: "x" is exclusive create; a taken name gets -2, -3, ...
+            // _fsopen keeps it readable while it is written (fopen_s would lock it).
+            for (int k = 1; !f_ && k <= 99; ++k) {
+                sprintf_s(name, k == 1 ? "\\macro-%04u%02u%02u-%02u%02u%02u.txt" : "\\macro-%04u%02u%02u-%02u%02u%02u-%d.txt", st.wYear, st.wMonth,
+                          st.wDay, st.wHour, st.wMinute, st.wSecond, k);
+                path_ = dir_ + name;
+                f_ = _fsopen(path_.c_str(), "wx", _SH_DENYNO);
+                if (!f_ && errno != EEXIST) break;
+            }
             if (!f_) return;
             fprintf(f_, "# dbce macro, recorded %04u-%02u-%02u %02u:%02u:%02u through the fence (record.on); seconds from the start\n", st.wYear,
                     st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
