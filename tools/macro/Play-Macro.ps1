@@ -217,16 +217,24 @@ function Send([string[]]$lines) {
     [IO.File]::WriteAllText($tmp, ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
     for ($try = 0; ; $try++) { try { [IO.File]::Move($tmp, $path, $true); break } catch [IO.IOException] { if ($try -ge 24) { throw }; Start-Sleep -Milliseconds 20 } }
 }
+# Read-only foreground observation (no activation).
+function Get-Front {
+    if (!('Dbce.MacroFront' -as [type])) {
+        Add-Type -Namespace Dbce -Name MacroFront -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint p);'
+    }
+    $front = [Dbce.MacroFront]::GetForegroundWindow()
+    [uint32]$owner = 0
+    [void][Dbce.MacroFront]::GetWindowThreadProcessId($front, [ref]$owner)
+    [pscustomobject]@{ Window = $front.ToInt64(); Owner = $owner }
+}
 # Lease, game identity and (once foreground was observed) the same game window still in front. Read-only.
 function Assert-Game {
     if ($LeasePath) { Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
     $state = (Get-StageProcessIdentityDisposition -Recorded $script:identity -Snapshot (Get-StageProcessIdentitySnapshot)).state
     if ($state -ne 'OriginalAlive') { throw "game process $($script:identity.processId) is $state" }
     if ($script:fgWindow) {
-        $front = [Dbce.StageForegroundNative]::GetForegroundWindow()
-        [uint32]$owner = 0
-        [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId($front, [ref]$owner)
-        if ($front.ToInt64() -ne $script:fgWindow -or $owner -ne $script:identity.processId) { throw 'the game window lost the foreground' }
+        $f = Get-Front
+        if ($f.Window -ne $script:fgWindow -or $f.Owner -ne $script:identity.processId) { throw 'the game window lost the foreground' }
     }
 }
 # A key as a hardware scan code (KEYEVENTF_SCANCODE), the way a real keyboard reaches a DirectInput or raw-input game.
@@ -279,11 +287,16 @@ try {
     if ($Launch) { [Console]::Error.WriteLine("launched $Launch; game process $($identity.processId); waiting $LaunchWaitSeconds s") }
     Wait-Until ($clock.ElapsedMilliseconds + 1000L * $LaunchWaitSeconds)
     if ($RequireForeground) {   # one ordinary request; afterwards only observed, never requested again
-        . (Join-Path $PSScriptRoot '..\playback\Stage-GameForeground.ps1')
-        $p = Get-Process -Id $identity.processId
-        $fg = Request-StageGameForeground -ProcessId $p.Id -StartedUtcTicks $p.StartTime.ToUniversalTime().Ticks -ExecutablePath $p.Path -LeasePath $LeasePath -LeaseToken $LeaseToken
-        if ($fg.status -ne 'observed') { throw "foreground unmet: $($fg.reason)" }
-        $script:fgWindow = [long]$fg.window
+        $f = Get-Front
+        if ($f.Window -and $f.Owner -eq $identity.processId) {
+            $script:fgWindow = $f.Window   # already in front: Windows refuses a redundant request (GRID, mida 2026-10-28)
+        } else {
+            . (Join-Path $PSScriptRoot '..\playback\Stage-GameForeground.ps1')
+            $p = Get-Process -Id $identity.processId
+            $fg = Request-StageGameForeground -ProcessId $p.Id -StartedUtcTicks $p.StartTime.ToUniversalTime().Ticks -ExecutablePath $p.Path -LeasePath $LeasePath -LeaseToken $LeaseToken
+            if ($fg.status -ne 'observed') { throw "foreground unmet: $($fg.reason)" }
+            $script:fgWindow = [long]$fg.window
+        }
         Assert-Game
     }
     $clock.Restart()
