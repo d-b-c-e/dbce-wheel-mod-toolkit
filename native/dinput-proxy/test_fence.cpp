@@ -28,7 +28,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     STDMETHODIMP QueryInterface(REFIID, LPVOID *o) override { hit("QueryInterface"); if (o) *o = this; return S_OK; }   // a real device would hand itself out
     STDMETHODIMP_(ULONG) AddRef() override { return ++refs; }
     STDMETHODIMP_(ULONG) Release() override { hit("Release"); return --refs; }
-    STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { hit("GetCapabilities"); if (c) c->dwFlags = DIDC_ATTACHED | DIDC_FORCEFEEDBACK; return DI_OK; }
+    STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { hit("GetCapabilities"); if (c) { c->dwFlags = DIDC_ATTACHED | DIDC_FORCEFEEDBACK; c->dwDevType = DI8DEVTYPE_DRIVING; } return DI_OK; }
     STDMETHODIMP EnumObjects(LPDIENUMDEVICEOBJECTSCALLBACKA, LPVOID, DWORD) override { hit("EnumObjects"); return DI_OK; }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override
     {
@@ -62,7 +62,8 @@ struct FakeDevice final : IDirectInputDevice8A {
     STDMETHODIMP GetDeviceData(DWORD, LPDIDEVICEOBJECTDATA, LPDWORD k, DWORD) override { hit("GetDeviceData"); if (k) *k = 0; return DI_OK; }
     STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { hit("SetDataFormat"); return DI_OK; }
     STDMETHODIMP SetEventNotification(HANDLE) override { hit("SetEventNotification"); return DI_OK; }
-    STDMETHODIMP SetCooperativeLevel(HWND, DWORD) override { hit("SetCooperativeLevel"); return DI_OK; }
+    DWORD coop = 0;
+    STDMETHODIMP SetCooperativeLevel(HWND, DWORD f) override { hit("SetCooperativeLevel"); coop = f; return DI_OK; }
     STDMETHODIMP GetObjectInfo(LPDIDEVICEOBJECTINSTANCEA, DWORD, DWORD) override { hit("GetObjectInfo"); return DI_OK; }
     STDMETHODIMP GetDeviceInfo(LPDIDEVICEINSTANCEA d) override { hit("GetDeviceInfo"); if (d) d->guidInstance = kInst; return DI_OK; }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { hit("RunControlPanel"); return DI_OK; }
@@ -196,6 +197,8 @@ int main()
     for (const char *m : {"GetCapabilities", "EnumObjects", "Acquire", "Poll", "Unacquire", "GetDeviceData", "SetDataFormat", "SetCooperativeLevel", "EnumEffects"})
         check(f.n(m) == 1, std::string("forwarded: ") + m);
     check((caps.dwFlags & DIDC_FORCEFEEDBACK) && IsEqualGUID(di2.guidInstance, kInst), "capabilities and identity are the device's own");
+    dev->SetCooperativeLevel(nullptr, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+    check(f.coop == (DISCL_EXCLUSIVE | DISCL_BACKGROUND), "a fenced controller asked for the foreground is read in the background");
 
     // Injection: exact samples by instance, the lower bound kept, buttons, hats; nothing for other instances.
     auto inject = [&](const std::string &line) {

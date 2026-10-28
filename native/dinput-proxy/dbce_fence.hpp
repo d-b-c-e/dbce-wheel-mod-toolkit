@@ -3,8 +3,8 @@
 //
 // The game never holds a real DirectInput or device object. FencedDirectInput wraps the interface, and every device it
 // creates comes back as a FencedDevice:
-//  - forwarded unchanged: capabilities, objects, the readable properties, acquire, state, data, formats, cooperative
-//    level, object and device information, effect enumeration and information, poll, action maps;
+//  - forwarded unchanged: capabilities, objects, the readable properties, acquire, state, data, formats, the cooperative
+//    level (controllers in the background, see SetCooperativeLevel), object and device information, effect enumeration and information, poll, action maps;
 //  - never forwarded: CreateEffect returns a software sink effect that keeps the game's parameters and never touches the
 //    device (Start, Stop, SetParameters, Download, Unload, Escape all stay in the sink); SendForceFeedbackCommand,
 //    Escape, SendDeviceData, effect files, RunControlPanel and Initialize; the force gain property;
@@ -274,7 +274,16 @@ struct FencedDevice final : I {
         return hr;
     }
     STDMETHODIMP SetEventNotification(HANDLE e) override { return real->SetEventNotification(e); }
-    STDMETHODIMP SetCooperativeLevel(HWND w, DWORD f) override { return real->SetCooperativeLevel(w, f); }
+    // Unattended tests: a fenced game controller is read in the background, so injection and the real wheel still reach
+    // a game whose window lost focus (rig runners cannot always give it the foreground). Keyboard and mouse keep the
+    // game's choice; if the driver refuses background access, the game's own flags are used.
+    STDMETHODIMP SetCooperativeLevel(HWND w, DWORD f) override {
+        DIDEVCAPS caps = {sizeof caps};
+        const BYTE type = (f & DISCL_FOREGROUND) && SUCCEEDED(real->GetCapabilities(&caps)) ? GET_DIDEVICE_TYPE(caps.dwDevType) : 0;
+        if ((f & DISCL_FOREGROUND) && type && type != DI8DEVTYPE_KEYBOARD && type != DI8DEVTYPE_MOUSE &&
+            SUCCEEDED(real->SetCooperativeLevel(w, (f & ~DWORD(DISCL_FOREGROUND)) | DISCL_BACKGROUND))) return DI_OK;
+        return real->SetCooperativeLevel(w, f);
+    }
     STDMETHODIMP GetObjectInfo(typename T::ObjInst o, DWORD obj, DWORD how) override { return real->GetObjectInfo(o, obj, how); }
     STDMETHODIMP GetDeviceInfo(typename T::DevInst d) override { return real->GetDeviceInfo(d); }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { return refuse("device RunControlPanel"); }
