@@ -172,7 +172,7 @@ function Fg([hashtable]$o = @{}) {
     $r = Invoke-MacroForeground -ProcessId 42 -Observe { $f = $s.front[[Math]::Min($s.n, $s.front.Count - 1)]; $s.n++; [pscustomobject]$f } `
         -Request { if ($s.requestThrows) { throw $s.requestThrows }; [pscustomobject]@{ status = $s.request; window = 77; reason = 'Windows refused the ordinary foreground request' } } `
         -Validate { param($w) $s.validated++; if ($s.invalid) { throw $s.invalid } } -KeysHeld { $s.held } `
-        -SendF24 { $s.sent++; if ($s.sendThrows) { throw 'boom' }; $s.inserted ?? 2 } -Release { $s.released++ } `
+        -SendF24 { $s.sent++; if ($s.sendThrows) { throw 'boom' }; $s.inserted ?? 2 } -Release { $s.released++; if ($s.releaseThrows) { throw 'user32 gone' }; $s.releaseInserted ?? 1 } `
         -Activate { param($w) $s.activated++; $false } -Log { param($l) $s.log += $l }
     [pscustomobject]@{ r = $r; s = $s }
 }
@@ -199,6 +199,11 @@ $x = Fg @{ inserted = 1 }
 Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.s.activated -eq 0 -and $x.r.reason -match 'inserted 1 of 2') 'foreground: a partial insert is released, no activation'
 $x = Fg @{ sendThrows = $true }
 Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.s.activated -eq 0) 'foreground: a SendInput error is released'
+Check ($x.r.reason -match 'SendInput failed \(boom\); F24 released') "foreground: the send failure and the release are both reported: $($x.r.reason)"
+$x = Fg @{ inserted = 1; releaseInserted = 0 }
+Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.r.reason -match 'inserted 1 of 2 events; F24 release inserted 0 of 1 event; F24 may still be down' -and $x.r.reason -notmatch 'F24 released') "foreground: a key-up that is not inserted is reported, not called released: $($x.r.reason)"
+$x = Fg @{ sendThrows = $true; releaseThrows = $true }
+Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 1 -and $x.r.reason -match 'SendInput failed \(boom\); F24 release failed \(user32 gone\); F24 may still be down') "foreground: a throwing key-up keeps both details: $($x.r.reason)"
 $x = Fg @{ inserted = 0 }
 Check ($x.r.status -eq 'unmet' -and $x.s.released -eq 0 -and $x.s.activated -eq 0) 'foreground: nothing inserted, nothing to release'
 Assert-MacroForeground 77 42 { [pscustomobject]@{ Window = 77; Owner = 42 } }

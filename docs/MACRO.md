@@ -63,8 +63,9 @@ pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print
   the one new `-GameExe` process, not Steam's. The identity and (with `-LeasePath`) the rig lease are checked at least
   every second of every wait (launch waits, the Steam follow loop, the steps and the final hold) and right after the
   last sleep before every send; on loss playback stops.
-- Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` (needs the lease) makes one
-  `Stage-GameForeground` request and stops, sending nothing, if foreground is unmet. Afterwards every check also
+- Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` (needs the lease) brings the game to
+  the front once at startup (below); if that is still unmet after the one fallback, playback stops before any macro
+  step is sent (the fallback's own F24 press is the only input). Afterwards every check also
   observes (read-only, never re-requested) that the same game window is the foreground window and belongs to the game.
 - Foreground at startup, once, in this order (`tools/macro/MacroForeground.ps1`): the game window already in front;
   else the ordinary `Stage-GameForeground` request (input-free); else a reobservation; else ONE activation-key

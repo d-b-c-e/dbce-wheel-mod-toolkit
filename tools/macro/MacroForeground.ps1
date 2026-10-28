@@ -12,7 +12,8 @@
 
 # Observe: {Window, Owner} in front. Request: the ordinary helper's result {status, window, reason}.
 # Validate(window) throws unless lease, identity and the window are still right. KeysHeld: any modifier or F24 down.
-# SendF24: inserts F24 down and up in ONE SendInput call, returns the events inserted. Release: F24 up.
+# SendF24: inserts F24 down and up in ONE SendInput call, returns the events inserted. Release: F24 up, returns the
+# events inserted (must be 1).
 # Activate(window): SetForegroundWindow (its return is ignored). Log(line).
 function Invoke-MacroForeground {
     param([Parameter(Mandatory)][long]$ProcessId, [scriptblock]$Observe, [scriptblock]$Request, [scriptblock]$Validate,
@@ -30,11 +31,16 @@ function Invoke-MacroForeground {
         & $Validate $r.window
         if (& $KeysHeld) { throw 'a modifier or F24 is held; no key sent' }
         $r.fallbackAttempted = $true
+        # One key-up, checked: exactly one event inserted, else the key may still be down and the report says so.
+        $releaseF24 = {
+            try { $k = [int](& $Release) } catch { return "F24 release failed ($($_.Exception.Message)); F24 may still be down" }
+            if ($k -ne 1) { return "F24 release inserted $k of 1 event; F24 may still be down" }
+            'F24 released'
+        }
         try { $r.eventsInserted = [int](& $SendF24) }
-        catch { & $Release; throw "SendInput failed ($($_.Exception.Message)); F24 released" }
+        catch { throw "SendInput failed ($($_.Exception.Message)); $(& $releaseF24)" }
         if ($r.eventsInserted -ne 2) {
-            if ($r.eventsInserted -gt 0) { & $Release }
-            throw "SendInput inserted $($r.eventsInserted) of 2 events$(if ($r.eventsInserted -gt 0) { '; F24 released' })"
+            throw "SendInput inserted $($r.eventsInserted) of 2 events$(if ($r.eventsInserted -gt 0) { '; ' + (& $releaseF24) })"
         }
         [void](& $Activate $r.window)
         if (& $inFront $r.window) { $r.status = 'observed'; $r.via = 'activation-key fallback' }

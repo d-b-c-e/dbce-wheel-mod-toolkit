@@ -302,7 +302,7 @@ try {
             } `
             -KeysHeld { Initialize-MacroActivation; [Dbce.MacroActivation]::AnyHeld() } `
             -SendF24 { Initialize-MacroActivation; [Dbce.MacroActivation]::DownUp() } `
-            -Release { Initialize-MacroActivation; [void][Dbce.MacroActivation]::Up() } `
+            -Release { Initialize-MacroActivation; [Dbce.MacroActivation]::Up() } `
             -Activate { param($w) [Dbce.StageForegroundNative]::SetForegroundWindow([IntPtr]$w) }
         $result.foreground = $fg
         if ($fg.status -ne 'observed') { throw "foreground unmet: $($fg.reason)" }
