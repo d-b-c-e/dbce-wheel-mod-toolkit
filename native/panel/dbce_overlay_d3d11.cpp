@@ -19,6 +19,7 @@ void (*g_log)(const char *);
 bool (*render12)(IDXGISwapChain *, bool);
 void (*resize12)(IDXGISwapChain *);
 void (*probe12)();
+void (*before12)(IDXGISwapChain *);
 void logf(const char *fmt, ...)
 {
     if (!g_log) return;
@@ -427,6 +428,7 @@ void render(IDXGISwapChain *sc)
         ID3D11Device *dev = nullptr;
         if (SUCCEEDED(sc->GetDevice(__uuidof(ID3D11Device), (void **)&dev)) && dev) { before(sc, dev); dev->Release(); }
     }
+    if (sc == g_chain && detail::before12) detail::before12(sc);
     const bool wanted = dbce::panel::IsOpen() || dbce::panel::StatusLineActive();
     if (sc == g_chain && g_inputOn && !wanted) return;   // the usual closed frame; otherwise drawability is checked
     // A chain not drawable yet (a D3D12 renderer that has not started) is looked at again every 30th Present.

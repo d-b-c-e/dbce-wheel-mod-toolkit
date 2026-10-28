@@ -16,6 +16,7 @@ void drawFrame(int w, int h);       // after the renderer's NewFrame: size, time
 extern bool (*render12)(IDXGISwapChain *sc, bool draw);
 extern void (*resize12)(IDXGISwapChain *sc);    // before ResizeBuffers: release back-buffer references
 extern void (*probe12)();                       // from the overlay worker: install the D3D12 queue capture
+extern void (*before12)(IDXGISwapChain *sc);    // every Present of the adopted chain, before the panel (SetBeforePanelD3D12)
 
 // A hook on a shared vtable slot that survives another overlay taking ours as its "original". Steam's overlay patches
 // the first bytes of the system function (dxgi's Present: a 5-byte jump) and, when the game creates its swap chain

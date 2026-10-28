@@ -221,7 +221,25 @@ void probe12()
     }
     dev->Release();
 }
+void (*volatile g_before)(IDXGISwapChain *, ID3D12CommandQueue *);
+
+void before12(IDXGISwapChain *sc)
+{
+    auto *hook = g_before;
+    ID3D12CommandQueue *q = g_lastDirect;
+    if (!hook || !q) return;
+    ID3D12Device *dev = nullptr, *qdev = nullptr;
+    if (SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dev))) && dev && SUCCEEDED(q->GetDevice(IID_PPV_ARGS(&qdev))) && qdev == dev) hook(sc, q);
+    if (qdev) qdev->Release();
+    if (dev) dev->Release();
+}
 } // namespace
+
+void SetBeforePanelD3D12(void (*hook)(IDXGISwapChain *, ID3D12CommandQueue *))
+{
+    g_before = hook;
+    detail::before12 = hook ? &before12 : nullptr;
+}
 
 void EnableD3D12()
 {

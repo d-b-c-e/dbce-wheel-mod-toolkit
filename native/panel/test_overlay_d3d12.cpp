@@ -37,6 +37,8 @@ static bool keyReachesGame(HWND hwnd, int vk)
     return m.message == WM_KEYDOWN;
 }
 static bool ffbOn() { return true; }
+static int g_before; static ID3D12CommandQueue *g_beforeQueue;
+static void beforePanel(IDXGISwapChain *, ID3D12CommandQueue *q) { ++g_before; g_beforeQueue = q; }
 static void stopFfb() {}
 static void drawPage(dbce::panel::Page page, bool)
 {
@@ -114,6 +116,7 @@ int main(int argc, char **argv)
     UINT64 fv = 0;
     auto waitGpu = [&]() { q->Signal(fence, ++fv); if (fence->GetCompletedValue() < fv) { fence->SetEventOnCompletion(fv, ev); WaitForSingleObject(ev, 5000); } };
     // A "game" that executes work on its queue (the overlay captures it) and presents.
+    dbce::overlay::SetBeforePanelD3D12(beforePanel);
     dbce::panel::SetOpen(true);
     UINT lastIdx = 0;
     for (int frame = 0; frame < 3; ++frame) {
@@ -127,6 +130,8 @@ int main(int argc, char **argv)
     }
     waitGpu();
     CHECK(g_drawn);
+    CHECK(g_before >= 2 && g_beforeQueue == q);   // every Present once the game's queue is known, with that queue
+    dbce::overlay::SetBeforePanelD3D12(nullptr);
     // Read back the last presented buffer (flip sequential keeps it).
     ID3D12Resource *buf = nullptr;
     sc->GetBuffer(lastIdx, IID_PPV_ARGS(&buf));

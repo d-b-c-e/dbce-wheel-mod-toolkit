@@ -10,8 +10,17 @@
 // (ADRIFT) is already late enough.
 #pragma once
 
+struct IDXGISwapChain;
+struct ID3D12CommandQueue;
+
 namespace dbce { namespace overlay {
 
 void EnableD3D12();
+
+// Optional: called at every Present of the adopted D3D12 chain, before the panel draws, with the game's present queue
+// (the last direct queue of the chain's device). A mod records its own command list on that queue, e.g. a triple-screen
+// compositor warping the back buffer; the panel stays on top. Not called until the game's queue has been seen. Off
+// unless set; null turns it off.
+void SetBeforePanelD3D12(void (*hook)(IDXGISwapChain *chain, ID3D12CommandQueue *queue));
 
 }} // namespace dbce::overlay
