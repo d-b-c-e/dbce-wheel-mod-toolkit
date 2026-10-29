@@ -27,6 +27,7 @@ internal sealed class TripleSettingsDraft
     internal string EyeText { get; private set; } = "";
     internal string AngleText { get; private set; } = "";
     internal string BezelText { get; private set; } = "";
+    internal string CurveText { get; private set; } = "";
     internal string SaveStatus { get; private set; }
     internal bool CloseWarning { get; private set; }
     internal bool Editable => canEdit();
@@ -51,6 +52,7 @@ internal sealed class TripleSettingsDraft
     internal void SetEye(string value) { if (Editable) EyeText = value; }
     internal void SetAngle(string value) { if (Editable) AngleText = value; }
     internal void SetBezel(string value) { if (Editable) BezelText = value; }
+    internal void SetCurve(string value) { if (Editable) CurveText = value; }
 
     internal bool Save()
     {
@@ -84,10 +86,10 @@ internal sealed class TripleSettingsDraft
     {
         if (!TripleRig.TryParse(WidthText, out double width) || !TripleRig.TryParse(HeightText, out double height) ||
             !TripleRig.TryParse(EyeText, out double eye) || !TripleRig.TryParse(AngleText, out double angle) ||
-            !TripleRig.TryParse(BezelText, out double bezel)) return null;
+            !TripleRig.TryParse(BezelText, out double bezel) || !TripleRig.TryParse(CurveText, out double curve)) return null;
         var (mode, span) = TripleLayoutChoice.Apply(Choice, Saved.Mode);
         // Compare/save the precision the consumer's store will retain.
-        var rig = new TripleRig(Stored(width), Stored(height), Stored(eye), Stored(angle), Stored(bezel));
+        var rig = new TripleRig(Stored(width), Stored(height), Stored(eye), Stored(angle), Stored(bezel), Stored(curve));
         return new TripleSettings(mode, span, rig, MatchGameFov);
     }
 
@@ -95,7 +97,7 @@ internal sealed class TripleSettingsDraft
     {
         Choice = TripleLayoutChoice.Current(value.Mode, value.Span); MatchGameFov = value.MatchGameFov;
         WidthText = Text(value.Rig.PanelWidthMm); HeightText = Text(value.Rig.PanelHeightMm); EyeText = Text(value.Rig.EyeDistanceMm);
-        AngleText = Text(value.Rig.SideAngle); BezelText = Text(value.Rig.BezelMm);
+        AngleText = Text(value.Rig.SideAngle); BezelText = Text(value.Rig.BezelMm); CurveText = Text(value.Rig.CurveRadiusMm);
     }
 
     private double Stored(double value) => storeAsSinglePrecision ? (float)value : value;

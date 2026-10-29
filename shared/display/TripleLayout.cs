@@ -29,10 +29,14 @@ internal static class TripleLayoutChoice
 }
 
 /// <summary>Saved rig measurements in millimeters and degrees ([Triple] geometry keys).</summary>
-internal readonly record struct TripleRig(double PanelWidthMm, double PanelHeightMm, double EyeDistanceMm, double SideAngle, double BezelMm)
+internal readonly record struct TripleRig(double PanelWidthMm, double PanelHeightMm, double EyeDistanceMm, double SideAngle, double BezelMm,
+    double CurveRadiusMm = 0)
 {
     public const double MinWidth = 100, MaxWidth = 3000, MinHeight = 100, MaxHeight = 2000, MinEye = 100, MaxEye = 3000,
-        MinAngle = 0, MaxAngle = 89, MinBezel = 0, MaxBezel = 100;
+        MinAngle = 0, MaxAngle = 89, MinBezel = 0, MaxBezel = 100, MaxRadius = 10000;
+
+    /// <summary>How far the glass middle of a curved panel sits behind its chord (0 when flat). Valid rigs only.</summary>
+    public double CurveDepth() => CurvedPanelWarp.Sagitta(PanelWidthMm, CurveRadiusMm);   // a method: record ToString must not evaluate it for invalid rigs
 
     public string? Validation()
     {
@@ -41,6 +45,9 @@ internal readonly record struct TripleRig(double PanelWidthMm, double PanelHeigh
         if (!In(EyeDistanceMm, MinEye, MaxEye)) return "Eye distance must be 100 to 3000 mm.";
         if (!In(SideAngle, MinAngle, MaxAngle)) return "Side angle must be 0 to 89 degrees.";
         if (!In(BezelMm, MinBezel, MaxBezel)) return "Bezel gap must be 0 to 100 mm.";
+        if (!(CurveRadiusMm == 0 || CurveRadiusMm >= PanelWidthMm / 2 && CurveRadiusMm <= MaxRadius))
+            return "Curve radius must be 0 (flat) or between half the panel width and 10000 mm.";
+        if (EyeDistanceMm <= CurveDepth()) return "Eye distance must be greater than the panel's curve depth.";
         return null;
     }
 
@@ -81,9 +88,10 @@ internal static class TriplePanels
         if (centerVerticalFov is double fov)
         {
             if (!(fov > 1 && fov < 179)) throw new ArgumentOutOfRangeException(nameof(centerVerticalFov));
-            eye = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov);
+            // Eye distances are measured to the glass middle; the framing distance is to the chord plane the builder places.
+            eye = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov) + rig.CurveDepth();
         }
-        var definition = new TripleRigDefinition(rig.PanelWidthMm, rig.PanelHeightMm, eye, rig.SideAngle, rig.SideAngle, 0, rig.BezelMm);
+        var definition = new TripleRigDefinition(rig.PanelWidthMm, rig.PanelHeightMm, eye, rig.SideAngle, rig.SideAngle, 0, rig.BezelMm, rig.CurveRadiusMm);
         var result = new PanelFrustum[3];
         var surfaces = TripleRigBuilder.Build(definition);
         for (int i = 0; i < 3; i++)
