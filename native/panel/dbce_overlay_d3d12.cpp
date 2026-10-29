@@ -25,7 +25,11 @@ void STDMETHODCALLTYPE hkEcl(ID3D12CommandQueue *q, UINT n, ID3D12CommandList *c
     detail::Depth in(depth);
     if (depth == 1 && q != g_lastDirect) {
         D3D12_COMMAND_QUEUE_DESC d = q->GetDesc();
-        if (d.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) g_lastDirect = q;
+        if (d.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
+            static bool noted;
+            if (!noted) { noted = true; logf("overlay: first direct queue seen %p (%u lists)", (void *)q, n); }
+            g_lastDirect = q;
+        }
     }
     if (g_ecl.looped) { if (auto fn = (EclFn)detail::SystemFunction(g_ecl)) fn(q, n, lists); return; }
     ((EclFn)g_ecl.next)(q, n, lists);
@@ -225,11 +229,15 @@ void (*volatile g_before)(IDXGISwapChain *, ID3D12CommandQueue *);
 
 void before12(IDXGISwapChain *sc)
 {
+    static bool noted;   // one line on the first Present that cannot reach the hook, so a silent mod step can be diagnosed
     auto *hook = g_before;
     ID3D12CommandQueue *q = g_lastDirect;
-    if (!hook || !q) return;
+    if (!hook) return;
+    if (!q) { if (!noted) { noted = true; logf("overlay: before-panel hook waits: no direct queue of the game seen yet"); } return; }
     ID3D12Device *dev = nullptr, *qdev = nullptr;
-    if (SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dev))) && dev && SUCCEEDED(q->GetDevice(IID_PPV_ARGS(&qdev))) && qdev == dev) hook(sc, q);
+    const bool chainDevice = SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dev))) && dev, queueDevice = chainDevice && SUCCEEDED(q->GetDevice(IID_PPV_ARGS(&qdev)));
+    if (chainDevice && queueDevice && qdev == dev) hook(sc, q);
+    else if (!noted) { noted = true; logf("overlay: before-panel hook skipped: %s", !chainDevice ? "the swap chain gives no D3D12 device" : !queueDevice ? "the queue gives no device" : "the queue's device is not the swap chain's"); }
     if (qdev) qdev->Release();
     if (dev) dev->Release();
 }
