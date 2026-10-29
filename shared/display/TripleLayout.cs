@@ -81,7 +81,17 @@ internal static class TriplePanels
     /// Left, center, right. With <paramref name="centerVerticalFov"/> the eye distance is chosen so the center panel keeps
     /// that vertical field of view (the game's chase framing); otherwise the saved eye distance is used.
     /// </summary>
-    public static PanelFrustum[] Compute(TripleRig rig, double? centerVerticalFov = null)
+    public static PanelFrustum[] Compute(TripleRig rig, double? centerVerticalFov = null) => Compute(rig, centerVerticalFov, out _, false);
+
+    /// <summary>
+    /// As <see cref="Compute(TripleRig, double?)"/> for a renderer that redraws each view onto its curved panel: the
+    /// frustums cover each panel's chord source surface and <paramref name="warps"/> (left, center, right) give
+    /// <see cref="CurvedPanelWarp.SourceUv"/> for the redraw. Flat rigs get the plain frustums and flat warps.
+    /// </summary>
+    public static PanelFrustum[] ComputeWarped(TripleRig rig, double? centerVerticalFov, out CurvedPanelWarp[] warps) =>
+        Compute(rig, centerVerticalFov, out warps, true);
+
+    private static PanelFrustum[] Compute(TripleRig rig, double? centerVerticalFov, out CurvedPanelWarp[] warps, bool warped)
     {
         if (rig.Validation() is { } invalid) throw new ArgumentOutOfRangeException(nameof(rig), invalid);
         double eye = rig.EyeDistanceMm;
@@ -93,11 +103,14 @@ internal static class TriplePanels
         }
         var definition = new TripleRigDefinition(rig.PanelWidthMm, rig.PanelHeightMm, eye, rig.SideAngle, rig.SideAngle, 0, rig.BezelMm, rig.CurveRadiusMm);
         var result = new PanelFrustum[3];
+        warps = new CurvedPanelWarp[3];
         var surfaces = TripleRigBuilder.Build(definition);
+        var origin = new Vector3d(0, 0, 0);
         for (int i = 0; i < 3; i++)
         {
+            warps[i] = CurvedPanelWarp.Create(surfaces[i], origin, rig.CurveRadiusMm);
             // The core works with the eye looking along -Z; Unity camera space looks along +Z with the same right and up.
-            var projection = ProjectionCalculator.Calculate(surfaces[i], new Vector3d(0, 0, 0), 1, 2);
+            var projection = ProjectionCalculator.Calculate(warped ? warps[i].SourceSurface : surfaces[i], origin, 1, 2);
             var forward = projection.CameraForward;
             double yaw = Math.Atan2(forward.X, -forward.Z) * 180 / Math.PI;
             result[i] = new PanelFrustum(yaw, projection.Left, projection.Right, projection.Bottom, projection.Top);

@@ -26,6 +26,26 @@ internal static class CurveChecks
         foreach (var rig in new[] { flat, curved })
             Check(Math.Abs(TriplePanels.VerticalFov(TriplePanels.Compute(rig, 60)[1]) - 60) < 1e-9, "Game framing lost the game's vertical FOV on the chord");
 
+        // The warped route: flat rigs are untouched. A curved panel's edges lie on its chord and the glass bows away, so
+        // the eye rays through the glass meet the chord plane inside it: the centre source is the chord itself (the game
+        // vertical FOV stays on it) and the redraw samples inward, magnifying the glass middle; a side panel's source
+        // covers its chord (equal to it for this rig).
+        var flatSource = TriplePanels.ComputeWarped(flat, 60, out var flatWarps);
+        Check(flatSource.SequenceEqual(TriplePanels.Compute(flat, 60)) && flatWarps.All(w => w.IsFlat), "Warped route changed a flat rig");
+        var curvedSource = TriplePanels.ComputeWarped(curved, 60, out var curvedWarps);
+        var curvedChord = TriplePanels.Compute(curved, 60);
+        Check(curvedWarps.All(w => !w.IsFlat && w.RadiusMm == 1500), "Curved warps are not 1500R");
+        Check(curvedSource[1] == curvedChord[1] && Math.Abs(TriplePanels.VerticalFov(curvedSource[1]) - 60) < 1e-9, "Centre source is not the chord");
+        for (int i = 0; i < 3; i += 2)
+            Check(curvedSource[i].YawDegrees == curvedChord[i].YawDegrees && curvedSource[i].Left <= curvedChord[i].Left + 1e-9 && curvedSource[i].Right >= curvedChord[i].Right - 1e-9,
+                "Side source does not cover its chord at the panel's yaw");
+        curvedWarps[1].SourceUv(.5, .5, out double su, out double sv);
+        Check(Math.Abs(su - .5) < 1e-9 && Math.Abs(sv - .5) < 1e-9, "Panel middle does not sample the source middle");
+        curvedWarps[1].SourceUv(0, 0, out su, out sv);
+        Check(Math.Abs(su) < 1e-9 && Math.Abs(sv) < 1e-9, "Panel corner (on the chord) does not sample the source corner");
+        curvedWarps[1].SourceUv(.25, 1, out su, out sv);
+        Check(su > .25 && su < .5 && sv < 1 && sv > .9, "Glass quarter does not sample inward toward the middle");
+
         TripleSettings? saved = null;
         var draft = new TripleSettingsDraft(new TripleSettings(TripleMode.Off, false, flat, true), s => { saved = s; return null; }, () => true, () => "",
             new TripleDraftText("", "", "", "saved", ""), storeAsSinglePrecision: true);
