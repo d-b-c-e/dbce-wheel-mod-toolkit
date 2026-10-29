@@ -1,3 +1,4 @@
+using Dbce.TripleScreen;
 using Dbce.Wheel.Display;
 
 // [Triple] CurveRadiusMm: the glass-to-chord eye correction the shared geometry applies, its validation and the F6
@@ -35,10 +36,17 @@ internal static class CurveChecks
         var curvedSource = TriplePanels.ComputeWarped(curved, 60, out var curvedWarps);
         var curvedChord = TriplePanels.Compute(curved, 60);
         Check(curvedWarps.All(w => !w.IsFlat && w.RadiusMm == 1500), "Curved warps are not 1500R");
-        Check(curvedSource[1] == curvedChord[1] && Math.Abs(TriplePanels.VerticalFov(curvedSource[1]) - 60) < 1e-9, "Centre source is not the chord");
-        for (int i = 0; i < 3; i += 2)
-            Check(curvedSource[i].YawDegrees == curvedChord[i].YawDegrees && curvedSource[i].Left <= curvedChord[i].Left + 1e-9 && curvedSource[i].Right >= curvedChord[i].Right - 1e-9,
-                "Side source does not cover its chord at the panel's yaw");
+        // Game framing with the redraw: the virtual eye is at the glass middle, so the chord (one sagitta nearer) shows
+        // more than 60 degrees and the redrawn glass middle shows 60 (lulu, 2026-10-29: 54.42 when the sagitta was added).
+        double glassEye = TripleRigDefinition.EyeDistanceForVerticalFov(curved.PanelHeightMm, 60);
+        Check(Math.Abs(-curvedWarps[1].Panel.Center.Z - (glassEye - curved.CurveDepth())) < 1e-9, "Warped game framing did not put the eye at the glass");
+        Check(TriplePanels.VerticalFov(curvedSource[1]) > 60 && Math.Abs(2 * Math.Atan(curved.PanelHeightMm / 2 / glassEye) * 180 / Math.PI - 60) < 1e-9,
+            "Chord frustum is not wider than the glass framing");
+        var measured = TriplePanels.ComputeWarped(curved, null, out var measuredWarps);
+        var measuredChord = TriplePanels.Compute(curved);
+        Check(Math.Abs(-measuredWarps[1].Panel.Center.Z - (660 - curved.CurveDepth())) < 1e-9, "Measured-eye warped centre moved");
+        for (int i = 0; i < 3; i++)
+            Check(Near(measured[i], measuredChord[i]) && curvedSource[i].YawDegrees == curvedChord[i].YawDegrees, "Measured-eye warped frustum differs from the chord frustum");
         curvedWarps[1].SourceUv(.5, .5, out double su, out double sv);
         Check(Math.Abs(su - .5) < 1e-9 && Math.Abs(sv - .5) < 1e-9, "Panel middle does not sample the source middle");
         curvedWarps[1].SourceUv(0, 0, out su, out sv);
@@ -56,4 +64,9 @@ internal static class CurveChecks
         Check(draft.Validation != null && !draft.Save(), "F6 saved a radius under half the panel width");
         return checks;
     }
+
+    // Projecting a panel's chord source surface (the chord itself for an eye in front) matches the chord to rounding.
+    private static bool Near(PanelFrustum a, PanelFrustum b) =>
+        Math.Abs(a.YawDegrees - b.YawDegrees) < 1e-9 && Math.Abs(a.Left - b.Left) < 1e-9 && Math.Abs(a.Right - b.Right) < 1e-9 &&
+        Math.Abs(a.Bottom - b.Bottom) < 1e-9 && Math.Abs(a.Top - b.Top) < 1e-9;
 }

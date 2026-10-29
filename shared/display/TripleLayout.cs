@@ -86,7 +86,9 @@ internal static class TriplePanels
     /// <summary>
     /// As <see cref="Compute(TripleRig, double?)"/> for a renderer that redraws each view onto its curved panel: the
     /// frustums cover each panel's chord source surface and <paramref name="warps"/> (left, center, right) give
-    /// <see cref="CurvedPanelWarp.SourceUv"/> for the redraw. Flat rigs get the plain frustums and flat warps.
+    /// <see cref="CurvedPanelWarp.SourceUv"/> for the redraw. With <paramref name="centerVerticalFov"/> the game-derived
+    /// virtual eye is taken to the glass (Art, Woden and DRIVE's contract), so the redrawn glass middle keeps that
+    /// field of view and the chord frustum is a little wider. Flat rigs get the plain frustums and flat warps.
     /// </summary>
     public static PanelFrustum[] ComputeWarped(TripleRig rig, double? centerVerticalFov, out CurvedPanelWarp[] warps) =>
         Compute(rig, centerVerticalFov, out warps, true);
@@ -98,8 +100,9 @@ internal static class TriplePanels
         if (centerVerticalFov is double fov)
         {
             if (!(fov > 1 && fov < 179)) throw new ArgumentOutOfRangeException(nameof(centerVerticalFov));
-            // Eye distances are measured to the glass middle; the framing distance is to the chord plane the builder places.
-            eye = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov) + rig.CurveDepth();
+            // Eye distances are measured to the glass middle. Without the redraw the framing distance is to the chord
+            // plane the builder places (the picture is drawn there); with it, to the glass the picture ends up on.
+            eye = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov) + (warped ? 0 : rig.CurveDepth());
         }
         var definition = new TripleRigDefinition(rig.PanelWidthMm, rig.PanelHeightMm, eye, rig.SideAngle, rig.SideAngle, 0, rig.BezelMm, rig.CurveRadiusMm);
         var result = new PanelFrustum[3];
