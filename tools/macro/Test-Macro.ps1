@@ -105,6 +105,14 @@ try {
         Check ((Get-Content $injectFile) -eq "inject raw button 3 dev=$g value=1 ms=600") 'complete run: the press was sent, no release needed'
         Stop-Process -Id $game.Id
 
+        # A nonce session (OutRun 2006): no ffb-fence.on needed, and each write starts with the nonce.
+        $nonceDir = New-Item -ItemType Directory -Force (Join-Path $env:LOCALAPPDATA 'dbce\noncetest')
+        Set-Content -LiteralPath (Join-Path $nonceDir 'inject.on') -Value @('nonce=abcd1234', 'expires=9999999999')
+        $game = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 30' -PassThru -WindowStyle Hidden
+        & pwsh -NoProfile -File $play -Macro $hand -Game noncetest -ProcessId $game.Id 2>$null | Out-Null
+        Check ($LASTEXITCODE -eq 0 -and ((Get-Content (Join-Path $nonceDir 'inject.txt')) -join '|') -eq "nonce=abcd1234|inject raw button 3 dev=$g value=1 ms=600") 'nonce session: the nonce leads the write'
+        Stop-Process -Id $game.Id
+
         # The game exits during a long hold: playback stops, the hold gets its release, nothing later is sent.
         Set-Content -LiteralPath $hand -Value @("dev g $g", '0.1 g button 3 1 ms=8000', '6 g button 4 1')
         $game = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 2' -PassThru -WindowStyle Hidden

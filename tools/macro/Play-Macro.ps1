@@ -238,7 +238,11 @@ if ($RecordCheckpoint) {
 # Everything that can be refused is refused before a launch.
 $hasInject = [bool]($steps | Where-Object { !$_.Expect -and !$_.Cmd -and $null -eq $_.KeyScan })
 if ($hasCmd -and !(Test-Path -LiteralPath (Split-Path -Parent ([IO.Path]::GetFullPath($CommandFile))) -PathType Container)) { throw "No folder for -CommandFile $CommandFile; nothing sent." }
-foreach ($flag in @('ffb-fence.on', 'inject.on') | Where-Object { $hasInject }) {   # only wheel injections need the fence
+# A nonce session (OutRun 2006: inject.on names nonce= and expires=) is muted by the process, not ffb-fence.on; each
+# inject.txt then starts with that nonce.
+$on = Join-Path $dir 'inject.on'
+$nonce = if ($hasInject -and (Test-Path -LiteralPath $on)) { [regex]::Match([IO.File]::ReadAllText($on), '(?m)^\s*nonce=([A-Za-z0-9]{8,64})\s*$').Groups[1].Value } else { '' }
+foreach ($flag in @(@(if (!$nonce) { 'ffb-fence.on' }) + 'inject.on') | Where-Object { $hasInject }) {   # only wheel injections need the fence
     if (!(Test-Path -LiteralPath (Join-Path $dir $flag))) { throw "Missing $dir\$flag (needed when the game starts); nothing sent." }
 }
 if (!$Launch -and !$ProcessId) { throw 'Name the game: -ProcessId or -Launch.' }
@@ -258,6 +262,7 @@ $path = Join-Path $dir 'inject.txt'
 $script:fgWindow = 0L
 function Send([string[]]$lines) {
     $tmp = "$path.$PID.tmp"
+    if ($nonce) { $lines = @("nonce=$nonce") + $lines }
     [IO.File]::WriteAllText($tmp, ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
     for ($try = 0; ; $try++) { try { [IO.File]::Move($tmp, $path, $true); break } catch [IO.IOException] { if ($try -ge 24) { throw }; Start-Sleep -Milliseconds 20 } }
 }
