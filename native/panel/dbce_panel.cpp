@@ -106,6 +106,8 @@ void SetOpen(bool open)
 void Toggle() { SetOpen(!IsOpen()); }
 bool StatusLineActive() { return InterlockedCompareExchange(&g_statusActive, 0, 0) != 0; }
 bool FrameCounterOn() { return g_showFps; }
+bool CompareAvailable() { return g_cfg.compareKey != nullptr; }
+void CompareFromKey() { if (g_cfg.compareKey) g_cfg.compareKey(); }
 void SetStatusLine(const char *text, StatusTone tone)
 {
     size_t length = 0;

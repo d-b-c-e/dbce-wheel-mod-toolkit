@@ -49,6 +49,7 @@ bool handle(MSG *m)
         const bool alt = (m->lParam & (1 << 29)) != 0;
         if (vk == VK_F6) { if (down && !repeat) Toggle(); return true; }
         if (vk == VK_F8 && StopFfbAvailable()) { if (down && !repeat) StopFfbFromKey(); return true; }
+        if (vk == VK_F7 && CompareAvailable()) { if (down && !repeat) CompareFromKey(); return true; }
         if (!open) return false;
         if (alt && (vk == VK_TAB || vk == VK_F4)) return false;     // leave window switching and closing alone
         if (vk == VK_LWIN || vk == VK_RWIN) return false;

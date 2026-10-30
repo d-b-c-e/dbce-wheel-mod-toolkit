@@ -24,6 +24,9 @@ struct Config {
     // saved FFB setting Off; only the FFB page's Off/On turns it back on. ffbOn reports the current setting.
     bool (*ffbOn)() = nullptr;                  // null: no Stop FFB in this mod
     void (*stopFfb)() = nullptr;
+    // F7 steps the session-only correction comparison (triple-screen toolkit camera-framing-and-comparison-policy.md):
+    // the mod changes mode and shows its label. Called on the window thread. Null: F7 goes to the game.
+    void (*compareKey)() = nullptr;
     void (*log)(const char *line) = nullptr;
     // Unattended checks only (no OS input): a file whose text is "open <Page> [simple|advanced]" or "close" is applied
     // when it changes (polled twice a second by the overlay); a file last written before the process started is ignored.
@@ -61,6 +64,8 @@ bool FrameCounterOn();
 // F8 (dbce_panel_input): Stop FFB when the mod offers it.
 bool StopFfbAvailable();
 void StopFfbFromKey();
+bool CompareAvailable();   // Config::compareKey set (F7)
+void CompareFromKey();
 
 // Overlay side, once per presented frame while the panel is open (an ImGui context must be current):
 //   if (Prepare(w, h)) { BuildFonts(); <invalidate the renderer's font texture> }
