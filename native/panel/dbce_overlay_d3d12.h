@@ -23,4 +23,10 @@ void EnableD3D12();
 // unless set; null turns it off.
 void SetBeforePanelD3D12(void (*hook)(IDXGISwapChain *chain, ID3D12CommandQueue *queue));
 
+// The direct queue a D3D12 swap chain was created with, found inside the chain object (DXGI keeps it as a plain
+// pointer) and validated as that device's direct queue; null when none is found. No reference is added. The host
+// uses it when its ExecuteCommandLists patch has seen no queue of the chain's device (ADRIFT: UE 5.3 never hits
+// the patch); exposed for the offline check.
+ID3D12CommandQueue *FindPresentQueue(IDXGISwapChain *chain);
+
 }} // namespace dbce::overlay

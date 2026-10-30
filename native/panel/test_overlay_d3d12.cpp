@@ -107,6 +107,8 @@ int main(int argc, char **argv)
     IDXGISwapChain1 *sc1 = nullptr; IDXGISwapChain3 *sc = nullptr;
     CHECK(SUCCEEDED(fac->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &sc1)) && SUCCEEDED(sc1->QueryInterface(IID_PPV_ARGS(&sc))));
     if (failures) return 1;
+    // The queue a chain was created with, found inside the chain object: the host's way when its queue patch sees nothing (ADRIFT).
+    CHECK(dbce::overlay::FindPresentQueue(sc) == q);
     ID3D12CommandAllocator *alloc = nullptr; ID3D12GraphicsCommandList *list = nullptr; ID3D12Fence *fence = nullptr;
     dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&alloc));
     dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, alloc, nullptr, IID_PPV_ARGS(&list));

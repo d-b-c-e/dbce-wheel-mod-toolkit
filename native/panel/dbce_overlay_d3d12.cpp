@@ -13,6 +13,50 @@ namespace dbce { namespace overlay {
 namespace {
 using detail::logf;
 
+// ---- the present queue from the swap chain itself ------------------------------------------------------------
+// The ExecuteCommandLists patch on a probe queue never fires in ADRIFT (UE 5.3, Agility SDK core): the game's queue
+// does not share the probe's vtable. DXGI keeps the queue the chain was created with as a plain pointer inside the
+// chain object (+320 on Windows 11 dxgi; scanned, not assumed). A candidate counts when it is a readable COM object
+// whose vtable and first three entries lie in a D3D12 module, answers QueryInterface for ID3D12CommandQueue, is a
+// direct queue and belongs to the chain's device. No reference is kept: the chain holds the queue alive.
+bool readable(const void *p, SIZE_T n)
+{
+    MEMORY_BASIC_INFORMATION m;
+    if (!p || !VirtualQuery(p, &m, sizeof m) || m.State != MEM_COMMIT || (m.Protect & PAGE_GUARD)) return false;
+    const DWORD prot = m.Protect & 0xFF;
+    if (prot != PAGE_READONLY && prot != PAGE_READWRITE && prot != PAGE_EXECUTE_READ && prot != PAGE_EXECUTE_READWRITE &&
+        prot != PAGE_WRITECOPY && prot != PAGE_EXECUTE_WRITECOPY) return false;
+    return (const char *)p + n <= (const char *)m.BaseAddress + m.RegionSize;
+}
+bool inD3D12Module(const void *p)
+{
+    HMODULE m = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)p, &m) || !m) return false;
+    wchar_t path[MAX_PATH] = L"";
+    GetModuleFileNameW(m, path, MAX_PATH);
+    const wchar_t *name = wcsrchr(path, L'\\');
+    name = name ? name + 1 : path;
+    return _wcsnicmp(name, L"d3d12", 5) == 0;
+}
+ID3D12CommandQueue *queueOfChain(IDXGISwapChain *sc, ID3D12Device *dev, UINT *at)
+{
+    if (!sc || !dev || !readable(sc, 1024)) return nullptr;
+    for (UINT i = 8; i < 1024; i += 8) {
+        void *cand = *(void **)((const char *)sc + i);
+        if (!cand || ((uintptr_t)cand & 7) || !readable(cand, 8)) continue;
+        void **vt = *(void ***)cand;
+        if (!readable(vt, 24) || !inD3D12Module(vt) || !inD3D12Module(vt[0]) || !inD3D12Module(vt[1]) || !inD3D12Module(vt[2])) continue;
+        ID3D12CommandQueue *q = nullptr;
+        if (FAILED(((IUnknown *)cand)->QueryInterface(IID_PPV_ARGS(&q))) || !q) continue;
+        ID3D12Device *qdev = nullptr;
+        const bool ok = q->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT && SUCCEEDED(q->GetDevice(IID_PPV_ARGS(&qdev))) && qdev == dev;
+        if (qdev) qdev->Release();
+        q->Release();
+        if (ok) { if (at) *at = i; return q; }
+    }
+    return nullptr;
+}
+
 // ---- the game's present queue ------------------------------------------------------------------------------
 typedef void(STDMETHODCALLTYPE *EclFn)(ID3D12CommandQueue *, UINT, ID3D12CommandList *const *);
 detail::SlotHook g_ecl = {"ExecuteCommandLists"};
@@ -33,6 +77,19 @@ void STDMETHODCALLTYPE hkEcl(ID3D12CommandQueue *q, UINT n, ID3D12CommandList *c
     }
     if (g_ecl.looped) { if (auto fn = (EclFn)detail::SystemFunction(g_ecl)) fn(q, n, lists); return; }
     ((EclFn)g_ecl.next)(q, n, lists);
+}
+
+// The chain's own queue when the patch has seen none of this device's; remembered as the present queue from then on.
+ID3D12CommandQueue *chainQueue(IDXGISwapChain *sc, ID3D12Device *dev)
+{
+    UINT at = 0;
+    ID3D12CommandQueue *q = queueOfChain(sc, dev, &at);
+    if (q) {
+        static bool noted;
+        if (!noted) { noted = true; logf("overlay: present queue %p taken from the swap chain object (+%u); the queue patch had not seen it", (void *)q, at); }
+        g_lastDirect = q;
+    }
+    return q;
 }
 
 // ---- per swap chain ------------------------------------------------------------------------------------------
@@ -107,10 +164,14 @@ bool setup(IDXGISwapChain *sc, ID3D12Device *dev)
     ID3D12Device *qdev = nullptr;
     if (!q || FAILED(q->GetDevice(IID_PPV_ARGS(&qdev))) || qdev != dev) {
         if (qdev) qdev->Release();
-        if (!g_queueNoted) { logf("overlay: no direct queue of the game's D3D12 device seen yet; panel not drawn"); g_queueNoted = true; }
-        return false;
+        qdev = nullptr;
+        q = chainQueue(sc, dev);
+        if (!q) {
+            if (!g_queueNoted) { logf("overlay: no direct queue of the game's D3D12 device seen yet, none found in the swap chain; panel not drawn"); g_queueNoted = true; }
+            return false;
+        }
     }
-    qdev->Release();
+    if (qdev) qdev->Release();
     g_chain = sc;
     g_dev = dev; g_dev->AddRef();
     g_queue = q; g_queue->AddRef();
@@ -231,17 +292,27 @@ void before12(IDXGISwapChain *sc)
 {
     static bool noted;   // one line on the first Present that cannot reach the hook, so a silent mod step can be diagnosed
     auto *hook = g_before;
-    ID3D12CommandQueue *q = g_lastDirect;
     if (!hook) return;
-    if (!q) { if (!noted) { noted = true; logf("overlay: before-panel hook waits: no direct queue of the game seen yet"); } return; }
     ID3D12Device *dev = nullptr, *qdev = nullptr;
-    const bool chainDevice = SUCCEEDED(sc->GetDevice(IID_PPV_ARGS(&dev))) && dev, queueDevice = chainDevice && SUCCEEDED(q->GetDevice(IID_PPV_ARGS(&qdev)));
-    if (chainDevice && queueDevice && qdev == dev) hook(sc, q);
-    else if (!noted) { noted = true; logf("overlay: before-panel hook skipped: %s", !chainDevice ? "the swap chain gives no D3D12 device" : !queueDevice ? "the queue gives no device" : "the queue's device is not the swap chain's"); }
+    if (FAILED(sc->GetDevice(IID_PPV_ARGS(&dev))) || !dev) { if (!noted) { noted = true; logf("overlay: before-panel hook skipped: the swap chain gives no D3D12 device"); } return; }
+    ID3D12CommandQueue *q = g_lastDirect;
+    if (q && (FAILED(q->GetDevice(IID_PPV_ARGS(&qdev))) || qdev != dev)) q = nullptr;   // the patch saw some other device's queue
     if (qdev) qdev->Release();
-    if (dev) dev->Release();
+    if (!q) q = chainQueue(sc, dev);
+    if (q) hook(sc, q);
+    else if (!noted) { noted = true; logf("overlay: before-panel hook waits: no direct queue of the game's device seen yet, none found in the swap chain"); }
+    dev->Release();
 }
 } // namespace
+
+ID3D12CommandQueue *FindPresentQueue(IDXGISwapChain *chain)
+{
+    ID3D12Device *dev = nullptr;
+    if (!chain || FAILED(chain->GetDevice(IID_PPV_ARGS(&dev))) || !dev) return nullptr;
+    ID3D12CommandQueue *q = queueOfChain(chain, dev, nullptr);
+    dev->Release();
+    return q;
+}
 
 void SetBeforePanelD3D12(void (*hook)(IDXGISwapChain *, ID3D12CommandQueue *))
 {
