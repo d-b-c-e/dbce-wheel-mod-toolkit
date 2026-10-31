@@ -687,6 +687,22 @@ bool Inject(const GUID &instance, int kind, int index, long value, long bindMin,
 }
 bool On() { return g_on != 0; }
 bool Muted() { return g_opt.mute; }
+
+void StopForExit()
+{
+    ensure();
+    InterlockedExchange(&g_on, 0);
+    IDirectInputEffect *items[32];
+    int n = 0;
+    void *wheel = nullptr;
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_effCount && n < 32; ++i) if (g_effs[i].eff) items[n++] = (IDirectInputEffect *)g_effs[i].eff;
+    for (int i = 0; i < g_devCount; ++i) if (g_devs[i].dev == g_wheelDev) wheel = g_wheelDev;   // only a device still alive
+    LeaveCriticalSection(&g_cs);
+    dlog("ffb: stopped for exit (%d effects%s); not saved", n, wheel ? ", wheel STOPALL" : "");
+    for (int i = 0; !g_opt.mute && i < n; ++i) ((NoArgFn)orig(H_E_STOP, items[i]))(items[i]);
+    if (!g_opt.mute && wheel) ((SendFfFn)orig(H_SENDFF, wheel))(wheel, DISFFC_STOPALL);
+}
 int Strength() { return g_strength; }
 
 void SetOn(bool on)

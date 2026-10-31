@@ -43,6 +43,9 @@ void SetOn(bool on);
 int Strength();
 void SetStrength(int percent);
 bool Muted();
+// The game window is closing (WM_CLOSE, WM_DESTROY, session end): stop every effect and block new ones for the rest of
+// the process, without saving Off, so the wheel never holds torque after the game. Safe before Init and repeated.
+void StopForExit();
 
 // The F6 panel's FFB page (dbce_panel widgets): FFB Off/On, Strength (with gain emulation), status; Advanced lists the
 // game's effects.
