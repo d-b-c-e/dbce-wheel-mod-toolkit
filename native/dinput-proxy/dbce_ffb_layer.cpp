@@ -591,7 +591,7 @@ void Init(const Options &o)
     ensure();
     g_opt = o;
     if (o.iniPath) {
-        g_on = GetPrivateProfileIntA("FFB", "Enabled", 1, o.iniPath) != 0;
+        g_on = GetPrivateProfileIntA("FFB", "Enabled", o.onByDefault ? 1 : 0, o.iniPath) != 0;
         g_strength = (std::min)(100, (std::max)(0, (int)GetPrivateProfileIntA("FFB", "Strength", 50, o.iniPath)));
     }
     dlog("ffb: force feedback %s%s%s", g_on ? "on" : "off", o.gainEmulation ? "" : " (the game's own effects, unchanged)",

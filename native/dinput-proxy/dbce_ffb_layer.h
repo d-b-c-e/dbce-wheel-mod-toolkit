@@ -20,7 +20,8 @@ namespace dbce { namespace controls { class ShapeTable; } }   // controls/dbce_s
 namespace dbce { namespace ffb {
 
 struct Options {
-    const char *iniPath = nullptr;           // [FFB] Enabled (default 1), Strength (default 50)
+    const char *iniPath = nullptr;           // [FFB] Enabled (default onByDefault), Strength (default 50)
+    bool onByDefault = true;                 // [FFB] Enabled when the key is absent (false: Off until an attended feel test)
     void (*log)(const char *line) = nullptr;
     bool mute = false;                       // test switch: no effect ever starts
     bool gainEmulation = false;              // apply effect gain and Strength in the proxy (see above)
