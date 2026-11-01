@@ -769,3 +769,65 @@ the F6 panel like they did before." (Prompted by an Art of Rally player confused
   Every binding Wheelkit can apply for a game (driving, gears, in-game menu navigation, game-specific actions) must also
   be bindable in that game's F6 panel, so a player without Wheelkit loses nothing. The F6 panel itself stays mouse and
   keyboard. Art of Rally first: its own F6 bindings lack menu navigation and the horn/look-back/recover routes.
+
+## STD-041 — Triple framing: always corrected; Game or Realistic per mounted camera
+2026-11-01 · owner (tuned in art of rally rc.13-rc.20: "try on Art first, then the portfolio") · applies to: every game with triple screens
+
+- Screens are always angle-corrected, plus curve-corrected when a radius is set. No player-facing stretched,
+  angle or curve modes. Supersedes the F7 comparison cycle in `dbce-triple-screen-toolkit`
+  `docs/camera-framing-and-comparison-policy.md` (revision 3); its separation of framing from correction stays.
+- Chase and third-person cameras use the game's own FOV (plus the saved offset in STD-042).
+- Mounted cameras (bonnet, bumper, cockpit) keep two saved sets per camera, **Game** and **Realistic**. Realistic
+  starts at the seat-true vertical FOV from the rig measurements and stays adjustable. F7 switches sets, is saved, and
+  writes only its own key. Shift+F7 is a developer comparison (original / angle / angle+curve), session only, never saved.
+  The F6 panel shows one line and one button for it.
+- Curved panels with a non-seat (virtual) eye build the warp from the measured rig and move the source onto the
+  rendered rig (`CurvedPanelWarp.WithSourceOn`, triple-screen toolkit 7af26cd); otherwise straight edges bow.
+- Reference: Art 0da187b, 6b53ea4, 98678d0. Wheelkit: one My Rig Game/Realistic choice, written only as each game's
+  starting set and only when the installed receipt declares it (Art `artFovSets`); see Wheelkit
+  `docs/ART-STANDARDS-FOR-WHEELKIT.md` §6.
+
+## STD-042 — Every camera's view is adjustable, remembered and named on screen
+2026-11-01 · owner (via vemi, from art of rally) · applies to: every game with camera controls
+
+- Every camera's FOV is adjustable and sticky. Mounted: per camera per set, numpad +/− and F6 sliders (20-120°).
+  Chase: a saved offset on top of the game's dynamic FOV, removed before the game's FOV smoothing and re-applied after,
+  or it compounds (Art `ChaseFov.cs`).
+- Camera adjustments are remembered per car (car + custom package id + set). An untuned car starts from the last tuned
+  car, fitted to its shape from the body only (not lights or effects). Art 06c283b, 645e77c, 82adf86.
+- The last camera is restored at stage start, including views the game adds late. Art: not yet resolved on rc.19.
+- On every camera change and stage start, show the camera's short name near the bottom ("Bonnet Camera - Game FOV",
+  "Chase 2") with a small key reminder ("Numpad + / - field of view · F7 Realistic set") for about 3 seconds.
+  Art 7db0a4e, 98678d0.
+- Camera keys follow STD-005. Wheelkit's Cameras tab writes them per game (ISS-0023; `ART-STANDARDS-FOR-WHEELKIT.md` §4-5).
+
+## STD-043 — Hotkeys wait only for their own keys; a held H-pattern gate wins
+2026-11-01 · owner (via vemi, from art of rally) · applies to: every game, Unity games first
+
+- A hotkey's release-wait checks only that hotkey's own bindings, never `Input.anyKey`. Joystick buttons count there, and
+  an H-pattern shifter in gear holds one forever, so camera keys stayed blocked. Art db02576.
+- H-pattern: the lever is the truth. Re-apply a held gate whenever the gearbox is not in it and no change is under way
+  (Art 378da86). A gate already held at stage start is not yet engaged on Art rc.19; it may belong in the shared input
+  provider. Not resolved; Art rc.20 logs gate, gearbox and clutch at stage start.
+
+## STD-044 — A write changes only what it owns, and keeps the file's bytes
+2026-11-01 · owner (via vemi, from art of rally) · applies to: every mod's settings writer and Wheelkit
+
+- An in-game toggle or hotkey writes only its own setting: element- or key-level update, atomic replace (unique temp,
+  then replace), unknown elements, comments and order kept, failure reported. Reference: Art
+  `SettingsPersistence.WriteElement` (16bb310).
+- Keep the file's line endings and BOM state exactly; never normalise CRLF to LF or add a BOM. Refuse malformed files
+  without writing. Wheelkit fixed its XML writer turning CRLF into LF on every Apply (eb1c776).
+
+## STD-045 — Force feedback is On by default; My Rig decides and Apply writes it
+2026-11-01 · owner ("the My Rig should specify if the user wants FFB on or off and that should write to the game") ·
+applies to: every game with FFB, and Wheelkit
+
+- A fresh install has force feedback On (toolkit `Options::onByDefault` for an absent `[FFB] Enabled`, fe8fb28). Mods
+  whose default is still Off move to On: F-Zero `ffb_enabled`, Horizon Chase Turbo, Truckful; OutRun decomp once its
+  force model is admitted (its editor refuses wheel output until then, so Wheelkit does not request it).
+- In-game Off (F8, the wheel's Stop button, F6) persists, and says so on screen: "Force feedback off. It stays off until
+  you turn it on in F6 > FFB", and once at each stage start while off (Art 653995d, 58839ea). Turning it on in F6
+  mid-stage starts force at once.
+- Wheelkit: My Rig > FFB has On/Off, default On, and Apply writes the game's master switch only, never effect switches
+  (Wheelkit eb1c776, ISS-0022). Profiles saved before the choice count as On.
