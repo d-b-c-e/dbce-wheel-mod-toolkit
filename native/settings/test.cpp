@@ -18,8 +18,7 @@ int main(int argc, char** argv) {
     }
     assert(edit(wide(original), "triple", {{"view", "original"}}, out));
     assert(out == wide(expected));
-    auto unicode = wide(original); unicode += "\xe9\x00"; // opaque UTF-16 comment text
-    unicode = wide(original + "; ") + std::string("\xe9\x00", 2);
+    auto unicode = wide(original + "; ") + std::string("\xe9\x00", 2);
     assert(edit(unicode, "triple", {{"view", "original"}}, out));
     assert(out == wide(expected + "; ") + std::string("\xe9\x00", 2));
     assert(edit("[triple]\nview=angle  ; my note\n", "triple", {{"view", "original"}}, out));
@@ -32,6 +31,9 @@ int main(int argc, char** argv) {
     assert(out == original.substr(0, original.find("forward_m")) + "forward_m=0.020\r\nright_m=0.100\r\nup_m=0.200\r\n");
     for (const auto& invalid : {"[triple]\nview=angle\nVIEW=original", "[triple]\n[TRIPLE]\n", "[triple\nview=angle", "[triple]\ngarbage", "[camera]\nx=0"})
         assert(!edit(invalid, "triple", {{"view", "original"}}, out));
+    assert(!edit(original, "triple", {{"view", "original"}, {"VIEW", "angle"}}, out));
+    assert(!edit(original, "triple", {{"view", "angle\nmode=off"}}, out));
+    assert(!edit("[triple]\rview=angle", "triple", {{"view", "original"}}, out));
     const std::string path = std::string(argv[1]) + "/settings.ini";
     auto write = [&](const std::string& s) { FILE* f = fopen(path.c_str(), "wb"); assert(f); assert(fwrite(s.data(), 1, s.size(), f) == s.size()); fclose(f); };
     auto read = [&]() { FILE* f = fopen(path.c_str(), "rb"); assert(f); std::string s; int c; while ((c = fgetc(f)) != EOF) s += char(c); fclose(f); return s; };

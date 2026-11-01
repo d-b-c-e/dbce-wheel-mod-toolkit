@@ -21,6 +21,13 @@ inline std::string lower(std::string s) {
 // Operate on ASCII INI syntax while retaining every original byte outside the owned values.
 // UTF-16 uses a one-byte syntax view; all other code units remain opaque in the original file.
 inline bool edit(const std::string& bytes, const std::string& section, const Changes& changes, std::string& out) {
+    auto ascii = [](const std::string& s) { for (unsigned char c : s) if (c < 32 || c >= 127) return false; return true; };
+    if (section.empty() || !ascii(section) || section.find_first_of("[]") != section.npos) return false;
+    for (size_t j = 0; j < changes.size(); ++j) {
+        const auto& key = changes[j].first;
+        if (key.empty() || !ascii(key) || trim(key) != key || key.find_first_of("=[];#") != key.npos || !ascii(changes[j].second)) return false;
+        for (size_t k = 0; k < j; ++k) if (lower(key) == lower(changes[k].first)) return false;
+    }
     const bool wide = bytes.size() >= 2 && bytes.compare(0, 2, "\xff\xfe") == 0;
     const size_t bom = wide ? 2 : bytes.compare(0, 3, "\xef\xbb\xbf") == 0 ? 3 : 0;
     const size_t step = wide ? 2 : 1;
@@ -30,6 +37,7 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
         if (!bytes[i] && (!wide || !bytes[i + 1])) return false;
         syntax += wide && bytes[i + 1] ? '\x7f' : bytes[i];
     }
+    for (size_t i = 0; i < syntax.size(); ++i) if (syntax[i] == '\r' && (i + 1 == syntax.size() || syntax[i + 1] != '\n')) return false;
     struct Replacement { size_t a, b; std::string text; };
     std::vector<Replacement> edits;
     std::vector<bool> found(changes.size(), false);
