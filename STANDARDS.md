@@ -853,3 +853,5 @@ triple screens, and Wheelkit · Refines STD-041 and STD-042 (supersedes their "m
 - **Wheelkit Apply writes only each camera's starting choice, never the player's offsets.**
 - Reference: art of rally `docs/TRIPLE-CAMERA-LEARNINGS.md` (0ccd934) and `docs/CAMERA.md`; Art keys
   `CockpitRealistic`, `OverrideFieldOfView` (bonnet), `BumperRealistic`, `ChaseRealistic` in TripleScreen.xml.
+- Added 2026-11-01 (vemi review): the placement and rendering numbers above (10/8/5 cm, halfway up, 5 cm near clip,
+  0.06 s smoothing) are art of rally's calibrated starting values; each game re-checks them on the rig. They are not family constants.
