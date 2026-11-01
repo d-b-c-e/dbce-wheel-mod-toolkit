@@ -43,6 +43,25 @@ try {
         & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun -RequireForeground 2>&1 | Out-Null
         Check ($LASTEXITCODE -ne 0) "malformed key step: $bad"
     }
+    Set-Content -LiteralPath $hand -Value @('key 0xE048 ms=100', '+1 key 0xE050 ms=150')
+    $got = Lines (& $play -Macro $hand -Game test -DryRun -RequireForeground -ObserveForegroundWindow 123)
+    Check (($got -join '|') -eq '0.000 key 0xE048 down ms=100|0.100 key 0xE048 up|1.000 key 0xE050 down ms=150|1.150 key 0xE050 up') 'E0 arrow down/up keep prefix and timing'
+    foreach ($bad in 'key 0xE000', 'key 0xE080', 'key 0xE148') {
+        Set-Content -LiteralPath $hand -Value $bad
+        & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun -RequireForeground 2>&1 | Out-Null
+        Check ($LASTEXITCODE -ne 0) "invalid extended key refused: $bad"
+    }
+    & pwsh -NoProfile -File $play -Macro $hand -Game test -DryRun -ObserveForegroundWindow 123 2>&1 | Out-Null
+    Check ($LASTEXITCODE -ne 0) 'observed HWND requires foreground guard'
+    # Compile the actual production INPUT builder, without calling SendInput.
+    $source = Get-Content $play -Raw
+    $member = [regex]::Match($source, "(?s)Add-Type -Namespace Dbce -Name MacroKeys -MemberDefinition @'\r?\n(.*?)\r?\n'@")
+    Check $member.Success 'production key builder located'
+    Add-Type -Namespace Dbce -Name MacroKeys -MemberDefinition $member.Groups[1].Value
+    foreach ($key in @(@(0xE048, $false, 0x48, 9), @(0xE050, $true, 0x50, 11), @(0x1C, $false, 0x1C, 8), @(0x1C, $true, 0x1C, 10))) {
+        $input = [Dbce.MacroKeys]::Build($key[0], $key[1])
+        Check ($input.u.ki.wScan -eq $key[2] -and $input.u.ki.dwFlags -eq $key[3]) 'production INPUT has expected scan/extended/up flags'
+    }
     # Command-file steps: the text verbatim, refused without -CommandFile, appended with CRLF in order; a cmd-only
     # macro needs no fence flags (no wheel injection). The "game" here is a short-lived pwsh.
     Set-Content -LiteralPath $hand -Value @('0.1 cmd widgets W_List   # comment', 'cmd call A_*.B$  Fn', '+0.2 cmd vehicle')

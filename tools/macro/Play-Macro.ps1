@@ -19,6 +19,7 @@ param(
     [int]$ProcessId,                              # the running game, when not launched here
     [string]$LeasePath, [string]$LeaseToken,
     [switch]$RequireForeground,
+    [long]$ObserveForegroundWindow,             # exact observed HWND; never requests activation or F24
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
     [string]$DeliveryLog,                         # the mod's log: every inject step must show up there (docs/MACRO.md)
     [ValidateSet('Game', 'WindowCapture')][string]$FrameSource = 'Game',   # WindowCapture: tools/window-capture, for games without frame-dump.req
@@ -26,6 +27,7 @@ param(
     [string]$CommandFile,                         # "cmd" steps are appended here (e.g. a UE4SS dev channel's cmd.txt)
     [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
+if ($ObserveForegroundWindow -and (!$RequireForeground -or $ObserveForegroundWindow -lt 0)) { throw '-ObserveForegroundWindow needs a positive HWND and -RequireForeground.' }
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $maxSeconds = 3600   # a macro longer than an hour is a mistake, not a route
 $checkEveryMs = 1000
@@ -80,10 +82,10 @@ foreach ($raw in Get-Content -LiteralPath $Macro) {
         continue
     }
     if ($t[1] -eq 'key') {   # a keyboard key by hardware scan code (SendInput): only for a game in the foreground
-        # shortcut: plain scan codes 0x01-0x7F only (no E0-extended keys); extend if a game needs arrows or the like.
+        # E0-prefixed scan codes distinguish arrows from the numeric keypad.
         $scan = -1; $kms = 300
-        if ($t[2] -match '^0x([0-9A-Fa-f]{1,2})$') { $scan = [Convert]::ToInt32($Matches[1], 16) } elseif ($t[2] -match '^\d{1,3}$') { $scan = [int]$t[2] }
-        if ($t.Count -notin 3, 4 -or $scan -lt 1 -or $scan -gt 0x7F -or ($t.Count -eq 4 -and !($t[3] -match '^ms=(\d+)$' -and [int]$Matches[1] -ge 50 -and [int]$Matches[1] -le 15000))) { & $bad '[<seconds>] key <scan 0x01-0x7F> [ms=<50-15000>]' }
+        if ($t[2] -match '^0x((?:[eE]0)?[0-9A-Fa-f]{1,2})$') { $scan = [Convert]::ToInt32($Matches[1], 16) } elseif ($t[2] -match '^\d{1,3}$') { $scan = [int]$t[2] }
+        if ($t.Count -notin 3, 4 -or (($scan -lt 1 -or $scan -gt 0x7F) -and ($scan -lt 0xE001 -or $scan -gt 0xE07F)) -or ($t.Count -eq 4 -and !($t[3] -match '^ms=(\d+)$' -and [int]$Matches[1] -ge 50 -and [int]$Matches[1] -le 15000))) { & $bad '[<seconds>] key <scan 0x01-0x7F or 0xE001-0xE07F> [ms=<50-15000>]' }
         if ($t.Count -eq 4) { $kms = [int]$Matches[1] }
         $events.Add([pscustomobject]@{ At = $at; Dev = ''; Kind = 'key'; Scan = $scan; Ms = $kms; Line = $n })
         continue
@@ -292,9 +294,13 @@ function Send-Key([int]$scan, [bool]$up) {
 [StructLayout(LayoutKind.Explicit)] public struct UNION { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
 [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public UNION u; }
 [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
-public static bool Key(ushort scan, bool up) {
+public static INPUT Build(ushort scan, bool up) {
     var i = new INPUT { type = 1 };
-    i.u.ki.wScan = scan; i.u.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u);
+    i.u.ki.wScan = (ushort)(scan & 0xFF); i.u.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u) | ((scan & 0xFF00) == 0xE000 ? 0x0001u : 0u);
+    return i;
+}
+public static bool Key(ushort scan, bool up) {
+    var i = Build(scan, up);
     return SendInput(1, new[] { i }, Marshal.SizeOf(typeof(INPUT))) == 1;
 }
 '@
@@ -370,6 +376,11 @@ try {
         . (Join-Path $PSScriptRoot '..\playback\Stage-GameForeground.ps1')
         $p = Get-Process -Id $identity.processId
         $exe = $p.Path; $ticks = $p.StartTime.ToUniversalTime().Ticks
+        if ($ObserveForegroundWindow) {
+            $front = Get-Front
+            if ($front.Window -ne $ObserveForegroundWindow -or $front.Owner -ne $p.Id) { throw 'the exact observed game window is not in front; no activation requested' }
+            $fg = [pscustomobject]@{ status = 'observed'; window = $ObserveForegroundWindow; via = 'read-only exact HWND observation'; reason = '' }
+        } else {
         $fg = Invoke-MacroForeground -ProcessId $identity.processId -Observe { Get-Front } -Log { param($l) [Console]::Error.WriteLine($l) } `
             -Request { Request-StageGameForeground -ProcessId $p.Id -StartedUtcTicks $ticks -ExecutablePath $exe -LeasePath $LeasePath -LeaseToken $LeaseToken } `
             -Validate { param($w)
@@ -385,6 +396,7 @@ try {
             -SendF24 { Initialize-MacroActivation; [Dbce.MacroActivation]::DownUp() } `
             -Release { Initialize-MacroActivation; [Dbce.MacroActivation]::Up() } `
             -Activate { param($w) [Dbce.StageForegroundNative]::SetForegroundWindow([IntPtr]$w) }
+        }
         $result.foreground = $fg
         if ($fg.status -ne 'observed') { throw "foreground unmet: $($fg.reason)" }
         $script:fgWindow = $fg.window

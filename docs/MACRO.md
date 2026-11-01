@@ -33,7 +33,7 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
   the screen time to settle first, as in the example. The lines after a checkpoint keep their spacing. Place checkpoints only after every hold and key has been released:
   the capture wait delays scheduled releases, so a 300 ms press would stay down while the frame is fetched.
 - `[<seconds>] key <scan> [ms=<50-15000>]`: a keyboard key by hardware scan code (`0x1C` or `28` is Enter; plain
-  codes 0x01-0x7F, no E0-extended keys), held for `ms` (default 300), sent with `SendInput` and `KEYEVENTF_SCANCODE`.
+  codes 0x01-0x7F, or E0-prefixed codes 0xE001-0xE07F (Up = 0xE048, Down = 0xE050)), held for `ms` (default 300), sent with `SendInput` and `KEYEVENTF_SCANCODE`.
   For screens that ignore the wheel (GRID 2019's title "PRESS A" takes only Enter). Keys go to whatever window is in
   front, so a macro with a key step is refused unless the run has `-RequireForeground` (dry runs too), and each key
   send follows a passing lease, identity and foreground-window check. A key still down when playback stops gets its
@@ -143,3 +143,9 @@ then, where the proxy sets up the fence:
 static dbce::macro::Recorder g_recorder("<game>");          // the %LOCALAPPDATA%\dbce folder name
 if (g_fence) dbce::fence::settings().recorder = &g_recorder;
 ```
+
+## Observe an already focused window
+
+`-RequireForeground -ObserveForegroundWindow <decimal HWND>` only observes that exact window and the identified process. It never requests activation or uses the F24 fallback. A mismatch stops before the first key; later focus loss uses the existing per-step guards and release cleanup. Supply a handle from the same live launch's verified render-window listing. Use the authorized operator/provider to establish foreground before invoking this mode. Omitting the parameter preserves the existing macro behavior.
+
+Offline qualification: Test-Macro.ps1 passes 95 checks, including production INPUT packing for E0 and ordinary down/up events. A hidden disposable process with foreign HWND 123 was refused before any send, with `no activation requested`. No real game/key/foreground test is implied.
