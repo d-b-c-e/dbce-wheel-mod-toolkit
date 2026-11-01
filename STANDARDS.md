@@ -831,3 +831,25 @@ applies to: every game with FFB, and Wheelkit
   mid-stage starts force at once.
 - Wheelkit: My Rig > FFB has On/Off, default On, and Apply writes the game's master switch only, never effect switches
   (Wheelkit eb1c776, ISS-0022). Profiles saved before the choice count as On.
+
+## STD-046 — Triple cameras: a starting choice per camera, tweaks as offsets
+2026-11-01 · owner (art of rally rc.24-rc.28, compared with Assetto Corsa on the rig) · applies to: every game with
+triple screens, and Wheelkit · Refines STD-041 and STD-042 (supersedes their "mounted cameras only" sets and the
+"start from the last tuned car" fit)
+
+- **Realistic** is the calculated seat-true FOV (about 34° vertical on the owner's rig). Any FOV wider than seat-true
+  stretches the side screens: angle correction keeps the seams continuous but cannot remove it. Say so in help text;
+  never claim Game FOV is unstretched.
+- **Starting choice per camera on triples:** cockpit/interior Realistic, bonnet Game (it must show the bonnet), bumper
+  Realistic, chase/third-person Game (the game's own, still projected per screen). Single-screen players keep the game's
+  behaviour; the choice exists only with triples.
+- **F7 switches Game/Realistic on the current camera; each camera remembers its own choice.**
+- **Tweaks are offsets on a calculated start:** position per car, per camera, per set; FOV per camera and set, shared by
+  all cars. No limits on the player's own tweaks. Reset (numpad 5) returns to the calculation and the overlay says so.
+  "(Custom)" is appended to the camera label when a set's FOV differs from stock; there is no separate Custom mode.
+- Mounted cameras start from the car model (bonnet: 10 cm ahead of the windscreen base, 8 cm above the bonnet; bumper:
+  5 cm ahead of the front, halfway up), found from a centre-line profile with the windscreen detected by steepness.
+  Near clip 5 cm on mounted views; light rotation smoothing (0.06 s); the bumper view hides the car's own body.
+- **Wheelkit Apply writes only each camera's starting choice, never the player's offsets.**
+- Reference: art of rally `docs/TRIPLE-CAMERA-LEARNINGS.md` (0ccd934) and `docs/CAMERA.md`; Art keys
+  `CockpitRealistic`, `OverrideFieldOfView` (bonnet), `BumperRealistic`, `ChaseRealistic` in TripleScreen.xml.
