@@ -878,3 +878,11 @@ triple screens, the triple-screen toolkit and Wheelkit · Refines STD-007, STD-0
 - Untouched default sets migrate on load to the new direction; customised bindings are kept (as STD-005).
 - Reference: art of rally rc.32 (`KeyFovUp` = KeypadMinus "widen", `KeyFovDown` = KeypadPlus "narrow"). Wheelkit's
   Cameras tab (ISS-0023) uses the same defaults.
+
+## STD-049 — Cab-over vehicles: the bonnet camera sits on the roof front edge
+2026-11-01 · owner (via vemi) · applies to: every game with a bonnet camera and cab-over vehicles · Refines STD-046
+
+- A cab-over vehicle (van, truck, bus) has no bonnet ahead of the windscreen. Its bonnet camera goes on the centre line at
+  the front edge of the roof, pitched slightly down (the reference van: 2.24 m up, pitch −4°), not just ahead of the
+  windscreen glass, where the front corner pods fill the side screens.
+- Reference: toolkit `reference/turtle-van-real-scale.mesh.json` (149cc66); art of rally's next rc does the same.
