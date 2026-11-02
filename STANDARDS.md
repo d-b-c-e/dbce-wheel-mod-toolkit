@@ -855,3 +855,17 @@ triple screens, and Wheelkit · Refines STD-041 and STD-042 (supersedes their "m
   `CockpitRealistic`, `OverrideFieldOfView` (bonnet), `BumperRealistic`, `ChaseRealistic` in TripleScreen.xml.
 - Added 2026-11-01 (vemi review): the placement and rendering numbers above (10/8/5 cm, halfway up, 5 cm near clip,
   0.06 s smoothing) are art of rally's calibrated starting values; each game re-checks them on the rig. They are not family constants.
+
+## STD-047 — One borderless window across all screens; eye distance to the panel-edge plane
+2026-11-01 evening · owner (via vemi; art of rally `docs/TRIPLE-CAMERA-LEARNINGS.md` §6b) · applies to: every game with
+triple screens, the triple-screen toolkit and Wheelkit · Refines STD-007, STD-015 and STD-022
+
+- **One borderless window spanning all screens is the only presentation mode** (Assetto Corsa/CSP style; works on
+  separate Windows displays, no Surround needed). Separate per-display game windows are dropped, with no fallback.
+  The player-facing Off · Surround · Separate monitors choice (STD-022) describes the Windows layout the one window
+  spans, not a different renderer.
+- **Eye distance is measured from the eye to the plane through the panel edges**, as in AC. No sagitta subtraction for
+  curved panels (triple-screen toolkit 74c5eda). Help text for eye distance says so.
+- A 32:9 ultrawide with a cylindrical projection (SimCurve-like) stays a goal, on the same pipeline.
+- Future: an in-game setup overlay like AC's Triple Screen app. Test views (Wheelkit's test cockpit) build on the one
+  spanning window and the toolkit core.
