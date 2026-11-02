@@ -7,6 +7,7 @@
 #define DBCE_SHIM_BUILD
 #endif
 #include "dbce_shim_internal.hpp"
+#include "legacy_frame.hpp"
 #include "dbce_shim_bridge.h"
 #include "dbce_shim_extras.h"
 #include "dbce_shim_snapshot.h"
@@ -43,7 +44,7 @@ namespace rec = dbce::shim::recorder;
 constexpr const char* CoreVersion = "input-shim core (dbce_shim ABI 2)";
 #endif
 
-static_assert(DBCE_SHIM_ACTIONS == sh::ActionCount, "the ABI's action count is Core's");
+static_assert(DBCE_SHIM_ACTIONS == sh::LegacyActionCount, "ABI2 retains the original Core action prefix");
 static_assert(sizeof(dbce_shim_action) == 8 && offsetof(dbce_shim_action, status) == 4, "dbce_shim_action layout");
 static_assert(sizeof(dbce_shim_frame) == 296 && offsetof(dbce_shim_frame, seq) == 8 && offsetof(dbce_shim_frame, run) == 40 &&
               offsetof(dbce_shim_frame, sample_count) == 44 && offsetof(dbce_shim_frame, action) == 48, "dbce_shim_frame layout");
@@ -132,6 +133,7 @@ int32_t lookup(void* handle, Shim*& s) {
 
 // "action=reason" lines; an unknown action or a line without '=' refuses the open.
 bool capability(const char* text, Shim& s, sh::Capability& caps, std::string& why) {
+    for(int i=sh::LegacyActionCount;i<sh::ActionCount;++i)caps.unsupported[std::size_t(i)]="camera actions require a source consumer; ABI2 exposes31";
     if (!text) return true;
     std::istringstream in(text); std::string line;
     while (std::getline(in, line)) {
@@ -139,7 +141,7 @@ bool capability(const char* text, Shim& s, sh::Capability& caps, std::string& wh
         if (line.empty()) continue;
         const auto eq = line.find('=');
         const int i = eq == std::string::npos ? -1 : sh::action_index(line.substr(0, eq));
-        if (i < 0) { why = "unsupported: not an \"action=reason\" line of a known action: " + line.substr(0, 80); return false; }
+        if (i < 0 || i >= DBCE_SHIM_ACTIONS) { why = "unsupported: not an \"action=reason\" line of a known action: " + line.substr(0, 80); return false; }
         s.reasons.push_back(line.substr(eq + 1));
         caps.unsupported[std::size_t(i)] = s.reasons.back().c_str();
     }
@@ -254,7 +256,15 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
             const auto parsed = sh::read_profile(bytes);
             shell->profile_info = std::string("ok=") + (parsed.ok ? "1" : "0") + "\nerror=" + parsed.error + "\nprofile=" + parsed.section.profile +
                 "\nrevision=" + parsed.section.revision + "\ntransmission=" + parsed.section.transmission + "\nsha256=" + sh::hex(parsed.file_hash) + "\n";
-            if (parsed.ok) for (const auto& e : parsed.section.bound) instances.insert(e.binding.dev);
+            if(parsed.ok){
+                const auto camera=[](const std::string& id){return sh::action_index(id)>=DBCE_SHIM_ACTIONS;};
+                for(const auto& e:parsed.section.bound){
+                    if(camera(e.action))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
+                    instances.insert(e.binding.dev);
+                }
+                for(const auto& id:parsed.section.unbound)if(camera(id))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
+                for(const auto& e:parsed.section.invalid)if(camera(e.first))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
+            }
         }
         auto recorder = std::make_unique<DllRecorder>();
 #if !DBCE_SHIM_ORDINARY_ONLY
@@ -263,9 +273,9 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
             rec::FrameCaptureSettings cs;
             cs.folder = a.capture_folder; cs.profile = bytes; cs.run_nonce = nonce; cs.adapter_version = adapter;
             cs.game = a.game_id; cs.bundle_meta = rec::generic_bundle_meta(a.game_id); cs.context = a.context ? a.context : "";
-            cs.hz = a.hz; cs.seconds = a.seconds;
+            cs.hz = a.hz; cs.seconds = a.seconds;cs.action_count=sh::LegacyActionCount;
             // The worst case (every bound instance a slot) refuses the open rather than the first row.
-            rec::Channels probe = rec::encode(sh::Frame{}, instances.size());
+            rec::Channels probe = rec::encode(sh::Frame{}, instances.size(),sh::LegacyActionCount);
             for (const auto& n : shell->game) probe[n] = 0;
             probe["game.valid"] = 0;
             try { rec::preflight(rec::schema(probe), cs.hz, cs.seconds, cs.limits); }
@@ -347,7 +357,7 @@ extern "C" {
 int32_t dbce_shim_abi_version(void) { return DBCE_SHIM_ABI; }
 int32_t dbce_shim_frame_size(void) { return int32_t(sizeof(dbce_shim_frame)); }
 int32_t dbce_shim_open_args_size(void) { return int32_t(sizeof(dbce_shim_open_args)); }
-const char* dbce_shim_action_name(int32_t index) { return index >= 0 && index < sh::ActionCount ? sh::action_name(index) : nullptr; }
+const char* dbce_shim_action_name(int32_t index) { return index >= 0 && index < DBCE_SHIM_ACTIONS ? sh::action_name(index) : nullptr; }
 
 int32_t dbce_shim_open(const wchar_t* folder, const char* nonce, const char* profile, int32_t profile_len,
                        const char* unsupported, void* hwnd, void** out, char* why, int32_t why_len) {
@@ -373,13 +383,7 @@ static int32_t tick_impl(Shim* s, dbce_shim_frame* frame, const std::uint32_t* a
         push_pending(*s);
         const auto& f = active_contexts ? s->host->tick(*active_contexts) : s->host->tick();
         hold_pending(*s, f);
-        frame->abi = DBCE_SHIM_ABI; frame->seq = f.seq; frame->tick_us = f.tick_us; frame->down = f.down; frame->up = f.up;
-        frame->run = std::uint8_t(f.run); frame->latched = f.latched; frame->suppress_native = f.suppress_native; frame->reserved0 = 0;
-        frame->sample_count = std::uint32_t(f.samples.size());
-        for (int i = 0; i < sh::ActionCount; ++i) {
-            const auto& a = f.action[std::size_t(i)]; auto& o = frame->action[i];
-            o.value = a.value; o.status = std::uint8_t(a.status); o.injected = a.injected; o.reserved[0] = o.reserved[1] = 0;
-        }
+        sh::legacy_abi2_frame(f,*frame);
         // Extension 4: an open candidate's one read, after Core's. It never fails the ordinary tick.
         if (!s->latched) {
             try { s->host->candidate_tick(f.seq, f.tick_us); }
@@ -800,7 +804,7 @@ int32_t dbce_shim_profile_action_info(const char* profile, int32_t profile_len, 
                                     char* text, int32_t len, int32_t* needed) {
     if (needed) *needed = 0;
     if (text && len > 0) text[0] = 0;
-    if (!profile || profile_len < 0 || profile_len > int32_t(sh::MaxProfileBytes) || action < 0 || action >= sh::ActionCount)
+    if (!profile || profile_len < 0 || profile_len > int32_t(sh::MaxProfileBytes) || action < 0 || action >= DBCE_SHIM_ACTIONS)
         return DBCE_SHIM_BAD_ARGUMENT;
     try {
         const auto parsed = sh::read_profile(std::string(profile, std::size_t(profile_len)));

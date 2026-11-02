@@ -21,7 +21,8 @@ namespace dbce::shim {
 namespace ctl=dbce::controls;
 
 // ---- actions (the contract's ids, in ctl::kActions order)
-constexpr int ActionCount=31;
+constexpr int LegacyActionCount=31,ActionCount=42;
+static_assert(ActionCount==sizeof(ctl::kActions)/sizeof(ctl::kActions[0])&&ActionCount<64,"canonical actions fit the edge mask");
 int action_index(const std::string& id);   // -1 when unknown
 const char* action_name(int index);
 bool is_digital(int index);

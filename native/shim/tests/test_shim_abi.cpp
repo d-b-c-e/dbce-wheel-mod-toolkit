@@ -98,6 +98,13 @@ void test_refusals() {
     in = wheel_input(slot);
     check(dbce_shim_open_with_input(in, folder.c_str(), "abinonce1", Profile.data(), int32_t(Profile.size()), "warp=no such action", nullptr, &h, why, 256) == DBCE_SHIM_BAD_ARGUMENT &&
           std::string(why).find("known action") != std::string::npos && in->refs == 0, "an unknown capability action refuses");
+    for(const char* action:{"cameraForward","cameraBack","cameraUp","cameraDown","cameraLeft","cameraRight","cameraTiltDown","cameraTiltUp","cameraZoomIn","cameraZoomOut","cameraReset"}){
+        for(const std::string& value:{std::string(""),std::string("button 0 dev=")+W+" prod="+WP,std::string("invalid")}){
+            in=wheel_input(slot);const auto cameras=Profile+action+"="+value+"\n";
+            check(dbce_shim_open_with_input(in,folder.c_str(),"abinonce1",cameras.data(),int32_t(cameras.size()),nullptr,nullptr,&h,why,256)==DBCE_SHIM_BAD_ARGUMENT&&!h&&in->refs==0,"ABI2 refuses camera profile IDs");
+        }
+    }
+    int32_t needed=0;check(dbce_shim_profile_action_info(Profile.data(),int32_t(Profile.size()),31,nullptr,0,&needed)==DBCE_SHIM_BAD_ARGUMENT,"ABI2 inspection retains31 limit");
     int stack = 0; dbce_shim_frame f{}; f.struct_size = sizeof f;
     check(dbce_shim_tick(&stack, &f) == DBCE_SHIM_BAD_ARGUMENT && dbce_shim_tick(nullptr, &f) == DBCE_SHIM_BAD_ARGUMENT, "an unknown handle refuses unread");
 }

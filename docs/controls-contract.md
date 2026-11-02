@@ -28,6 +28,10 @@ The ids are Wheelkit's (`MappingProfile.Actions`), case-sensitive, and the same 
 | Menus | `confirm`, `back`, `start`, `select`, `navUp`, `navDown`, `navLeft`, `navRight` | digital |
 | In car | `camera`, `lookBack`, `reset`, `horn` | digital |
 | Mod | `modMenu`, `muteFfb` | digital |
+| Camera adjustment | `cameraForward`, `cameraBack`, `cameraUp`, `cameraDown`, `cameraLeft`, `cameraRight`, `cameraTiltDown`, `cameraTiltUp`, `cameraZoomIn`, `cameraZoomOut`, `cameraReset` | digital |
+
+Camera actions append at indexes31..41; original indexes0..30 are unchanged. ZoomIn narrows FOV and ZoomOut widens it (STD-048). Source Core/observer3 support42 actions. The existing DLL ABI2 retains31 actions/296 bytes and refuses camera actions until a separate ABI decision; managed consumers and installed pins are unchanged. Recording readers accept the wholly absent legacy camera extension and refuse partial extensions. See [compatibility fixtures](../native/shim/tests/camera_actions/README.md).
+
 
 A binding whose kind does not fit its action's shape (steering on a button, a menu action on an axis) is invalid.
 Unknown action ids are reported and skipped, never guessed.
