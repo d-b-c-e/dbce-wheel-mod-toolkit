@@ -60,6 +60,7 @@ and controls where the game allows), F8 FFB on/off. Details:
 `docs/CONSUMER-SETTINGS-VIEWS.md` (not yet committed as of 2026-10-04).
 
 ## STD-005 — Camera numpad layout 8/2 9/3 4/6 7/1 +/− 5
+*FOV direction superseded by STD-048 (numpad + zooms in).*
 2026-10-04 · owner · applies to: every game with mounted cameras
 
 Numpad 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt forward/back
@@ -869,3 +870,11 @@ triple screens, the triple-screen toolkit and Wheelkit · Refines STD-007, STD-0
 - A 32:9 ultrawide with a cylindrical projection (SimCurve-like) stays a goal, on the same pipeline.
 - Future: an in-game setup overlay like AC's Triple Screen app. Test views (Wheelkit's test cockpit) build on the one
   spanning window and the toolkit core.
+
+## STD-048 — Numpad + zooms in, − zooms out
+2026-11-01 · owner (via vemi) · applies to: every game with camera FOV keys, and Wheelkit · Supersedes STD-005's +/− FOV direction
+
+- Numpad **+ zooms in** (narrower FOV) and **− zooms out** (wider FOV). The rest of STD-005's layout is unchanged.
+- Untouched default sets migrate on load to the new direction; customised bindings are kept (as STD-005).
+- Reference: art of rally rc.32 (`KeyFovUp` = KeypadMinus "widen", `KeyFovDown` = KeypadPlus "narrow"). Wheelkit's
+  Cameras tab (ISS-0023) uses the same defaults.
