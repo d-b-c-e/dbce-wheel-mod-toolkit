@@ -72,6 +72,8 @@ namespace Dbce.Wheel.Input
                 case "confirm": case "back": case "start": case "select":
                 case "navUp": case "navDown": case "navLeft": case "navRight":
                 case "camera": case "lookBack": case "reset": case "horn": case "modMenu": case "muteFfb":
+                case "cameraForward": case "cameraBack": case "cameraUp": case "cameraDown": case "cameraLeft": case "cameraRight":
+                case "cameraTiltDown": case "cameraTiltUp": case "cameraZoomIn": case "cameraZoomOut": case "cameraReset":
                 case "gear1": case "gear2": case "gear3": case "gear4": case "gear5": case "gear6": case "gear7": case "gear8":
                     return ControlShape.Digital;
                 default: return ControlShape.Unknown;
