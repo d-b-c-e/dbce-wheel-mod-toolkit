@@ -3,6 +3,11 @@
 #include "dbce_shim.h"
 #include "shim.hpp"
 namespace dbce::shim {
+inline Capability legacy_abi2_capability(){
+    Capability c;
+    for(int i=LegacyActionCount;i<ActionCount;++i)c.unsupported[std::size_t(i)]="camera actions require a source consumer; ABI2 exposes31";
+    return c;
+}
 inline void legacy_abi2_frame(const Frame& f,dbce_shim_frame& frame){
     constexpr std::uint64_t mask=(1ull<<LegacyActionCount)-1;
     frame.abi=DBCE_SHIM_ABI;frame.seq=f.seq;frame.tick_us=f.tick_us;frame.down=f.down&mask;frame.up=f.up&mask;

@@ -65,6 +65,9 @@ void test_profile_inspection() {
         return std::string(text.data());
     };
     const auto good = inspect(Profile);
+    const auto with_camera=inspect(Profile+"cameraZoomIn=button 0 dev="+W+" prod={00000000-0000-0000-0000-000000000001}\n");
+    check(with_camera.find("\"status\":\"bound\"")!=std::string::npos&&with_camera.find(WP)!=std::string::npos,"ABI2 camera binding cannot create a legacy inspection product conflict");
+
     check(good.find("\"status\":\"bound\"") != std::string::npos && good.find("\"kind\":\"axis\"") != std::string::npos &&
           good.find("\"instance\":\"" + W + "\"") != std::string::npos && good.find("\"product\":\"" + WP + "\"") != std::string::npos &&
           good.find(dbce::shim::hex(dbce::shim::sha256(Profile))) != std::string::npos, "configured steering identity and exact full-file hash");
@@ -100,8 +103,15 @@ void test_refusals() {
           std::string(why).find("known action") != std::string::npos && in->refs == 0, "an unknown capability action refuses");
     for(const char* action:{"cameraForward","cameraBack","cameraUp","cameraDown","cameraLeft","cameraRight","cameraTiltDown","cameraTiltUp","cameraZoomIn","cameraZoomOut","cameraReset"}){
         for(const std::string& value:{std::string(""),std::string("button 0 dev=")+W+" prod="+WP,std::string("invalid")}){
-            in=wheel_input(slot);const auto cameras=Profile+action+"="+value+"\n";
-            check(dbce_shim_open_with_input(in,folder.c_str(),"abinonce1",cameras.data(),int32_t(cameras.size()),nullptr,nullptr,&h,why,256)==DBCE_SHIM_BAD_ARGUMENT&&!h&&in->refs==0,"ABI2 refuses camera profile IDs");
+            in=wheel_input(slot);const auto cameras=std::string("[Controls]\nSchema=1\nProfile=Shared\nRevision=1\nTransmission=Sequential\n")+action+"="+value+"\n";
+            check(dbce_shim_open_with_input(in,folder.c_str(),"abinonce1",cameras.data(),int32_t(cameras.size()),nullptr,nullptr,&h,why,256)==DBCE_SHIM_OK&&h,"ABI2 shared camera profile keeps open");
+            dbce_shim_frame camera_frame{};camera_frame.struct_size=sizeof camera_frame;
+            for(unsigned tick=0;tick<3;++tick)check(dbce_shim_tick(h,&camera_frame)==DBCE_SHIM_OK,"ABI2 camera-only profile ticks");
+            check(in->counters.creates==0&&camera_frame.sample_count==0,"ABI2 opens no device used only for camera");
+            for(const auto& a:camera_frame.action)check(a.value==0&&a.status==uint8_t(dbce::shim::Status::Unbound)&&!a.injected,"ABI2 legacy prefix stays neutral with shared camera profile");
+            char report[4096]{};check(dbce_shim_start_report(h,report,sizeof report,nullptr)==DBCE_SHIM_OK,"shared camera start report readable");
+            if(!value.empty()&&value!="invalid")check(std::string(report).find(action)!=std::string::npos&&std::string(report).find("unsupported")!=std::string::npos,"bound camera unsupported reason reported");
+            check(dbce_shim_stop(h,why,256,nullptr)==DBCE_SHIM_OK&&in->refs==0,"ABI2 camera-only handle cleans up");
         }
     }
     int32_t needed=0;check(dbce_shim_profile_action_info(Profile.data(),int32_t(Profile.size()),31,nullptr,0,&needed)==DBCE_SHIM_BAD_ARGUMENT,"ABI2 inspection retains31 limit");

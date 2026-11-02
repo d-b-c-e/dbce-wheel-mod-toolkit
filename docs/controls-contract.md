@@ -30,7 +30,7 @@ The ids are Wheelkit's (`MappingProfile.Actions`), case-sensitive, and the same 
 | Mod | `modMenu`, `muteFfb` | digital |
 | Camera adjustment | `cameraForward`, `cameraBack`, `cameraUp`, `cameraDown`, `cameraLeft`, `cameraRight`, `cameraTiltDown`, `cameraTiltUp`, `cameraZoomIn`, `cameraZoomOut`, `cameraReset` | digital |
 
-Camera actions append at indexes31..41; original indexes0..30 are unchanged. ZoomIn narrows FOV and ZoomOut widens it (STD-048). Source Core/observer3 support42 actions. The existing DLL ABI2 retains31 actions/296 bytes and refuses camera actions until a separate ABI decision; managed consumers and installed pins are unchanged. Recording readers accept the wholly absent legacy camera extension and refuse partial extensions. See [compatibility fixtures](../native/shim/tests/camera_actions/README.md).
+Camera actions append at indexes31..41; original indexes0..30 are unchanged. ZoomIn narrows FOV and ZoomOut widens it (STD-048). Source Core/observer3 support42 actions. The existing DLL ABI2 retains31 actions/296 bytes and reports/skips camera actions as unsupported until a separate ABI decision; managed consumers and installed pins are unchanged. Recording readers accept the wholly absent legacy camera extension and refuse partial extensions. Source device-table/sample bounds rise from31 to42 (device indexes0..41), matching the maximum one distinct device per action; v2 recordings keep31/0..30 bounds. The observer transport still admits at most8 sampled devices per observation. See [compatibility fixtures](../native/shim/tests/camera_actions/README.md).
 
 
 A binding whose kind does not fit its action's shape (steering on a button, a menu action on an axis) is invalid.

@@ -133,7 +133,7 @@ int32_t lookup(void* handle, Shim*& s) {
 
 // "action=reason" lines; an unknown action or a line without '=' refuses the open.
 bool capability(const char* text, Shim& s, sh::Capability& caps, std::string& why) {
-    for(int i=sh::LegacyActionCount;i<sh::ActionCount;++i)caps.unsupported[std::size_t(i)]="camera actions require a source consumer; ABI2 exposes31";
+    caps=sh::legacy_abi2_capability();
     if (!text) return true;
     std::istringstream in(text); std::string line;
     while (std::getline(in, line)) {
@@ -141,7 +141,8 @@ bool capability(const char* text, Shim& s, sh::Capability& caps, std::string& wh
         if (line.empty()) continue;
         const auto eq = line.find('=');
         const int i = eq == std::string::npos ? -1 : sh::action_index(line.substr(0, eq));
-        if (i < 0 || i >= DBCE_SHIM_ACTIONS) { why = "unsupported: not an \"action=reason\" line of a known action: " + line.substr(0, 80); return false; }
+        if (i < 0) { why = "unsupported: not an \"action=reason\" line of a known action: " + line.substr(0, 80); return false; }
+        if(i>=DBCE_SHIM_ACTIONS)continue; // fixed ABI2 camera-unsupported reason stays authoritative
         s.reasons.push_back(line.substr(eq + 1));
         caps.unsupported[std::size_t(i)] = s.reasons.back().c_str();
     }
@@ -256,15 +257,10 @@ int32_t open_impl(IDirectInput8W* input, const dbce_shim_open_args& a, void** ou
             const auto parsed = sh::read_profile(bytes);
             shell->profile_info = std::string("ok=") + (parsed.ok ? "1" : "0") + "\nerror=" + parsed.error + "\nprofile=" + parsed.section.profile +
                 "\nrevision=" + parsed.section.revision + "\ntransmission=" + parsed.section.transmission + "\nsha256=" + sh::hex(parsed.file_hash) + "\n";
-            if(parsed.ok){
-                const auto camera=[](const std::string& id){return sh::action_index(id)>=DBCE_SHIM_ACTIONS;};
-                for(const auto& e:parsed.section.bound){
-                    if(camera(e.action))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
-                    instances.insert(e.binding.dev);
-                }
-                for(const auto& id:parsed.section.unbound)if(camera(id))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
-                for(const auto& e:parsed.section.invalid)if(camera(e.first))return refuse(DBCE_SHIM_BAD_ARGUMENT,"camera actions require a source consumer; ABI2 exposes31");
-            }
+            // Shared rig profiles may include source-only camera bindings. Core's
+            // capability-aware plan skips them; they must not reserve capture slots.
+            if(parsed.ok)for(const auto& e:parsed.section.bound)
+                if(sh::action_index(e.action)<DBCE_SHIM_ACTIONS)instances.insert(e.binding.dev);
         }
         auto recorder = std::make_unique<DllRecorder>();
 #if !DBCE_SHIM_ORDINARY_ONLY
@@ -808,7 +804,7 @@ int32_t dbce_shim_profile_action_info(const char* profile, int32_t profile_len, 
         return DBCE_SHIM_BAD_ARGUMENT;
     try {
         const auto parsed = sh::read_profile(std::string(profile, std::size_t(profile_len)));
-        const auto plan = sh::plan_profile(parsed);
+        const auto plan = sh::plan_profile(parsed,sh::legacy_abi2_capability());
         std::string status = "invalid", reason;
         const dbce::controls::Binding* binding = nullptr;
         if (!parsed.ok) reason = parsed.error;
