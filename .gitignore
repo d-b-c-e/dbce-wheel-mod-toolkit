@@ -727,3 +727,7 @@ lib/
 *.user
 .claude/worktrees/
 dist/
+
+# Test results / probe logs
+/results/
+*.trx
