@@ -4,6 +4,8 @@
 
 The caller serializes writers and excludes external editors while running. The file handle denies content writes during read/replace; an identity check refuses an externally replaced target. This does not provide a transaction across independently renaming writers. Intended first consumer: Gravel, whose external editor refuses a running game. No device, game, force or display APIs are used.
 
+For native mods whose first F6 save creates their INI, `save(path, section, changes, true)` explicitly allows an absent/empty file or missing target section. Existing bytes and encoding are retained when adding a section. Malformed/duplicate input still refuses. Initial installation uses a non-overwriting atomic move, so a file appearing during creation is not replaced. The default remains existing-file/existing-section only; no directory is created.
+
 Offline fixture (use a disposable output folder):
 
 ```powershell

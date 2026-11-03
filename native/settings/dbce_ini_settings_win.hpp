@@ -20,7 +20,7 @@ inline std::string lower(std::string s) {
 
 // Operate on ASCII INI syntax while retaining every original byte outside the owned values.
 // UTF-16 uses a one-byte syntax view; all other code units remain opaque in the original file.
-inline bool edit(const std::string& bytes, const std::string& section, const Changes& changes, std::string& out) {
+inline bool edit(const std::string& bytes, const std::string& section, const Changes& changes, std::string& out, bool allow_create = false) {
     auto ascii = [](const std::string& s) { for (unsigned char c : s) if (c < 32 || c >= 127) return false; return true; };
     if (section.empty() || !ascii(section) || section.find_first_of("[]") != section.npos) return false;
     for (size_t j = 0; j < changes.size(); ++j) {
@@ -76,7 +76,15 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
         }
         a = end < syntax.size() ? end + 1 : end;
     }
-    if (!seen) return false; // Never manufacture a section in an unexpected config.
+    if (!seen) {
+        if (!allow_create || changes.empty()) return false;
+        // Opt-in first setup only. The scan above has already refused malformed input.
+        std::string extra = !syntax.empty() && syntax.back() != '\n' ? eol : "";
+        extra += "[" + section + "]" + eol;
+        std::string seeded = bytes;
+        for (char c : extra) { seeded += c; if (wide) seeded += '\0'; }
+        return edit(seeded, section, changes, out);
+    }
     std::string extra;
     for (size_t j = 0; j < changes.size(); ++j) if (!found[j]) extra += changes[j].first + "=" + changes[j].second + eol;
     if (!extra.empty()) {
@@ -93,18 +101,19 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
     return true;
 }
 
-inline bool save(const char* path, const char* section, const Changes& changes) {
+inline bool save(const char* path, const char* section, const Changes& changes, bool allow_create = false) {
     HANDLE input = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-    if (input == INVALID_HANDLE_VALUE) return false;
+    const bool existed = input != INVALID_HANDLE_VALUE;
+    if (!existed && !(allow_create && GetLastError() == ERROR_FILE_NOT_FOUND)) return false;
     BY_HANDLE_FILE_INFORMATION info{};
     LARGE_INTEGER size{};
     SetLastError(ERROR_SUCCESS);
-    bool ok = GetFileInformationByHandle(input, &info) && !(info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) &&
-              info.nNumberOfLinks == 1 && GetFileSizeEx(input, &size) && size.QuadPart > 0 && size.QuadPart <= 1024 * 1024;
+    bool ok = !existed || (GetFileInformationByHandle(input, &info) && !(info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) &&
+              info.nNumberOfLinks == 1 && GetFileSizeEx(input, &size) && (size.QuadPart > 0 || allow_create) && size.QuadPart <= 1024 * 1024);
     std::string bytes(ok ? size_t(size.QuadPart) : 0, '\0'), next;
     DWORD got = 0;
-    ok = ok && ReadFile(input, bytes.data(), DWORD(bytes.size()), &got, nullptr) && got == bytes.size() && edit(bytes, section, changes, next);
-    if (ok && next == bytes) { CloseHandle(input); return true; }
+    ok = ok && (!existed || (ReadFile(input, bytes.data(), DWORD(bytes.size()), &got, nullptr) && got == bytes.size())) && edit(bytes, section, changes, next, allow_create);
+    if (ok && next == bytes) { if (existed) CloseHandle(input); return true; }
     char suffix[96];
     snprintf(suffix, sizeof suffix, ".dbce-%lu-%llu.tmp", GetCurrentProcessId(), GetTickCount64());
     const std::string temp = std::string(path) + suffix;
@@ -114,7 +123,7 @@ inline bool save(const char* path, const char* section, const Changes& changes) 
     if (ok) ok = WriteFile(output, next.data(), DWORD(next.size()), &got, nullptr) && got == next.size() && FlushFileBuffers(output);
     if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
     // Retain the read handle (denies writes) until atomic replacement, so no partial file is visible.
-    if (ok) {
+    if (ok && existed) {
         HANDLE current = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
         BY_HANDLE_FILE_INFORMATION now{};
         ok = current != INVALID_HANDLE_VALUE && GetFileInformationByHandle(current, &now) &&
@@ -122,8 +131,9 @@ inline bool save(const char* path, const char* section, const Changes& changes) 
         if (current != INVALID_HANDLE_VALUE) CloseHandle(current);
         if (ok) ok = ReplaceFileA(path, temp.c_str(), nullptr, 0, nullptr, nullptr) != 0;
     }
+    else if (ok) ok = MoveFileExA(temp.c_str(), path, MOVEFILE_WRITE_THROUGH) != 0; // Never overwrite a newly appeared file.
     const DWORD error = GetLastError();
-    CloseHandle(input);
+    if (existed) CloseHandle(input);
     if (!ok && output != INVALID_HANDLE_VALUE) DeleteFileA(temp.c_str());
     if (!ok) SetLastError(error ? error : ERROR_INVALID_DATA);
     return ok;

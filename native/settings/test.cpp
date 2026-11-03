@@ -34,6 +34,13 @@ int main(int argc, char** argv) {
     assert(!edit(original, "triple", {{"view", "original"}, {"VIEW", "angle"}}, out));
     assert(!edit(original, "triple", {{"view", "angle\nmode=off"}}, out));
     assert(!edit("[triple]\rview=angle", "triple", {{"view", "original"}}, out));
+    assert(edit("", "Triple", {{"Screens", "Off"}}, out, true) && out == "[Triple]\nScreens=Off\n");
+    assert(edit("\xef\xbb\xbf[FFB]\r\nEnabled=0", "Triple", {{"Screens", "Surround"}}, out, true));
+    assert(out == "\xef\xbb\xbf[FFB]\r\nEnabled=0\r\n[Triple]\r\nScreens=Surround\r\n");
+    assert(edit(wide("[FFB]\nEnabled=0"), "Triple", {{"Screens", "Off"}}, out, true));
+    assert(out == wide("[FFB]\nEnabled=0\n[Triple]\nScreens=Off\n"));
+    assert(!edit("[FFB]\ngarbage", "Triple", {{"Screens", "Off"}}, out, true));
+    assert(!edit("[Triple]\nScreens=Off\n[Triple]\n", "Triple", {{"Screens", "Off"}}, out, true));
     const std::string path = std::string(argv[1]) + "/settings.ini";
     auto write = [&](const std::string& s) { FILE* f = fopen(path.c_str(), "wb"); assert(f); assert(fwrite(s.data(), 1, s.size(), f) == s.size()); fclose(f); };
     auto read = [&]() { FILE* f = fopen(path.c_str(), "rb"); assert(f); std::string s; int c; while ((c = fgetc(f)) != EOF) s += char(c); fclose(f); return s; };
@@ -51,6 +58,15 @@ int main(int argc, char** argv) {
     write("[triple]\nview=angle\nview=original");
     assert(!save(path.c_str(), "triple", {{"view", "original"}}));
     assert(read() == "[triple]\nview=angle\nview=original");
+    DeleteFileA(path.c_str());
+    assert(!save(path.c_str(), "Triple", {{"Screens", "Off"}})); // Existing caller behavior is unchanged.
+    assert(save(path.c_str(), "Triple", {{"Screens", "Off"}}, true));
+    assert(read() == "[Triple]\nScreens=Off\n");
+    assert(save(path.c_str(), "Telemetry", {{"Enabled", "0"}}, true));
+    assert(read() == "[Triple]\nScreens=Off\n[Telemetry]\nEnabled=0\n");
+    write("");
+    assert(save(path.c_str(), "Triple", {{"Screens", "Off"}}, true));
+    assert(read() == "[Triple]\nScreens=Off\n");
     DeleteFileA(path.c_str());
     puts("PASS: INI byte preservation, batched camera saves, malformed/locked refusal and atomic disk replacement");
 }
