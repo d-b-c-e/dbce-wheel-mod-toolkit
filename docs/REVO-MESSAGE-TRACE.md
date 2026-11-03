@@ -1,5 +1,9 @@
 # Development-only panel message-delivery diagnostic
 
+November 2: merged and qualified with fake Win32 CPU checks. See
+[the reconciliation checkpoint](2026-11-02-raw-snapshot-reconciliation.md).
+UNRUN below describes the original increment, not the current offline checkpoint.
+
 Source/fixture successor of exact toolkit `fd8391f`; **native build/tests UNRUN**.
 Native panel input base SHA256 `D5FB2BF1A810F871F9422E89694E9107D2E48FAA7EDB68134ACD91394993DCB3`
 equals Revo CDD17C41's vendored input. That candidate, installed AB94 baseline,

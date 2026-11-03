@@ -1,5 +1,9 @@
 # Optional raw input snapshot store
 
+November 2: merged and qualified with fake-device CPU checks. See
+[the reconciliation checkpoint](2026-11-02-raw-snapshot-reconciliation.md).
+The source-only/UNRUN statements below describe the original increment.
+
 Source-only increment for PM458555/458852, based on toolkit
 `b8362d7f07538b814abc47a098b4526541c2ea7e`. No build, fixture, game,
 device, lease, package or installation was performed for this increment.
