@@ -45,3 +45,14 @@ No runtime qualification follows. The callback sees observations at its sample
 points; it cannot establish absence of a transient foreground change between
 those observations. Consumer-specific OS identity, observer, lease, terminal
 signal publication and cleanup qualification remain separate.
+
+Cleanup limitation corrected after the run: the reused helper's job census
+observed only its packaged-WindowsApps pwsh root, not proven SDK/compiler/test
+descendant membership. Empty job and zero retained root handles are literal
+observations, not complete containment qualification. A fresh independent scoped
+process audit found all three original soba CPU roots absent and no matching
+compiler/test/script processes in the three owned worktrees. Audit SHA256
+84896940EE5982E8B146CDA83083DAD8113B671F7040140624FA01C89D14F716,
+retained with the DR2 evidence. No processes were terminated and passing tests
+were not rerun to conceal this limitation. Future use needs proven membership
+or an independently scoped descendant audit before release.
