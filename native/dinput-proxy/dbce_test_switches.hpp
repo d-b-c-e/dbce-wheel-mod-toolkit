@@ -61,11 +61,14 @@ struct InjectReader {
 inline DWORD WINAPI injectReaderThread(LPVOID p)
 {
     auto *r = (InjectReader *)p;
-    FILETIME created, x1, x2, x3, last{};
-    GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3);
+    FILETIME created{}, x1{}, x2{}, x3{}, last{};
+    if (!GetProcessTimes(GetCurrentProcess(), &created, &x1, &x2, &x3)) {
+        r->table->revoke(); fence::logf("inject: process birth unavailable; reader refused"); delete r; return 0;
+    }
     fence::logf("inject: reading %s (commands newer than this process)%s", r->path.c_str(), r->haveControls ? "; action ids from [Controls]" : "; no [Controls]: raw commands only");
     for (;;) {
         Sleep(40);
+        if (!r->table->pollAdmission()) { fence::logf("inject: consumer admission revoked; reader stopped (no rearm)"); delete r; return 0; }
         WIN32_FILE_ATTRIBUTE_DATA a;
         if (!GetFileAttributesExA(r->path.c_str(), GetFileExInfoStandard, &a)) continue;
         if (CompareFileTime(&a.ftLastWriteTime, &created) <= 0 || CompareFileTime(&a.ftLastWriteTime, &last) == 0) continue;
