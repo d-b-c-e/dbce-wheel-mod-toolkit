@@ -5,6 +5,7 @@
 // creates comes back as a FencedDevice:
 //  - forwarded unchanged: capabilities, objects, the readable properties, acquire, state, data, formats, the cooperative
 //    level (controllers in the background, see SetCooperativeLevel), object and device information, effect enumeration and information, poll, action maps;
+//    opt-in Settings::panelOpen suppresses input after injection/shaping and before observers;
 //  - never forwarded: CreateEffect returns a software sink effect that keeps the game's parameters and never touches the
 //    device (Start, Stop, SetParameters, Download, Unload, Escape all stay in the sink); SendForceFeedbackCommand,
 //    Escape, SendDeviceData, effect files, RunControlPanel and Initialize; the force gain property;
@@ -19,7 +20,7 @@
 // Test injection (dbce_inject_table.hpp) is delivered in FencedDevice::GetDeviceState, keyed by the instance GUID that
 // DirectInput reports for the created device. Buffered GetDeviceData reads are forwarded without injection.
 // Pedal rest shaping (dbce_shape_state.hpp), when a proxy sets one, runs in the same place after injection. An observer
-// (Settings::observe), when a proxy sets one, then sees the final standard-format state: what the game receives. An
+// (Settings::observe), when a proxy sets one, then sees the final standard-format state after optional panel suppression. An
 // effect observer (Settings::observeEffect) sees the game's original force requests as the software effects keep them.
 // A macro recorder (Settings::recorder, dbce_macro_record.hpp) writes that same final state's changes while record.on exists.
 #pragma once
@@ -36,7 +37,9 @@
 #include "../controls/dbce_inject_table.hpp"
 #include "dbce_joyformat.hpp"
 #include "dbce_macro_record.hpp"
+#include "dbce_input_suppression.hpp"
 #include "dbce_shape_state.hpp"
+#include "dbce_raw_snapshot.hpp"
 
 #pragma comment(lib, "dxguid.lib")
 
@@ -48,11 +51,12 @@ enum class EffectEvent { Created, Parameters, Start, Stop, Released };
 // Process-wide settings, set once before DirectInput8Create is answered.
 struct Settings {
     void (*log)(const char *line) = nullptr;
+    bool (*panelOpen)() = nullptr;   // opt-in input suppression; set once, nullptr leaves all reads unchanged
     dbce::controls::InjectionTable *injections = nullptr;   // nullptr: no injection
     const dbce::controls::ShapeTable *shapes = nullptr;     // nullptr: no pedal shaping (set once, complete, never freed)
     // What the game receives, for a proxy that observes its own reads (Gravel's telemetry, sana 107988): called on the
     // reading thread after a successful GetDeviceState in a standard format (format 1 with a DIJOYSTATE, 2 with a
-    // DIJOYSTATE2), once injection and shaping are applied. `device` is the wrapped device, for identity only; `state` is
+    // DIJOYSTATE2), once injection, shaping and optional panel suppression are applied. `device` is the wrapped device, for identity only; `state` is
     // borrowed and read-only for the call. Never called for a failed, null, custom-format or mis-sized read. nullptr: none.
     void (*observe)(const void *device, int format, DWORD cb, const void *state) = nullptr;
     // The game's original force requests, for a proxy that records them (Gravel's signal capture, sana 109034): called on
@@ -65,6 +69,8 @@ struct Settings {
     void (*observeEffect)(const void *device, const void *effect, REFGUID type, EffectEvent event, LPCDIEFFECT params,
                           DWORD flags, DWORD value) = nullptr;
     dbce::macro::Recorder *recorder = nullptr;   // nullptr: no macro recording (set once, never freed)
+    // Optional before device creation; pointer/store outlive every wrapped call.
+    dbce::input::RawSnapshotStore *snapshots = nullptr;
 };
 inline Settings &settings() { static Settings s; return s; }
 
@@ -80,6 +86,13 @@ inline void logf(const char *fmt, ...)
 }
 // Bounded per call site: the first 20, then every 1000th.
 inline bool sample(volatile LONG &n) { LONG k = InterlockedIncrement(&n); return k <= 20 || k % 1000 == 0; }
+
+inline bool panelOpen()
+{
+    if (!settings().panelOpen) return false;
+    try { return settings().panelOpen(); }
+    catch (...) { static volatile LONG n; if (sample(n)) logf("fence: panel-open predicate threw; input suppressed"); return true; }
+}
 
 inline std::string guidText(const GUID &g)
 {
@@ -188,9 +201,13 @@ struct FencedDevice final : I {
     I *real;
     volatile LONG refs = 1;
     std::string instance;   // "{...}" lowercase, from GetDeviceInfo
-    volatile LONG format = 0;   // 1 c_dfDIJoystick, 2 c_dfDIJoystick2, 0 any other (injection is delivered only into 1 and 2)
+    volatile LONG format = 0;   // input::format; injection/shaping/observer accept only exact joystick 1/2
     bool formatWarned = false;
-    FencedDevice(I *r, const std::string &inst) : real(r), instance(inst) {}
+    dbce::input::RawSnapshotStore *snapshots;
+    std::uint64_t snapshotGeneration=0;
+    FencedDevice(I *r, const std::string &inst, const GUID *reported=nullptr) : real(r), instance(inst), snapshots(settings().snapshots) {
+        if(snapshots) { const GUID unknown{};snapshotGeneration=snapshots->Register(this,reported?*reported:unknown,reported!=nullptr); }
+    }
     static HRESULT refuse(const char *what) { static volatile LONG n; if (sample(n)) logf("fence: %s refused", what); return DIERR_UNSUPPORTED; }
 
     STDMETHODIMP QueryInterface(REFIID iid, LPVOID *out) override
@@ -202,12 +219,18 @@ struct FencedDevice final : I {
         return E_NOINTERFACE;
     }
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&refs); }
-    STDMETHODIMP_(ULONG) Release() override { LONG n = InterlockedDecrement(&refs); if (n == 0) { real->Release(); delete this; } return (ULONG)n; }
+    STDMETHODIMP_(ULONG) Release() override {
+        dbce::input::RawSnapshotMutation mutation(snapshots,this);
+        LONG n=InterlockedDecrement(&refs);
+        if(n==0) { if(snapshots)snapshots->Retire(this,snapshotGeneration);real->Release();delete this; }
+        return (ULONG)n;
+    }
     STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { return real->GetCapabilities(c); }
     STDMETHODIMP EnumObjects(typename T::ObjCb cb, LPVOID ref, DWORD flags) override { return real->EnumObjects(cb, ref, flags); }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override { return real->GetProperty(p, h); }
     STDMETHODIMP SetProperty(REFGUID p, LPCDIPROPHEADER h) override
     {
+        dbce::input::RawSnapshotMutation mutation(snapshots,this);
         static volatile LONG n;
         const void *id = &p;
         if (id == &DIPROP_AUTOCENTER) {
@@ -220,8 +243,8 @@ struct FencedDevice final : I {
             return real->SetProperty(p, h);
         return refuse("SetProperty (a property outside the whitelist)");
     }
-    STDMETHODIMP Acquire() override { return real->Acquire(); }
-    STDMETHODIMP Unacquire() override { return real->Unacquire(); }
+    STDMETHODIMP Acquire() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Acquire(); }
+    STDMETHODIMP Unacquire() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Unacquire(); }
     bool axisRange(int axis, long &mn, long &mx)
     {
         static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
@@ -258,13 +281,16 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID data) override
     {
+        const auto ticket=snapshots?snapshots->BeginRead(this,GetTickCount64()):dbce::input::RawSnapshotStore::Ticket{};
         HRESULT hr = real->GetDeviceState(cb, data);
+        if(snapshots)snapshots->CompleteRead(ticket,hr,cb,data,GetTickCount64());
         if (!SUCCEEDED(hr) || !data) return hr;
         auto *inj = settings().injections;
         if (inj && inj->any()) inject(*inj, cb, data);
         if (const auto *shapes = settings().shapes)
             dbce::shape::applyToState(*shapes, instance, format, cb, data, [this](int axis, long &mn, long &mx) { return axisRange(axis, mn, mx); },
                 [](const dbce::controls::PedalShape &s, dbce::controls::ShapeMiss m, long mn, long mx) { logf("%s", dbce::shape::firstLine(s, m, mn, mx).c_str()); });
+        if (panelOpen()) dbce::input::suppressState((int)format, cb, data);
         const LONG f = format;
         const bool standard = (f == 1 && cb == sizeof(DIJOYSTATE)) || (f == 2 && cb == sizeof(DIJOYSTATE2));
         if (const auto observe = settings().observe) {
@@ -281,11 +307,18 @@ struct FencedDevice final : I {
         }
         return hr;
     }
-    STDMETHODIMP GetDeviceData(DWORD n, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD f) override { return real->GetDeviceData(n, d, k, f); }
+    STDMETHODIMP GetDeviceData(DWORD n, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD f) override
+    {
+        const HRESULT hr = real->GetDeviceData(n, d, k, f);
+        if (SUCCEEDED(hr) && k && panelOpen()) dbce::input::suppressData(k);
+        return hr;
+    }
     STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT f) override
     {
+        dbce::input::RawSnapshotMutation mutation(snapshots,this,true);
         HRESULT hr = real->SetDataFormat(f);
-        if (SUCCEEDED(hr)) InterlockedExchange(&format, standardFormat(f));
+        if (SUCCEEDED(hr)) InterlockedExchange(&format, dbce::input::format(f));
+        if(SUCCEEDED(hr))mutation.ValidatedFormat(dbce::input::format(f));
         return hr;
     }
     STDMETHODIMP SetEventNotification(HANDLE e) override { return real->SetEventNotification(e); }
@@ -293,6 +326,7 @@ struct FencedDevice final : I {
     // a game whose window lost focus (rig runners cannot always give it the foreground). Keyboard and mouse keep the
     // game's choice; if the driver refuses background access, the game's own flags are used.
     STDMETHODIMP SetCooperativeLevel(HWND w, DWORD f) override {
+        dbce::input::RawSnapshotMutation mutation(snapshots,this);
         DIDEVCAPS caps = {sizeof caps};
         const BYTE type = (f & DISCL_FOREGROUND) && SUCCEEDED(real->GetCapabilities(&caps)) ? GET_DIDEVICE_TYPE(caps.dwDevType) : 0;
         if ((f & DISCL_FOREGROUND) && type && type != DI8DEVTYPE_KEYBOARD && type != DI8DEVTYPE_MOUSE &&
@@ -302,7 +336,7 @@ struct FencedDevice final : I {
     STDMETHODIMP GetObjectInfo(typename T::ObjInst o, DWORD obj, DWORD how) override { return real->GetObjectInfo(o, obj, how); }
     STDMETHODIMP GetDeviceInfo(typename T::DevInst d) override { return real->GetDeviceInfo(d); }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { return refuse("device RunControlPanel"); }
-    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return refuse("device Initialize (re-targeting the device)"); }
+    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { dbce::input::RawSnapshotMutation mutation(snapshots,this,true);return refuse("device Initialize (re-targeting the device)"); }
     STDMETHODIMP CreateEffect(REFGUID g, LPCDIEFFECT e, LPDIRECTINPUTEFFECT *out, LPUNKNOWN outer) override
     {
         static volatile LONG n;
@@ -333,15 +367,17 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK, LPVOID, DWORD) override { return DI_OK; }   // none on the device
     STDMETHODIMP Escape(LPDIEFFESCAPE) override { return refuse("device Escape"); }
-    STDMETHODIMP Poll() override { return real->Poll(); }
+    STDMETHODIMP Poll() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Poll(); }
     STDMETHODIMP SendDeviceData(DWORD, LPCDIDEVICEOBJECTDATA, LPDWORD, DWORD) override { return refuse("SendDeviceData"); }
     STDMETHODIMP EnumEffectsInFile(typename T::Str, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { return refuse("EnumEffectsInFile"); }
     STDMETHODIMP WriteEffectToFile(typename T::Str, DWORD, LPDIFILEEFFECT, DWORD) override { return refuse("WriteEffectToFile"); }
     STDMETHODIMP BuildActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override { return real->BuildActionMap(f, u, fl); }
     STDMETHODIMP SetActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override
     {
+        dbce::input::RawSnapshotMutation mutation(snapshots,this,true);
         HRESULT hr = real->SetActionMap(f, u, fl);
         if (SUCCEEDED(hr)) InterlockedExchange(&format, 0);   // an action map sets its own data format
+        if(SUCCEEDED(hr))mutation.ValidatedFormat(0);
         return hr;
     }
     STDMETHODIMP GetImageInfo(typename T::Image h) override { return real->GetImageInfo(h); }
@@ -387,8 +423,9 @@ struct FencedDirectInput final : I {
         if (FAILED(hr) || !dev) return FAILED(hr) ? hr : E_FAIL;
         typename DeviceTraits<Dev>::DevInstT info{};
         info.dwSize = sizeof info;
-        const std::string inst = SUCCEEDED(dev->GetDeviceInfo(&info)) ? guidText(info.guidInstance) : guidText(g);
-        auto *w = new (std::nothrow) FencedDevice<Dev>(dev, inst);
+        const bool reported=SUCCEEDED(dev->GetDeviceInfo(&info));
+        const std::string inst=reported?guidText(info.guidInstance):guidText(g);
+        auto *w = new (std::nothrow) FencedDevice<Dev>(dev, inst, reported?&info.guidInstance:nullptr);
         if (!w) { dev->Release(); return E_OUTOFMEMORY; }
         *out = w;
         static volatile LONG n;

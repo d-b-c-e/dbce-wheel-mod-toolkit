@@ -16,6 +16,7 @@
 #include <windows.h>
 
 namespace dbce { namespace controls { class ShapeTable; } }   // controls/dbce_shape.hpp, for SetShapes
+namespace dbce { namespace input { class RawSnapshotStore; } }
 
 namespace dbce { namespace ffb {
 
@@ -26,6 +27,9 @@ struct Options {
     bool mute = false;                       // test switch: no effect ever starts
     bool gainEmulation = false;              // apply effect gain and Strength in the proxy (see above)
     const char *wheelNote = nullptr;         // optional line under the FFB page's effect list (Advanced)
+    // Optional, configured before device creation and alive until all hooked calls end.
+    // Null preserves existing identity/query/read behavior. Never owns/acquires a device.
+    dbce::input::RawSnapshotStore *snapshots = nullptr;
 };
 
 // Once, before DirectInput is used (not from DllMain).

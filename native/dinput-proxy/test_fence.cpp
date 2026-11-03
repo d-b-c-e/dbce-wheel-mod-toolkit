@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <algorithm>
 
 static int g_checks, g_fail;
 static void check(bool ok, const std::string &what) { ++g_checks; if (!ok) { ++g_fail; std::cerr << "FAIL " << what << "\n"; } }
@@ -16,11 +17,23 @@ static bool logged(const char *part) { for (auto &l : g_log) if (l.find(part) !=
 static const GUID kInst = {0x000000a1, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
 static const char *kInstText = "{000000a1-0000-0000-0000-000000000000}";
 
-struct FakeDevice final : IDirectInputDevice8A {
+template<class I> struct FakeDeviceImpl final : I {
+    using T = dbce::fence::DeviceTraits<I>;
     std::map<std::string, int> calls;
     LONG refs = 1;
     bool rangeFails = false;
     HRESULT stateResult = DI_OK;   // what GetDeviceState answers; a failure writes nothing
+    bool rawState = false;
+    GUID reported=kInst;bool infoFails=false;BYTE button=0;
+    HRESULT acquireResult=DI_OK,unacquireResult=DI_OK,pollResult=DI_OK;
+    void (*onState)()=nullptr;
+    void (*onFormat)()=nullptr;
+    HRESULT formatResult = DI_OK, actionResult = DI_OK;
+    std::vector<DIDEVICEOBJECTDATA> events;
+    HRESULT dataResult = DI_OK;
+    DWORD dataStride = 0, dataFlags = 0, dataCapacity = 0;
+    void *dataPointer = nullptr;
+    LPDWORD countPointer = nullptr;
     LONG lo = -32768, hi = 32767;
     DWORD lastSetProp = 0;
     void hit(const char *m) { ++calls[m]; }
@@ -29,7 +42,7 @@ struct FakeDevice final : IDirectInputDevice8A {
     STDMETHODIMP_(ULONG) AddRef() override { return ++refs; }
     STDMETHODIMP_(ULONG) Release() override { hit("Release"); return --refs; }
     STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { hit("GetCapabilities"); if (c) { c->dwFlags = DIDC_ATTACHED | DIDC_FORCEFEEDBACK; c->dwDevType = DI8DEVTYPE_DRIVING; } return DI_OK; }
-    STDMETHODIMP EnumObjects(LPDIENUMDEVICEOBJECTSCALLBACKA, LPVOID, DWORD) override { hit("EnumObjects"); return DI_OK; }
+    STDMETHODIMP EnumObjects(typename T::ObjCb, LPVOID, DWORD) override { hit("EnumObjects"); return DI_OK; }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override
     {
         hit("GetProperty");
@@ -48,41 +61,56 @@ struct FakeDevice final : IDirectInputDevice8A {
         if ((const void *)&p == &DIPROP_CALIBRATIONMODE) hit("SetProperty CALIBRATIONMODE");
         return DI_OK;
     }
-    STDMETHODIMP Acquire() override { hit("Acquire"); return DI_OK; }
-    STDMETHODIMP Unacquire() override { hit("Unacquire"); return DI_OK; }
+    STDMETHODIMP Acquire() override { hit("Acquire"); return acquireResult; }
+    STDMETHODIMP Unacquire() override { hit("Unacquire"); return unacquireResult; }
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID d) override
     {
         hit("GetDeviceState");
         if (FAILED(stateResult)) return stateResult;
+        if (!d) return DIERR_INVALIDPARAM;
+        if (rawState) { memset(d, 0x5a, cb);auto callback=onState;onState=nullptr;if(callback)callback();return stateResult; }
         memset(d, 0, cb);
         auto *s = (DIJOYSTATE *)d;
         s->lX = 576; s->lZ = -32768; s->rgdwPOV[0] = (DWORD)-1; s->rgdwPOV[1] = s->rgdwPOV[2] = s->rgdwPOV[3] = (DWORD)-1;
+        s->rgbButtons[3]=button;auto callback=onState;onState=nullptr;if(callback)callback();
         return DI_OK;
     }
-    STDMETHODIMP GetDeviceData(DWORD, LPDIDEVICEOBJECTDATA, LPDWORD k, DWORD) override { hit("GetDeviceData"); if (k) *k = 0; return DI_OK; }
-    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { hit("SetDataFormat"); return DI_OK; }
+    STDMETHODIMP GetDeviceData(DWORD stride, LPDIDEVICEOBJECTDATA d, LPDWORD k, DWORD flags) override
+    {
+        hit("GetDeviceData"); dataStride = stride; dataFlags = flags; dataPointer = d; countPointer = k; dataCapacity = k ? *k : 0;
+        if (FAILED(dataResult)) return dataResult;
+        if (!k || (stride != sizeof(DIDEVICEOBJECTDATA) && stride != sizeof(DIDEVICEOBJECTDATA_DX3)) || (flags & ~DIGDD_PEEK)) return DIERR_INVALIDPARAM;
+        const DWORD n = (std::min)(*k, (DWORD)events.size());
+        if (d) for (DWORD i = 0; i < n; ++i) memcpy((char *)d + i * stride, &events[i], stride);
+        if (!(flags & DIGDD_PEEK)) events.erase(events.begin(), events.begin() + n);
+        *k = n;
+        return dataResult;
+    }
+    STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT) override { hit("SetDataFormat");auto callback=onFormat;onFormat=nullptr;if(callback)callback();return formatResult; }
     STDMETHODIMP SetEventNotification(HANDLE) override { hit("SetEventNotification"); return DI_OK; }
     DWORD coop = 0;
     STDMETHODIMP SetCooperativeLevel(HWND, DWORD f) override { hit("SetCooperativeLevel"); coop = f; return DI_OK; }
-    STDMETHODIMP GetObjectInfo(LPDIDEVICEOBJECTINSTANCEA, DWORD, DWORD) override { hit("GetObjectInfo"); return DI_OK; }
-    STDMETHODIMP GetDeviceInfo(LPDIDEVICEINSTANCEA d) override { hit("GetDeviceInfo"); if (d) d->guidInstance = kInst; return DI_OK; }
+    STDMETHODIMP GetObjectInfo(typename T::ObjInst, DWORD, DWORD) override { hit("GetObjectInfo"); return DI_OK; }
+    STDMETHODIMP GetDeviceInfo(typename T::DevInst d) override { hit("GetDeviceInfo");if(infoFails)return DIERR_INVALIDPARAM;if (d) d->guidInstance = reported; return DI_OK; }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { hit("RunControlPanel"); return DI_OK; }
     STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { hit("Initialize"); return DI_OK; }
     STDMETHODIMP CreateEffect(REFGUID, LPCDIEFFECT, LPDIRECTINPUTEFFECT *, LPUNKNOWN) override { hit("CreateEffect"); return DI_OK; }
-    STDMETHODIMP EnumEffects(LPDIENUMEFFECTSCALLBACKA, LPVOID, DWORD) override { hit("EnumEffects"); return DI_OK; }
-    STDMETHODIMP GetEffectInfo(LPDIEFFECTINFOA, REFGUID) override { hit("GetEffectInfo"); return DI_OK; }
+    STDMETHODIMP EnumEffects(typename T::EffCb, LPVOID, DWORD) override { hit("EnumEffects"); return DI_OK; }
+    STDMETHODIMP GetEffectInfo(typename T::EffInfo, REFGUID) override { hit("GetEffectInfo"); return DI_OK; }
     STDMETHODIMP GetForceFeedbackState(LPDWORD) override { hit("GetForceFeedbackState"); return DI_OK; }
     STDMETHODIMP SendForceFeedbackCommand(DWORD) override { hit("SendForceFeedbackCommand"); return DI_OK; }
     STDMETHODIMP EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK, LPVOID, DWORD) override { hit("EnumCreatedEffectObjects"); return DI_OK; }
     STDMETHODIMP Escape(LPDIEFFESCAPE) override { hit("Escape"); return DI_OK; }
-    STDMETHODIMP Poll() override { hit("Poll"); return DI_OK; }
+    STDMETHODIMP Poll() override { hit("Poll"); return pollResult; }
     STDMETHODIMP SendDeviceData(DWORD, LPCDIDEVICEOBJECTDATA, LPDWORD, DWORD) override { hit("SendDeviceData"); return DI_OK; }
-    STDMETHODIMP EnumEffectsInFile(LPCSTR, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { hit("EnumEffectsInFile"); return DI_OK; }
-    STDMETHODIMP WriteEffectToFile(LPCSTR, DWORD, LPDIFILEEFFECT, DWORD) override { hit("WriteEffectToFile"); return DI_OK; }
-    STDMETHODIMP BuildActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { hit("BuildActionMap"); return DI_OK; }
-    STDMETHODIMP SetActionMap(LPDIACTIONFORMATA, LPCSTR, DWORD) override { hit("SetActionMap"); return DI_OK; }
-    STDMETHODIMP GetImageInfo(LPDIDEVICEIMAGEINFOHEADERA) override { hit("GetImageInfo"); return DI_OK; }
+    STDMETHODIMP EnumEffectsInFile(typename T::Str, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { hit("EnumEffectsInFile"); return DI_OK; }
+    STDMETHODIMP WriteEffectToFile(typename T::Str, DWORD, LPDIFILEEFFECT, DWORD) override { hit("WriteEffectToFile"); return DI_OK; }
+    STDMETHODIMP BuildActionMap(typename T::ActFmt, typename T::Str, DWORD) override { hit("BuildActionMap"); return DI_OK; }
+    STDMETHODIMP SetActionMap(typename T::ActFmt, typename T::Str, DWORD) override { hit("SetActionMap"); return actionResult; }
+    STDMETHODIMP GetImageInfo(typename T::Image) override { hit("GetImageInfo"); return DI_OK; }
 };
+
+using FakeDevice = FakeDeviceImpl<IDirectInputDevice8A>;
 
 struct FakeInput final : IDirectInput8A {
     std::map<std::string, int> calls;
@@ -109,8 +137,70 @@ static BOOL CALLBACK semCb(LPCDIDEVICEINSTANCEA, LPDIRECTINPUTDEVICE8A, DWORD, D
 template struct dbce::fence::FencedDevice<IDirectInputDevice8W>;
 template struct dbce::fence::FencedDirectInput<IDirectInput8W>;
 
+#include "test_input_suppression.inc"
+#include "test_raw_snapshot.inc"
+
+static void rawSnapshotFenceChecks() {
+    using namespace dbce::fence;
+    using Store=dbce::input::RawSnapshotStore;
+    rawSnapshotStoreChecks();
+    Store store;const auto saved=settings();dbce::controls::InjectionTable injections;
+    settings().snapshots=&store;settings().injections=&injections;settings().shapes=nullptr;
+    settings().panelOpen=[] { return true; };
+    static BYTE observedButton=0xFF;static LONG observedX=0;
+    settings().observe=[](const void *,int,DWORD,const void *p) {auto s=static_cast<const DIJOYSTATE *>(p);observedButton=s->rgbButtons[3];observedX=s->lX;};
+    dbce::controls::InjectCommand command;std::string why;
+    check(dbce::controls::parseInject(std::string("inject raw axis 0 dev=")+kInstText+" value=65535 ms=2000",nullptr,command,why)&&
+          injections.add(command,GetTickCount64()).empty(),"raw fence: fake injected axis prepared");
+    FakeInput fake;fake.device.button=0x80;auto *di=new FencedDirectInput<IDirectInput8A>(&fake);
+    IDirectInputDevice8A *dev=nullptr;di->CreateDevice(kInst,&dev,nullptr);dev->SetDataFormat(&c_dfDIJoystick2);
+    DIJOYSTATE2 data{};Store::Snapshot out;auto epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);
+    check(store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out)&&out.state.lX==576&&out.state.rgbButtons[3]==0x80&&data.lX==32767&&data.rgbButtons[3]==0,
+          "raw fence: sample precedes injection and panel suppression");
+    check(observedX==data.lX&&observedButton==0,"raw fence: existing observer retains final transformed semantics");
+    const auto generation=out.generation;
+    fake.device.acquireResult=DIERR_INPUTLOST;
+    check(dev->Acquire()==DIERR_INPUTLOST&&!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: Acquire failure invalidates without changing HRESULT");store.EndInvocation(epoch);fake.device.acquireResult=DI_OK;
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);dev->Unacquire();
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: Unacquire invalidates");store.EndInvocation(epoch);
+    DIPROPRANGE range{};range.diph.dwSize=sizeof range;range.diph.dwHeaderSize=sizeof range.diph;range.diph.dwHow=DIPH_DEVICE;range.lMin=-32768;range.lMax=32767;
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);dev->SetProperty(DIPROP_RANGE,&range.diph);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: range/property change invalidates");store.EndInvocation(epoch);
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);dev->SetCooperativeLevel(nullptr,DISCL_NONEXCLUSIVE|DISCL_BACKGROUND);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: cooperative-level change invalidates");store.EndInvocation(epoch);
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);fake.device.stateResult=DIERR_INPUTLOST;
+    check(dev->GetDeviceState(sizeof data,&data)==DIERR_INPUTLOST,"raw fence: state failure HRESULT preserved");store.Seal(epoch);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: failed read clears success");store.EndInvocation(epoch);fake.device.stateResult=DI_OK;
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);fake.device.pollResult=DIERR_INPUTLOST;
+    check(dev->Poll()==DIERR_INPUTLOST&&!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: Poll failure invalidates");store.EndInvocation(epoch);fake.device.pollResult=DI_OK;
+    static IDirectInputDevice8A *during=nullptr;during=dev;
+    fake.device.onFormat=[] { DIJOYSTATE2 state{};during->GetDeviceState(sizeof state,&state); };
+    epoch=store.BeginInvocation();dev->SetDataFormat(&c_dfDIJoystick2);store.Seal(epoch);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: read during format call remains unavailable");store.EndInvocation(epoch);
+    fake.device.onState=[] { during->Unacquire(); };
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: in-flight read loses to mutation");store.EndInvocation(epoch);
+    fake.device.formatResult=DIERR_INVALIDPARAM;check(dev->SetDataFormat(&c_dfDIJoystick2)==DIERR_INVALIDPARAM,"raw fence: format failure outcome unchanged");
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);
+    check(data.lX==32767&&!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: failed format retains legacy injection, not raw eligibility");store.EndInvocation(epoch);fake.device.formatResult=DI_OK;dev->SetDataFormat(&c_dfDIJoystick2);
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);dev->SetActionMap(nullptr,nullptr,0);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: action map removes raw standard descriptor");store.EndInvocation(epoch);dev->SetDataFormat(&c_dfDIJoystick2);
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);dev->AddRef();dev->Release();
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: nonfinal Release invalidates");store.EndInvocation(epoch);
+    FakeInput same;auto *di2=new FencedDirectInput<IDirectInput8A>(&same);IDirectInputDevice8A *duplicate=nullptr;di2->CreateDevice(kInst,&duplicate,nullptr);duplicate->SetDataFormat(&c_dfDIJoystick2);
+    epoch=store.BeginInvocation();dev->GetDeviceState(sizeof data,&data);store.Seal(epoch);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: duplicate actual instance GUID refuses admission");duplicate->Release();di2->Release();store.EndInvocation(epoch);
+    FakeInput blind;blind.device.infoFails=true;auto *di3=new FencedDirectInput<IDirectInput8A>(&blind);IDirectInputDevice8A *unknown=nullptr;di3->CreateDevice(kInst,&unknown,nullptr);unknown->SetDataFormat(&c_dfDIJoystick2);
+    epoch=store.BeginInvocation();unknown->GetDeviceState(sizeof data,&data);store.Seal(epoch);
+    check(!store.ReadUnique(kInst,epoch,GetTickCount64(),1000,out),"raw fence: requested-GUID fallback never admitted as verified instance");unknown->Release();di3->Release();store.EndInvocation(epoch);
+    const void *key=dev;dev->Release();
+    check(generation!=0&&store.Generation(key)==0,"raw fence: final Release retires generation before deletion");di->Release();settings()=saved;
+}
+
 int main()
 {
+    neutralizerChecks<IDirectInputDevice8A>();
+    neutralizerChecks<IDirectInputDevice8W>();
     using namespace dbce::fence;
     settings().log = logLine;
     dbce::controls::InjectionTable table;
@@ -534,6 +624,7 @@ int main()
     check(dev->Release() == 0 && f.n("Release") == before + 1, "the wrapper releases the device");
     di->Release();
     check(fake.n("Release") == 1, "the DirectInput wrapper releases the interface");
+    rawSnapshotFenceChecks();
 
     if (g_fail) { std::cerr << g_fail << " of " << g_checks << " fence checks failed\n"; return 1; }
     std::cout << "PASS " << g_checks << " force fence checks (fake device)\n";

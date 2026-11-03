@@ -1,5 +1,6 @@
 // Shared F6 settings panel: frame, navigation and standard widgets (see dbce_panel.h; UX-1 in docs/CONSUMER-UX.md).
 #include "dbce_panel.h"
+#include "dbce_panel_input.h"
 #include "dbce_frame_stats.hpp"
 #include "../third_party/imgui/imgui.h"
 #include "../third_party/imgui/imgui_internal.h"
@@ -620,6 +621,7 @@ void PollDev()
     text[got] = 0;
     char verb[16] = "", page[16] = "", view[16] = "";
     sscanf_s(text, "%15s %15s %15s", verb, (unsigned)sizeof verb, page, (unsigned)sizeof page, view, (unsigned)sizeof view);
+    if (!_stricmp(verb, "input-trace")) { TraceInput(page, g_cfg.log); return; }
     if (!_stricmp(verb, "close")) { SetOpen(false); logf("panel: dev channel closed the panel"); return; }
     if (_stricmp(verb, "open")) return;
     for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) { g_page = (Page)p; g_pageChanged = true; }
