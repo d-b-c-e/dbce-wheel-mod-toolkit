@@ -1,5 +1,7 @@
 # dbce-wheel-mod-toolkit — Codex working notes
 
+Desktop routes (2026-11-03): follow the [route ladder](../../../dbce-project-mgmt/skills/automated-testing/references/desktop-routes.md) and run `pwsh E:\Source\dbce-project-mgmt\tools\Test-DesktopRoutes.ps1`; if a route is down, continue on the next route within existing authorization and game safeguards.
+
 **October 11 FFB reference update:** STD-031 supersedes the old level below.
 Art source `8bc94b1` and `profiles/normalization/art-of-rally-50-v2.json` make
 new default steering 50 match legacy30 by setting the reference to 11500/0.6 N.
