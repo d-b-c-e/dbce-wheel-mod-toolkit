@@ -27,6 +27,10 @@ struct Config {
     // F7 steps the session-only correction comparison (triple-screen toolkit camera-framing-and-comparison-policy.md):
     // the mod changes mode and shows its label. Called on the window thread. Null: F7 goes to the game.
     void (*compareKey)() = nullptr;
+    // Camera keys (STD-042/048, e.g. numpad + / - / 5): while the panel is closed, every key other than F6/F7/F8 is
+    // offered here first (down, up and repeats, with the virtual-key code); return true to consume it so the game does
+    // not see it. Called on the window thread. Never called while the panel is open. Null: keys go to the game.
+    bool (*cameraKey)(int vk, bool down, bool repeat) = nullptr;
     void (*log)(const char *line) = nullptr;
     // Unattended checks only (no OS input): a file whose text is "open <Page> [simple|advanced]" or "close" is applied
     // when it changes (polled twice a second by the overlay); a file last written before the process started is ignored.
@@ -66,6 +70,7 @@ bool StopFfbAvailable();
 void StopFfbFromKey();
 bool CompareAvailable();   // Config::compareKey set (F7)
 void CompareFromKey();
+bool CameraKeyFromMessage(int vk, bool down, bool repeat);   // Config::cameraKey; false when unset
 
 // Overlay side, once per presented frame while the panel is open (an ImGui context must be current):
 //   if (Prepare(w, h)) { BuildFonts(); <invalidate the renderer's font texture> }

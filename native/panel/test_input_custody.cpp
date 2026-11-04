@@ -17,6 +17,8 @@ int clipCalls;
 bool panelOpen;
 bool compareAvailable;
 int compareCalls;
+bool cameraKeySet, cameraKeyConsumes;
+int cameraKeyCalls, cameraKeyVk, cameraKeyDown, cameraKeyRepeat;
 void (*onClient)();
 HWND childWindow;
 int chainCalls, attachCalls, unhookCalls;
@@ -78,6 +80,12 @@ bool StopFfbAvailable() { return false; }
 void StopFfbFromKey() {}
 bool CompareAvailable() { return compareAvailable; }
 void CompareFromKey() { ++compareCalls; }
+bool CameraKeyFromMessage(int vk, bool down, bool repeat)
+{
+    if (!cameraKeySet) return false;
+    ++cameraKeyCalls; cameraKeyVk = vk; cameraKeyDown = down; cameraKeyRepeat = repeat;
+    return cameraKeyConsumes;
+}
 }}
 
 static int hookChecks, hookFailures;
@@ -208,6 +216,26 @@ int main()
     compare.message = WM_KEYUP; compare.lParam = 0;
     verify(dbce::panel::handle(&compare) && compareCalls == 1, "F7 release is consumed without compare");
     compareAvailable = false;
+    // Camera keys: offered to the mod only while the panel is closed; consumed only when the mod says so.
+    MSG key{}; key.hwnd = panelWindow; key.message = WM_KEYDOWN; key.wParam = VK_ADD;
+    verify(!dbce::panel::handle(&key) && cameraKeyCalls == 0, "numpad + without a camera-key route passes through");
+    cameraKeySet = true; cameraKeyConsumes = true;
+    verify(dbce::panel::handle(&key) && cameraKeyCalls == 1 && cameraKeyVk == VK_ADD && cameraKeyDown && !cameraKeyRepeat,
+           "numpad + down offered to the camera-key route and consumed");
+    key.lParam = LPARAM(1) << 30;
+    verify(dbce::panel::handle(&key) && cameraKeyCalls == 2 && cameraKeyRepeat, "a repeat is offered as a repeat");
+    key.message = WM_KEYUP; key.lParam = (LPARAM(1) << 30) | (LPARAM(1) << 31);
+    verify(dbce::panel::handle(&key) && cameraKeyCalls == 3 && !cameraKeyDown, "the release is offered too");
+    cameraKeyConsumes = false; key.message = WM_KEYDOWN; key.lParam = 0; key.wParam = 'W';
+    verify(!dbce::panel::handle(&key) && cameraKeyCalls == 4, "a key the mod does not take reaches the game");
+    compareAvailable = true; compare.message = WM_KEYDOWN; compare.lParam = 0;
+    verify(dbce::panel::handle(&compare) && cameraKeyCalls == 4, "F7 keeps its own route, not the camera-key route");
+    compareAvailable = false;
+    MSG f6{}; f6.hwnd = panelWindow; f6.message = WM_KEYDOWN; f6.wParam = VK_F6;
+    verify(dbce::panel::handle(&f6) && cameraKeyCalls == 4, "F6 keeps its own route");
+    panelOpen = true; cameraKeyConsumes = true; key.wParam = VK_ADD;
+    verify(dbce::panel::handle(&key) && cameraKeyCalls == 4, "panel open: keys go to the panel, never the camera-key route");
+    panelOpen = false; cameraKeySet = false; cameraKeyConsumes = false;
     DetachInput();
     attachFails = true;
     TraceInput("on", nullptr);

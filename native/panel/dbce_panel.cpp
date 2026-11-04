@@ -109,6 +109,7 @@ bool StatusLineActive() { return InterlockedCompareExchange(&g_statusActive, 0, 
 bool FrameCounterOn() { return g_showFps; }
 bool CompareAvailable() { return g_cfg.compareKey != nullptr; }
 void CompareFromKey() { if (g_cfg.compareKey) g_cfg.compareKey(); }
+bool CameraKeyFromMessage(int vk, bool down, bool repeat) { return g_cfg.cameraKey && g_cfg.cameraKey(vk, down, repeat); }
 void SetStatusLine(const char *text, StatusTone tone)
 {
     size_t length = 0;
