@@ -399,12 +399,7 @@ handoffs below; it does not upgrade their game, display or physical acceptance.
 Shared wheel master is `80ab49031b1968f930fdea1887ae07eed86beaab`, following
 `af938a9055782cc9f8e592cf17b055e7e4544fa0`. Native and managed hosted checks
 passed on master (run [36985039001](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/actions/runs/36985039001))
-and the reviewed branch (run 36984995628). Its three checkpoint-copy additions
-are tests/documentation only: x86 and x64 each passed 264 continuations and
-462 rejected transactional restores across 11 profiles, plus the existing
-conformance/events/contracts/recovery checks. These are trusted single-threaded
-same-process copies, not a public API, external codec or runtime adoption.
-[Assessment and limits](CHECKPOINT-COPY-ASSESSMENT.md).
+and the reviewed branch (run 36984995628).
 
 The published `v0.15.0` source remains
 `358add53af220eb95bf606e240b230e23a6ea197` (native 0.8.0/46 exports).

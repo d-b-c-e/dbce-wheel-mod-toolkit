@@ -86,11 +86,8 @@ native/header baseline with a separate reviewed shutdown DLL source override.
 Sonic/Gravel source publication does not add a guessed component relationship
 or pin to this register; inspect their explicit provenance before doing so.
 
-Wheel master `80ab49031b1968f930fdea1887ae07eed86beaab` includes a fixture-only
-[checkpoint-copy assessment](CHECKPOINT-COPY-ASSESSMENT.md). OutRun's old numeric
-snapshot representation remains incompatible with the current shared model;
-its separately verified replay counts do not transfer to this fixture or establish
-consumer adoption. Released v0.15.0, native overrides and unpublished Recording
+OutRun's old numeric snapshot representation remains incompatible with the
+current shared model. Released v0.15.0, native overrides and unpublished Recording
 extensions remain separately owned and pinned.
 
 ## The register

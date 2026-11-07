@@ -37,7 +37,7 @@ Use authorized isolated trees. Command listings do not authorize device/runtime 
 
 | Repository | Entry points | Verified limits |
 | --- | --- | --- |
-| Wheel toolkit | `dotnet build Dbce.Wheel.sln -c Release`; `dotnet test Dbce.Wheel.sln -c Release`; Windows/MSVC scripts use vswhere. | Libraries netstandard2.0, tests net8.0. Master run [36985039001](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/actions/runs/36985039001) passed native/managed jobs. Checkpoint-copy fixtures separately passed x86/x64, each 264 continuations and 462 rejections. No device/gameplay acceptance. |
+| Wheel toolkit | `dotnet build Dbce.Wheel.sln -c Release`; `dotnet test Dbce.Wheel.sln -c Release`; Windows/MSVC scripts use vswhere. | Libraries netstandard2.0, tests net8.0. Master run [36985039001](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/actions/runs/36985039001) passed native/managed jobs. No device/gameplay acceptance. |
 | Triple toolkit | `dotnet build src/Dbce.TripleScreen.Core/Dbce.TripleScreen.Core.csproj -c Release`; `dotnet test tests/Dbce.TripleScreen.Core.Tests/Dbce.TripleScreen.Core.Tests.csproj -c Release`. | Core netstandard2.0, tests net10.0. Base `756af45d64724322af67734bf2fa0356d22c2ac8` passed seven tests and clean Release build; later main changes are documentation only. SDK 10.0.401; no adapter/render acceptance. |
 | Triple optimizer | `dotnet build TripleScreenOptimizer.slnx`; `dotnet test TripleScreenOptimizer.slnx`; `tools/Verify-Setup.ps1`; `tools/tests/Test-VerifySetup.ps1`. | SDK 10.0.401 pinned; 47 unfiltered tests and 16 verifier fixtures passed. Initialize the exact private gitlink without --remote. No hosted workflow. |
 | VR optimizer | `dotnet build src/VrGameOptimizer.sln`; `dotnet test src/VrGameOptimizer.sln`. | SDK 10.0.401 pinned; 72 safe unfiltered tests passed. Windows x64/admin-requesting manifest retained. No app/settings/process/VR/device acceptance. No hosted workflow. |
@@ -76,8 +76,7 @@ x64/x86, runs listed offline checks, builds/tests managed output with the suppli
 version and writes `dist/dbce-wheel-mod-toolkit-<version>.zip`. Default 0.1.0
 is not a latest-release claim; -SkipNative needs exact reused-binary provenance.
 The master recipe includes Ffb/Telemetry and fake-burst checks, not the live
-owner's Recording package work. The checkpoint-copy fixture is separately invoked:
-it is not a release gate, public API, external codec or consumer runtime adoption.
+owner's Recording package work.
 
 ## Reviewed consumer source publications
 

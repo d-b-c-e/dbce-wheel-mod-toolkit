@@ -68,10 +68,8 @@ locate Visual Studio with `vswhere`. Existing entry points include:
 ```
 
 These paths remain present at the checkpoint. Hosted native and managed jobs passed
-at `80ab490` (master run 36985039001); the separately invoked checkpoint-copy
-fixture and existing conformance/events/contracts/recovery suites passed locally.
-The fixture is a trusted single-threaded in-process copy assessment, not a public
-API, external codec or runtime adoption. Device smoke/probes, force output, games
+at `80ab490` (master run 36985039001); the conformance/events/contracts/recovery
+suites passed locally. Device smoke/probes, force output, games
 and installations were not part of this documentation reconciliation.
 
 ## Existing packaging recipe
