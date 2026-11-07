@@ -21,7 +21,7 @@ try {
     & (Join-Path $root 'tools/Sync-Toolkit.ps1') -LocalRepo $root -Destination (Join-Path $game 'lib/toolkit') -Parts shared,unity,installer,dotnet
     $manifest = @(Get-Content -LiteralPath (Join-Path $game 'lib/toolkit/MANIFEST.txt'))
     foreach ($want in 'shared/ui/F6Style.cs', 'shared/input/ControlBinding.cs', 'shared/display/RacingRow.cs',
-                      'shared/support/SupportReport.cs', 'unity/Dbce.Unity.props', 'unity/Runtime/ModDescriptor.cs',
+                      'shared/support/SupportReport.cs', 'shared/mod/DbceModFile.cs', 'unity/Dbce.Unity.props', 'unity/Runtime/ModDescriptor.cs',
                       'installer/README.md', 'dotnet/Dbce.Wheel.Input.dll', 'dotnet/Dbce.Wheel.Display.dll', 'dotnet/Dbce.Wheel.Ui.dll') {
         Assert (@($manifest | Where-Object { $_ -match ('^[A-F0-9]{64}  ' + [regex]::Escape($want) + '$') }).Count -eq 1) "Manifest lacks $want"
     }
@@ -29,7 +29,8 @@ try {
     Set-Content -LiteralPath (Join-Path $game 'Directory.Build.props') '<Project><Import Project="$(MSBuildThisFileDirectory)lib\toolkit\unity\Dbce.Unity.props" /></Project>'
     $variants = [ordered]@{
         Mono = @('-p:DbceRuntime=Mono')
-        Mono20 = @('-p:DbceRuntime=Mono20')
+        # Mono20 also opts in to the dbce-mod.json reader, so the .NET 3.5 API check below covers it.
+        Mono20 = @('-p:DbceRuntime=Mono20', '-p:DbceSharedSources=input%3Bdisplay%3Bui%3Bsupport%3Bmod')
         Il2Cpp = @('-p:DbceRuntime=Il2Cpp')
         Il2CppRectUrp = @('-p:DbceRuntime=Il2Cpp', '-p:DbceImgui=Rect', '-p:DbcePipeline=Urp')
     }
@@ -44,7 +45,9 @@ try {
     $ref35 = Get-ChildItem (Join-Path $packages 'microsoft.netframework.referenceassemblies.net35') -Directory | Sort-Object Name |
         Select-Object -Last 1 | ForEach-Object { Join-Path $_.FullName 'build/.NETFramework/v3.5' }
     Assert ($ref35 -and (Test-Path (Join-Path $ref35 'mscorlib.dll'))) 'The .NET 3.5 reference assemblies were not restored'
-    & (Join-Path $root 'tools/Check-Net35Api.ps1') -Dll (Join-Path $game 'src/Mono20/bin/Release/net472/DummyPlugin.dll') -GameManaged $ref35 | Out-Host
+    $mono20Dll = Join-Path $game 'src/Mono20/bin/Release/net472/DummyPlugin.dll'
+    Assert ([Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($mono20Dll)).Contains('DbceModFile')) 'The Mono20 build lacks the opted-in dbce-mod.json reader'
+    & (Join-Path $root 'tools/Check-Net35Api.ps1') -Dll $mono20Dll -GameManaged $ref35 | Out-Host
     Assert ($LASTEXITCODE -eq 0) 'The Mono20 build references APIs that .NET 3.5 lacks'
     [ordered]@{ status = 'passed'; assertions = $script:checks; variants = @($variants.Keys) } | ConvertTo-Json -Compress
 } finally {

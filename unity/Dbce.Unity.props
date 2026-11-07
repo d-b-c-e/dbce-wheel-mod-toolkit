@@ -13,7 +13,8 @@
 
     The engine-free libraries (Dbce.Wheel.Input, Display, Ui) are referenced as netstandard2.0 DLLs from
     lib/toolkit/dotnet, except on Mono20, which cannot load netstandard2.0: there the same sources from
-    lib/toolkit/shared compile into the plugin. DbceSharedSources narrows that list (input;display;ui;support).
+    lib/toolkit/shared compile into the plugin. DbceSharedSources narrows that list (input;display;ui;support). Add
+    mod to it for the dbce-mod.json reader (shared/mod, docs/DBCE-MOD-JSON.md); it is off unless asked for.
     Everything under unity/ compiles into the plugin on every runtime.
   -->
   <PropertyGroup>
@@ -42,6 +43,7 @@
     <Compile Condition="$(DbceSharedSources.Contains('display'))" Include="$(DbceToolkitDir)shared/display/RacingRow.cs;$(DbceToolkitDir)shared/display/WindowsMonitors.cs;$(DbceToolkitDir)shared/display/WindowLanding.cs" LinkBase="Toolkit/display" />
     <Compile Condition="$(DbceSharedSources.Contains('ui'))" Include="$(DbceToolkitDir)shared/ui/*.cs" LinkBase="Toolkit/ui" />
     <Compile Condition="$(DbceSharedSources.Contains('support'))" Include="$(DbceToolkitDir)shared/support/SupportReport.cs" LinkBase="Toolkit/support" />
+    <Compile Condition="$(DbceSharedSources.Contains('mod'))" Include="$(DbceToolkitDir)shared/mod/*.cs" LinkBase="Toolkit/mod" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(DbceRuntime)' != 'Mono20'">

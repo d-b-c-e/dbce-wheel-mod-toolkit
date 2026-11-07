@@ -11,7 +11,7 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 - `shared/` — display, ffb, session, support and UI code that games consume; `profiles/` — force tunes as data.
 - `unity/` — the shared Unity layer compiled into each plugin, and `Dbce.Unity.props` (runtime defines; the DLLs, or the same sources on Mono 2.0). `installer/` — slot for the shared installer.
 - `tools/` — `Sync-Toolkit.ps1`, `Sync-Native.ps1`, `package/package.ps1`, `powershell/`, `playback/`, `window-capture/`, `ffbprobe/`, `Get-ConsumerStatus.ps1`; post-build checks `Check-Net35Api.ps1` (Mono 2.0) and `Find-StrippedInteropCalls.ps1` (IL2CPP).
-- `schema/dbce-mod.schema.json` — the one per-mod file `dbce-mod.json` (`docs/DBCE-MOD-JSON.md`), with fixtures; readers in `installer/DbceModFile.ps1`, `shared/mod/DbceModFile.cs` and `native/panel/dbce_mod_file.h`, tested by `tools	ests\Test-DbceModFile.ps1`, `dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests` and `native\paneluild_test.ps1`.
+- `schema/dbce-mod.schema.json` — the one per-mod file `dbce-mod.json` (`docs/DBCE-MOD-JSON.md`), with fixtures; readers in `installer/DbceModFile.ps1`, `shared/mod/DbceModFile.cs` and `native/panel/dbce_mod_file.h`, tested by `tools\tests\Test-DbceModFile.ps1`, `dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests` and `native\panel\build_test.ps1`.
 - `knowledge/` (every item carries `[repo, YYYY-MM-DD]` provenance), `docs/` (`STATE.md`, `CONSUMERS.md`, `PLAN.md`, ADRs), `STANDARDS.md` (product standards, append-only).
 
 ## Build and test

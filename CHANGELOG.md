@@ -1,5 +1,14 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- `dbce-mod.json` (XC-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`): one per-mod file for Wheelkit, the installer and F6.
+  `schema/dbce-mod.schema.json` covers identity and the log start line, package, settings (the UI-1 block plus a
+  `role` and `store` per row), controls, STD-046 camera starts, self-test probes and the installer's `installed`
+  section. The doc fixes the installer's command line. Fixtures for DiRT 4, Woden and art of rally come from today's
+  catalog rows, receipts and CONTROLS.json. Readers: `installer/DbceModFile.ps1` (PowerShell 5.1),
+  `shared/mod/DbceModFile.cs` (`Dbce.Wheel.ModFile`, netstandard2.0, and opt-in Mono 2.0 source) and
+  `native/panel/dbce_mod_file.h`. Their tests compare each reader's dump with the same golden files. The UI-1
+  descriptor reader now accepts `role`, `store` and `format`. No consumer reads the file yet.
+
 - `dbce-ui.exe --setup <dbce-mod.json>` (UI-3, 2026-11-07; `native/ui-exe`): the F6 panel core in a normal window
   for setup with the game closed, 0.65 MB. Values go to the mod's ini, `[Settings]`, one key per row id; each change
   writes only its own key (STD-044). The descriptor gains an optional `config` (that ini) and the panel

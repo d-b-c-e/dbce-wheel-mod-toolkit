@@ -12,11 +12,14 @@ names Wheelkit reads today.
 - Readers:
   - PowerShell 5.1, for the installer: `installer/DbceModFile.ps1`, with `Read-DbceModFile` and `Format-DbceModFile`.
   - C# netstandard2.0 and Mono 2.0, for Wheelkit and the Unity mods: `shared/mod/DbceModFile.cs`, built by
-    `dotnet/Dbce.Wheel.ModFile`.
+    `dotnet/Dbce.Wheel.ModFile`. A Mono 2.0 plugin compiles it in by adding `mod` to `DbceSharedSources`
+    (`unity/Dbce.Unity.props`). `Test-UnityConsumer.ps1` does that and runs the .NET 3.5 API check over it. No
+    Mono 4.x or IL2CPP plugin references `Dbce.Wheel.ModFile.dll` yet; Sync-Toolkit's `dotnet` part adds it when the
+    first mod reads the file.
   - C++, for the panel core: `native/panel/dbce_mod_file.h`. Its `settings` section is the UI-1 descriptor reader in
     `dbce_panel_descriptor.h`.
 - Tests: `tools/tests/Test-DbceModFile.ps1` (schema and the PowerShell reader), `Dbce.Wheel.ModFile.Tests` and
-  `native/panel/build_test.ps1`. All three readers must write the same dump, byte for byte, as the `.dump.txt` files.
+  `native/panel/build_test.ps1`. All three readers must write the same dump as the `.dump.txt` files, line for line.
 
 ## Sections
 
