@@ -1329,10 +1329,47 @@ void Draw(int width, int height)
 }
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------
+// "open <page> [view]": a page by id or name, More options or the Simple/Advanced view; a page the build does not
+// offer leaves the page shown.
+static void devOpen(const char *page, const char *view)
+{
+    if (g_cfg.descriptor) {   // "open <page> [more]": a descriptor page by id or name, More options open or closed
+        StdPage p = g_dpage;
+        descriptorPageFromName(page, &p);
+        SetOpen(true);
+        ShowDescriptorPage(p, !_stricmp(view, "more"));
+        logf("panel: dev channel opened %s%s", StdPageName(g_dpage), g_more ? " (More options)" : "");
+        return;
+    }
+    for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) { g_page = (Page)p; g_pageChanged = true; }
+    if (view[0]) g_advanced = !_stricmp(view, "advanced");   // not saved: a test does not change the owner's view
+    SetOpen(true);
+    logf("panel: dev channel opened %s (%s)", kPageNames[g_page], g_advanced ? "Advanced" : "Simple");
+}
+
+bool OpenForCheck(const char *page, const char *view)
+{
+    if (!page) page = "";
+    if (!view) view = "";
+    if (page[0]) {
+        bool found = false;
+        if (g_cfg.descriptor) {
+            StdPage p;
+            found = descriptorPageFromName(page, &p) && DescriptorPageShown(p);
+        } else {
+            for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) found = true;
+        }
+        if (!found) return false;
+    }
+    devOpen(page, view);
+    return true;
+}
+
 void PollDev()
 {
     static ULONGLONG nextAt;
     static FILETIME seen;
+    if (g_cfg.selfTestTick) g_cfg.selfTestTick();   // every frame: frame waits count these
     if (!g_cfg.devFile) return;
     ULONGLONG now = GetTickCount64();
     if (now < nextAt) return;
@@ -1360,18 +1397,6 @@ void PollDev()
     sscanf_s(text, "%15s %15s %15s", verb, (unsigned)sizeof verb, page, (unsigned)sizeof page, view, (unsigned)sizeof view);
     if (!_stricmp(verb, "input-trace")) { TraceInput(page, g_cfg.log); return; }
     if (!_stricmp(verb, "close")) { SetOpen(false); logf("panel: dev channel closed the panel"); return; }
-    if (_stricmp(verb, "open")) return;
-    if (g_cfg.descriptor) {   // "open <page> [more]": a descriptor page by id or name, More options open or closed
-        StdPage p = g_dpage;
-        descriptorPageFromName(page, &p);
-        SetOpen(true);
-        ShowDescriptorPage(p, !_stricmp(view, "more"));
-        logf("panel: dev channel opened %s%s", StdPageName(g_dpage), g_more ? " (More options)" : "");
-        return;
-    }
-    for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) { g_page = (Page)p; g_pageChanged = true; }
-    if (view[0]) g_advanced = !_stricmp(view, "advanced");   // not saved: a test does not change the owner's view
-    SetOpen(true);
-    logf("panel: dev channel opened %s (%s)", kPageNames[g_page], g_advanced ? "Advanced" : "Simple");
+    if (!_stricmp(verb, "open")) devOpen(page, view);
 }
 }} // namespace dbce::panel

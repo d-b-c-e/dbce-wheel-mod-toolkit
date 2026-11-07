@@ -30,6 +30,8 @@ static bool g_ffb = true;
 static int g_strength = 50, g_triple = 2;
 static bool g_tel = true;
 static bool ffbOn() { return g_ffb; }
+static int g_selfTestTicks;
+static void selfTestTick() { ++g_selfTestTicks; }
 static void stopFfb() { g_ffb = false; }
 
 static void drawPage(dbce::panel::Page page, bool advanced)
@@ -300,8 +302,20 @@ static int descriptorChecks(ID3D11Device *dev, ID3D11DeviceContext *ctx, const c
         Config c;
         c.iniPath = ini;
         c.descriptor = &d;
+        c.selfTestTick = selfTestTick;
         Configure(c);
         SetDeveloper(false);
+        // ST-1: PollDev ticks the self-test every frame; OpenForCheck opens a page the build shows and refuses others.
+        g_selfTestTicks = 0;
+        PollDev();
+        PollDev();
+        CHECK(g_selfTestTicks == 2);
+        CHECK(OpenForCheck("FFB", "more") && IsOpen() && DescriptorPage() == StdPage::Ffb && DescriptorMoreOptions());
+        CHECK(OpenForCheck("controls", "") && DescriptorPage() == StdPage::Controls && !DescriptorMoreOptions());
+        CHECK(!OpenForCheck("Replays", "more") && DescriptorPage() == StdPage::Controls && !DescriptorMoreOptions());
+        CHECK(!OpenForCheck("Developer", "") && DescriptorPage() == StdPage::Controls);   // hidden: switch off
+        CHECK(OpenForCheck("", "") && DescriptorPage() == StdPage::Controls);
+        SetOpen(false);
         PanelEvent e;
         CHECK(!PollEvent(e));
         CHECK(SetToggle("ffb.enabled", true) && !SetToggle("ffb.strength", true) && !SetToggle("no.such.row", true));

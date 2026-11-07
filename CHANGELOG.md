@@ -1,5 +1,14 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- The in-mod self-test, C++ half (ST-1, 2026-11-07; `docs/SELFTEST.md`). `schema/dbce-selftest.schema.json` and
+  `schema/dbce-selftest-result.schema.json` define the dbce.selftest@1 script and `result.json`. Fixture scripts and
+  their expected results are in `schema/fixtures/selftest`. `native/selftest/dbce_selftest.hpp` runs a script through
+  the mod's callbacks: wait, F6 page, start, camera, mod key, session-only set, capture, dump and quit. It mutes force
+  feedback by default and writes `result.json` last. It runs only with `DBCE_DEV=1` or `[Dev] SelfTest=true`, and only
+  a `script.json` written after the game started. The panel gains `Config::selfTestTick`, which `PollDev` calls every
+  frame, and `OpenForCheck`, the dev channel's open that reports a missing page. `native/selftest/build_test.ps1` runs
+  every fixture on a fake host. No game uses it yet.
+
 - The shared installer migrates a game's old receipt (PKG-2, 2026-11-07). `package.oldReceipts` names the earlier
   installer's receipt (`{file, sha256}`) and backups folder. The file it lists counts as the mod's while unchanged, the
   install deletes the old receipt and keeps it in its backup for `-Rollback`, and uninstall also removes the old

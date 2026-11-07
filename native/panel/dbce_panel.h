@@ -38,6 +38,9 @@ struct Config {
     // when it changes (polled twice a second by the overlay); a file last written before the process started is ignored.
     // Null: off.
     const char *devFile = nullptr;
+    // The self-test runner (native/selftest/dbce_selftest.hpp, docs/SELFTEST.md), such as [] { runner.Tick(); }:
+    // PollDev calls it on every presented frame of the game's swap chain, before the devFile check. Null: no self-test.
+    void (*selfTestTick)() = nullptr;
     // STD-023: whether the three views are on, for the frame-rate readout and its log line. Null: not reported.
     bool (*triplesOn)() = nullptr;
     // The display in the mod's own words for that readout (for example "Surround span, one wide view"); when set, and
@@ -140,8 +143,12 @@ bool DrawWanted();
 //   <renderer NewFrame>; DrainInput(w, h); ImGui::NewFrame(); Draw(w, h); ImGui::Render(); <render draw data>
 // Prepare returns true when the UI scale changed and the font atlas must be rebuilt (also on the first frame).
 bool Prepare(int width, int height);
-// The dev channel (Config::devFile); cheap enough to call every frame.
+// The dev channel (Config::devFile) and the self-test tick (Config::selfTestTick); cheap enough to call every frame.
 void PollDev();
+// The dev channel's "open" for a self-test host's OpenPage: opens the panel on a page by id or name ("" keeps the page
+// shown), with view simple or advanced (hand-drawn pages) or more (More options, descriptor pages). False, and the
+// panel left as it was, when this build does not show that page. Not saved, like the dev channel.
+bool OpenForCheck(const char *page, const char *view);
 // Every presented frame of the game's swap chain, open or closed (STD-023): ten-second frame-rate windows, shown on the
 // Cameras page (Help when there is none) and logged every 30 s.
 void NoteFrame();
