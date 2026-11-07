@@ -1,5 +1,11 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- `dbce-ui.exe --setup <dbce-mod.json>` (UI-3, 2026-11-07; `native/ui-exe`): the F6 panel core in a normal window
+  for setup with the game closed, 0.65 MB. Values go to the mod's ini, `[Settings]`, one key per row id; each change
+  writes only its own key (STD-044). The descriptor gains an optional `config` (that ini) and the panel
+  `Config::gameFrames` (false hides the frame-rate rows). `native/ui-exe/build.ps1` drives the exe with posted keys
+  and checks the ini byte for byte. Binding capture and the "Close the game first" check are not in yet.
+
 - Unity delivery by version (TK-4, 2026-11-07; architecture 02-unity-family, step A5):
   - `Dbce.Wheel.Input`, `Dbce.Wheel.Display` and `Dbce.Wheel.Ui` are netstandard2.0 projects in the solution. Display
     builds the racing row, monitors, window landing and span target. Ui builds the F6 presentation sources and

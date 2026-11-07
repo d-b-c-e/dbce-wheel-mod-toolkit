@@ -33,3 +33,6 @@ shared/ffb/SharedFfbOutput.cs text eol=lf
 shared/ffb/README.md text eol=lf
 tests/SharedFfbOutput/Program.cs text eol=lf
 tests/SharedFfbOutput/SharedFfbOutput.csproj text eol=lf
+
+# UI-3 setup byte-diff fixtures: CRLF on purpose, compared byte for byte.
+native/ui-exe/fixtures/*.ini -text
