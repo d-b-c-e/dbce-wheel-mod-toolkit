@@ -804,4 +804,27 @@ void DrawPanelPage(bool advanced)
     EndGroup();
 }
 
+void EffectSummary(int *created, int *running, char *list, size_t listSize)
+{
+    ensure();
+    int c = 0, r = 0;
+    if (list && listSize) list[0] = 0;
+    EnterCriticalSection(&g_cs);
+    for (int i = 0; i < g_effCount; ++i) {
+        if (!g_effs[i].eff) continue;
+        ++c;
+        if (g_effs[i].running) ++r;
+        if (!list || listSize < 2) continue;
+        const size_t used = strlen(list);
+        char b[192];
+        if (g_effs[i].emulate) sprintf_s(b, "%s%s: %s; the game's gain %lu%%, sent at %lu%%", used ? "; " : "", g_effs[i].name,
+                                         g_effs[i].running ? "running" : "stopped", g_effs[i].gain / 100, combinedGain(g_effs[i].gain, g_strength) / 100);
+        else sprintf_s(b, "%s%s: %s", used ? "; " : "", g_effs[i].name, g_effs[i].running ? "running" : "stopped");
+        strncpy_s(list + used, listSize - used, b, _TRUNCATE);
+    }
+    LeaveCriticalSection(&g_cs);
+    if (created) *created = c;
+    if (running) *running = r;
+}
+
 }} // namespace dbce::ffb

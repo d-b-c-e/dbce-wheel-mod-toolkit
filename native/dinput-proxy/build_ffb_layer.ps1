@@ -7,7 +7,7 @@ $here = $PSScriptRoot
 $build = Join-Path $here 'build'
 New-Item -ItemType Directory -Force $build | Out-Null
 $im = '..\third_party\imgui'
-$cmd = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc test_ffb_gain.cpp /Fo`"$build\\`" /Fe`"$build\test_ffb_gain.exe`" && `"$build\test_ffb_gain.exe`" && cl /nologo /c /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im dbce_ffb_layer.cpp /Fo`"$build\\`""
+$cmd = "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc test_ffb_gain.cpp /Fo`"$build\\`" /Fe`"$build\test_ffb_gain.exe`" && `"$build\test_ffb_gain.exe`" && cl /nologo /c /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im dbce_ffb_layer.cpp /Fo`"$build\\`""
 $out = cmd /c $cmd 2>&1
 $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw 'force-layer checks failed' }
@@ -18,7 +18,7 @@ foreach ($arch in 'x64', 'x86') {
     $vv = Join-Path $vs ('VC\Auxiliary\Build\vcvars{0}.bat' -f $(if ($arch -eq 'x64') { '64' } else { '32' }))
     $dir = Join-Path $build "fence-$arch"
     New-Item -ItemType Directory -Force $dir | Out-Null
-    $fo = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 test_fence.cpp /Fo`"$dir\\`" /Fe`"$dir\test_fence.exe`" dinput8.lib dxguid.lib && `"$dir\test_fence.exe`"" 2>&1
+    $fo = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 test_fence.cpp /Fo`"$dir\\`" /Fe`"$dir\test_fence.exe`" dinput8.lib dxguid.lib && `"$dir\test_fence.exe`"" 2>&1
     $fo | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $fo | Select-Object -Last 25; throw "fence checks failed ($arch)" }
 }
@@ -31,7 +31,7 @@ foreach ($arch in 'x64', 'x86') {
     New-Item -ItemType Directory -Force $dir | Out-Null
     $imSrc = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp"
     $imObj = 'imgui', 'imgui_draw', 'imgui_tables', 'imgui_widgets' | ForEach-Object { "`"$dir\$_.obj`"" }
-    $lo = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imSrc /Fo`"$dir\\`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im test_layer.cpp dbce_ffb_layer.cpp ..\panel\dbce_panel.cpp ..\panel\dbce_panel_input.cpp $imObj /Fo`"$dir\\`" /Fe`"$dir\test_layer.exe`" dinput8.lib dxguid.lib user32.lib && `"$dir\test_layer.exe`"" 2>&1
+    $lo = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imSrc /Fo`"$dir\\`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im test_layer.cpp dbce_ffb_layer.cpp ..\panel\dbce_panel.cpp ..\panel\dbce_panel_input.cpp $imObj /Fo`"$dir\\`" /Fe`"$dir\test_layer.exe`" dinput8.lib dxguid.lib user32.lib && `"$dir\test_layer.exe`"" 2>&1
     $lo | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $lo | Select-Object -Last 25; throw "layer hook checks failed ($arch)" }
 }
@@ -40,7 +40,7 @@ foreach ($arch in 'x64', 'x86') {
 $vcvars32 = Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat'
 $b32 = Join-Path $build 'x86'
 New-Item -ItemType Directory -Force $b32 | Out-Null
-$cmd32 = "`"$vcvars32`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im dbce_ffb_layer.cpp ..\panel\dbce_panel.cpp ..\panel\dbce_panel_input.cpp ..\panel\dbce_overlay_d3d11.cpp ..\panel\dbce_overlay_d3d12.cpp /Fo`"$b32\\`""
+$cmd32 = "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars32`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /W4 /WX /EHsc /std:c++17 /I$im dbce_ffb_layer.cpp ..\panel\dbce_panel.cpp ..\panel\dbce_panel_input.cpp ..\panel\dbce_overlay_d3d11.cpp ..\panel\dbce_overlay_d3d12.cpp /Fo`"$b32\\`""
 $out32 = cmd /c $cmd32 2>&1
 $out32 | Select-String -Pattern ' warning | error ' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $out32 | Select-Object -Last 25; throw 'x86 compile failed' }

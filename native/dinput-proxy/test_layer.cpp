@@ -192,6 +192,8 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     dbce::ffb::SetStrength(75);
     check(dbce::ffb::On() && effect.starts == 1 && effect.iterations == 7, "memory-only enable resumes the game's requested iterations");
     check(dbce::ffb::Strength() == 75 && effect.magnitude == 3000, "memory-only strength preserves gain law");
+    { int created = -1, running = -1; char list[256]; dbce::ffb::EffectSummary(&created, &running, list, sizeof list);
+      check(created == 1 && running == 1 && strstr(list, "ConstantForce: running; the game's gain 100%, sent at 150%") == list, "EffectSummary counts the one running effect and lists it (UI-7): " + std::to_string(created) + "/" + std::to_string(running) + " " + list); }
 
     char temp[MAX_PATH], root[MAX_PATH];
     const bool tempOk = GetTempPathA(MAX_PATH, temp) && GetTempFileNameA(temp, "dbf", 0, root);

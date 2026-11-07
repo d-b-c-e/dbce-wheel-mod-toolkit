@@ -50,6 +50,9 @@ void StopForExit();
 // The F6 panel's FFB page (dbce_panel widgets): FFB Off/On, Strength (with gain emulation), status; Advanced lists the
 // game's effects.
 void DrawPanelPage(bool advanced);
+// The same facts for a panel drawn from a settings descriptor (UI-7): how many effects the game created and how many
+// run, and the Advanced list as one line, "name: state" per effect joined by "; " ("" when none). Null outputs are skipped.
+void EffectSummary(int *created, int *running, char *list, size_t listSize);
 
 // Test injection (STD-033 section 6, toolkit docs/controls-contract.md). Development only: a mod calls
 // AllowInjection(true) only when its inject.on switch existed at game start. Inject() makes the game's next
