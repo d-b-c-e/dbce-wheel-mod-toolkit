@@ -39,7 +39,6 @@
 #include "dbce_macro_record.hpp"
 #include "dbce_input_suppression.hpp"
 #include "dbce_shape_state.hpp"
-#include "dbce_raw_snapshot.hpp"
 
 #pragma comment(lib, "dxguid.lib")
 
@@ -69,8 +68,6 @@ struct Settings {
     void (*observeEffect)(const void *device, const void *effect, REFGUID type, EffectEvent event, LPCDIEFFECT params,
                           DWORD flags, DWORD value) = nullptr;
     dbce::macro::Recorder *recorder = nullptr;   // nullptr: no macro recording (set once, never freed)
-    // Optional before device creation; pointer/store outlive every wrapped call.
-    dbce::input::RawSnapshotStore *snapshots = nullptr;
 };
 inline Settings &settings() { static Settings s; return s; }
 
@@ -203,11 +200,7 @@ struct FencedDevice final : I {
     std::string instance;   // "{...}" lowercase, from GetDeviceInfo
     volatile LONG format = 0;   // input::format; injection/shaping/observer accept only exact joystick 1/2
     bool formatWarned = false;
-    dbce::input::RawSnapshotStore *snapshots;
-    std::uint64_t snapshotGeneration=0;
-    FencedDevice(I *r, const std::string &inst, const GUID *reported=nullptr) : real(r), instance(inst), snapshots(settings().snapshots) {
-        if(snapshots) { const GUID unknown{};snapshotGeneration=snapshots->Register(this,reported?*reported:unknown,reported!=nullptr); }
-    }
+    FencedDevice(I *r, const std::string &inst) : real(r), instance(inst) {}
     static HRESULT refuse(const char *what) { static volatile LONG n; if (sample(n)) logf("fence: %s refused", what); return DIERR_UNSUPPORTED; }
 
     STDMETHODIMP QueryInterface(REFIID iid, LPVOID *out) override
@@ -219,18 +212,12 @@ struct FencedDevice final : I {
         return E_NOINTERFACE;
     }
     STDMETHODIMP_(ULONG) AddRef() override { return (ULONG)InterlockedIncrement(&refs); }
-    STDMETHODIMP_(ULONG) Release() override {
-        dbce::input::RawSnapshotMutation mutation(snapshots,this);
-        LONG n=InterlockedDecrement(&refs);
-        if(n==0) { if(snapshots)snapshots->Retire(this,snapshotGeneration);real->Release();delete this; }
-        return (ULONG)n;
-    }
+    STDMETHODIMP_(ULONG) Release() override { LONG n = InterlockedDecrement(&refs); if (n == 0) { real->Release(); delete this; } return (ULONG)n; }
     STDMETHODIMP GetCapabilities(LPDIDEVCAPS c) override { return real->GetCapabilities(c); }
     STDMETHODIMP EnumObjects(typename T::ObjCb cb, LPVOID ref, DWORD flags) override { return real->EnumObjects(cb, ref, flags); }
     STDMETHODIMP GetProperty(REFGUID p, LPDIPROPHEADER h) override { return real->GetProperty(p, h); }
     STDMETHODIMP SetProperty(REFGUID p, LPCDIPROPHEADER h) override
     {
-        dbce::input::RawSnapshotMutation mutation(snapshots,this);
         static volatile LONG n;
         const void *id = &p;
         if (id == &DIPROP_AUTOCENTER) {
@@ -243,8 +230,8 @@ struct FencedDevice final : I {
             return real->SetProperty(p, h);
         return refuse("SetProperty (a property outside the whitelist)");
     }
-    STDMETHODIMP Acquire() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Acquire(); }
-    STDMETHODIMP Unacquire() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Unacquire(); }
+    STDMETHODIMP Acquire() override { return real->Acquire(); }
+    STDMETHODIMP Unacquire() override { return real->Unacquire(); }
     bool axisRange(int axis, long &mn, long &mx)
     {
         static const DWORD ofs[8] = {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ, DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)};
@@ -281,9 +268,7 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP GetDeviceState(DWORD cb, LPVOID data) override
     {
-        const auto ticket=snapshots?snapshots->BeginRead(this,GetTickCount64()):dbce::input::RawSnapshotStore::Ticket{};
         HRESULT hr = real->GetDeviceState(cb, data);
-        if(snapshots)snapshots->CompleteRead(ticket,hr,cb,data,GetTickCount64());
         if (!SUCCEEDED(hr) || !data) return hr;
         auto *inj = settings().injections;
         if (inj && inj->any()) inject(*inj, cb, data);
@@ -315,10 +300,8 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP SetDataFormat(LPCDIDATAFORMAT f) override
     {
-        dbce::input::RawSnapshotMutation mutation(snapshots,this,true);
         HRESULT hr = real->SetDataFormat(f);
         if (SUCCEEDED(hr)) InterlockedExchange(&format, dbce::input::format(f));
-        if(SUCCEEDED(hr))mutation.ValidatedFormat(dbce::input::format(f));
         return hr;
     }
     STDMETHODIMP SetEventNotification(HANDLE e) override { return real->SetEventNotification(e); }
@@ -326,7 +309,6 @@ struct FencedDevice final : I {
     // a game whose window lost focus (rig runners cannot always give it the foreground). Keyboard and mouse keep the
     // game's choice; if the driver refuses background access, the game's own flags are used.
     STDMETHODIMP SetCooperativeLevel(HWND w, DWORD f) override {
-        dbce::input::RawSnapshotMutation mutation(snapshots,this);
         DIDEVCAPS caps = {sizeof caps};
         const BYTE type = (f & DISCL_FOREGROUND) && SUCCEEDED(real->GetCapabilities(&caps)) ? GET_DIDEVICE_TYPE(caps.dwDevType) : 0;
         if ((f & DISCL_FOREGROUND) && type && type != DI8DEVTYPE_KEYBOARD && type != DI8DEVTYPE_MOUSE &&
@@ -336,7 +318,7 @@ struct FencedDevice final : I {
     STDMETHODIMP GetObjectInfo(typename T::ObjInst o, DWORD obj, DWORD how) override { return real->GetObjectInfo(o, obj, how); }
     STDMETHODIMP GetDeviceInfo(typename T::DevInst d) override { return real->GetDeviceInfo(d); }
     STDMETHODIMP RunControlPanel(HWND, DWORD) override { return refuse("device RunControlPanel"); }
-    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { dbce::input::RawSnapshotMutation mutation(snapshots,this,true);return refuse("device Initialize (re-targeting the device)"); }
+    STDMETHODIMP Initialize(HINSTANCE, DWORD, REFGUID) override { return refuse("device Initialize (re-targeting the device)"); }
     STDMETHODIMP CreateEffect(REFGUID g, LPCDIEFFECT e, LPDIRECTINPUTEFFECT *out, LPUNKNOWN outer) override
     {
         static volatile LONG n;
@@ -367,17 +349,15 @@ struct FencedDevice final : I {
     }
     STDMETHODIMP EnumCreatedEffectObjects(LPDIENUMCREATEDEFFECTOBJECTSCALLBACK, LPVOID, DWORD) override { return DI_OK; }   // none on the device
     STDMETHODIMP Escape(LPDIEFFESCAPE) override { return refuse("device Escape"); }
-    STDMETHODIMP Poll() override { dbce::input::RawSnapshotMutation mutation(snapshots,this);return real->Poll(); }
+    STDMETHODIMP Poll() override { return real->Poll(); }
     STDMETHODIMP SendDeviceData(DWORD, LPCDIDEVICEOBJECTDATA, LPDWORD, DWORD) override { return refuse("SendDeviceData"); }
     STDMETHODIMP EnumEffectsInFile(typename T::Str, LPDIENUMEFFECTSINFILECALLBACK, LPVOID, DWORD) override { return refuse("EnumEffectsInFile"); }
     STDMETHODIMP WriteEffectToFile(typename T::Str, DWORD, LPDIFILEEFFECT, DWORD) override { return refuse("WriteEffectToFile"); }
     STDMETHODIMP BuildActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override { return real->BuildActionMap(f, u, fl); }
     STDMETHODIMP SetActionMap(typename T::ActFmt f, typename T::Str u, DWORD fl) override
     {
-        dbce::input::RawSnapshotMutation mutation(snapshots,this,true);
         HRESULT hr = real->SetActionMap(f, u, fl);
         if (SUCCEEDED(hr)) InterlockedExchange(&format, 0);   // an action map sets its own data format
-        if(SUCCEEDED(hr))mutation.ValidatedFormat(0);
         return hr;
     }
     STDMETHODIMP GetImageInfo(typename T::Image h) override { return real->GetImageInfo(h); }
@@ -423,9 +403,8 @@ struct FencedDirectInput final : I {
         if (FAILED(hr) || !dev) return FAILED(hr) ? hr : E_FAIL;
         typename DeviceTraits<Dev>::DevInstT info{};
         info.dwSize = sizeof info;
-        const bool reported=SUCCEEDED(dev->GetDeviceInfo(&info));
-        const std::string inst=reported?guidText(info.guidInstance):guidText(g);
-        auto *w = new (std::nothrow) FencedDevice<Dev>(dev, inst, reported?&info.guidInstance:nullptr);
+        const std::string inst = SUCCEEDED(dev->GetDeviceInfo(&info)) ? guidText(info.guidInstance) : guidText(g);
+        auto *w = new (std::nothrow) FencedDevice<Dev>(dev, inst);
         if (!w) { dev->Release(); return E_OUTOFMEMORY; }
         *out = w;
         static volatile LONG n;
