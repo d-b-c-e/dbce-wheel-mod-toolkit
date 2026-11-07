@@ -22,7 +22,7 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 - `docs/CONSUMERS.md` is the register of which game uses which version; `tools\Get-ConsumerStatus.ps1` reports it.
 
 ## Changing it safely
-- This repo is public: commit, but the owner pushes. The branch is `master`.
+- This repo is public; lanes commit and push here (owner, 2026-11-06). The branch is `master`: `git pull --rebase` before pushing.
 - Small commits; `git pull --rebase` first; run the affected tests and keep consumers building.
 - The C ABI is the contract: add exports, never change or remove one. `BOOL` is the 4-byte Win32 BOOL, never C++ `bool`.
 - One DirectInput instance per process; resolve `DirectInput8Create` from `system32` by full path; zero the wheel while the game window still exists; never hard-kill a game with FFB live.
