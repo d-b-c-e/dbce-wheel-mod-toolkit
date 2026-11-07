@@ -40,11 +40,17 @@ struct Row {
     double minValue = 0, maxValue = 0;      // percent (0-100 unless given), slider, number
     double defaultValue = 0;                // toggle 0/1, choice index, percent/slider/number value
     int decimals = 0;                       // number
+    // dbce-mod.json additions (docs/DBCE-MOD-JSON.md): what the value means across games, and where the mod keeps it.
+    std::string role;
+    bool hasStore = false;
+    std::string storeFile, storeSection, storeKey, storeOn, storeOff;   // storeFile defaults to Descriptor::config
+    double storeScale = 1;                  // stored value = shown value x scale
 };
 
 struct Descriptor {
     std::string product, version, modPage, keys;
     std::string config;                     // the mod's ini, relative to the descriptor file (dbce-ui.exe --setup)
+    std::string format = "ini";             // ini or xml (dbce-mod.json)
     std::vector<Row> rows;                  // in draw order within each page
 };
 

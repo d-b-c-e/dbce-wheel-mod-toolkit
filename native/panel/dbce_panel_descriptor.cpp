@@ -1,6 +1,8 @@
 // Strict reader of the F6 settings descriptor (see dbce_panel_descriptor.h). A small JSON parser (RFC 8259 values,
 // UTF-8 text, \u escapes including surrogate pairs) feeds a validator that knows the fixed page set and row kinds.
 #include "dbce_panel_descriptor.h"
+#include "dbce_mod_file.h"
+#include <charconv>
 #include <windows.h>
 #include <math.h>
 #include <stdio.h>
@@ -239,7 +241,7 @@ struct Checker {
         std::string where = std::string("page '") + StdPageId(page) + "' row";
         if (j.type != Json::Object) return fail(where + ": must be an object");
         static const char *const kFields[] = {"id", "kind", "label", "help", "level", "apply", "choices", "min", "max",
-                                              "default", "unit", "decimals", "text"};
+                                              "default", "unit", "decimals", "text", "role", "store"};
         if (!str(j, "id", r.id, where, true)) return false;
         if (!idOk(r.id)) return fail(where + ": bad id '" + r.id + "'");
         where = "row '" + r.id + "'";
@@ -260,6 +262,18 @@ struct Checker {
         if (r.kind != RowKind::Status && r.label.empty()) return fail(where + ": empty label");
         if (!str(j, "help", r.help, where, false) || !str(j, "unit", r.unit, where, false) || !str(j, "text", r.text, where, false)) return false;
         if (words(r.help) > 12) return fail(where + ": help is over 12 words");
+        if (!str(j, "role", r.role, where, false)) return false;
+        if (const Json *st = j.get("store")) {
+            if (st->type != Json::Object) return fail(where + ": 'store' must be an object");
+            for (const auto &kv : st->o)
+                if (kv.first != "file" && kv.first != "section" && kv.first != "key" && kv.first != "on" && kv.first != "off" && kv.first != "scale")
+                    return fail(where + ": unknown store field '" + kv.first + "'");
+            r.hasStore = true;
+            if (!str(*st, "file", r.storeFile, where, false) || !str(*st, "section", r.storeSection, where, false) ||
+                !str(*st, "key", r.storeKey, where, true) || !str(*st, "on", r.storeOn, where, false) ||
+                !str(*st, "off", r.storeOff, where, false) || !num(*st, "scale", r.storeScale, where)) return false;
+            if (!(r.storeScale > 0)) return fail(where + ": store scale must be above 0");
+        }
         if (!str(j, "level", level, where, false) || !str(j, "apply", apply, where, false)) return false;
         if (level == "simple") r.level = RowLevel::Simple;
         else if (level == "advanced") r.level = RowLevel::Advanced;
@@ -340,7 +354,7 @@ bool ParseDescriptor(const char *json, size_t length, Descriptor &out, std::stri
     if (root.type == Json::Object && root.get("settings")) s = root.get("settings");
     if (s->type != Json::Object) return ck.fail("the settings block must be an object");
     for (const auto &kv : s->o) {
-        static const char *const kTop[] = {"product", "version", "modPage", "keys", "config", "pages"};
+        static const char *const kTop[] = {"product", "version", "modPage", "keys", "config", "format", "pages"};
         bool known = false;
         for (const char *f : kTop) known = known || kv.first == f;
         if (!known) return ck.fail("settings: unknown field '" + kv.first + "'");
@@ -349,6 +363,10 @@ bool ParseDescriptor(const char *json, size_t length, Descriptor &out, std::stri
     if (!ck.str(*s, "product", d.product, "settings", true) || !ck.str(*s, "version", d.version, "settings", false) ||
         !ck.str(*s, "modPage", d.modPage, "settings", false) || !ck.str(*s, "keys", d.keys, "settings", false) ||
         !ck.str(*s, "config", d.config, "settings", false)) return false;
+    if (s->get("format")) {
+        if (!ck.str(*s, "format", d.format, "settings", true)) return false;
+        if (d.format != "ini" && d.format != "xml") return ck.fail("settings: format is ini or xml");
+    }
     if (d.product.empty()) return ck.fail("settings: empty product");
     const Json *pages = s->get("pages");
     if (!pages || pages->type != Json::Object) return ck.fail("settings: 'pages' must be an object");
@@ -368,6 +386,7 @@ bool ParseDescriptor(const char *json, size_t length, Descriptor &out, std::stri
         if (controls > 5) return ck.fail("page '" + kv.first + "': more than five simple controls");
         if (statuses > 2) return ck.fail("page '" + kv.first + "': more than two simple status lines");
     }
+    for (Row &r : d.rows) if (r.hasStore && r.storeFile.empty()) r.storeFile = d.config;
     out = std::move(d);
     return true;
 }
@@ -388,6 +407,273 @@ bool LoadDescriptor(const wchar_t *path, Descriptor &out, std::string &error)
     CloseHandle(f);
     if (!ok) { error = "descriptor: cannot read the file (or it is over 1 MB)"; return false; }
     return ParseDescriptor(text.data(), text.size(), out, error);
+}
+
+// ---- the whole dbce-mod.json (dbce_mod_file.h) ----------------------------------------------------------------
+namespace {
+
+std::string S(const Json *o, const char *key)
+{
+    const Json *v = o ? o->get(key) : nullptr;
+    return v && v->type == Json::String ? v->s : std::string();
+}
+double N(const Json *o, const char *key, double fallback)
+{
+    const Json *v = o ? o->get(key) : nullptr;
+    return v && v->type == Json::Number ? v->n : fallback;
+}
+bool B(const Json *o, const char *key)
+{
+    const Json *v = o ? o->get(key) : nullptr;
+    return v && v->type == Json::Bool && v->b;
+}
+const Json *Obj(const Json *o, const char *key)
+{
+    const Json *v = o ? o->get(key) : nullptr;
+    return v && v->type == Json::Object ? v : nullptr;
+}
+const std::vector<Json> &Arr(const Json *o, const char *key)
+{
+    static const std::vector<Json> empty;
+    const Json *v = o ? o->get(key) : nullptr;
+    return v && v->type == Json::Array ? v->a : empty;
+}
+std::vector<std::string> Strs(const Json *o, const char *key)
+{
+    std::vector<std::string> out;
+    for (const Json &e : Arr(o, key)) out.push_back(e.s);
+    return out;
+}
+std::vector<ModFromTo> FromTos(const Json *o, const char *key)
+{
+    std::vector<ModFromTo> out;
+    for (const Json &e : Arr(o, key)) out.push_back({S(&e, "from"), S(&e, "to")});
+    return out;
+}
+
+struct Dumper {
+    std::string out;
+    void s(const std::string &p, const std::string &v)
+    {
+        out += p; out += '=';
+        for (char c : v) {
+            if (c == '\\') out += "\\\\";
+            else if (c == '\r') out += "\\r";
+            else if (c == '\n') out += "\\n";
+            else out += c;
+        }
+        out += '\n';
+    }
+    void b(const std::string &p, bool v) { out += p + (v ? "=true\n" : "=false\n"); }
+    void n(const std::string &p, double v)
+    {
+        char buf[64];
+        auto r = std::to_chars(buf, buf + sizeof buf, v);
+        out += p + "=" + std::string(buf, r.ptr) + "\n";
+    }
+    void null(const std::string &p) { out += p + "=null\n"; }
+    void list(const std::string &p, const std::vector<std::string> &v)
+    {
+        n(p + ".count", (double)v.size());
+        for (size_t k = 0; k < v.size(); ++k) s(p + "[" + std::to_string(k) + "]", v[k]);
+    }
+    void fromTo(const std::string &p, const std::vector<ModFromTo> &v)
+    {
+        n(p + ".count", (double)v.size());
+        for (size_t k = 0; k < v.size(); ++k) { s(p + "[" + std::to_string(k) + "].from", v[k].from); s(p + "[" + std::to_string(k) + "].to", v[k].to); }
+    }
+};
+
+} // namespace
+
+bool ParseModFile(const char *json, size_t length, ModFile &out, std::string &error)
+{
+    out = ModFile();
+    error.clear();
+    Json root;
+    Parser parser(json ? json : "", json ? length : 0, error);
+    if (!parser.document(root)) return false;
+    if (root.type != Json::Object) { error = "dbce-mod.json must be an object"; return false; }
+    ModFile m;
+    m.schema = S(&root, "schema");
+    if (m.schema != "dbce.mod@1") { error = "not a dbce-mod.json (schema dbce.mod@1)"; return false; }
+    m.id = S(&root, "id"); m.name = S(&root, "name"); m.version = S(&root, "version");
+    if (m.id.empty() || m.name.empty() || m.version.empty()) { error = "dbce-mod.json needs id, name and version"; return false; }
+    m.steamAppId = N(&root, "steamAppId", 0); m.folder = S(&root, "folder"); m.exe = Strs(&root, "exe"); m.repository = S(&root, "repository");
+    const Json *log = Obj(&root, "log");
+    m.logFile = S(log, "file"); m.logStart = S(log, "start");
+
+    const Json *pk = Obj(&root, "package");
+    m.kind = S(pk, "kind");
+    if (m.kind.empty()) { error = "dbce-mod.json needs a package kind"; return false; }
+    if (const Json *loader = Obj(pk, "loader")) {
+        m.hasLoader = true;
+        m.loaderName = S(loader, "name"); m.loaderVersion = S(loader, "version"); m.loaderBundle = S(loader, "bundle");
+    }
+    m.payload = FromTos(pk, "payload"); m.optional = FromTos(pk, "optional"); m.conflicts = Strs(pk, "conflicts"); m.seedConfig = FromTos(pk, "seedConfig");
+    for (const Json &b : Arr(pk, "knownBuilds")) m.knownBuilds.push_back({S(&b, "file"), S(&b, "sha256"), S(&b, "label")});
+    m.strict = B(pk, "strict");
+    if (!S(pk, "uiHost").empty()) m.uiHost = S(pk, "uiHost");
+
+    if (Obj(&root, "settings")) {
+        m.hasSettings = true;
+        if (!ParseDescriptor(json, length, m.settings, error)) return false;
+    }
+    if (const Json *c = Obj(&root, "controls")) {
+        m.hasControls = true;
+        m.controlsStore = S(c, "store"); m.controlsProfile = S(c, "profile"); m.controlsSettings = S(c, "settings");
+        if (const Json *oi = Obj(c, "optIn")) {
+            m.hasOptIn = true;
+            m.optInSection = S(oi, "section"); m.optInKey = S(oi, "key"); m.optInValue = S(oi, "value"); m.optInDefault = S(oi, "default");
+            m.optInAppliesAfterRestart = B(oi, "appliesAfterRestart");
+        }
+        m.delivered = Strs(c, "delivered");
+        if (const Json *un = Obj(c, "unsupported")) for (const auto &kv : un->o) m.unsupported.emplace_back(kv.first, kv.second.s);
+        for (const Json &x : Arr(c, "conditions")) {
+            ModCondition k;
+            k.actions = Strs(&x, "actions"); k.transmission = S(&x, "transmission"); k.settingsKey = S(&x, "settingsKey");
+            k.settingsValues = Strs(&x, "settingsValues"); k.settingsDefault = S(&x, "settingsDefault"); k.note = S(&x, "note");
+            m.conditions.push_back(k);
+        }
+        for (const Json &g : Arr(c, "gameControls")) m.gameControls.push_back({S(&g, "id"), S(&g, "kind"), S(&g, "label"), S(&g, "group")});
+    }
+    for (const Json &x : Arr(&root, "cameras"))
+        m.cameras.push_back({S(&x, "camera"), S(&x, "start"), S(&x, "file"), S(&x, "section"), S(&x, "key"), S(&x, "realistic"), S(&x, "game")});
+    if (const Json *t = Obj(&root, "selfTest")) {
+        m.hasSelfTest = true;
+        m.selfTestFolder = S(t, "folder"); m.selfTestSteps = Strs(t, "steps");
+        for (const Json &p : Arr(t, "probes")) m.probes.push_back({S(&p, "id"), S(&p, "type"), S(&p, "label")});
+    }
+    if (const Json *i = Obj(&root, "installed")) {
+        m.hasInstalled = true;
+        m.installedVersion = S(i, "version"); m.commit = S(i, "commit"); m.installedUtc = S(i, "installedUtc");
+        m.loaderInstalledByUs = B(i, "loaderInstalledByUs"); m.backups = S(i, "backups");
+        for (const Json &f : Arr(i, "files")) m.files.push_back({S(&f, "path"), S(&f, "sha256")});
+        if (const Json *fl = Obj(i, "flags")) for (const auto &kv : fl->o) m.flags.emplace_back(kv.first, kv.second.type == Json::Bool && kv.second.b);
+    }
+    out = std::move(m);
+    return true;
+}
+
+bool LoadModFile(const wchar_t *path, ModFile &out, std::string &error)
+{
+    out = ModFile();
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) { error = "dbce-mod.json: cannot open the file"; return false; }
+    LARGE_INTEGER size;
+    std::string text;
+    bool ok = GetFileSizeEx(f, &size) && size.QuadPart < (1 << 20);
+    if (ok) {
+        text.resize((size_t)size.QuadPart);
+        DWORD got = 0;
+        ok = text.empty() || (ReadFile(f, &text[0], (DWORD)text.size(), &got, nullptr) && got == text.size());
+    }
+    CloseHandle(f);
+    if (!ok) { error = "dbce-mod.json: cannot read the file (or it is over 1 MB)"; return false; }
+    return ParseModFile(text.data(), text.size(), out, error);
+}
+
+std::string DumpModFile(const ModFile &m)
+{
+    static const char *const kKinds[] = {"toggle", "choice", "percent", "slider", "number", "binding", "action", "status"};
+    static const char *const kLevels[] = {"simple", "advanced", "developer"};
+    Dumper w;
+    w.s("schema", m.schema); w.s("id", m.id); w.s("name", m.name); w.s("version", m.version);
+    w.n("steamAppId", m.steamAppId); w.s("folder", m.folder); w.list("exe", m.exe); w.s("repository", m.repository);
+    w.s("log.file", m.logFile); w.s("log.start", m.logStart);
+    w.s("package.kind", m.kind);
+    if (!m.hasLoader) w.null("package.loader");
+    else { w.s("package.loader.name", m.loaderName); w.s("package.loader.version", m.loaderVersion); w.s("package.loader.bundle", m.loaderBundle); }
+    w.fromTo("package.payload", m.payload); w.fromTo("package.optional", m.optional); w.list("package.conflicts", m.conflicts);
+    w.fromTo("package.seedConfig", m.seedConfig);
+    w.n("package.knownBuilds.count", (double)m.knownBuilds.size());
+    for (size_t k = 0; k < m.knownBuilds.size(); ++k) {
+        const std::string q = "package.knownBuilds[" + std::to_string(k) + "]";
+        w.s(q + ".file", m.knownBuilds[k].file); w.s(q + ".sha256", m.knownBuilds[k].sha256); w.s(q + ".label", m.knownBuilds[k].label);
+    }
+    w.b("package.strict", m.strict); w.s("package.uiHost", m.uiHost);
+    if (!m.hasSettings) w.null("settings");
+    else {
+        const Descriptor &d = m.settings;
+        w.s("settings.product", d.product); w.s("settings.version", d.version); w.s("settings.modPage", d.modPage); w.s("settings.keys", d.keys);
+        w.s("settings.config", d.config); w.s("settings.format", d.format);
+        w.n("settings.rows.count", (double)d.rows.size());
+        for (size_t k = 0; k < d.rows.size(); ++k) {
+            const Row &r = d.rows[k];
+            const std::string q = "settings.rows[" + std::to_string(k) + "]";
+            w.s(q + ".page", StdPageId(r.page)); w.s(q + ".id", r.id); w.s(q + ".kind", kKinds[(int)r.kind]); w.s(q + ".label", r.label);
+            w.s(q + ".help", r.help); w.s(q + ".level", kLevels[(int)r.level]); w.s(q + ".apply", r.nextStart ? "next-start" : "live");
+            w.list(q + ".choices", r.choices);
+            w.n(q + ".min", r.minValue); w.n(q + ".max", r.maxValue); w.n(q + ".default", r.defaultValue); w.s(q + ".unit", r.unit);
+            w.n(q + ".decimals", r.decimals); w.s(q + ".text", r.text); w.s(q + ".role", r.role);
+            if (!r.hasStore) w.null(q + ".store");
+            else {
+                w.s(q + ".store.file", r.storeFile); w.s(q + ".store.section", r.storeSection); w.s(q + ".store.key", r.storeKey);
+                w.s(q + ".store.on", r.storeOn); w.s(q + ".store.off", r.storeOff); w.n(q + ".store.scale", r.storeScale);
+            }
+        }
+    }
+    if (!m.hasControls) w.null("controls");
+    else {
+        w.s("controls.store", m.controlsStore); w.s("controls.profile", m.controlsProfile); w.s("controls.settings", m.controlsSettings);
+        if (!m.hasOptIn) w.null("controls.optIn");
+        else {
+            w.s("controls.optIn.section", m.optInSection); w.s("controls.optIn.key", m.optInKey); w.s("controls.optIn.value", m.optInValue);
+            w.s("controls.optIn.default", m.optInDefault); w.b("controls.optIn.appliesAfterRestart", m.optInAppliesAfterRestart);
+        }
+        w.list("controls.delivered", m.delivered);
+        w.n("controls.unsupported.count", (double)m.unsupported.size());
+        for (size_t k = 0; k < m.unsupported.size(); ++k) {
+            const std::string q = "controls.unsupported[" + std::to_string(k) + "]";
+            w.s(q + ".action", m.unsupported[k].first); w.s(q + ".reason", m.unsupported[k].second);
+        }
+        w.n("controls.conditions.count", (double)m.conditions.size());
+        for (size_t k = 0; k < m.conditions.size(); ++k) {
+            const ModCondition &x = m.conditions[k];
+            const std::string q = "controls.conditions[" + std::to_string(k) + "]";
+            w.list(q + ".actions", x.actions); w.s(q + ".transmission", x.transmission); w.s(q + ".settingsKey", x.settingsKey);
+            w.list(q + ".settingsValues", x.settingsValues); w.s(q + ".settingsDefault", x.settingsDefault); w.s(q + ".note", x.note);
+        }
+        w.n("controls.gameControls.count", (double)m.gameControls.size());
+        for (size_t k = 0; k < m.gameControls.size(); ++k) {
+            const std::string q = "controls.gameControls[" + std::to_string(k) + "]";
+            w.s(q + ".id", m.gameControls[k].id); w.s(q + ".kind", m.gameControls[k].kind); w.s(q + ".label", m.gameControls[k].label);
+            w.s(q + ".group", m.gameControls[k].group);
+        }
+    }
+    w.n("cameras.count", (double)m.cameras.size());
+    for (size_t k = 0; k < m.cameras.size(); ++k) {
+        const ModCameraStart &c = m.cameras[k];
+        const std::string q = "cameras[" + std::to_string(k) + "]";
+        w.s(q + ".camera", c.camera); w.s(q + ".start", c.start); w.s(q + ".file", c.file); w.s(q + ".section", c.section);
+        w.s(q + ".key", c.key); w.s(q + ".realistic", c.realistic); w.s(q + ".game", c.game);
+    }
+    if (!m.hasSelfTest) w.null("selfTest");
+    else {
+        w.s("selfTest.folder", m.selfTestFolder); w.list("selfTest.steps", m.selfTestSteps);
+        w.n("selfTest.probes.count", (double)m.probes.size());
+        for (size_t k = 0; k < m.probes.size(); ++k) {
+            const std::string q = "selfTest.probes[" + std::to_string(k) + "]";
+            w.s(q + ".id", m.probes[k].id); w.s(q + ".type", m.probes[k].type); w.s(q + ".label", m.probes[k].label);
+        }
+    }
+    if (!m.hasInstalled) w.null("installed");
+    else {
+        w.s("installed.version", m.installedVersion); w.s("installed.commit", m.commit); w.s("installed.installedUtc", m.installedUtc);
+        w.b("installed.loaderInstalledByUs", m.loaderInstalledByUs);
+        w.n("installed.files.count", (double)m.files.size());
+        for (size_t k = 0; k < m.files.size(); ++k) {
+            const std::string q = "installed.files[" + std::to_string(k) + "]";
+            w.s(q + ".path", m.files[k].from); w.s(q + ".sha256", m.files[k].to);
+        }
+        w.s("installed.backups", m.backups);
+        w.n("installed.flags.count", (double)m.flags.size());
+        for (size_t k = 0; k < m.flags.size(); ++k) {
+            const std::string q = "installed.flags[" + std::to_string(k) + "]";
+            w.s(q + ".name", m.flags[k].first); w.b(q + ".value", m.flags[k].second);
+        }
+    }
+    return w.out;
 }
 
 }} // namespace dbce::panel
