@@ -33,6 +33,24 @@ names Wheelkit reads today.
 | `selfTest` | game repo | test scripts | The self-test contract (`04-cross-cutting.md` D.2): the `folder`, the `steps` this build runs, and the `probes` its state dump reports (id, type, label). No mod ships the self-test yet, so DiRT 4's fixture block is an example. |
 | `installed` | installer only | Wheelkit, installer | `version`, `commit`, `installedUtc`, `loaderInstalledByUs`, `files` (path and lower-case SHA-256, game-relative), `backups` (folder, game-relative) and `flags` (booleans the old receipts carried, read only during migration). |
 
+### `settings.stored`: the stored-settings list
+
+`settings.stored` is optional. It lists the stored values an editor outside the game reads and writes, one item per
+value in file order, with the rules the mod's own code follows when it reads them. Wheelkit reads it (WK-4a); the F6
+panel, the installer and the C++, C# and PowerShell readers ignore it, and it is not part of the canonical dump.
+
+- `file` is the main settings file and `format` its layout: `ini`, `toplevel` (keys before any section), `xml`,
+  `xml-path` (an XML file edited by element path) or `outrun-ini`.
+- Each item is one stored value in the form Wheelkit's catalog rows used: `section`, `key`, `label`, `type` (bool,
+  choice, int or number), `default` as stored text, `options`, `min`, `max`, `step`, `on` and `off`, `page`,
+  `nextStart`, and the parsing rules `clamp`, `singlePrecision`, `strictBoolean` and `caseSensitive`.
+- Relations between items: `hidden` and `composite` (one shown choice standing for several stored values), `readOnly`,
+  `seedWhenCreated`, `enabledWhen`, `distinctFrom` and `distinctExcept`, and `requiresReceiptCapability` while
+  receipts still gate rows.
+- An item may name another `file` with its `fileFormat`; `external:<id>` names a game-owned file Wheelkit knows.
+- Wheelkit's bundled `descriptors/<game>.json` files carry this block, written from its catalog. When a mod's own
+  `dbce-mod.json` carries it, Wheelkit uses that instead, so a new mod release needs no Wheelkit change.
+
 ### Rows: `role` and `store`
 
 - `role` says what a row means in every game, so Wheelkit maps rig profiles by role instead of guessing key names

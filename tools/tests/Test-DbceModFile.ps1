@@ -22,6 +22,14 @@ foreach ($f in Get-ChildItem (Join-Path $root 'native\panel\samples\*.settings.j
     Check (Valid $doc) "schema accepts the UI-1 block in $($f.Name) unchanged"
 }
 
+# settings.stored: Wheelkit's stored-settings list (WK-4a), in its catalog row form.
+$stored = '{"schema":"dbce.mod@1","id":"sample","name":"Sample","version":"1.0.0","package":{"kind":"dinput8"},"settings":{"product":"Sample","pages":{},"stored":{"file":"dbce-sample.ini","format":"ini","items":[' +
+    '{"section":"FFB","key":"Enabled","label":"Force feedback","type":"bool","default":"1","page":"FFB","strictBoolean":true},' +
+    '{"section":"FFB","key":"Gain","label":"Strength","type":"int","default":"50","min":0,"max":100,"clamp":true,"step":5,"enabledWhen":[{"section":"FFB","key":"Enabled","values":["1"]}]}]}}}'
+Check (Valid $stored) 'schema accepts a settings.stored block'
+Check (-not (Valid ($stored -replace '"clamp":true', '"clamped":true'))) 'schema refuses an unknown stored item field'
+Check (-not (Valid ($stored -replace '"type":"int"', '"type":"float"'))) 'schema refuses an unknown stored type'
+
 $base = [IO.File]::ReadAllText((Join-Path $fixtures 'dirt-4.dbce-mod.json')) | ConvertFrom-Json
 $bad = [ordered]@{
     'an unknown top-level field' = { param($d) $d | Add-Member -NotePropertyName extra -NotePropertyValue 1 }

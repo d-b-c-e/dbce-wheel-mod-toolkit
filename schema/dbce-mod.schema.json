@@ -72,11 +72,71 @@
         "keys": { "type": "string" },
         "config": { "$ref": "#/$defs/relPath" },
         "format": { "enum": ["ini", "xml"] },
+        "stored": { "$ref": "#/$defs/stored" },
         "pages": {
           "type": "object", "additionalProperties": false,
           "properties": {
             "controls": { "$ref": "#/$defs/rows" }, "ffb": { "$ref": "#/$defs/rows" }, "display": { "$ref": "#/$defs/rows" },
             "cameras": { "$ref": "#/$defs/rows" }, "telemetry": { "$ref": "#/$defs/rows" }, "help": { "$ref": "#/$defs/rows" }
+          }
+        }
+      }
+    },
+    "stored": {
+      "description": "The stored settings an editor outside the game (Wheelkit) reads and writes, one item per stored value in file order, with the parsing and dependency rules the mod's own code follows. Moved from Wheelkit's catalog rows (WK-4a); docs/DBCE-MOD-JSON.md.",
+      "type": "object", "additionalProperties": false, "required": ["file", "items"],
+      "properties": {
+        "file": { "$ref": "#/$defs/text", "description": "The main settings file, relative to the game folder." },
+        "format": { "enum": ["ini", "toplevel", "xml", "xml-path", "outrun-ini"] },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/storedItem" } }
+      }
+    },
+    "storedRef": {
+      "type": "object", "additionalProperties": false, "required": ["key"],
+      "properties": { "file": { "$ref": "#/$defs/text" }, "section": { "type": "string" }, "key": { "$ref": "#/$defs/text" } }
+    },
+    "storedItem": {
+      "type": "object", "additionalProperties": false, "required": ["key", "label", "type", "default"],
+      "properties": {
+        "file": { "$ref": "#/$defs/text", "description": "Another file than the main one; external:<id> names a game-owned file." },
+        "fileFormat": { "enum": ["ini", "toplevel", "xml", "xml-path", "json"] },
+        "section": { "type": "string" },
+        "key": { "$ref": "#/$defs/text" },
+        "label": { "$ref": "#/$defs/text" },
+        "type": { "enum": ["bool", "choice", "int", "integer", "number"] },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "default": { "type": "string" },
+        "min": { "type": "number" }, "max": { "type": "number" }, "step": { "type": "number", "exclusiveMinimum": 0 },
+        "clamp": { "type": "boolean" }, "singlePrecision": { "type": "boolean" }, "strictBoolean": { "type": "boolean" },
+        "caseSensitive": { "type": "boolean" },
+        "unit": { "type": "string" }, "help": { "type": "string" }, "page": { "type": "string" }, "nextStart": { "type": "boolean" },
+        "on": { "type": "string" }, "off": { "type": "string" },
+        "hidden": { "type": "boolean" }, "readOnly": { "type": "boolean" }, "seedWhenCreated": { "type": "boolean" },
+        "requiresReceiptCapability": { "type": "string" },
+        "enabledWhen": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["key", "values"],
+            "properties": {
+              "file": { "$ref": "#/$defs/text" }, "section": { "type": "string" }, "key": { "$ref": "#/$defs/text" },
+              "values": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+            }
+          }
+        },
+        "distinctFrom": { "$ref": "#/$defs/storedRef" },
+        "distinctExcept": { "type": "array", "items": { "type": "string" } },
+        "composite": {
+          "type": "object", "additionalProperties": false, "required": ["parts", "writes", "reads"],
+          "properties": {
+            "parts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/storedRef" } },
+            "writes": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": ["string", "null"] } } },
+            "reads": {
+              "type": "array", "minItems": 1,
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["when", "is"],
+                "properties": { "when": { "type": "array", "items": { "type": ["string", "null"] } }, "is": { "type": "string" } }
+              }
+            }
           }
         }
       }
