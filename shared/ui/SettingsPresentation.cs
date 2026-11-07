@@ -14,6 +14,10 @@ namespace Dbce.Wheel.Ui
         public const string Unsaved = "Binding edits unsaved";
         public const string SavedForNextStart = "Bindings saved for next start";
 
+        // An empty set trims white space, as TrimStart() does. .NET 4.x has only the params overload, so TrimStart()
+        // compiles to Array.Empty there, which Mono 2.0 (Horizon Chase Turbo) lacks.
+        private static readonly char[] WhiteSpace = new char[0];
+
         // Save failures survive capture/general messages via BindingSaveStatus. A new draft takes
         // precedence over the previous saved revision; ordinary settings status stays separate.
         public static string Footer(bool hasDraft, bool savedPendingRestart, string saveFailure)
@@ -26,11 +30,11 @@ namespace Dbce.Wheel.Ui
                 // but give every consumer one presentation prefix without changing host state.
                 if (reason.StartsWith(label, StringComparison.OrdinalIgnoreCase))
                 {
-                    string suffix = reason.Substring(label.Length).TrimStart();
+                    string suffix = reason.Substring(label.Length).TrimStart(WhiteSpace);
                     if (suffix.Length == 0) return label;
                     if (suffix[0] == ':' || suffix[0] == '—' || suffix[0] == '-')
                     {
-                        reason = suffix.Substring(1).TrimStart();
+                        reason = suffix.Substring(1).TrimStart(WhiteSpace);
                         if (reason.Length == 0) return label;
                     }
                 }

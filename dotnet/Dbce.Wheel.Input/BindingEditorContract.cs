@@ -54,9 +54,19 @@ namespace Dbce.Wheel.Input
     }
     public struct SharedBindingValue
     {
+#if DBCE_INPUT_NET35
+        // Auto-property getters on a struct are implicitly readonly, which references IsReadOnlyAttribute: mscorlib has
+        // it only from 4.7.2, so Mono 2.0 lacks it. Explicit getters emit no attribute; the public surface is the same.
+        private readonly bool _bound;
+        private readonly string _text;
+        public bool Bound { get { return _bound; } }
+        public string Text { get { return _text; } }
+        public SharedBindingValue(bool bound, string text) { _bound = bound; _text = text; }
+#else
         public bool Bound { get; private set; }
         public string Text { get; private set; }
         public SharedBindingValue(bool bound, string text) { Bound = bound; Text = text; }
+#endif
     }
     public sealed class SharedBindingDeviceView
     {
