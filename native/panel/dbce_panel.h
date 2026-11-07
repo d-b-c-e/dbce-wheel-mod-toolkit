@@ -6,6 +6,8 @@
 // overlay (dbce_overlay_d3d11.h) calls Frame() once per presented frame. Input arrives through dbce_panel_input.h.
 #pragma once
 #include <windows.h>
+#include <string>
+#include "dbce_panel_descriptor.h"
 
 namespace dbce { namespace panel {
 
@@ -47,6 +49,11 @@ struct Config {
     // leaves that link out. Issue reporting stays in the mod's own Help action.
     const char *modRepositoryUrl = nullptr;
     const char *wheelkitRepositoryUrl = nullptr;
+    // UI-1: draw the standard pages (Controls, Force feedback, Display, Cameras, Telemetry, Help, and Developer behind
+    // the developer switch) from a settings descriptor (dbce_panel_descriptor.h) instead of pages/drawPage. The
+    // descriptor must outlive the panel. The mod pushes values with SetToggle/SetChoice/SetNumber/SetText and reads the
+    // player's changes and actions with PollEvent, both on its own thread. Null: the hand-drawn pages above.
+    const Descriptor *descriptor = nullptr;
 };
 
 // Called once by the mod before the overlay starts (not from DllMain).
@@ -71,6 +78,45 @@ void StopFfbFromKey();
 bool CompareAvailable();   // Config::compareKey set (F7)
 void CompareFromKey();
 bool CameraKeyFromMessage(int vk, bool down, bool repeat);   // Config::cameraKey; false when unset
+
+// ---- descriptor pages (Config::descriptor) --------------------------------------------------------------------
+// Values for descriptor rows, safe from any thread; false when no row has that id or the kind does not match.
+// A value the mod sets is not reported back by PollEvent.
+bool SetToggle(const char *id, bool value);
+bool SetChoice(const char *id, int index);
+bool SetNumber(const char *id, double value);                               // percent, slider, number (clamped)
+bool SetText(const char *id, const char *utf8Text, Tone tone = Tone::Normal); // status line, binding's current input
+bool SetRowVisible(const char *id, bool visible);                           // hide a row that does not apply now
+// A player change or command, oldest first. Toggle/Choice/Number changes carry the new value; Action is a pressed
+// action row; Capture asks the mod to capture a binding (the row shows its help as the prompt until SetText or Esc);
+// Clear is the binding's x.
+struct PanelEvent {
+    enum class Type { Changed, Action, Capture, Clear } type = Type::Changed;
+    std::string id;
+    bool toggle = false;
+    int choice = 0;
+    double number = 0;
+};
+bool PollEvent(PanelEvent &out);
+// Esc while a binding row waits for input: stop waiting (the old binding stays) and keep the panel open.
+bool CancelBindingCapture();
+// Toasts and on-screen labels (camera name, the F7 view, notices): at most two lines, at the bottom of the centre
+// screen for `ms` (3 s by default), panel open or closed. Safe from any thread; a new toast replaces the old one.
+void ShowToast(const char *line1, const char *line2 = nullptr, unsigned ms = 3000);
+bool ToastActive();
+// The hidden developer switch (05-ux-simplification.md 1.7): %LOCALAPPDATA%\dbce\developer.on, read at Configure.
+// Developer rows keep their values when it is off; only the Developer tab is hidden.
+bool DeveloperOn();
+void SetDeveloper(bool on);                 // tests and self-tests
+// The row's rectangle in window pixels in the last drawn frame (x0, y0, x1, y1); false when it was not drawn.
+bool RowRect(const char *id, float rect[4]);
+// The descriptor page the panel shows, and whether More options is open; for the dev channel and render checks.
+StdPage DescriptorPage();
+void ShowDescriptorPage(StdPage page, bool moreOptions);
+bool DescriptorPageShown(StdPage page);     // the tab is there (empty pages are hidden; Help always)
+
+// What an overlay draws on a closed frame: the panel, the status line, the frame-rate counter or a toast.
+bool DrawWanted();
 
 // Overlay side, once per presented frame while the panel is open (an ImGui context must be current):
 //   if (Prepare(w, h)) { BuildFonts(); <invalidate the renderer's font texture> }

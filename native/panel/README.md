@@ -24,7 +24,38 @@ are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`nativ
 | `dbce_overlay_d3d11.h/.cpp` | D3D11 overlay: patches the DXGI swap-chain `Present`/`Present1`/`ResizeBuffers` table entries (found on a temporary device on a hidden window, from a worker thread), adopts the largest swap chain's window (a new chain on that same window, the game recreating it, replaces the old one), draws only while the panel is open and restores the game's render targets, holding no view of the back buffer past its Present (one would keep a released swap chain alive and block its flip-model replacement). The panel's input hook is on only while the adopted chain can be drawn on: a chain it cannot draw on (neither D3D11 nor a D3D12 one the enabled renderer can start on) closes the panel and leaves the window's input to the game, and is looked at again every 30th Present, so a D3D12 renderer that starts later gets the input back. D3D12 swap chains are drawn by the optional D3D12 renderer when enabled. |
 | `dbce_overlay_d3d12.h/.cpp` | Optional D3D12 support (`EnableD3D12()` before `StartD3D11`): the shared present hook draws D3D12 swap chains with the game's own present queue, captured from `ID3D12CommandQueue::ExecuteCommandLists` (patched on a probe queue); per back buffer an allocator, RTV and fence value; ResizeBuffers waits for the GPU and releases the buffers. Checked offline on WARP (`test_overlay_d3d12.cpp`: the real hooks, a flip-model swap chain, the panel read back from the presented buffer). |
 | `dbce_overlay_d3d9.h/.cpp` | D3D9 overlay: `StartD3D9(device, log)` with the game's own `IDirect3DDevice9`, since D3D9 gives every device its own method table (on the heap) and a probe device cannot reach the game's. Replaces that device's Present and Reset entries with the shared loop-safe slot hook, attaches input to the device window on the first Present, draws only while open on the back buffer inside its own BeginScene/EndScene when the device is not lost, and puts back the game's render targets, depth surface and viewport. Reset releases ImGui's default-pool objects first. A pure device is used only when it answers the Get* calls the restore needs (viewport, world/view/projection, a render state), as the Windows 10/11 runtime does against the documented rule; otherwise refused. A new device releases the previous one's ImGui objects and reference at once; `StopD3D9(device)`, before the game releases its device, closes the panel, gives the window's input back to the game and lets go of the device; the next adopted Present takes input again. Not covered: D3D9Ex PresentEx/ResetEx and `IDirect3DSwapChain9::Present`; a recreated device needs another call. Also link `dbce_overlay_d3d11.cpp` and `imgui_impl_dx11.cpp` (the shared hook core). Checked offline on x64 and x86 with the GPU's D3D9 device on a hidden window (`test_overlay_d3d9.cpp`: closed/open/closed pixels, game state kept, Reset at a new size). |
-| `test_panel_render.cpp`, `build_test.ps1` | Offline render check on WARP: every page in Simple (and Advanced at 2560x1440) at 1280x720, 1920x1080, 2560x1440, 3840x2160 and 7680x1440, PNGs in `build\` for visual review, with geometry checks (inside the window; centre screen of a span). |
+| `dbce_panel_descriptor.h/.cpp`, `samples/` | UI-1: the settings descriptor and its strict reader (see "Pages from a settings descriptor" below). `samples/` holds descriptors written from GRID's and art of rally's current pages; the tests draw them. |
+| `test_panel_render.cpp`, `build_test.ps1` | Offline render check on WARP: every hand-drawn page in Simple (and Advanced at 2560x1440) at 1280x720, 1920x1080, 2560x1440, 3840x2160 and 7680x1440, and every page of both sample descriptors (More options closed and open, and the Developer tab) at 1280x720, 1920x1080 and 7680x1440, plus toasts. PNGs in `build\` for visual review, with geometry checks: inside the window, on the centre screen of a span, every row drawn without overlap, and every page without More options fits with no scrolling. Mouse clicks check the events (a toggle, More options, a binding capture, an action). `test_panel_descriptor.cpp` (x64 and x86, CPU only) parses the samples and checks that unknown kinds, levels, pages and fields, and over-full pages, are refused. |
+
+## Pages from a settings descriptor (UI-1)
+
+Set `Config::descriptor` and the panel draws the standard pages itself instead of calling `drawPage`. The spec is
+`docs/architecture/2026-11/05-ux-simplification.md` section 1 in the hub (`dbce-project-mgmt`).
+
+- **Pages**, in this order: Controls, Force feedback, Display, Cameras, Telemetry, Help. A page without rows is hidden.
+  Help always shows, and so does Display, which carries the frame rate. A **Developer** tab follows Help only while
+  `%LOCALAPPDATA%\dbce\developer.on` exists (`SetDeveloper` in tests); it lists every developer-level row.
+- **Rows** (`dbce_panel_descriptor.h`): `id`, `kind` (toggle, choice, percent, slider, number, binding, action,
+  status), `label`, `help` (12 words at most), `level` (simple; advanced, shown under the page's **More options** row;
+  developer), `apply` (live, or next-start, which shows "Takes effect next time you start the game." after a change),
+  `choices`, `min`/`max`/`default`, `unit`, `decimals`, `text`. At most five simple controls and two simple status
+  lines per page. Anything else is refused by `ParseDescriptor`/`LoadDescriptor`.
+- **The panel's own rows:** the frame-rate status line and Show frame rate (Display), the version and keys lines, the
+  Mod page link (`modPage`) and Text size (Help). The header is the product name and x; the footer reads "F6 close ·
+  F8 force feedback off" with "Saved" for two seconds.
+- **The mod's side**, on its own thread: push values with `SetToggle`, `SetChoice`, `SetNumber` and `SetText` (status
+  lines and a binding's current input), hide rows that don't apply with `SetRowVisible`, and read the player's changes
+  and actions with `PollEvent`. The mod saves its own config (STD-044) and reports the result with `NoteSaved`.
+  A binding click sends `Capture`, and the row shows its help as the prompt until `SetText`; Esc cancels the capture
+  first and closes the panel second.
+- **Toasts and labels:** `ShowToast(line1, line2)` draws up to two lines for 3 s at the bottom of the centre screen,
+  panel open or closed (camera name, the F7 view, notices). The frame-rate counter is unchanged. Overlays draw a
+  closed frame when `DrawWanted()`.
+- **Dev channel:** `open <page> [more]` takes a page id or name (`open telemetry more`).
+- The descriptor (and its strings) must outlive the panel. A mod that reads one also compiles
+  `dbce_panel_descriptor.cpp`; the hand-drawn pages need nothing new.
+
+No game uses descriptor pages yet; the spike (UI-2 onward) moves art and GRID onto them.
 
 ## Using it in a mod
 

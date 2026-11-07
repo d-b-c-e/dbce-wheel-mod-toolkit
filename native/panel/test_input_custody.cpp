@@ -15,6 +15,7 @@ namespace {
 HWND panelWindow, foregroundWindow, mockPanelRoot, mockForegroundRoot;
 int clipCalls;
 bool panelOpen;
+bool captureWaiting;
 bool compareAvailable;
 int compareCalls;
 bool cameraKeySet, cameraKeyConsumes;
@@ -78,6 +79,7 @@ void SetOpen(bool open) { panelOpen = open; }
 void Toggle() { panelOpen = !panelOpen; }
 bool StopFfbAvailable() { return false; }
 void StopFfbFromKey() {}
+bool CancelBindingCapture() { const bool was = captureWaiting; captureWaiting = false; return was; }
 bool CompareAvailable() { return compareAvailable; }
 void CompareFromKey() { ++compareCalls; }
 bool CameraKeyFromMessage(int vk, bool down, bool repeat)
@@ -235,6 +237,11 @@ int main()
     verify(dbce::panel::handle(&f6) && cameraKeyCalls == 4, "F6 keeps its own route");
     panelOpen = true; cameraKeyConsumes = true; key.wParam = VK_ADD;
     verify(dbce::panel::handle(&key) && cameraKeyCalls == 4, "panel open: keys go to the panel, never the camera-key route");
+    MSG esc{}; esc.hwnd = panelWindow; esc.message = WM_KEYDOWN; esc.wParam = VK_ESCAPE;
+    captureWaiting = true;
+    verify(dbce::panel::handle(&esc) && panelOpen && !captureWaiting, "Esc during a binding capture cancels it, the panel stays open");
+    verify(dbce::panel::handle(&esc) && !panelOpen, "the next Esc closes the panel");
+    panelOpen = true;
     panelOpen = false; cameraKeySet = false; cameraKeyConsumes = false;
     DetachInput();
     attachFails = true;

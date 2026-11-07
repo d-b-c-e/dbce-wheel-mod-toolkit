@@ -10,7 +10,9 @@
 #include <string.h>
 #include <algorithm>
 #include <cmath>
+#include <deque>
 #include <string>
+#include <vector>
 
 namespace dbce { namespace panel {
 
@@ -35,6 +37,32 @@ static LARGE_INTEGER g_frameFreq, g_frameLast;
 static ULONGLONG g_frameLoggedAt;
 static double g_smoothMs;              // STD-024 on-screen counter: smoothed frame time, present thread
 static bool g_showFps;                  // STD-024: [Panel] ShowFrameRate, off by default
+
+// UI-1 descriptor pages (Config::descriptor). Row values and the event queue are guarded by g_rowLock: the mod sets
+// values and polls events on its own thread, the render thread draws under the same lock.
+struct RowState {
+    const Row *row = nullptr;
+    bool visible = true, toggle = false, capturing = false, changedNextStart = false;
+    int choice = 0;
+    double number = 0;
+    std::string text;
+    Tone tone = Tone::Normal;
+    std::vector<const char *> choicePtrs;
+    float rect[4] = {};
+    unsigned drawnFrame = 0;
+};
+struct CoreRect { const char *id; float rect[4]; unsigned drawnFrame; };
+static std::vector<RowState> g_rows;
+static std::deque<PanelEvent> g_events;
+static SRWLOCK g_rowLock = SRWLOCK_INIT;
+static CoreRect g_coreRects[12];
+static StdPage g_dpage = StdPage::Help;
+static bool g_more;                     // More options open on this page; closed whenever F6 opens or the page changes
+static bool g_developer;
+static unsigned g_drawFrame = 1;
+static SRWLOCK g_toastLock = SRWLOCK_INIT;
+static char g_toast[2][128];
+static volatile LONG64 g_toastUntil;
 
 static const char *const kPageNames[PAGE_COUNT] = {"Controls", "FFB", "Cameras", "Telemetry", "Help"};
 
@@ -64,6 +92,16 @@ static void logf(const char *fmt, ...)
 }
 
 // ---- preferences in [Panel] of the mod's ini ------------------------------------------------------------------
+// A descriptor page by its id ("ffb"), its tab name ("Force feedback") or the hand-drawn panel's name ("FFB").
+static bool descriptorPageFromName(const char *name, StdPage *out)
+{
+    for (int p = 0; p < (int)StdPage::Count; ++p)
+        if (!_stricmp(name, StdPageId((StdPage)p)) || !_stricmp(name, StdPageName((StdPage)p))) { *out = (StdPage)p; return true; }
+    if (!_stricmp(name, "FFB")) { *out = StdPage::Ffb; return true; }
+    return false;
+}
+static const char *descriptorPageSaveName(StdPage p) { return p == StdPage::Ffb ? "FFB" : StdPageName(p); }
+static void setupDescriptor();
 static void loadPrefs()
 {
     if (!g_cfg.iniPath) return;
@@ -80,6 +118,10 @@ static void loadPrefs()
     GetPrivateProfileStringA("Panel", "Page", "", v, sizeof v, g_cfg.iniPath);
     for (int p = 0; p < PAGE_COUNT; ++p)   // by name: a saved page keeps its meaning if pages are added (UX-01)
         if (!_stricmp(v, kPageNames[p]) && g_cfg.pages[p]) g_page = (Page)p;
+    if (g_cfg.descriptor) {
+        StdPage p;
+        if (descriptorPageFromName(v, &p) && DescriptorPageShown(p)) g_dpage = p;
+    }
 }
 static void savePref(const char *key, const char *value)
 {
@@ -96,6 +138,7 @@ void Configure(const Config &config)
     g_cfg.pages[PAGE_HELP] = true;   // Help always stays (STD-017)
     g_page = PAGE_HELP;
     for (int p = 0; p < PAGE_COUNT; ++p) if (g_cfg.pages[p]) { g_page = (Page)p; break; }   // first offered page
+    setupDescriptor();
     loadPrefs();
 }
 
@@ -103,7 +146,7 @@ bool IsOpen() { return g_open != 0; }
 void SetOpen(bool open)
 {
     InterlockedExchange(&g_open, open ? 1 : 0);
-    if (open) g_pageChanged = true;
+    if (open) { g_pageChanged = true; g_more = false; }
 }
 void Toggle() { SetOpen(!IsOpen()); }
 bool StatusLineActive() { return InterlockedCompareExchange(&g_statusActive, 0, 0) != 0; }
@@ -437,6 +480,497 @@ static void drawHelp(bool advanced)
     if (!g_cfg.pages[PAGE_CAMERAS]) drawFrameRate();
 }
 
+// ---- descriptor pages (UI-1; Config::descriptor) -------------------------------------------------------------
+// The fixed page set drawn from data: per page, its status lines and at most five simple controls, then one
+// "More options" row that opens the advanced rows. Developer rows appear only on the Developer tab, behind the hidden
+// developer switch. The panel owns a few standard rows itself: the frame-rate status and Show frame rate (Display),
+// the version and keys lines, Text size and the mod page link (Help).
+static const char kDot[] = "\xC2\xB7";        // U+00B7, in the panel font's Latin-1 range
+static const char kTimes[] = "\xC3\x97";      // U+00D7
+
+static bool developerFileOn()
+{
+    wchar_t path[MAX_PATH];
+    DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", path, MAX_PATH);
+    if (!n || n >= MAX_PATH - 32) return false;
+    wcscat_s(path, L"\\dbce\\developer.on");
+    return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+static void setupDescriptor()
+{
+    AcquireSRWLockExclusive(&g_rowLock);
+    g_rows.clear();
+    g_events.clear();
+    for (CoreRect &c : g_coreRects) c = CoreRect();
+    if (g_cfg.descriptor) {
+        g_rows.resize(g_cfg.descriptor->rows.size());
+        for (size_t i = 0; i < g_rows.size(); ++i) {
+            RowState &r = g_rows[i];
+            r.row = &g_cfg.descriptor->rows[i];
+            r.toggle = r.row->defaultValue != 0;
+            r.choice = (int)r.row->defaultValue;
+            r.number = r.row->defaultValue;
+            r.text = r.row->text;
+            for (const std::string &c : r.row->choices) r.choicePtrs.push_back(c.c_str());
+        }
+    }
+    ReleaseSRWLockExclusive(&g_rowLock);
+    g_developer = g_cfg.descriptor && developerFileOn();
+    g_more = false;
+    g_dpage = StdPage::Help;
+    if (g_cfg.descriptor)
+        for (int p = 0; p < (int)StdPage::Count; ++p) if (DescriptorPageShown((StdPage)p)) { g_dpage = (StdPage)p; break; }
+}
+
+static RowState *findRow(const char *id)
+{
+    if (!id) return nullptr;
+    for (RowState &r : g_rows) if (r.row->id == id) return &r;
+    return nullptr;
+}
+
+template <class F> static bool withRow(const char *id, F f)
+{
+    AcquireSRWLockExclusive(&g_rowLock);
+    RowState *r = findRow(id);
+    const bool ok = r && f(*r);
+    ReleaseSRWLockExclusive(&g_rowLock);
+    return ok;
+}
+
+bool SetToggle(const char *id, bool value)
+{
+    return withRow(id, [&](RowState &r) { if (r.row->kind != RowKind::Toggle) return false; r.toggle = value; return true; });
+}
+bool SetChoice(const char *id, int index)
+{
+    return withRow(id, [&](RowState &r) {
+        if (r.row->kind != RowKind::Choice || index < 0 || index >= (int)r.row->choices.size()) return false;
+        r.choice = index;
+        return true;
+    });
+}
+bool SetNumber(const char *id, double value)
+{
+    return withRow(id, [&](RowState &r) {
+        const RowKind k = r.row->kind;
+        if (k != RowKind::Percent && k != RowKind::Slider && k != RowKind::Number) return false;
+        r.number = (std::min)(r.row->maxValue, (std::max)(r.row->minValue, value));
+        return true;
+    });
+}
+bool SetText(const char *id, const char *text, Tone tone)
+{
+    return withRow(id, [&](RowState &r) {
+        if (r.row->kind != RowKind::Status && r.row->kind != RowKind::Binding) return false;
+        r.text = text ? text : "";
+        r.tone = tone;
+        r.capturing = false;   // a binding's new input ends its capture
+        return true;
+    });
+}
+bool SetRowVisible(const char *id, bool visible)
+{
+    return withRow(id, [&](RowState &r) { r.visible = visible; return true; });
+}
+bool PollEvent(PanelEvent &out)
+{
+    AcquireSRWLockExclusive(&g_rowLock);
+    const bool any = !g_events.empty();
+    if (any) { out = g_events.front(); g_events.pop_front(); }
+    ReleaseSRWLockExclusive(&g_rowLock);
+    return any;
+}
+bool CancelBindingCapture()
+{
+    bool any = false;
+    AcquireSRWLockExclusive(&g_rowLock);
+    for (RowState &r : g_rows) if (r.capturing) { r.capturing = false; any = true; }
+    ReleaseSRWLockExclusive(&g_rowLock);
+    return any;
+}
+bool DeveloperOn() { return g_developer; }
+void SetDeveloper(bool on) { g_developer = on; }
+bool RowRect(const char *id, float rect[4])
+{
+    if (!id) return false;
+    bool ok = false;
+    AcquireSRWLockShared(&g_rowLock);
+    const unsigned last = g_drawFrame - 1;
+    for (const RowState &r : g_rows)
+        if (r.row->id == id && r.drawnFrame == last) { memcpy(rect, r.rect, sizeof r.rect); ok = true; }
+    for (const CoreRect &c : g_coreRects)
+        if (c.id && !strcmp(c.id, id) && c.drawnFrame == last) { memcpy(rect, c.rect, sizeof c.rect); ok = true; }
+    ReleaseSRWLockShared(&g_rowLock);
+    return ok;
+}
+StdPage DescriptorPage() { return g_dpage; }
+void ShowDescriptorPage(StdPage page, bool moreOptions)
+{
+    if (!DescriptorPageShown(page)) return;
+    if (g_dpage != page) g_pageChanged = true;
+    g_dpage = page;
+    g_more = moreOptions;
+}
+bool DescriptorPageShown(StdPage page)
+{
+    if (!g_cfg.descriptor) return false;
+    if (page == StdPage::Help || page == StdPage::Display) return true;   // Help always; Display has the frame rate
+    bool any = false;
+    AcquireSRWLockShared(&g_rowLock);
+    for (const RowState &r : g_rows) {
+        if (!r.visible) continue;
+        if (page == StdPage::Developer ? r.row->level == RowLevel::Developer && g_developer
+                                       : r.row->page == page && r.row->level != RowLevel::Developer) { any = true; break; }
+    }
+    ReleaseSRWLockShared(&g_rowLock);
+    return any;
+}
+
+void ShowToast(const char *line1, const char *line2, unsigned ms)
+{
+    AcquireSRWLockExclusive(&g_toastLock);
+    strncpy_s(g_toast[0], line1 ? line1 : "", _TRUNCATE);
+    strncpy_s(g_toast[1], line2 ? line2 : "", _TRUNCATE);
+    InterlockedExchange64(&g_toastUntil, g_toast[0][0] || g_toast[1][0] ? (LONG64)(GetTickCount64() + ms) : 0);
+    ReleaseSRWLockExclusive(&g_toastLock);
+}
+bool ToastActive() { return (ULONGLONG)InterlockedCompareExchange64(&g_toastUntil, 0, 0) > GetTickCount64(); }
+bool DrawWanted() { return IsOpen() || StatusLineActive() || FrameCounterOn() || ToastActive(); }
+
+static void pushEvent(PanelEvent::Type type, const RowState &r)
+{
+    PanelEvent e;
+    e.type = type;
+    e.id = r.row->id;
+    e.toggle = r.toggle;
+    e.choice = r.choice;
+    e.number = r.number;
+    if (g_events.size() >= 256) g_events.pop_front();
+    g_events.push_back(e);
+}
+
+static void noteCoreRect(const char *id, const ImVec2 &a)
+{
+    const float x1 = a.x + (std::max)(0.0f, ImGui::GetContentRegionAvail().x);
+    const float y1 = ImGui::GetCursorScreenPos().y - ImGui::GetStyle().ItemSpacing.y;
+    for (CoreRect &c : g_coreRects)
+        if (!c.id || !strcmp(c.id, id)) { c.id = id; c.rect[0] = a.x; c.rect[1] = a.y; c.rect[2] = x1; c.rect[3] = y1; c.drawnFrame = g_drawFrame; return; }
+}
+
+// A number field with its unit, clamped to the row's range.
+static bool numberField(const char *label, double *value, double minValue, double maxValue, int decimals, const char *unit, const char *help)
+{
+    rowLabel(label);
+    char fmt[16];
+    sprintf_s(fmt, "%%.%df", decimals);
+    const double step = decimals ? 1.0 / std::pow(10.0, decimals) : 1.0;
+    ImGui::SetNextItemWidth((std::min)(ImGui::GetContentRegionAvail().x, 200 * g_scale));
+    double v = *value;
+    bool changed = ImGui::InputDouble("##number", &v, step, step * 10, fmt);
+    if (unit && *unit) { ImGui::SameLine(); ImGui::AlignTextToFramePadding(); ImGui::TextUnformatted(unit); }
+    if (changed) {
+        v = (std::min)(maxValue, (std::max)(minValue, v));
+        changed = v != *value;
+        *value = v;
+    }
+    if (help && *help) secondaryWrapped(help);
+    return changed;
+}
+
+// A binding: the current input (or "Not set") as the capture button, and x to clear. While capturing, the row's help is
+// the prompt; Esc cancels. Returns 1 to capture, 2 to clear.
+static int bindingRow(const char *label, const std::string &text, bool capturing, const char *help)
+{
+    rowLabel(label);
+    int result = 0;
+    const float clearW = buttonWidth(kTimes);
+    const float w = (std::max)(80 * g_scale, ImGui::GetContentRegionAvail().x - clearW - ImGui::GetStyle().ItemSpacing.x);
+    ImGui::PushStyleColor(ImGuiCol_Button, capturing ? kAccent : kButton);
+    ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f));
+    if (ImGui::Button(capturing ? "Waiting for input..." : text.empty() ? "Not set" : text.c_str(), ImVec2(w, 0)) && !capturing) result = 1;
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(text.empty() || capturing);
+    if (ImGui::Button(kTimes)) result = 2;
+    ImGui::EndDisabled();
+    if (capturing && help && *help) {
+        ImGui::PushStyleColor(ImGuiCol_Text, kWarning);
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(help);
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+    }
+    return result;
+}
+
+static void statusRow(const std::string &label, const std::string &text, Tone tone)
+{
+    if (!label.empty()) { Status(label.c_str(), text.c_str(), tone); return; }
+    const ImVec4 col = tone == Tone::Good ? kGood : tone == Tone::Warning ? kWarning : tone == Tone::Error ? kError : kText;
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushStyleColor(ImGuiCol_Text, col);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(text.empty() ? " " : text.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::PopStyleColor();
+}
+
+// One descriptor row with the standard control for its kind (under g_rowLock).
+static void drawRow(RowState &r)
+{
+    const Row &d = *r.row;
+    const char *label = d.label.c_str();
+    const char *help = d.help.empty() ? nullptr : d.help.c_str();
+    ImGui::PushID(d.id.c_str());
+    const ImVec2 a = ImGui::GetCursorScreenPos();
+    bool changed = false;
+    switch (d.kind) {
+    case RowKind::Toggle: changed = OffOn(label, &r.toggle, help); break;
+    case RowKind::Choice: changed = Choice(label, r.choicePtrs.data(), (int)r.choicePtrs.size(), &r.choice, help); break;
+    case RowKind::Percent: case RowKind::Slider: {
+        int v = (int)std::lround(r.number);
+        std::string fmt = "%d";
+        if (d.kind == RowKind::Percent) fmt += "%%";
+        else for (char c : d.unit) { fmt += c; if (c == '%') fmt += '%'; }
+        changed = Slider(label, &v, (int)d.minValue, (int)d.maxValue, (int)std::lround(d.defaultValue), fmt.c_str(), help);
+        if (changed) r.number = v;
+        break;
+    }
+    case RowKind::Number: changed = numberField(label, &r.number, d.minValue, d.maxValue, d.decimals, d.unit.c_str(), help); break;
+    case RowKind::Binding: {
+        const int b = bindingRow(label, r.text, r.capturing, help);
+        if (b == 1) { r.capturing = true; pushEvent(PanelEvent::Type::Capture, r); }
+        if (b == 2) pushEvent(PanelEvent::Type::Clear, r);
+        break;
+    }
+    case RowKind::Action:
+        ImGui::BeginGroup();
+        if (ImGui::Button(label)) pushEvent(PanelEvent::Type::Action, r);
+        if (help) secondaryWrapped(help);
+        ImGui::EndGroup();
+        break;
+    case RowKind::Status: statusRow(d.label, r.text, r.tone); break;
+    }
+    if (changed) {
+        pushEvent(PanelEvent::Type::Changed, r);
+        if (d.nextStart) r.changedNextStart = true;
+    }
+    if (d.nextStart && r.changedNextStart) secondaryWrapped("Takes effect next time you start the game.");
+    r.rect[0] = a.x; r.rect[1] = a.y;
+    r.rect[2] = a.x + (std::max)(0.0f, ImGui::GetContentRegionAvail().x);
+    r.rect[3] = ImGui::GetCursorScreenPos().y - ImGui::GetStyle().ItemSpacing.y;
+    r.drawnFrame = g_drawFrame;
+    ImGui::PopID();
+}
+
+static void drawRows(StdPage page, bool statuses, RowLevel level)
+{
+    for (RowState &r : g_rows)
+        if (r.visible && r.row->page == page && r.row->level == level && (r.row->kind == RowKind::Status) == statuses) drawRow(r);
+}
+
+static bool pageHasRows(StdPage page, RowLevel level)
+{
+    for (const RowState &r : g_rows) if (r.visible && r.row->page == page && r.row->level == level) return true;
+    return false;
+}
+
+static void displayStatus()
+{
+    const FrameSummary &fs = g_frames.Last();
+    const char *display = g_cfg.displayText ? g_cfg.displayText() : nullptr;
+    if (!display || !*display) display = g_cfg.triplesOn ? (g_cfg.triplesOn() ? "Three screens" : "One screen") : "One screen";
+    char line[192];
+    if (fs.valid) sprintf_s(line, "%s %s %.0f fps", display, kDot, fs.avgFps);
+    else sprintf_s(line, "%s %s measuring the frame rate", display, kDot);
+    const ImVec2 a = ImGui::GetCursorScreenPos();
+    statusRow(std::string(), line, Tone::Normal);
+    noteCoreRect("panel.display-status", a);
+}
+
+static void helpStatus()
+{
+    const Descriptor &d = *g_cfg.descriptor;
+    std::string version = d.product;
+    if (!d.version.empty()) version += " " + d.version;
+    ImVec2 a = ImGui::GetCursorScreenPos();
+    statusRow(std::string(), version, Tone::Normal);
+    noteCoreRect("panel.version", a);
+    std::string keys = d.keys;
+    if (keys.empty()) {
+        keys = "F6 settings";
+        if (g_cfg.ffbOn && g_cfg.stopFfb) keys += std::string(" ") + kDot + " F8 force feedback off";
+        if (g_cfg.compareKey) keys += std::string(" ") + kDot + " F7 camera view";
+    }
+    a = ImGui::GetCursorScreenPos();
+    statusRow(std::string(), keys, Tone::Normal);
+    noteCoreRect("panel.keys", a);
+}
+
+static void drawDescriptorBody(StdPage page)
+{
+    if (page == StdPage::Developer) {
+        for (int p = 0; p < (int)StdPage::Developer; ++p) {
+            if (!pageHasRows((StdPage)p, RowLevel::Developer)) continue;
+            Heading(StdPageName((StdPage)p));
+            drawRows((StdPage)p, true, RowLevel::Developer);
+            drawRows((StdPage)p, false, RowLevel::Developer);
+        }
+        return;
+    }
+    if (page == StdPage::Display) displayStatus();
+    if (page == StdPage::Help) helpStatus();
+    drawRows(page, true, RowLevel::Simple);
+    drawRows(page, false, RowLevel::Simple);
+    if (page == StdPage::Help && !g_cfg.descriptor->modPage.empty()) {
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextLinkOpenURL("Mod page", g_cfg.descriptor->modPage.c_str());
+        noteCoreRect("panel.mod-page", a);
+    }
+    const bool coreMore = page == StdPage::Display || page == StdPage::Help;
+    if (!coreMore && !pageHasRows(page, RowLevel::Advanced)) return;
+    ImGui::Dummy(ImVec2(0, 4 * g_scale));
+    const ImVec2 a = ImGui::GetCursorScreenPos();
+    ImGui::SetNextItemOpen(g_more, ImGuiCond_Always);
+    g_more = ImGui::TreeNodeEx("More options", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAvailWidth);
+    noteCoreRect("panel.more", a);
+    if (!g_more) return;
+    if (page == StdPage::Display) {
+        const ImVec2 b = ImGui::GetCursorScreenPos();
+        if (OffOn("Show frame rate", &g_showFps, "A small counter in the top-right corner.")) savePref("ShowFrameRate", g_showFps ? "1" : "0");
+        noteCoreRect("panel.show-frame-rate", b);
+    }
+    if (page == StdPage::Help) {
+        static const char *const kSizes[3] = {"Normal", "Large", "Larger"};
+        static const int kScales[3] = {100, 125, 150};
+        int size = g_userScale >= 150 ? 2 : g_userScale >= 125 ? 1 : 0;
+        const ImVec2 b = ImGui::GetCursorScreenPos();
+        if (Choice("Text size", kSizes, 3, &size)) {
+            g_userScale = kScales[size];
+            char v[16]; sprintf_s(v, "%d", g_userScale);
+            savePref("Scale", v);
+        }
+        noteCoreRect("panel.text-size", b);
+    }
+    drawRows(page, true, RowLevel::Advanced);
+    drawRows(page, false, RowLevel::Advanced);
+}
+
+static void drawDescriptorPanel(int width, int height)
+{
+    const float s = g_scale;
+    float x0 = 0, x1 = (float)width;
+    if (width >= height * 2.5f) { x0 = width / 3.0f; x1 = 2.0f * width / 3.0f; }
+    float w = (std::min)(x1 - x0 - 48 * s, 960 * s), h = (std::min)((float)height - 96 * s, 820 * s);
+    w = (std::max)(w, (std::min)(x1 - x0, 480 * s));
+    h = (std::max)(h, (std::min)((float)height, 360 * s));
+    ImGui::SetNextWindowPos(ImVec2(x0 + (x1 - x0 - w) / 2, (height - h) / 2), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+    ImGui::Begin("##dbce-panel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    const ImGuiStyle &st = ImGui::GetStyle();
+
+    // Header: the product name, and x to close (05-ux-simplification.md 1.0).
+    ImGui::PushFont(g_heading);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(g_cfg.descriptor->product.c_str());
+    ImGui::PopFont();
+    ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - buttonWidth(kTimes));
+    if (ImGui::Button(kTimes)) SetOpen(false);
+
+    // Tabs in the fixed order; a page without rows is hidden, Help always shows.
+    if (!DescriptorPageShown(g_dpage)) { g_dpage = StdPage::Help; g_pageChanged = true; }
+    ImGui::Dummy(ImVec2(0, 4 * s));
+    bool firstTab = true;
+    for (int p = 0; p < (int)StdPage::Count; ++p) {
+        if (!DescriptorPageShown((StdPage)p)) continue;
+        if (!firstTab) ImGui::SameLine(0, 24 * s);
+        firstTab = false;
+        const char *name = StdPageName((StdPage)p);
+        const bool sel = g_dpage == (StdPage)p;
+        ImVec2 sz = ImGui::CalcTextSize(name);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::PushID(p);
+        if (ImGui::InvisibleButton("tab", ImVec2(sz.x, sz.y + 10 * s)) && !sel) {
+            g_dpage = (StdPage)p; g_pageChanged = true; g_more = false;
+            savePref("Page", descriptorPageSaveName(g_dpage));
+        }
+        const bool hov = ImGui::IsItemHovered();
+        ImGui::PopID();
+        ImDrawList *dl = ImGui::GetWindowDrawList();
+        dl->AddText(pos, ImGui::GetColorU32(sel || hov ? kText : kSecondary), name);
+        if (sel) dl->AddRectFilled(ImVec2(pos.x, pos.y + sz.y + 6 * s), ImVec2(pos.x + sz.x, pos.y + sz.y + 9 * s), ImGui::GetColorU32(kAccent));
+    }
+    ImGui::Separator();
+
+    // Body above a one-line footer; it scrolls only when More options is longer than the window.
+    const float footer = ImGui::GetFrameHeight() + st.ItemSpacing.y;
+    ImGui::BeginChild("##body", ImVec2(0, -footer), ImGuiChildFlags_None, ImGuiWindowFlags_None);
+    if (g_pageChanged) { ImGui::SetScrollY(0); g_pageChanged = false; }
+    AcquireSRWLockExclusive(&g_rowLock);
+    drawDescriptorBody(g_dpage);
+    ReleaseSRWLockExclusive(&g_rowLock);
+    ImGui::EndChild();
+
+    // Footer: the keys, and "Saved" for two seconds after a change (or the failure, which stays four).
+    ImGui::Separator();
+    std::string keys = std::string("F6 close");
+    if (g_cfg.ffbOn && g_cfg.stopFfb) keys += std::string(" ") + kDot + " F8 force feedback off";
+    ImGui::PushFont(g_small);
+    ImGui::PushStyleColor(ImGuiCol_Text, kSecondary);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(keys.c_str());
+    ImGui::PopStyleColor();
+    const ULONGLONG age = GetTickCount64() - g_noteAt;
+    if (g_note[0] && age < (g_noteOk ? 2000u : 4000u)) {
+        ImGui::SameLine(0, 16 * s);
+        ImGui::PushStyleColor(ImGuiCol_Text, g_noteOk ? kGood : kError);
+        ImGui::TextUnformatted(g_noteOk ? g_note : "Couldn't save. The change lasts until you quit.");
+        ImGui::PopStyleColor();
+    }
+    ImGui::PopFont();
+    ImGui::End();
+}
+
+// Toasts and on-screen labels (05-ux-simplification.md 1.8): at most two lines, at the bottom of the centre screen,
+// never input.
+static void drawToast(int width, int height)
+{
+    if (!ToastActive() || width < 64 || height < 64) return;
+    char line[2][128];
+    AcquireSRWLockShared(&g_toastLock);
+    memcpy(line, g_toast, sizeof line);
+    ReleaseSRWLockShared(&g_toastLock);
+    const float s = g_scale;
+    float x0 = 0, x1 = (float)width;
+    if (width >= height * 2.5f) { x0 = width / 3.0f; x1 = 2.0f * width / 3.0f; }
+    ImGui::SetNextWindowPos(ImVec2((x0 + x1) / 2, height - 48 * s), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(x1 - x0 - 48 * s, (float)height / 3));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(18/255.f, 19/255.f, 21/255.f, .94f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16 * s, 10 * s));
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
+    if (ImGui::Begin("##dbce-toast", nullptr, flags)) {
+        ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+        for (int i = 0; i < 2; ++i) {
+            if (!line[i][0]) continue;
+            ImGui::PushFont(i ? g_body : g_heading);
+            const float tw = ImGui::CalcTextSize(line[i]).x, avail = ImGui::GetContentRegionAvail().x;
+            if (tw < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) / 2);
+            ImGui::TextUnformatted(line[i]);
+            ImGui::PopFont();
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+}
+
 // ---- the frame ----------------------------------------------------------------------------------------------
 static void drawStatusLine(int width, int height)
 {
@@ -503,6 +1037,7 @@ static void drawFrameCounter(int width, int height)
 static void drawPanel(int width, int height)
 {
     if (!IsOpen()) return;
+    if (g_cfg.descriptor) { drawDescriptorPanel(width, height); return; }
     const float s = g_scale;
     // Placement: on the centre screen of a three-screen span (STD-019), centred in the window otherwise.
     float x0 = 0, x1 = (float)width;
@@ -590,7 +1125,9 @@ void Draw(int width, int height)
 {
     drawPanel(width, height);
     drawStatusLine(width, height);
+    drawToast(width, height);
     drawFrameCounter(width, height);
+    ++g_drawFrame;
 }
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------
@@ -626,6 +1163,14 @@ void PollDev()
     if (!_stricmp(verb, "input-trace")) { TraceInput(page, g_cfg.log); return; }
     if (!_stricmp(verb, "close")) { SetOpen(false); logf("panel: dev channel closed the panel"); return; }
     if (_stricmp(verb, "open")) return;
+    if (g_cfg.descriptor) {   // "open <page> [more]": a descriptor page by id or name, More options open or closed
+        StdPage p = g_dpage;
+        descriptorPageFromName(page, &p);
+        SetOpen(true);
+        ShowDescriptorPage(p, !_stricmp(view, "more"));
+        logf("panel: dev channel opened %s%s", StdPageName(g_dpage), g_more ? " (More options)" : "");
+        return;
+    }
     for (int p = 0; p < PAGE_COUNT; ++p) if (!_stricmp(page, kPageNames[p]) && g_cfg.pages[p]) { g_page = (Page)p; g_pageChanged = true; }
     if (view[0]) g_advanced = !_stricmp(view, "advanced");   // not saved: a test does not change the owner's view
     SetOpen(true);
