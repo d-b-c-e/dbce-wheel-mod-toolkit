@@ -10,7 +10,7 @@ B.2 and B.6). `tools\package\New-ModPackage.ps1` copies these files into each zi
 | `Install.bat`, `Uninstall.bat`, `Setup.bat` | zip root | What the player double-clicks. |
 
 The rules, the package layout and the command line are in `docs/DBCE-MOD-JSON.md`, "The package and the installer".
-Tests: `tools	estsTest-ModPackage.ps1` and `tools	estsTest-DbceModFile.ps1`. A built zip: `toolspackageTest-ModZip.ps1 -Zip <zip>`
+Tests: `tools\tests\Test-ModPackage.ps1` and `tools\tests\Test-DbceModFile.ps1`. A built zip: `tools\package\Test-ModZip.ps1 -Zip <zip>`
 installs, reinstalls and uninstalls it (and takes over each `oldReceipts` install) on a fixture game folder, byte for byte.
 
 Sync-Toolkit's `installer` part vendors this folder to `lib/toolkit/installer`. Games move to it one family at a time
