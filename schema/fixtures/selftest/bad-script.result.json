@@ -1,0 +1,10 @@
+{
+  "schema": "dbce.selftest.result@1",
+  "name": "bad-script",
+  "pass": false,
+  "muteFfb": true,
+  "ms": 0,
+  "failure": {"step": 0, "reason": "the script: step 2 has an unknown field 'pgae'"},
+  "log": "log.txt",
+  "steps": []
+}

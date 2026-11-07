@@ -1,0 +1,9 @@
+{
+  "schema": "dbce.selftest@1",
+  "name": "unsupported",
+  "steps": [
+    { "start": "attract" },
+    { "set": "Triple.Layout", "value": "wide" },
+    { "quit": true }
+  ]
+}

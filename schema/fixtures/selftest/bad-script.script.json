@@ -1,0 +1,9 @@
+{
+  "schema": "dbce.selftest@1",
+  "name": "bad-script",
+  "steps": [
+    { "wait": "menu" },
+    { "f6": "open", "pgae": "Cameras" },
+    { "quit": true }
+  ]
+}

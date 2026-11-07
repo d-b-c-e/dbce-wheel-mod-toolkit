@@ -1,0 +1,17 @@
+{
+  "schema": "dbce.selftest.result@1",
+  "name": "failing-step",
+  "pass": false,
+  "muteFfb": true,
+  "ms": 96,
+  "failure": {"step": 3, "reason": "no page 'Replays' in this mod"},
+  "log": "log.txt",
+  "steps": [
+    {"step": 1, "do": "wait menu", "status": "ok", "ms": 0},
+    {"step": 2, "do": "f6 open Cameras", "status": "ok", "ms": 0},
+    {"step": 3, "do": "f6 open Replays more", "status": "failed", "ms": 0, "reason": "no page 'Replays' in this mod"},
+    {"step": 4, "do": "capture never-taken", "status": "skipped", "ms": 0},
+    {"step": 5, "do": "key F7", "status": "skipped", "ms": 0},
+    {"step": 6, "do": "quit", "status": "ok", "ms": 0}
+  ]
+}

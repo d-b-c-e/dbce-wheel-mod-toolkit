@@ -1,0 +1,4 @@
+mute-ffb
+open-page Cameras
+open-page Replays more
+quit

@@ -1,0 +1,14 @@
+{
+  "schema": "dbce.selftest.result@1",
+  "name": "unsupported",
+  "pass": false,
+  "muteFfb": true,
+  "ms": 48,
+  "failure": {"step": 1, "reason": "this mod does not support start"},
+  "log": "log.txt",
+  "steps": [
+    {"step": 1, "do": "start attract", "status": "failed", "ms": 0, "reason": "this mod does not support start"},
+    {"step": 2, "do": "set Triple.Layout \"wide\"", "status": "skipped", "ms": 0},
+    {"step": 3, "do": "quit", "status": "ok", "ms": 0}
+  ]
+}

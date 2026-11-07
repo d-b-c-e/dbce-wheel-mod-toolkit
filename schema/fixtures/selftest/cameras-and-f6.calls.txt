@@ -1,0 +1,23 @@
+mute-ffb
+open-page Cameras advanced
+capture requested frame-f6-cameras.png
+capture written frame-f6-cameras.png
+close-panel
+start race
+camera next -> Cockpit
+capture requested frame-cam-1.png
+capture written frame-cam-1.png
+dump
+camera next -> Chase
+capture requested frame-cam-2.png
+capture written frame-cam-2.png
+dump
+camera next -> Bonnet
+capture requested frame-cam-3.png
+capture written frame-cam-3.png
+dump
+key F7
+set Triple.Enabled=false
+capture requested frame-triple-off.png
+capture written frame-triple-off.png
+quit

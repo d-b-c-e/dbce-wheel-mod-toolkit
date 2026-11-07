@@ -1,0 +1,12 @@
+{
+  "schema": "dbce.selftest@1",
+  "name": "failing-step",
+  "steps": [
+    { "wait": "menu" },
+    { "f6": "open", "page": "Cameras" },
+    { "f6": "open", "page": "Replays", "view": "more" },
+    { "capture": "never-taken" },
+    { "key": "F7" },
+    { "quit": true }
+  ]
+}

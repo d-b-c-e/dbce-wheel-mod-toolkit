@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/schema/dbce-selftest.schema.json",
+  "title": "dbce.selftest@1 script",
+  "description": "A self-test script, written by the agent to %LOCALAPPDATA%\\dbce\\<game>\\selftest\\script.json. docs/SELFTEST.md explains every step; native/selftest/dbce_selftest.hpp is the C++ reader and applies the same rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "steps"],
+  "properties": {
+    "schema": { "const": "dbce.selftest@1" },
+    "name": { "$ref": "#/$defs/slug", "description": "The run folder: results go to <selftest folder>\\<name>." },
+    "muteFfb": { "type": "boolean", "default": true, "description": "Mute force feedback for the run (safety 2). It stays muted for the rest of the session." },
+    "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600, "default": 120, "description": "For the whole run; a step still waiting then fails." },
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/repeatedStep" }
+    }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "fileName": { "type": "string", "pattern": "^[A-Za-z0-9_{}-][A-Za-z0-9._{}-]{0,63}$", "description": "{i} is replaced by the repetition number, from 1." },
+    "step": {
+      "type": "object",
+      "minProperties": 1,
+      "oneOf": [
+        { "required": ["wait"] }, { "required": ["f6"] }, { "required": ["capture"] }, { "required": ["dump"] }, { "required": ["start"] },
+        { "required": ["camera"] }, { "required": ["key"] }, { "required": ["set"] }, { "required": ["quit"] }
+      ],
+      "properties": {
+        "wait": { "type": "string", "pattern": "^(menu|race|frames:[1-9][0-9]{0,6}|ms:[1-9][0-9]{0,6})$", "description": "menu and race are what the mod reports; frames:N and ms:N count from the step's start." },
+        "f6": { "enum": ["open", "close"] },
+        "page": { "type": "string", "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$", "description": "f6 open: a page id or name; absent, the page shown." },
+        "view": { "enum": ["simple", "advanced", "more"], "description": "f6 open: Simple or Advanced view, or More options open (descriptor pages)." },
+        "capture": { "$ref": "#/$defs/fileName", "description": "frame-<name>.png from the game's own frame." },
+        "dump": { "$ref": "#/$defs/fileName", "description": "state-<name>.json with the mod's probes." },
+        "start": { "$ref": "#/$defs/slug", "description": "Host-specific, such as race." },
+        "camera": { "enum": ["next", "previous"] },
+        "key": { "type": "string", "minLength": 1, "maxLength": 32, "description": "A mod key, through the mod's own key path, such as F7." },
+        "set": { "type": "string", "minLength": 1, "maxLength": 64, "description": "A setting for this session only; never saved." },
+        "value": { "type": ["boolean", "number", "string"] },
+        "session": { "const": true },
+        "quit": { "const": true, "description": "The game's normal quit path; only as the last step." }
+      },
+      "allOf": [
+        { "if": { "required": ["set"] }, "then": { "required": ["value"] } },
+        { "if": { "anyOf": [{ "required": ["page"] }, { "required": ["view"] }] }, "then": { "required": ["f6"], "properties": { "f6": { "const": "open" } } } },
+        { "if": { "anyOf": [{ "required": ["value"] }, { "required": ["session"] }] }, "then": { "required": ["set"] } }
+      ]
+    },
+    "repeatedStep": {
+      "description": "A step, optionally repeated: each repetition runs the step and then the steps in each.",
+      "allOf": [
+        { "$ref": "#/$defs/step" },
+        { "if": { "anyOf": [{ "required": ["repeat"] }, { "required": ["each"] }] }, "then": { "not": { "required": ["quit"] } } }
+      ],
+      "properties": {
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "each": { "type": "array", "items": { "$ref": "#/$defs/step", "not": { "required": ["quit"] }, "unevaluatedProperties": false } }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

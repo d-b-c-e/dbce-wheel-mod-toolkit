@@ -1,0 +1,12 @@
+{
+  "schema": "dbce.selftest@1",
+  "name": "timeout",
+  "muteFfb": false,
+  "timeoutSeconds": 2,
+  "steps": [
+    { "wait": "menu" },
+    { "dump": "menu" },
+    { "wait": "race" },
+    { "capture": "never-taken" }
+  ]
+}

@@ -1,0 +1,3 @@
+mute-ffb
+start attract
+quit

@@ -1,0 +1,15 @@
+{
+  "schema": "dbce.selftest.result@1",
+  "name": "timeout",
+  "pass": false,
+  "muteFfb": false,
+  "ms": 2032,
+  "failure": {"step": 3, "reason": "timed out after 2 s"},
+  "log": "log.txt",
+  "steps": [
+    {"step": 1, "do": "wait menu", "status": "ok", "ms": 0},
+    {"step": 2, "do": "dump menu", "status": "ok", "ms": 0, "file": "state-menu.json"},
+    {"step": 3, "do": "wait race", "status": "failed", "ms": 1952, "reason": "timed out after 2 s"},
+    {"step": 4, "do": "capture never-taken", "status": "skipped", "ms": 0}
+  ]
+}

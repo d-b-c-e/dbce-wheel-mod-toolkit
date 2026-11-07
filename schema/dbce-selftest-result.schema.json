@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/schema/dbce-selftest-result.schema.json",
+  "title": "dbce.selftest@1 result",
+  "description": "result.json, written last by the mod in <selftest folder>\\<name>\\ (or invalid\\ when the script's name cannot be read): its existence means the run is over. docs/SELFTEST.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "pass", "muteFfb", "ms", "failure", "steps"],
+  "properties": {
+    "schema": { "const": "dbce.selftest.result@1" },
+    "name": { "type": "string", "description": "The script's name; empty when it could not be read." },
+    "pass": { "type": "boolean", "description": "Every step ran and none failed." },
+    "muteFfb": { "type": "boolean" },
+    "ms": { "type": "integer", "minimum": 0, "description": "From reading the script to writing this file." },
+    "failure": {
+      "description": "The first failure; null when the run passed.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false, "required": ["step", "reason"],
+          "properties": {
+            "step": { "type": "integer", "minimum": 0, "description": "The step number, from 1; 0 for the script itself or the force feedback mute." },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "log": { "const": "log.txt", "description": "The mod's log tail, when the mod gave one." },
+    "steps": {
+      "type": "array",
+      "description": "One item per step after repeats; empty when the script could not be read.",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["step", "do", "status", "ms"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "do": { "type": "string", "description": "The step in words, such as \"camera next (2/5)\"." },
+          "status": { "enum": ["ok", "failed", "skipped"], "description": "skipped: after a failure (a last quit still runs)." },
+          "ms": { "type": "integer", "minimum": 0 },
+          "file": { "type": "string", "pattern": "^(frame-[A-Za-z0-9._-]+\\.png|state-[A-Za-z0-9._-]+\\.json)$", "description": "What a capture or dump wrote, beside this file." },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

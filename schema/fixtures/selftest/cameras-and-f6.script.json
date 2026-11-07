@@ -1,0 +1,20 @@
+{
+  "schema": "dbce.selftest@1",
+  "name": "cameras-and-f6",
+  "muteFfb": true,
+  "timeoutSeconds": 120,
+  "steps": [
+    { "wait": "menu" },
+    { "f6": "open", "page": "Cameras", "view": "advanced" },
+    { "capture": "f6-cameras" },
+    { "f6": "close" },
+    { "start": "race" },
+    { "wait": "race" },
+    { "camera": "next", "repeat": 3, "each": [{ "wait": "frames:30" }, { "capture": "cam-{i}" }, { "dump": "cam-{i}" }] },
+    { "key": "F7" },
+    { "set": "Triple.Enabled", "value": false, "session": true },
+    { "wait": "ms:250" },
+    { "capture": "triple-off" },
+    { "quit": true }
+  ]
+}
