@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compile check of shared/ui/DbceUi.cs, the P/Invoke wrapper of native/ui-host/dbce_ui.dll (UI-2), for the two
+    runtimes a Unity mod has: net35 (Mono 2.0; Mono 4.x takes the same file) and net6.0 (BepInEx 6 on IL2CPP).
+    Games compile the source itself through shared/ui; this assembly is not shipped.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net35;net6.0</TargetFrameworks>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>Dbce.Wheel.UiHost</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Ui</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/ui/DbceUi.cs" Link="ui/DbceUi.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net35'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+; dbce_ui.dll exports (dbce_ui.h). Undecorated on x86 and x64. Add exports; never change or remove one.
+LIBRARY dbce_ui
+EXPORTS
+    dbce_ui_version
+    dbce_ui_configure
+    dbce_ui_set_toggle
+    dbce_ui_set_choice
+    dbce_ui_set_number
+    dbce_ui_set_text
+    dbce_ui_set_row_visible
+    dbce_ui_set_ffb_on
+    dbce_ui_poll_event
+    dbce_ui_navigate
+    dbce_ui_is_open
+    dbce_ui_state
+    dbce_ui_show_toast
+    dbce_ui_note_saved
+    dbce_ui_attach_d3d9
+    dbce_ui_render_event_func
+    dbce_ui_status
+    dbce_ui_poll_log
