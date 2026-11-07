@@ -18,10 +18,14 @@ foreach ($arch in 'x64', 'x86') {
     $outInput = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $cpuSrc /Fo`"$dir\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_input_custody.cpp $($cpuObj -join ' ') /Fo`"$dir\\`" /Fe`"$dir\test_input_custody.exe`" user32.lib && `"$dir\test_input_custody.exe`"" 2>&1
     $outInput | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $outInput; throw "input custody check failed ($arch)" }
+    # UI-1 settings descriptor reader (CPU only): the GRID and art samples parse, non-standard descriptors are refused.
+    $outDesc = cmd /c "`"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_panel_descriptor.cpp dbce_panel_descriptor.cpp /Fo`"$dir\\`" /Fe`"$dir\test_panel_descriptor.exe`" && `"$dir\test_panel_descriptor.exe`" samples" 2>&1
+    $outDesc | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
+    if ($LASTEXITCODE) { $outDesc; throw "descriptor check failed ($arch)" }
 }
 if ($InputCustodyOnly) { return }
 $imgui = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp $im\backends\imgui_impl_dx11.cpp $im\backends\imgui_impl_dx12.cpp $im\backends\imgui_impl_dx9.cpp"
-$cmd = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui /Fo`"$build\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_panel_render.cpp dbce_panel.cpp dbce_panel_input.cpp dbce_overlay_d3d11.cpp dbce_overlay_d3d12.cpp /Fo`"$build\\`" `"$build\imgui.obj`" `"$build\imgui_draw.obj`" `"$build\imgui_tables.obj`" `"$build\imgui_widgets.obj`" `"$build\imgui_impl_dx11.obj`" `"$build\imgui_impl_dx12.obj`" /Fe`"$build\test_panel_render.exe`" && `"$build\test_panel_render.exe`" `"$build`""
+$cmd = "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui /Fo`"$build\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_panel_render.cpp dbce_panel.cpp dbce_panel_descriptor.cpp dbce_panel_input.cpp dbce_overlay_d3d11.cpp dbce_overlay_d3d12.cpp /Fo`"$build\\`" `"$build\imgui.obj`" `"$build\imgui_draw.obj`" `"$build\imgui_tables.obj`" `"$build\imgui_widgets.obj`" `"$build\imgui_impl_dx11.obj`" `"$build\imgui_impl_dx12.obj`" /Fe`"$build\test_panel_render.exe`" && `"$build\test_panel_render.exe`" `"$build`""
 # STD-023 frame-rate statistics (pure).
 $outFs = cmd /c "`"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_frame_stats.cpp /Fo`"$build\\`" /Fe`"$build\test_frame_stats.exe`" && `"$build\test_frame_stats.exe`"" 2>&1
 $outFs | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
@@ -57,7 +61,7 @@ $b32 = Join-Path $build 'x86'
 New-Item -ItemType Directory -Force $b32 | Out-Null
 $imgui32 = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp $im\backends\imgui_impl_dx11.cpp $im\backends\imgui_impl_dx9.cpp"
 $objs32 = 'imgui', 'imgui_draw', 'imgui_tables', 'imgui_widgets', 'imgui_impl_dx11', 'imgui_impl_dx9' | ForEach-Object { "`"$b32\$_.obj`"" }
-$cmd9x86 = "`"$(Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat')`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui32 /Fo`"$b32\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d9.cpp dbce_overlay_d3d9.cpp dbce_overlay_d3d11.cpp dbce_panel.cpp dbce_panel_input.cpp /Fo`"$b32\\`" $($objs32 -join ' ') /Fe`"$b32\test_overlay_d3d9.exe`" && `"$b32\test_overlay_d3d9.exe`" `"$b32`""
+$cmd9x86 = "`"$(Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat')`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W0 /I$im $imgui32 /Fo`"$b32\\`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d9.cpp dbce_overlay_d3d9.cpp dbce_overlay_d3d11.cpp dbce_panel.cpp dbce_panel_descriptor.cpp dbce_panel_input.cpp /Fo`"$b32\\`" $($objs32 -join ' ') /Fe`"$b32\test_overlay_d3d9.exe`" && `"$b32\test_overlay_d3d9.exe`" `"$b32`""
 foreach ($c9 in $cmd9, $cmd9x86) {
     $out9 = cmd /c $c9 2>&1
     $out9 | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|Reset:|in-flight' | ForEach-Object { $_.Line }
