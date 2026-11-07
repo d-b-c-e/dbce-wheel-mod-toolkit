@@ -99,6 +99,7 @@ bool handle(MSG *m)
         if (alt && (vk == VK_TAB || vk == VK_F4)) return false;     // leave window switching and closing alone
         if (vk == VK_LWIN || vk == VK_RWIN) return false;
         if (vk == VK_ESCAPE) { if (down && !repeat && !CancelBindingCapture()) SetOpen(false); return true; }
+        if (NavigateFromKey(vk, down, repeat)) return true;          // descriptor pages: the same path as the wheel
         push(EV_KEY, vk, down ? 1 : 0);
         return true;
     }

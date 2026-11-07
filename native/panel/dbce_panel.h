@@ -112,8 +112,22 @@ void SetDeveloper(bool on);                 // tests and self-tests
 bool RowRect(const char *id, float rect[4]);
 // The descriptor page the panel shows, and whether More options is open; for the dev channel and render checks.
 StdPage DescriptorPage();
+bool DescriptorMoreOptions();               // More options is open on the page shown
 void ShowDescriptorPage(StdPage page, bool moreOptions);
 bool DescriptorPageShown(StdPage page);     // the tab is there (empty pages are hidden; Help always)
+// UI-2 navigation of the descriptor pages, the same for the keyboard and the wheel: while a descriptor panel is open,
+// the arrows, Enter and Space arrive here from the input hook, and a mod forwards its wheel D-pad and buttons.
+// Up/Down move the focus between the tab row and the page's controls (More options included); Left/Right change the
+// focused control (Off/On, the previous or next choice, a slider step) or, on the tab row, the page; Select flips a
+// toggle, steps a choice, presses an action, starts a binding capture or opens More options. Back is Esc (it cancels a
+// binding capture first, then closes); Open and Close open and close the panel. Safe from any thread: Open, Close and
+// Back apply at once, the others on the next drawn frame. False: no descriptor, or the panel is closed (Open aside).
+enum class Nav { Up, Down, Left, Right, Select, Back, Open, Close };
+bool Navigate(Nav command);
+// The input hook, on the window thread: true when vk is one of the navigation keys above and was used.
+bool NavigateFromKey(int vk, bool down, bool repeat);
+// The focused control's id ("" for the tab row; "panel.more" and the like for the panel's own rows), as last drawn.
+void NavFocus(char *out, size_t size);
 
 // What an overlay draws on a closed frame: the panel, the status line, the frame-rate counter or a toast.
 bool DrawWanted();

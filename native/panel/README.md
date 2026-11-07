@@ -51,11 +51,20 @@ Set `Config::descriptor` and the panel draws the standard pages itself instead o
 - **Toasts and labels:** `ShowToast(line1, line2)` draws up to two lines for 3 s at the bottom of the centre screen,
   panel open or closed (camera name, the F7 view, notices). The frame-rate counter is unchanged. Overlays draw a
   closed frame when `DrawWanted()`.
+- **Navigation (UI-2):** `Navigate(Nav)` takes Up, Down, Left, Right, Select, Back, Open and Close, from any thread,
+  and the input hook sends the arrows, Enter and Space there too, so the keyboard and the wheel move the same focus.
+  Up/Down go between the tab row and the page's controls (More options and the panel's own rows included); Left/Right
+  set Off/On, step a choice or a slider (5 for percent, 1 for a slider, one decimal place for a number) or, on the tab
+  row, change the page; Select flips, steps, presses an action, starts a binding capture or opens More options; Back
+  is Esc. Open, Close and Back apply at once, the others one per drawn frame. The focused control has an accent box once
+  a command was used; `NavFocus` reports its id. Changes made this way are reported by `PollEvent` like clicks.
+  `Configure` may now run while an overlay draws (`dbce_ui` configures after its hooks are in).
 - **Dev channel:** `open <page> [more]` takes a page id or name (`open telemetry more`).
 - The descriptor (and its strings) must outlive the panel. A mod that reads one also compiles
   `dbce_panel_descriptor.cpp`; the hand-drawn pages need nothing new.
 
-No game uses descriptor pages yet; the spike (UI-2 onward) moves art and GRID onto them.
+No game uses descriptor pages yet; the spike (UI-4 onward) moves art and GRID onto them. Non-native mods get the same
+panel through `native/ui-host` (`dbce_ui.dll`).
 
 ## Using it in a mod
 

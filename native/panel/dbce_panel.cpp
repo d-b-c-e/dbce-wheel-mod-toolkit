@@ -63,6 +63,19 @@ static unsigned g_drawFrame = 1;
 static SRWLOCK g_toastLock = SRWLOCK_INIT;
 static char g_toast[2][128];
 static volatile LONG64 g_toastUntil;
+// Configure may replace the descriptor while an overlay draws (dbce_ui configures after its hooks are in): Draw holds
+// this shared, Configure exclusive.
+static SRWLOCK g_cfgLock = SRWLOCK_INIT;
+// UI-2 navigation. Commands are queued under g_rowLock and applied by the render thread at the start of a drawn frame,
+// against the focus list of the frame before: 0 is the tab row, n the nth control drawn on the page.
+enum CoreItem { CORE_NONE, CORE_MORE, CORE_SHOW_FPS, CORE_TEXT_SIZE };
+struct NavItem { RowState *row; CoreItem core; };
+static std::deque<Nav> g_navQueue;
+static std::vector<NavItem> g_navItems, g_navBuild;   // last frame's list, and the one being drawn (render thread)
+static int g_focus;                                  // render thread
+static char g_focusId[64];                           // under g_rowLock
+static volatile LONG g_textInput;                    // ImGui is editing text: the arrows and Enter are ImGui's
+static void pushEvent(PanelEvent::Type type, const RowState &r);
 
 static const char *const kPageNames[PAGE_COUNT] = {"Controls", "FFB", "Cameras", "Telemetry", "Help"};
 
@@ -134,19 +147,23 @@ static void savePref(const char *key, const char *value)
 
 void Configure(const Config &config)
 {
+    AcquireSRWLockExclusive(&g_cfgLock);
     g_cfg = config;
     g_cfg.pages[PAGE_HELP] = true;   // Help always stays (STD-017)
     g_page = PAGE_HELP;
     for (int p = 0; p < PAGE_COUNT; ++p) if (g_cfg.pages[p]) { g_page = (Page)p; break; }   // first offered page
     setupDescriptor();
     loadPrefs();
+    ReleaseSRWLockExclusive(&g_cfgLock);
 }
 
 bool IsOpen() { return g_open != 0; }
+static volatile LONG g_navReset;          // set when the panel opens: the focus goes back to the tab row
 void SetOpen(bool open)
 {
-    InterlockedExchange(&g_open, open ? 1 : 0);
+    const LONG was = InterlockedExchange(&g_open, open ? 1 : 0);
     if (open) { g_pageChanged = true; g_more = false; }
+    if (open && !was) InterlockedExchange(&g_navReset, 1);
 }
 void Toggle() { SetOpen(!IsOpen()); }
 bool StatusLineActive() { return InterlockedCompareExchange(&g_statusActive, 0, 0) != 0; }
@@ -502,6 +519,11 @@ static void setupDescriptor()
     AcquireSRWLockExclusive(&g_rowLock);
     g_rows.clear();
     g_events.clear();
+    g_navQueue.clear();
+    g_navItems.clear();
+    g_navBuild.clear();
+    g_focus = 0;
+    g_focusId[0] = 0;
     for (CoreRect &c : g_coreRects) c = CoreRect();
     if (g_cfg.descriptor) {
         g_rows.resize(g_cfg.descriptor->rows.size());
@@ -590,6 +612,164 @@ bool CancelBindingCapture()
     ReleaseSRWLockExclusive(&g_rowLock);
     return any;
 }
+
+// ---- UI-2 navigation (dbce_panel.h Nav) ---------------------------------------------------------------------------
+static bool g_navShown;                  // a navigation command was used since the panel opened: draw the focus box
+static bool g_navScroll;                 // Up/Down moved the focus: keep the focused row in view
+bool Navigate(Nav c)
+{
+    switch (c) {
+    case Nav::Open: SetOpen(true); return true;
+    case Nav::Close: SetOpen(false); return true;
+    case Nav::Back:
+        if (!IsOpen()) return false;
+        if (!CancelBindingCapture()) SetOpen(false);
+        return true;
+    default: break;
+    }
+    if (!g_cfg.descriptor || !IsOpen()) return false;
+    AcquireSRWLockExclusive(&g_rowLock);
+    if (g_navQueue.size() < 64) g_navQueue.push_back(c);
+    ReleaseSRWLockExclusive(&g_rowLock);
+    return true;
+}
+bool NavigateFromKey(int vk, bool down, bool repeat)
+{
+    if (!g_cfg.descriptor || !IsOpen() || InterlockedCompareExchange(&g_textInput, 0, 0)) return false;
+    Nav c;
+    switch (vk) {
+    case VK_UP: c = Nav::Up; break;
+    case VK_DOWN: c = Nav::Down; break;
+    case VK_LEFT: c = Nav::Left; break;
+    case VK_RIGHT: c = Nav::Right; break;
+    case VK_RETURN: case VK_SPACE: if (repeat) return true; c = Nav::Select; break;
+    default: return false;
+    }
+    if (down) Navigate(c);
+    return true;
+}
+void NavFocus(char *out, size_t size)
+{
+    if (!out || !size) return;
+    AcquireSRWLockShared(&g_rowLock);
+    strncpy_s(out, size, g_focusId, _TRUNCATE);
+    ReleaseSRWLockShared(&g_rowLock);
+}
+
+static const char *const kTextSizes[3] = {"Normal", "Large", "Larger"};
+static const int kTextScales[3] = {100, 125, 150};
+static int textSizeIndex() { return g_userScale >= 150 ? 2 : g_userScale >= 125 ? 1 : 0; }
+static void setTextSize(int size)
+{
+    g_userScale = kTextScales[size];
+    char v[16]; sprintf_s(v, "%d", g_userScale);
+    savePref("Scale", v);
+}
+static void setShowFps(bool on) { if (on != g_showFps) { g_showFps = on; savePref("ShowFrameRate", on ? "1" : "0"); } }
+
+// One command against the focus list of the last drawn frame (render thread, g_rowLock not held). One command per
+// frame, so each one sees the page as the one before left it.
+static void applyNav(Nav c)
+{
+    g_navShown = true;
+    const int n = (int)g_navItems.size();
+    if (g_focus > n) g_focus = n;
+    if (c == Nav::Up || c == Nav::Down) {
+        g_focus = (std::max)(0, (std::min)(n, g_focus + (c == Nav::Down ? 1 : -1)));
+        g_navScroll = true;
+        return;
+    }
+    if (g_focus == 0) {   // the tab row: Left/Right change the page, Select goes to its first control
+        if (c == Nav::Select) { if (n) { g_focus = 1; g_navScroll = true; } return; }
+        const int dir = c == Nav::Right ? 1 : -1;
+        for (int p = (int)g_dpage + dir; p >= 0 && p < (int)StdPage::Count; p += dir) {
+            if (!DescriptorPageShown((StdPage)p)) continue;
+            g_dpage = (StdPage)p; g_pageChanged = true; g_more = false;
+            g_navItems.clear();
+            savePref("Page", descriptorPageSaveName(g_dpage));
+            return;
+        }
+        return;
+    }
+    const NavItem it = g_navItems[g_focus - 1];
+    switch (it.core) {
+    case CORE_MORE: g_more = c == Nav::Select ? !g_more : c == Nav::Right; return;
+    case CORE_SHOW_FPS: setShowFps(c == Nav::Select ? !g_showFps : c == Nav::Right); return;
+    case CORE_TEXT_SIZE: {
+        const int was = textSizeIndex();
+        const int size = c == Nav::Select ? (was + 1) % 3 : (std::max)(0, (std::min)(2, was + (c == Nav::Right ? 1 : -1)));
+        if (size != was) setTextSize(size);
+        return;
+    }
+    default: break;
+    }
+    AcquireSRWLockExclusive(&g_rowLock);
+    RowState &r = *it.row;
+    const Row &d = *r.row;
+    bool changed = false;
+    const int dir = c == Nav::Right ? 1 : c == Nav::Left ? -1 : 0;
+    switch (d.kind) {
+    case RowKind::Toggle: {
+        const bool v = c == Nav::Select ? !r.toggle : c == Nav::Right;
+        changed = v != r.toggle; r.toggle = v;
+        break;
+    }
+    case RowKind::Choice: {
+        const int count = (int)d.choices.size();
+        if (count < 1) break;
+        const int v = c == Nav::Select ? (r.choice + 1) % count : (std::max)(0, (std::min)(count - 1, r.choice + dir));
+        changed = v != r.choice; r.choice = v;
+        break;
+    }
+    case RowKind::Percent: case RowKind::Slider: case RowKind::Number: {
+        if (!dir) break;
+        const double step = d.kind == RowKind::Percent ? 5.0 : d.kind == RowKind::Slider ? 1.0 : 1.0 / std::pow(10.0, d.decimals);
+        double v = (std::min)(d.maxValue, (std::max)(d.minValue, r.number + dir * step));
+        if (d.kind != RowKind::Number) v = (double)std::lround(v);
+        changed = v != r.number; r.number = v;
+        break;
+    }
+    case RowKind::Binding:
+        if (c == Nav::Select && !r.capturing) { r.capturing = true; pushEvent(PanelEvent::Type::Capture, r); }
+        break;
+    case RowKind::Action:
+        if (c == Nav::Select) pushEvent(PanelEvent::Type::Action, r);
+        break;
+    case RowKind::Status: break;
+    }
+    if (changed) {
+        pushEvent(PanelEvent::Type::Changed, r);
+        if (d.nextStart) r.changedNextStart = true;
+    }
+    ReleaseSRWLockExclusive(&g_rowLock);
+}
+
+// The focus box: an accent outline around a control, drawn past the body's clip on the sides only.
+static void focusBox(const float r[4])
+{
+    const float s = g_scale, p = 4 * s;
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    const ImVec2 clip0 = dl->GetClipRectMin(), clip1 = dl->GetClipRectMax();
+    dl->PushClipRect(ImVec2(r[0] - p - 2 * s, clip0.y), ImVec2(r[2] + p + 2 * s, clip1.y), false);
+    dl->AddRect(ImVec2(r[0] - p, r[1] - p), ImVec2(r[2] + p, r[3] + p), ImGui::GetColorU32(kAccent), 4 * s, 0, 2 * s);
+    dl->PopClipRect();
+}
+
+// Each focusable control, in draw order (under g_rowLock): it joins this frame's focus list, and the focused one is
+// outlined and kept in view.
+static void navItem(RowState *row, CoreItem core, const char *id, const float rect[4])
+{
+    g_navBuild.push_back({row, core});
+    if ((int)g_navBuild.size() != g_focus) return;
+    strncpy_s(g_focusId, id, _TRUNCATE);
+    if (!g_navShown) return;
+    focusBox(rect);
+    if (g_navScroll) {
+        ImGui::ScrollToRectEx(ImGui::GetCurrentWindow(), ImRect(rect[0], rect[1], rect[2], rect[3]), ImGuiScrollFlags_KeepVisibleEdgeY);
+        g_navScroll = false;
+    }
+}
+
 bool DeveloperOn() { return g_developer; }
 void SetDeveloper(bool on) { g_developer = on; }
 bool RowRect(const char *id, float rect[4])
@@ -606,6 +786,7 @@ bool RowRect(const char *id, float rect[4])
     return ok;
 }
 StdPage DescriptorPage() { return g_dpage; }
+bool DescriptorMoreOptions() { return g_more; }
 void ShowDescriptorPage(StdPage page, bool moreOptions)
 {
     if (!DescriptorPageShown(page)) return;
@@ -651,12 +832,14 @@ static void pushEvent(PanelEvent::Type type, const RowState &r)
     g_events.push_back(e);
 }
 
-static void noteCoreRect(const char *id, const ImVec2 &a)
+static void noteCoreRect(const char *id, const ImVec2 &a, CoreItem nav = CORE_NONE)
 {
     const float x1 = a.x + (std::max)(0.0f, ImGui::GetContentRegionAvail().x);
     const float y1 = ImGui::GetCursorScreenPos().y - ImGui::GetStyle().ItemSpacing.y;
+    const float rect[4] = {a.x, a.y, x1, y1};
     for (CoreRect &c : g_coreRects)
-        if (!c.id || !strcmp(c.id, id)) { c.id = id; c.rect[0] = a.x; c.rect[1] = a.y; c.rect[2] = x1; c.rect[3] = y1; c.drawnFrame = g_drawFrame; return; }
+        if (!c.id || !strcmp(c.id, id)) { c.id = id; memcpy(c.rect, rect, sizeof rect); c.drawnFrame = g_drawFrame; break; }
+    if (nav != CORE_NONE) navItem(nullptr, nav, id, rect);
 }
 
 // A number field with its unit, clamped to the row's range.
@@ -763,6 +946,7 @@ static void drawRow(RowState &r)
     r.rect[2] = a.x + (std::max)(0.0f, ImGui::GetContentRegionAvail().x);
     r.rect[3] = ImGui::GetCursorScreenPos().y - ImGui::GetStyle().ItemSpacing.y;
     r.drawnFrame = g_drawFrame;
+    if (RowIsControl(d.kind)) navItem(&r, CORE_NONE, d.id.c_str(), r.rect);
     ImGui::PopID();
 }
 
@@ -837,24 +1021,18 @@ static void drawDescriptorBody(StdPage page)
     const ImVec2 a = ImGui::GetCursorScreenPos();
     ImGui::SetNextItemOpen(g_more, ImGuiCond_Always);
     g_more = ImGui::TreeNodeEx("More options", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAvailWidth);
-    noteCoreRect("panel.more", a);
+    noteCoreRect("panel.more", a, CORE_MORE);
     if (!g_more) return;
     if (page == StdPage::Display) {
         const ImVec2 b = ImGui::GetCursorScreenPos();
         if (OffOn("Show frame rate", &g_showFps, "A small counter in the top-right corner.")) savePref("ShowFrameRate", g_showFps ? "1" : "0");
-        noteCoreRect("panel.show-frame-rate", b);
+        noteCoreRect("panel.show-frame-rate", b, CORE_SHOW_FPS);
     }
     if (page == StdPage::Help) {
-        static const char *const kSizes[3] = {"Normal", "Large", "Larger"};
-        static const int kScales[3] = {100, 125, 150};
-        int size = g_userScale >= 150 ? 2 : g_userScale >= 125 ? 1 : 0;
+        int size = textSizeIndex();
         const ImVec2 b = ImGui::GetCursorScreenPos();
-        if (Choice("Text size", kSizes, 3, &size)) {
-            g_userScale = kScales[size];
-            char v[16]; sprintf_s(v, "%d", g_userScale);
-            savePref("Scale", v);
-        }
-        noteCoreRect("panel.text-size", b);
+        if (Choice("Text size", kTextSizes, 3, &size)) setTextSize(size);
+        noteCoreRect("panel.text-size", b, CORE_TEXT_SIZE);
     }
     drawRows(page, true, RowLevel::Advanced);
     drawRows(page, false, RowLevel::Advanced);
@@ -873,6 +1051,15 @@ static void drawDescriptorPanel(int width, int height)
     ImGui::Begin("##dbce-panel", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     const ImGuiStyle &st = ImGui::GetStyle();
+
+    // UI-2 navigation: a fresh focus on the tab row when the panel opens, then one queued command per frame.
+    if (InterlockedExchange(&g_navReset, 0)) { g_focus = 0; g_navShown = false; g_navItems.clear(); }
+    bool haveNav = false;
+    Nav nav = Nav::Up;
+    AcquireSRWLockExclusive(&g_rowLock);
+    if (!g_navQueue.empty()) { nav = g_navQueue.front(); g_navQueue.pop_front(); haveNav = true; }
+    ReleaseSRWLockExclusive(&g_rowLock);
+    if (haveNav) applyNav(nav);
 
     // Header: the product name, and x to close (05-ux-simplification.md 1.0).
     ImGui::PushFont(g_heading);
@@ -904,6 +1091,10 @@ static void drawDescriptorPanel(int width, int height)
         ImDrawList *dl = ImGui::GetWindowDrawList();
         dl->AddText(pos, ImGui::GetColorU32(sel || hov ? kText : kSecondary), name);
         if (sel) dl->AddRectFilled(ImVec2(pos.x, pos.y + sz.y + 6 * s), ImVec2(pos.x + sz.x, pos.y + sz.y + 9 * s), ImGui::GetColorU32(kAccent));
+        if (sel && g_focus == 0 && g_navShown) {
+            const float box[4] = {pos.x, pos.y, pos.x + sz.x, pos.y + sz.y + 10 * s};
+            focusBox(box);
+        }
     }
     ImGui::Separator();
 
@@ -912,7 +1103,11 @@ static void drawDescriptorPanel(int width, int height)
     ImGui::BeginChild("##body", ImVec2(0, -footer), ImGuiChildFlags_None, ImGuiWindowFlags_None);
     if (g_pageChanged) { ImGui::SetScrollY(0); g_pageChanged = false; }
     AcquireSRWLockExclusive(&g_rowLock);
+    g_navBuild.clear();
+    if (g_focus == 0) g_focusId[0] = 0;
     drawDescriptorBody(g_dpage);
+    g_navItems.swap(g_navBuild);
+    if (g_focus > (int)g_navItems.size()) { g_focus = (int)g_navItems.size(); g_focusId[0] = 0; }
     ReleaseSRWLockExclusive(&g_rowLock);
     ImGui::EndChild();
 
@@ -1123,11 +1318,14 @@ static void drawPanel(int width, int height)
 
 void Draw(int width, int height)
 {
+    AcquireSRWLockShared(&g_cfgLock);
     drawPanel(width, height);
     drawStatusLine(width, height);
     drawToast(width, height);
     drawFrameCounter(width, height);
     ++g_drawFrame;
+    InterlockedExchange(&g_textInput, IsOpen() && ImGui::GetIO().WantTextInput ? 1 : 0);
+    ReleaseSRWLockShared(&g_cfgLock);
 }
 
 // ---- dev channel (unattended checks; Config::devFile) --------------------------------------------------------
