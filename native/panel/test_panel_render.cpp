@@ -167,8 +167,8 @@ static bool waiting(const dbce::panel::PanelEvent &e, dbce::panel::PanelEvent::T
 static int descriptorChecks(ID3D11Device *dev, ID3D11DeviceContext *ctx, const char *outDir, const char *samples, const char *ini)
 {
     using namespace dbce::panel;
-    struct Sample { const char *file, *name; bool telemetry; };
-    const Sample kSamples[] = {{"grid-2019.settings.json", "grid", false}, {"art-of-rally.settings.json", "art", true}};
+    struct Sample { const char *file, *name; bool telemetry, developerRows; };
+    const Sample kSamples[] = {{"grid-2019.settings.json", "grid", true, false}, {"art-of-rally.settings.json", "art", true, true}};
     const int sizes[][2] = {{1280, 720}, {1920, 1080}, {7680, 1440}};
     int shots = 0;
     for (const Sample &sm : kSamples) {
@@ -197,12 +197,12 @@ static int descriptorChecks(ID3D11Device *dev, ID3D11DeviceContext *ctx, const c
                 Configure(c);
                 ClearStatusLine();
                 SetDeveloper(developer != 0);
-                // The fixed page set: empty pages hidden (GRID has no Telemetry rows), Help and Display always, Developer
-                // only behind the switch.
+                // The fixed page set: empty pages hidden, Help and Display always, Developer only behind the switch
+                // and only with developer rows (GRID has none).
                 CHECK(DescriptorPageShown(StdPage::Controls) && DescriptorPageShown(StdPage::Ffb) && DescriptorPageShown(StdPage::Display));
                 CHECK(DescriptorPageShown(StdPage::Cameras) && DescriptorPageShown(StdPage::Help));
                 CHECK(DescriptorPageShown(StdPage::Telemetry) == sm.telemetry);
-                CHECK(DescriptorPageShown(StdPage::Developer) == (developer != 0));
+                CHECK(DescriptorPageShown(StdPage::Developer) == (developer != 0 && sm.developerRows));
                 for (int pi = 0; pi < (int)StdPage::Count; ++pi) {
                     const StdPage page = (StdPage)pi;
                     if (!DescriptorPageShown(page)) continue;

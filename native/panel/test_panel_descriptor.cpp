@@ -56,24 +56,25 @@ int main(int argc, char **argv)
     wchar_t path[260];
     std::string error;
 
-    // GRID (2019): the game reads the wheel, no telemetry of its own, so no Telemetry rows.
+    // GRID (2019), its own descriptor (UI-7): the game reads the wheel; Telemetry shows the game's own UDP; no developer rows.
     Descriptor grid;
     swprintf_s(path, L"%hs\\grid-2019.settings.json", samples);
     CHECK(LoadDescriptor(path, grid, error));
     if (!error.empty()) fprintf(stderr, "grid: %s\n", error.c_str());
-    CHECK(grid.product == "GRID (2019) Wheel Mod" && grid.version == "0.2.25");
+    CHECK(grid.product == "GRID (2019) Wheel Mod" && grid.version == "0.2.26");
     CHECK(grid.keys == "F6 settings \xC2\xB7 F8 force feedback off \xC2\xB7 F7 camera view");
-    CHECK(count(grid, StdPage::Telemetry, RowLevel::Simple) + count(grid, StdPage::Telemetry, RowLevel::Advanced) == 0);
+    CHECK(count(grid, StdPage::Telemetry, RowLevel::Simple) == 2 && count(grid, StdPage::Telemetry, RowLevel::Advanced) == 0);
+    for (int p = 0; p < (int)StdPage::Developer; ++p) CHECK(count(grid, (StdPage)p, RowLevel::Developer) == 0);
     const Row *screens = find(grid, "display.screens");
-    CHECK(screens && screens->kind == RowKind::Choice && screens->choices.size() == 4 && screens->defaultValue == 3 && screens->nextStart);
+    CHECK(screens && screens->kind == RowKind::Choice && screens->choices.size() == 4 && screens->defaultValue == 1 && screens->nextStart);
     const Row *strength = find(grid, "ffb.strength");
     CHECK(strength && strength->kind == RowKind::Percent && strength->minValue == 0 && strength->maxValue == 100 && strength->defaultValue == 50 && !strength->nextStart);
     const Row *angle = find(grid, "display.side-angle");
-    CHECK(angle && angle->kind == RowKind::Slider && angle->unit == "\xC2\xB0" && angle->level == RowLevel::Advanced);
-    const Row *size = find(grid, "display.screen-size");
-    CHECK(size && size->kind == RowKind::Number && size->decimals == 1 && size->defaultValue == 32);
+    CHECK(angle && angle->kind == RowKind::Slider && angle->unit == "\xC2\xB0" && angle->level == RowLevel::Simple && angle->nextStart);
+    const Row *curve = find(grid, "display.curve");
+    CHECK(curve && curve->kind == RowKind::Slider && curve->maxValue == 20000 && curve->defaultValue == 1500 && curve->level == RowLevel::Advanced);
     const Row *gain = find(grid, "ffb.normalize-gain");
-    CHECK(gain && gain->level == RowLevel::Developer && gain->nextStart && gain->defaultValue == 0);
+    CHECK(gain && gain->level == RowLevel::Advanced && gain->nextStart && gain->defaultValue == 0);
     const Row *status = find(grid, "controls.status");
     CHECK(status && status->kind == RowKind::Status && status->label.empty() && status->text == "Set up your wheel in the game's Controls menu.");
 
