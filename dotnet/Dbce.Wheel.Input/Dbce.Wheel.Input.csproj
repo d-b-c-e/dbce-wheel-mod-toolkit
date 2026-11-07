@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    netstandard2.0 build of the binding sources in this folder, for Mono 4.x and IL2CPP (BepInEx 6) hosts and Wheelkit.
+    Mono 2.0 hosts (Horizon Chase Turbo) cannot load netstandard2.0: they compile these same files into the plugin with
+    DBCE_NET35 and DBCE_INPUT_NET35 (unity/Dbce.Unity.props sets both), delivered by Sync-Toolkit's shared part.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Input</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Input</RootNamespace>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>

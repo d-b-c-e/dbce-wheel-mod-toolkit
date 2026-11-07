@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    netstandard2.0 build of the engine-free F6 presentation sources in shared/ui and the problem report in
+    shared/support. The Unity renderers in shared/ui/unity are not part of it: they compile inside each game's plugin.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Ui</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Ui</RootNamespace>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/ui/*.cs" LinkBase="ui" />
+    <Compile Include="../../shared/support/SupportReport.cs" Link="support/SupportReport.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dbce.Wheel.Input\Dbce.Wheel.Input.csproj" />
+  </ItemGroup>
+
+</Project>

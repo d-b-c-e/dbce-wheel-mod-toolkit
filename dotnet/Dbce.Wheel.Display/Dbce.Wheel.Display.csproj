@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    netstandard2.0 build of the engine-free display sources in shared/display (racing row, monitors, window landing,
+    span target). TripleLayout.cs and TripleSettingsDraft.cs stay source-only for now: they are internal C# 10 helpers
+    that compile against Dbce.TripleScreen.Core from the triple-screen toolkit.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.Display</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Display</RootNamespace>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
+    <Compile Include="../../shared/display/WindowsMonitors.cs" Link="WindowsMonitors.cs" />
+    <Compile Include="../../shared/display/WindowLanding.cs" Link="WindowLanding.cs" />
+    <Compile Include="../../shared/display/SpanTarget.cs" Link="SpanTarget.cs" />
+  </ItemGroup>
+
+</Project>
