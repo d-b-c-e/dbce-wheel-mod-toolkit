@@ -1005,7 +1005,7 @@ static void drawDescriptorBody(StdPage page)
         }
         return;
     }
-    if (page == StdPage::Display) displayStatus();
+    if (page == StdPage::Display && g_cfg.gameFrames) displayStatus();
     if (page == StdPage::Help) helpStatus();
     drawRows(page, true, RowLevel::Simple);
     drawRows(page, false, RowLevel::Simple);
@@ -1023,7 +1023,7 @@ static void drawDescriptorBody(StdPage page)
     g_more = ImGui::TreeNodeEx("More options", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAvailWidth);
     noteCoreRect("panel.more", a, CORE_MORE);
     if (!g_more) return;
-    if (page == StdPage::Display) {
+    if (page == StdPage::Display && g_cfg.gameFrames) {
         const ImVec2 b = ImGui::GetCursorScreenPos();
         if (OffOn("Show frame rate", &g_showFps, "A small counter in the top-right corner.")) savePref("ShowFrameRate", g_showFps ? "1" : "0");
         noteCoreRect("panel.show-frame-rate", b, CORE_SHOW_FPS);

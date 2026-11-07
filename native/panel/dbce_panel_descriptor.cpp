@@ -340,14 +340,15 @@ bool ParseDescriptor(const char *json, size_t length, Descriptor &out, std::stri
     if (root.type == Json::Object && root.get("settings")) s = root.get("settings");
     if (s->type != Json::Object) return ck.fail("the settings block must be an object");
     for (const auto &kv : s->o) {
-        static const char *const kTop[] = {"product", "version", "modPage", "keys", "pages"};
+        static const char *const kTop[] = {"product", "version", "modPage", "keys", "config", "pages"};
         bool known = false;
         for (const char *f : kTop) known = known || kv.first == f;
         if (!known) return ck.fail("settings: unknown field '" + kv.first + "'");
     }
     Descriptor d;
     if (!ck.str(*s, "product", d.product, "settings", true) || !ck.str(*s, "version", d.version, "settings", false) ||
-        !ck.str(*s, "modPage", d.modPage, "settings", false) || !ck.str(*s, "keys", d.keys, "settings", false)) return false;
+        !ck.str(*s, "modPage", d.modPage, "settings", false) || !ck.str(*s, "keys", d.keys, "settings", false) ||
+        !ck.str(*s, "config", d.config, "settings", false)) return false;
     if (d.product.empty()) return ck.fail("settings: empty product");
     const Json *pages = s->get("pages");
     if (!pages || pages->type != Json::Object) return ck.fail("settings: 'pages' must be an object");

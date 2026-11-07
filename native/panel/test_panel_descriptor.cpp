@@ -63,6 +63,15 @@ int main(int argc, char **argv)
     if (!error.empty()) fprintf(stderr, "grid: %s\n", error.c_str());
     CHECK(grid.product == "GRID (2019) Wheel Mod" && grid.version == "0.2.26");
     CHECK(grid.keys == "F6 settings \xC2\xB7 F8 force feedback off \xC2\xB7 F7 camera view");
+    CHECK(grid.config.empty());
+    {   // "config" names the ini dbce-ui.exe --setup writes (UI-3); optional, and a string.
+        const char ok[] = "{\"settings\":{\"product\":\"T\",\"config\":\"dbce-t.ini\",\"pages\":{}}}";
+        Descriptor c;
+        std::string e;
+        CHECK(ParseDescriptor(ok, sizeof ok - 1, c, e) && c.config == "dbce-t.ini");
+        const char bad[] = "{\"settings\":{\"product\":\"T\",\"config\":3,\"pages\":{}}}";
+        CHECK(!ParseDescriptor(bad, sizeof bad - 1, c, e));
+    }
     CHECK(count(grid, StdPage::Telemetry, RowLevel::Simple) == 2 && count(grid, StdPage::Telemetry, RowLevel::Advanced) == 0);
     for (int p = 0; p < (int)StdPage::Developer; ++p) CHECK(count(grid, (StdPage)p, RowLevel::Developer) == 0);
     const Row *screens = find(grid, "display.screens");

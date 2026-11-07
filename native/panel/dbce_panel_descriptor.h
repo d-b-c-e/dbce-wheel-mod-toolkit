@@ -4,6 +4,7 @@
 //
 //   { "settings": {                                   (or the same object without the "settings" wrapper)
 //       "product": "GRID (2019) Wheel Mod", "version": "0.2.24", "modPage": "https://...", "keys": "F6 settings · ...",
+//       "config": "dbce-grid2019.ini",              (optional: where dbce-ui.exe --setup keeps the values)
 //       "pages": { "ffb": [ { "id": "ffb.enabled", "kind": "toggle", "label": "Force feedback", "default": true,
 //                             "help": "F8 turns it off at any time.", "level": "simple", "apply": "live" }, ... ],
 //                  "controls": [...], "display": [...], "cameras": [...], "telemetry": [...], "help": [...] } } }
@@ -43,6 +44,7 @@ struct Row {
 
 struct Descriptor {
     std::string product, version, modPage, keys;
+    std::string config;                     // the mod's ini, relative to the descriptor file (dbce-ui.exe --setup)
     std::vector<Row> rows;                  // in draw order within each page
 };
 

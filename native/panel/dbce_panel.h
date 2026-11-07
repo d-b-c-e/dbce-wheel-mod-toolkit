@@ -54,6 +54,9 @@ struct Config {
     // descriptor must outlive the panel. The mod pushes values with SetToggle/SetChoice/SetNumber/SetText and reads the
     // player's changes and actions with PollEvent, both on its own thread. Null: the hand-drawn pages above.
     const Descriptor *descriptor = nullptr;
+    // False for a host that draws no game frames (dbce-ui.exe --setup, game closed): the Display page leaves out the
+    // frame-rate status and the Show frame rate row.
+    bool gameFrames = true;
 };
 
 // Called once by the mod before the overlay starts (not from DllMain).
