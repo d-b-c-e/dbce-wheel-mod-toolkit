@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/schema/dbce-mod.schema.json",
+  "title": "dbce-mod.json",
+  "description": "One file per mod: written in the game repo, shipped in the package, installed in the game folder. docs/DBCE-MOD-JSON.md explains every field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "name", "version", "package"],
+  "properties": {
+    "schema": { "const": "dbce.mod@1" },
+    "id": { "$ref": "#/$defs/slug", "description": "The game id, the same as Wheelkit's catalog and the portfolio grid." },
+    "name": { "$ref": "#/$defs/text", "description": "The product name players see, such as \"DiRT 4 Wheel Mod\"." },
+    "version": { "$ref": "#/$defs/version" },
+    "steamAppId": { "type": "integer", "minimum": 1 },
+    "folder": { "$ref": "#/$defs/text", "description": "The game's default install folder name." },
+    "exe": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$" },
+    "log": {
+      "type": "object", "additionalProperties": false, "required": ["file", "start"],
+      "properties": {
+        "file": { "$ref": "#/$defs/text", "description": "Relative to the game folder, or starting with %LOCALAPPDATA%." },
+        "start": { "$ref": "#/$defs/text", "description": ".NET regular expression for the mod's first log line; group v is the version." }
+      }
+    },
+    "package": { "$ref": "#/$defs/package" },
+    "settings": { "$ref": "#/$defs/settings" },
+    "controls": { "$ref": "#/$defs/controls" },
+    "cameras": { "type": "array", "items": { "$ref": "#/$defs/cameraStart" } },
+    "selfTest": { "$ref": "#/$defs/selfTest" },
+    "installed": { "$ref": "#/$defs/installed" }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.+-]+)?$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "relPath": { "type": "string", "minLength": 1, "pattern": "^[^\\\\:*?\"<>|]+$", "not": { "pattern": "(^/|(^|/)\\.\\.(/|$))" }, "description": "Relative, forward slashes, never ..." },
+    "action": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
+    "fromTo": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to"],
+      "properties": { "from": { "$ref": "#/$defs/relPath" }, "to": { "$ref": "#/$defs/relPath" } }
+    },
+    "package": {
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["dinput8", "bepinex5", "bepinex6-il2cpp", "umm", "ue4ss", "electron-asar", "standalone"] },
+        "loader": {
+          "type": ["object", "null"], "additionalProperties": false, "required": ["name", "version"],
+          "properties": { "name": { "$ref": "#/$defs/text" }, "version": { "$ref": "#/$defs/text" }, "bundle": { "$ref": "#/$defs/relPath" } }
+        },
+        "payload": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/fromTo" } },
+        "optional": { "type": "array", "items": { "$ref": "#/$defs/fromTo" } },
+        "conflicts": { "type": "array", "items": { "$ref": "#/$defs/relPath" } },
+        "seedConfig": { "type": "array", "items": { "$ref": "#/$defs/fromTo" } },
+        "knownBuilds": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["file", "sha256"],
+            "properties": { "file": { "$ref": "#/$defs/relPath" }, "sha256": { "$ref": "#/$defs/sha256" }, "label": { "$ref": "#/$defs/text" } }
+          }
+        },
+        "strict": { "type": "boolean" },
+        "uiHost": { "enum": ["native-panel", "dbce-ui-dll", "dbce-ui-exe", "game"] }
+      }
+    },
+    "settings": {
+      "type": "object", "additionalProperties": false, "required": ["product", "pages"],
+      "properties": {
+        "product": { "$ref": "#/$defs/text" },
+        "version": { "type": "string" },
+        "modPage": { "type": "string" },
+        "keys": { "type": "string" },
+        "config": { "$ref": "#/$defs/relPath" },
+        "format": { "enum": ["ini", "xml"] },
+        "pages": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "controls": { "$ref": "#/$defs/rows" }, "ffb": { "$ref": "#/$defs/rows" }, "display": { "$ref": "#/$defs/rows" },
+            "cameras": { "$ref": "#/$defs/rows" }, "telemetry": { "$ref": "#/$defs/rows" }, "help": { "$ref": "#/$defs/rows" }
+          }
+        }
+      }
+    },
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } },
+    "row": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,63}$" },
+        "kind": { "enum": ["toggle", "choice", "percent", "slider", "number", "binding", "action", "status"] },
+        "label": { "type": "string" },
+        "help": { "type": "string" },
+        "level": { "enum": ["simple", "advanced", "developer"] },
+        "apply": { "enum": ["live", "next-start"] },
+        "choices": { "type": "array", "minItems": 2, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "default": { "type": ["boolean", "number", "string"] },
+        "unit": { "type": "string" },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "text": { "type": "string" },
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[A-Za-z0-9]+)+$", "description": "What the value means across games, such as ffb.strength; Wheelkit maps rig profiles by role." },
+        "store": {
+          "type": "object", "additionalProperties": false, "required": ["key"],
+          "properties": {
+            "file": { "$ref": "#/$defs/relPath", "description": "Defaults to the settings block's config." },
+            "section": { "type": "string" },
+            "key": { "$ref": "#/$defs/text" },
+            "on": { "type": "string" },
+            "off": { "type": "string" },
+            "scale": { "type": "number", "exclusiveMinimum": 0, "description": "Stored value = shown value x scale." }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "status" } } }, "else": { "required": ["label"] } },
+        { "if": { "properties": { "kind": { "const": "choice" } } }, "then": { "required": ["choices"] }, "else": { "not": { "required": ["choices"] } } },
+        { "if": { "properties": { "kind": { "enum": ["slider", "number"] } } }, "then": { "required": ["min", "max"] } },
+        { "if": { "properties": { "kind": { "enum": ["status", "action", "binding"] } } }, "then": { "not": { "required": ["default"] } } }
+      ]
+    },
+    "controls": {
+      "type": "object", "additionalProperties": false, "required": ["store"],
+      "properties": {
+        "store": { "$ref": "#/$defs/text", "description": "game = the game's own controls menu; otherwise the shared profile adapter id." },
+        "profile": { "$ref": "#/$defs/relPath" },
+        "settings": { "$ref": "#/$defs/relPath" },
+        "optIn": {
+          "type": "object", "additionalProperties": false, "required": ["key", "value"],
+          "properties": {
+            "section": { "type": "string" }, "key": { "$ref": "#/$defs/text" }, "value": { "type": "string" },
+            "default": { "type": "string" }, "appliesAfterRestart": { "type": "boolean" }
+          }
+        },
+        "delivered": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/action" } },
+        "unsupported": { "type": "object", "propertyNames": { "$ref": "#/$defs/action" }, "additionalProperties": { "type": "string" } },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["actions"],
+            "properties": {
+              "actions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/action" } },
+              "transmission": { "enum": ["Sequential", "H-pattern"] },
+              "settingsKey": { "type": "string" },
+              "settingsValues": { "type": "array", "items": { "type": "string" } },
+              "settingsDefault": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "gameControls": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["id", "kind", "label"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9-]+\\.[A-Za-z0-9.-]+$" }, "kind": { "enum": ["Digital", "Analog"] },
+              "label": { "$ref": "#/$defs/text" }, "group": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "cameraStart": {
+      "type": "object", "additionalProperties": false, "required": ["camera", "start", "key"],
+      "description": "STD-046: the starting choice per camera on triple screens.",
+      "properties": {
+        "camera": { "enum": ["cockpit", "bonnet", "bumper", "chase", "isometric"] },
+        "start": { "enum": ["realistic", "game"] },
+        "file": { "$ref": "#/$defs/relPath" },
+        "section": { "type": "string" },
+        "key": { "$ref": "#/$defs/text" },
+        "realistic": { "type": "string" },
+        "game": { "type": "string" }
+      }
+    },
+    "selfTest": {
+      "type": "object", "additionalProperties": false, "required": ["folder", "steps"],
+      "description": "The self-test contract (04-cross-cutting.md D.2): which steps this build runs and which state values it dumps.",
+      "properties": {
+        "folder": { "$ref": "#/$defs/text" },
+        "steps": { "type": "array", "uniqueItems": true, "items": { "enum": ["wait", "f6", "capture", "dump", "start", "camera", "key", "set", "quit"] } },
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["id", "type"],
+            "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[A-Za-z0-9]+)+$" }, "type": { "enum": ["string", "number", "bool"] }, "label": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "installed": {
+      "type": "object", "additionalProperties": false, "required": ["version", "commit", "installedUtc", "files"],
+      "description": "Written only by the installer, in the game folder's copy. Replaces every per-game receipt.",
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "installedUtc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$" },
+        "loaderInstalledByUs": { "type": "boolean" },
+        "files": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+            "properties": { "path": { "$ref": "#/$defs/relPath" }, "sha256": { "$ref": "#/$defs/sha256" } }
+          }
+        },
+        "backups": { "$ref": "#/$defs/relPath" },
+        "flags": { "type": "object", "additionalProperties": { "type": "boolean" } }
+      }
+    }
+  }
+}

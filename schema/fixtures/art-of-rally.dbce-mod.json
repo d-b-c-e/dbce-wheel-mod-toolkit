@@ -1,0 +1,763 @@
+{
+  "schema": "dbce.mod@1",
+  "id": "art-of-rally",
+  "name": "Art of Rally Wheel Mod",
+  "version": "0.4.4",
+  "steamAppId": 550320,
+  "folder": "artofrally",
+  "exe": [
+    "artofrally.exe"
+  ],
+  "repository": "d-b-c-e/dbce-mods-art-of-rally",
+  "package": {
+    "kind": "umm",
+    "loader": {
+      "name": "Unity Mod Manager",
+      "version": "0.27.0"
+    },
+    "payload": [
+      {
+        "from": "Mods/ArtOfSimRally/ArtOfSimRally.Mod.dll",
+        "to": "Mods/ArtOfSimRally/ArtOfSimRally.Mod.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/Dbce.Wheel.Telemetry.dll",
+        "to": "Mods/ArtOfSimRally/Dbce.Wheel.Telemetry.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/Dbce.Wheel.Ffb.dll",
+        "to": "Mods/ArtOfSimRally/Dbce.Wheel.Ffb.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/UnityForceFeedback.dll",
+        "to": "Mods/ArtOfSimRally/UnityForceFeedback.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/Dbce.TripleScreen.Core.dll",
+        "to": "Mods/ArtOfSimRally/Dbce.TripleScreen.Core.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/Dbce.TripleScreen.Protocol.dll",
+        "to": "Mods/ArtOfSimRally/Dbce.TripleScreen.Protocol.dll"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/Info.json",
+        "to": "Mods/ArtOfSimRally/Info.json"
+      },
+      {
+        "from": "Mods/ArtOfSimRally/build.json",
+        "to": "Mods/ArtOfSimRally/build.json"
+      }
+    ],
+    "optional": [
+      {
+        "from": "Mods/ArtOfSimRally/dbce_shim.dll",
+        "to": "Mods/ArtOfSimRally/dbce_shim.dll"
+      }
+    ],
+    "uiHost": "game"
+  },
+  "settings": {
+    "product": "Art of Rally Wheel Mod",
+    "version": "0.4.4",
+    "modPage": "https://github.com/d-b-c-e/dbce-mods-art-of-rally",
+    "config": "Mods/ArtOfSimRally/Settings.xml",
+    "format": "xml",
+    "pages": {
+      "controls": [
+        {
+          "id": "controls.status",
+          "kind": "status",
+          "text": "Set up your wheel: click Steering."
+        },
+        {
+          "id": "controls.steering",
+          "kind": "binding",
+          "label": "Steering",
+          "help": "Turn the wheel fully left, then right."
+        },
+        {
+          "id": "controls.throttle",
+          "kind": "binding",
+          "label": "Throttle",
+          "help": "Press the throttle all the way, then release."
+        },
+        {
+          "id": "controls.brake",
+          "kind": "binding",
+          "label": "Brake",
+          "help": "Press the brake all the way, then release."
+        },
+        {
+          "id": "controls.shift-up",
+          "kind": "binding",
+          "label": "Shift up",
+          "help": "Press the paddle or button for shifting up."
+        },
+        {
+          "id": "controls.shift-down",
+          "kind": "binding",
+          "label": "Shift down",
+          "help": "Press the paddle or button for shifting down."
+        },
+        {
+          "id": "controls.handbrake",
+          "kind": "binding",
+          "label": "Handbrake",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.clutch",
+          "kind": "binding",
+          "label": "Clutch",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.gearbox",
+          "kind": "choice",
+          "label": "Gearbox",
+          "level": "advanced",
+          "choices": [
+            "Game setting",
+            "Automatic",
+            "Manual"
+          ],
+          "default": "Game setting",
+          "help": "Overrides the game's own gearbox setting."
+        },
+        {
+          "id": "controls.change-camera",
+          "kind": "binding",
+          "label": "Change camera",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.look-back",
+          "kind": "binding",
+          "label": "Look back",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.recover",
+          "kind": "binding",
+          "label": "Recover car",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.restart-stage",
+          "kind": "binding",
+          "label": "Restart stage",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.horn",
+          "kind": "binding",
+          "label": "Horn",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.menu-pause",
+          "kind": "binding",
+          "label": "Pause",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.menu-confirm",
+          "kind": "binding",
+          "label": "Confirm",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.menu-back",
+          "kind": "binding",
+          "label": "Back",
+          "level": "advanced"
+        },
+        {
+          "id": "controls.open-settings",
+          "kind": "binding",
+          "label": "Open settings (F6)",
+          "level": "advanced",
+          "text": "Keyboard · F6"
+        },
+        {
+          "id": "controls.ffb-off",
+          "kind": "binding",
+          "label": "Force feedback off (F8)",
+          "level": "advanced",
+          "text": "Keyboard · F8"
+        },
+        {
+          "id": "controls.restore",
+          "kind": "action",
+          "label": "Restore defaults",
+          "level": "advanced",
+          "help": "Clears your bindings on this page."
+        },
+        {
+          "id": "controls.direct-steering",
+          "kind": "toggle",
+          "label": "Direct steering",
+          "default": true,
+          "level": "developer"
+        },
+        {
+          "id": "controls.zero-deadzone",
+          "kind": "toggle",
+          "label": "Remove hidden deadzone",
+          "default": true,
+          "level": "developer"
+        },
+        {
+          "id": "controls.steer-assist-override",
+          "kind": "toggle",
+          "label": "Legacy steering limiter override",
+          "level": "developer"
+        }
+      ],
+      "ffb": [
+        {
+          "id": "ffb.status",
+          "kind": "status",
+          "text": "Starts when you drive"
+        },
+        {
+          "id": "ffb.enabled",
+          "kind": "toggle",
+          "label": "Force feedback",
+          "default": true,
+          "help": "F8 turns it off at any time.",
+          "role": "ffb.enabled",
+          "store": {
+            "key": "ForceFeedbackEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "ffb.strength",
+          "kind": "percent",
+          "label": "Strength",
+          "default": 50,
+          "help": "How heavy the wheel feels. Lower it for strong wheels.",
+          "role": "ffb.strength",
+          "store": {
+            "key": "Strength"
+          }
+        },
+        {
+          "id": "ffb.crash",
+          "kind": "percent",
+          "label": "Crash strength",
+          "default": 50,
+          "level": "advanced",
+          "help": "How hard crashes and big bumps hit.",
+          "role": "ffb.crashStrength",
+          "store": {
+            "key": "CrashStrength"
+          }
+        },
+        {
+          "id": "ffb.reverse",
+          "kind": "toggle",
+          "label": "Reverse direction",
+          "level": "advanced",
+          "help": "Turn on if the wheel pulls away from center.",
+          "role": "ffb.invert",
+          "store": {
+            "key": "Invert",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "ffb.device",
+          "kind": "choice",
+          "label": "Wheel",
+          "level": "advanced",
+          "choices": [
+            "Same as steering",
+            "Second force feedback device"
+          ],
+          "help": "Which device gives force feedback."
+        },
+        {
+          "id": "ffb.restore",
+          "kind": "action",
+          "label": "Restore defaults",
+          "level": "advanced"
+        },
+        {
+          "id": "ffb.smoothing",
+          "kind": "slider",
+          "label": "Smoothing",
+          "unit": "%",
+          "min": 0,
+          "max": 95,
+          "default": 20,
+          "level": "developer",
+          "role": "ffb.smoothing",
+          "store": {
+            "key": "Smoothing",
+            "scale": 0.01
+          }
+        },
+        {
+          "id": "ffb.landing",
+          "kind": "slider",
+          "label": "Landing strength",
+          "unit": "%",
+          "min": 0,
+          "max": 40,
+          "default": 5,
+          "level": "developer",
+          "role": "ffb.landingStrength",
+          "store": {
+            "key": "LandingStrength"
+          }
+        },
+        {
+          "id": "ffb.shift",
+          "kind": "slider",
+          "label": "Shift strength",
+          "unit": "%",
+          "min": 0,
+          "max": 20,
+          "default": 5,
+          "level": "developer",
+          "role": "ffb.shiftStrength",
+          "store": {
+            "key": "ShiftStrength"
+          }
+        }
+      ],
+      "display": [
+        {
+          "id": "display.screens",
+          "kind": "choice",
+          "label": "Screens",
+          "apply": "next-start",
+          "choices": [
+            "Off",
+            "Surround",
+            "Separate monitors"
+          ],
+          "default": "Off",
+          "help": "How your three screens are set up in Windows.",
+          "role": "screens.mode"
+        },
+        {
+          "id": "display.eye-distance",
+          "kind": "number",
+          "label": "Eye distance",
+          "unit": "cm",
+          "min": 30,
+          "max": 300,
+          "default": 60,
+          "help": "From your eyes to the center screen, level with its edges.",
+          "role": "screens.eyeDistanceMm",
+          "store": {
+            "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+            "key": "EyeDistanceMm",
+            "scale": 10
+          }
+        },
+        {
+          "id": "display.screen-size",
+          "kind": "number",
+          "label": "Screen size",
+          "unit": "in",
+          "min": 10,
+          "max": 100,
+          "default": 27,
+          "decimals": 1,
+          "level": "advanced",
+          "help": "Diagonal size of one screen."
+        },
+        {
+          "id": "display.side-angle",
+          "kind": "slider",
+          "label": "Side angle",
+          "unit": "°",
+          "min": 0,
+          "max": 89,
+          "default": 45,
+          "level": "advanced",
+          "help": "How far the side screens turn toward you.",
+          "role": "screens.sideAngleDeg"
+        },
+        {
+          "id": "display.bezel-gap",
+          "kind": "number",
+          "label": "Bezel gap",
+          "unit": "mm",
+          "min": 0,
+          "max": 100,
+          "default": 8,
+          "level": "advanced",
+          "help": "The gap between pictures where two screens meet.",
+          "role": "screens.bezelMm",
+          "store": {
+            "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+            "key": "BezelGapMm"
+          }
+        },
+        {
+          "id": "display.curve",
+          "kind": "choice",
+          "label": "Curved screens",
+          "level": "advanced",
+          "choices": [
+            "Flat",
+            "1000R",
+            "1500R",
+            "1800R",
+            "2300R",
+            "3800R"
+          ],
+          "default": "Flat",
+          "help": "The R number on curved monitors, such as 1500R."
+        },
+        {
+          "id": "display.center-menus",
+          "kind": "toggle",
+          "label": "Menus on the middle screen",
+          "level": "advanced",
+          "help": "Keeps menus and the HUD on the center screen.",
+          "role": "screens.centerMenus",
+          "store": {
+            "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+            "key": "CenterMenusOnMiddleScreen",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "display.restore",
+          "kind": "action",
+          "label": "Restore defaults",
+          "level": "advanced"
+        },
+        {
+          "id": "display.allow-mismatch",
+          "kind": "toggle",
+          "label": "Allow output resolution mismatch",
+          "level": "developer"
+        }
+      ],
+      "cameras": [
+        {
+          "id": "cameras.view",
+          "kind": "status",
+          "text": "Drive to adjust the current camera."
+        },
+        {
+          "id": "cameras.hint",
+          "kind": "status",
+          "text": "Numpad moves the camera, + and - zoom, 5 resets."
+        },
+        {
+          "id": "cameras.switch",
+          "kind": "action",
+          "label": "Switch view (F7)"
+        },
+        {
+          "id": "cameras.bonnet",
+          "kind": "toggle",
+          "label": "Bonnet camera",
+          "default": true,
+          "level": "advanced",
+          "help": "Adds a hood view to the game's camera cycle.",
+          "role": "cameras.bonnetEnabled",
+          "store": {
+            "key": "BonnetCameraEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "cameras.bumper",
+          "kind": "toggle",
+          "label": "Bumper camera",
+          "default": true,
+          "level": "advanced",
+          "help": "Adds a bumper view to the game's camera cycle.",
+          "role": "cameras.bumperEnabled",
+          "store": {
+            "key": "BumperCameraEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "cameras.fov",
+          "kind": "slider",
+          "label": "Field of view",
+          "unit": "°",
+          "min": 20,
+          "max": 120,
+          "default": 60,
+          "level": "advanced",
+          "help": "Zoom for the current camera."
+        },
+        {
+          "id": "cameras.reset",
+          "kind": "action",
+          "label": "Reset camera",
+          "level": "advanced",
+          "help": "Puts the current camera back to its starting view."
+        },
+        {
+          "id": "cameras.keys",
+          "kind": "toggle",
+          "label": "Camera keys",
+          "default": true,
+          "level": "advanced",
+          "role": "cameras.tuningKeys",
+          "store": {
+            "key": "CameraTuningKeys",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "cameras.lean",
+          "kind": "percent",
+          "label": "Corner lean",
+          "default": 10,
+          "level": "developer"
+        },
+        {
+          "id": "cameras.move-step",
+          "kind": "number",
+          "label": "Move per press",
+          "unit": "cm",
+          "min": 0.5,
+          "max": 25,
+          "default": 2,
+          "decimals": 1,
+          "level": "developer"
+        }
+      ],
+      "telemetry": [
+        {
+          "id": "telemetry.status",
+          "kind": "status",
+          "text": "Sending · in SimHub choose Forza Horizon 5"
+        },
+        {
+          "id": "telemetry.enabled",
+          "kind": "toggle",
+          "label": "Telemetry",
+          "default": true,
+          "help": "Live car data for dashboard apps such as SimHub.",
+          "role": "telemetry.enabled",
+          "store": {
+            "key": "TelemetryEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "telemetry.port",
+          "kind": "number",
+          "label": "Port",
+          "min": 1,
+          "max": 65535,
+          "default": 8000,
+          "level": "advanced",
+          "help": "Change only if your dashboard app uses another port.",
+          "role": "telemetry.port",
+          "store": {
+            "key": "TelemetryPort"
+          }
+        },
+        {
+          "id": "telemetry.restore",
+          "kind": "action",
+          "label": "Restore defaults",
+          "level": "advanced"
+        }
+      ],
+      "help": [
+        {
+          "id": "help.report",
+          "kind": "action",
+          "label": "Report a problem",
+          "help": "Saves a report on your Desktop and opens the mod's page."
+        },
+        {
+          "id": "help.restore-all",
+          "kind": "action",
+          "label": "Restore all defaults",
+          "level": "advanced",
+          "help": "Every setting returns to its default. Bindings are kept."
+        },
+        {
+          "id": "help.diagnostic-log",
+          "kind": "toggle",
+          "label": "Log detail for support",
+          "level": "developer"
+        }
+      ]
+    }
+  },
+  "controls": {
+    "store": "art-shim-ini-controls-3",
+    "profile": "Mods/ArtOfSimRally/dbce-controls.ini",
+    "settings": "Mods/ArtOfSimRally/Settings.xml",
+    "optIn": {
+      "key": "SharedInput",
+      "value": "true",
+      "default": "false",
+      "appliesAfterRestart": true
+    },
+    "delivered": [
+      "steer",
+      "throttle",
+      "brake",
+      "clutch",
+      "handbrake",
+      "shiftUp",
+      "shiftDown",
+      "neutral",
+      "reverse",
+      "confirm",
+      "back",
+      "start",
+      "navUp",
+      "navDown",
+      "navLeft",
+      "navRight",
+      "camera",
+      "lookBack",
+      "reset",
+      "horn",
+      "modMenu",
+      "muteFfb",
+      "gear1",
+      "gear2",
+      "gear3",
+      "gear4",
+      "gear5",
+      "gear6",
+      "gear7",
+      "gear8"
+    ],
+    "unsupported": {
+      "select": "Art has no select action"
+    },
+    "conditions": [
+      {
+        "actions": [
+          "shiftUp",
+          "shiftDown"
+        ],
+        "transmission": "Sequential",
+        "settingsKey": "TransmissionMode",
+        "settingsValues": [
+          "Sequential",
+          "H-pattern"
+        ],
+        "settingsDefault": "Follow game",
+        "note": "Delivered only while the car's gearbox is manual. TransmissionMode Sequential or H-pattern forces manual; Automatic never delivers; Follow game delivers only while the game's own transmission option is manual. A writer applying a Sequential profile sets TransmissionMode=Sequential."
+      },
+      {
+        "actions": [
+          "neutral",
+          "reverse",
+          "gear1",
+          "gear2",
+          "gear3",
+          "gear4",
+          "gear5",
+          "gear6",
+          "gear7",
+          "gear8"
+        ],
+        "transmission": "H-pattern",
+        "settingsKey": "TransmissionMode",
+        "settingsValues": [
+          "Sequential",
+          "H-pattern"
+        ],
+        "settingsDefault": "Follow game",
+        "note": "Same gearbox rule. No gate held is neutral; reverse wins a shared gate; a gate outside the current car's gear ratios is ignored, never clamped. Only reverse and gear1-gear8 select a gear (neutral alone selects nothing), so a writer sets TransmissionMode=H-pattern only for an H-pattern profile with one of them bound, and writes no gate when two gates share one control."
+      }
+    ]
+  },
+  "cameras": [
+    {
+      "camera": "cockpit",
+      "start": "realistic",
+      "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+      "key": "CockpitRealistic",
+      "realistic": "true",
+      "game": "false"
+    },
+    {
+      "camera": "bumper",
+      "start": "realistic",
+      "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+      "key": "BumperRealistic",
+      "realistic": "true",
+      "game": "false"
+    },
+    {
+      "camera": "chase",
+      "start": "game",
+      "file": "Mods/ArtOfSimRally/TripleScreen.xml",
+      "key": "ChaseRealistic",
+      "realistic": "true",
+      "game": "false"
+    }
+  ],
+  "installed": {
+    "version": "0.4.4",
+    "commit": "8f53874c32f393624904b68b84e858fc8f6e0b35",
+    "installedUtc": "2026-11-07T16:52:24.5037657Z",
+    "loaderInstalledByUs": false,
+    "files": [
+      {
+        "path": "Mods/ArtOfSimRally/ArtOfSimRally.Mod.dll",
+        "sha256": "785b26d1f2926f3e372d77b0d46c41eba902c0e70c8cf9a2a0d1a5027ca89461"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/Dbce.Wheel.Telemetry.dll",
+        "sha256": "293d09062b7b1fa9fcb7d48b70a6d8f8bff2f22577ee90487786800f8d76373f"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/Dbce.Wheel.Ffb.dll",
+        "sha256": "6fc2be9197d846a477c84e81d39dd420b324bd4b79b30cd54bb78567e270a72b"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/UnityForceFeedback.dll",
+        "sha256": "44e46799945438bc07df738472602db1e3ecc04c3f77cad5b12fcacf49c69272"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/Dbce.TripleScreen.Core.dll",
+        "sha256": "47840472b95a09d1586e04d9cbc0a382ca593816d5b7aff7471fb4afcbb1c99f"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/Dbce.TripleScreen.Protocol.dll",
+        "sha256": "afffc46bd1ea16af10dd6a7ec77ea622c9d5661219c2d2a5b7f71861a6039ef2"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/Info.json",
+        "sha256": "6de4b9dd79a8bc5c84982fc6045038a60d703b72f17680c9d7b9ff3f5ae067c8"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/build.json",
+        "sha256": "e70de7254a6df7c1391d87b2be544abf435ad1cd5e2946e24bc2d1cc3bf1550f"
+      },
+      {
+        "path": "Mods/ArtOfSimRally/dbce_shim.dll",
+        "sha256": "7e4a1251ac733e34a393e28ea3453f3ed409c8356158ff82add4242348a0a9a1"
+      }
+    ],
+    "flags": {
+      "artCurvedTriples": true,
+      "artFovSets": true
+    }
+  }
+}

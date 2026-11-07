@@ -1,0 +1,122 @@
+{
+  "schema": "dbce.mod@1",
+  "id": "dirt-4",
+  "name": "DiRT 4 Wheel Mod",
+  "version": "0.2.5",
+  "steamAppId": 421020,
+  "folder": "DiRT 4",
+  "exe": [
+    "dirt4.exe"
+  ],
+  "repository": "d-b-c-e/dbce-mods-dirt-4",
+  "log": {
+    "file": "%LOCALAPPDATA%\\dbce\\dirt4\\dbce-dirt4.log",
+    "start": "dbce DiRT 4 mod (?<v>[0-9]\\S*) in dirt4\\.exe"
+  },
+  "package": {
+    "kind": "dinput8",
+    "loader": null,
+    "payload": [
+      {
+        "from": "dinput8.dll",
+        "to": "dinput8.dll"
+      }
+    ],
+    "conflicts": [
+      "dinput8.dll"
+    ],
+    "uiHost": "native-panel"
+  },
+  "settings": {
+    "product": "DiRT 4 Wheel Mod",
+    "version": "0.2.5",
+    "modPage": "https://github.com/d-b-c-e/dbce-mods-dirt-4",
+    "keys": "F6 settings · F8 force feedback off",
+    "config": "dbce-dirt4.ini",
+    "format": "ini",
+    "pages": {
+      "ffb": [
+        {
+          "id": "ffb.enabled",
+          "kind": "toggle",
+          "label": "Force feedback",
+          "default": true,
+          "help": "Off stops every force the game sends. F8 too.",
+          "role": "ffb.enabled",
+          "store": {
+            "section": "FFB",
+            "key": "Enabled",
+            "on": "1",
+            "off": "0"
+          }
+        }
+      ],
+      "display": [
+        {
+          "id": "display.screens",
+          "kind": "choice",
+          "label": "Triple screens",
+          "apply": "next-start",
+          "choices": [
+            "Off",
+            "Surround",
+            "Separate monitors"
+          ],
+          "default": "Surround",
+          "help": "How your three screens are set up in Windows.",
+          "role": "screens.mode",
+          "store": {
+            "section": "Triple",
+            "key": "Screens"
+          }
+        }
+      ]
+    }
+  },
+  "controls": {
+    "store": "game"
+  },
+  "selfTest": {
+    "folder": "%LOCALAPPDATA%\\dbce\\dirt4\\selftest",
+    "steps": [
+      "wait",
+      "f6",
+      "capture",
+      "dump",
+      "key",
+      "quit"
+    ],
+    "probes": [
+      {
+        "id": "mod.version",
+        "type": "string"
+      },
+      {
+        "id": "ffb.state",
+        "type": "string",
+        "label": "On, off or muted"
+      },
+      {
+        "id": "screens.mode",
+        "type": "string"
+      },
+      {
+        "id": "f6.page",
+        "type": "string"
+      }
+    ]
+  },
+  "installed": {
+    "version": "0.2.5",
+    "commit": "222202185c0adb3f2ed5140806bb9bbff0fa3710",
+    "installedUtc": "2026-11-07T13:18:00.6672671Z",
+    "loaderInstalledByUs": false,
+    "files": [
+      {
+        "path": "dinput8.dll",
+        "sha256": "ba88865cc71544c9489c6804e7a185711edf168938d776d40b285cc99cd25cdf"
+      }
+    ],
+    "backups": "dbce-dirt4-backups/20261107-131800-4b101790bc0a4f038d7ad0f6cadaf019"
+  }
+}

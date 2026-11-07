@@ -1,0 +1,518 @@
+{
+  "schema": "dbce.mod@1",
+  "id": "super-woden-rally-edge",
+  "name": "Super Woden: Rally Edge Wheel Mod",
+  "version": "0.2.16",
+  "steamAppId": 3218630,
+  "folder": "Super Woden Rally Edge",
+  "exe": [
+    "Super Woden Rally Edge.exe"
+  ],
+  "repository": "d-b-c-e/dbce-mods-woden-rally-edge",
+  "log": {
+    "file": "BepInEx/LogOutput.log",
+    "start": "Loading \\[Woden Rally Edge Wheel (?<v>[0-9][^\\]]*)\\]"
+  },
+  "package": {
+    "kind": "bepinex6-il2cpp",
+    "loader": {
+      "name": "BepInEx",
+      "version": "6.0.0-be.788"
+    },
+    "payload": [
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdgeWheel.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdgeWheel.dll"
+      },
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdge.Core.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdge.Core.dll"
+      },
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Telemetry.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Telemetry.dll"
+      },
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Ffb.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Ffb.dll"
+      },
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll"
+      },
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/telemetry-schema.json",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/telemetry-schema.json"
+      }
+    ],
+    "optional": [
+      {
+        "from": "BepInEx/plugins/WodenRallyEdgeWheel/dbce_shim.dll",
+        "to": "BepInEx/plugins/WodenRallyEdgeWheel/dbce_shim.dll"
+      }
+    ],
+    "knownBuilds": [
+      {
+        "file": "GameAssembly.dll",
+        "sha256": "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c",
+        "label": "Steam build 21802346"
+      }
+    ],
+    "uiHost": "game"
+  },
+  "settings": {
+    "product": "Super Woden: Rally Edge Wheel Mod",
+    "version": "0.2.16",
+    "modPage": "https://github.com/d-b-c-e/dbce-mods-woden-rally-edge",
+    "config": "BepInEx/config/dbce.wodenrallyedgewheel.cfg",
+    "format": "ini",
+    "pages": {
+      "controls": [
+        {
+          "id": "controls.gearbox",
+          "kind": "choice",
+          "label": "Gearbox at start",
+          "choices": [
+            "Keep",
+            "Manual",
+            "Automatic"
+          ],
+          "default": "Keep",
+          "role": "controls.nativeGearbox",
+          "store": {
+            "section": "Input",
+            "key": "NativeGearbox"
+          }
+        }
+      ],
+      "ffb": [
+        {
+          "id": "ffb.enabled",
+          "kind": "toggle",
+          "label": "Force feedback",
+          "default": true,
+          "role": "ffb.enabled",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "Enabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "ffb.strength",
+          "kind": "percent",
+          "label": "Strength",
+          "default": 50,
+          "role": "ffb.strength",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "StrengthPercent"
+          }
+        },
+        {
+          "id": "ffb.crash",
+          "kind": "toggle",
+          "label": "Crash effects",
+          "default": true,
+          "level": "advanced",
+          "role": "ffb.crashEnabled",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "CrashEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "ffb.crash-strength",
+          "kind": "percent",
+          "label": "Crash strength",
+          "default": 50,
+          "level": "advanced",
+          "role": "ffb.crashStrength",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "CrashStrengthPercent"
+          }
+        },
+        {
+          "id": "ffb.damping",
+          "kind": "number",
+          "label": "Damping",
+          "min": 0,
+          "max": 0.5,
+          "default": 0.05,
+          "decimals": 2,
+          "level": "advanced",
+          "role": "ffb.damping",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "Damping"
+          }
+        },
+        {
+          "id": "ffb.reverse",
+          "kind": "toggle",
+          "label": "Reverse direction",
+          "level": "advanced",
+          "role": "ffb.invert",
+          "store": {
+            "section": "ForceFeedback",
+            "key": "Invert",
+            "on": "true",
+            "off": "false"
+          }
+        }
+      ],
+      "display": [
+        {
+          "id": "display.screens",
+          "kind": "choice",
+          "label": "Screens",
+          "apply": "next-start",
+          "choices": [
+            "Off",
+            "Surround",
+            "Separate monitors"
+          ],
+          "default": "Separate monitors",
+          "help": "How your three screens are set up in Windows.",
+          "role": "screens.mode"
+        },
+        {
+          "id": "display.eye-distance",
+          "kind": "number",
+          "label": "Eye distance",
+          "unit": "mm",
+          "min": 100,
+          "max": 3000,
+          "default": 660,
+          "help": "From your eyes to the center screen.",
+          "role": "screens.eyeDistanceMm",
+          "store": {
+            "section": "Triple",
+            "key": "EyeDistanceMm"
+          }
+        },
+        {
+          "id": "display.panel-width",
+          "kind": "number",
+          "label": "Panel width",
+          "unit": "mm",
+          "min": 100,
+          "max": 3000,
+          "default": 708.4,
+          "decimals": 1,
+          "level": "advanced",
+          "role": "screens.panelWidthMm",
+          "store": {
+            "section": "Triple",
+            "key": "PanelWidthMm"
+          }
+        },
+        {
+          "id": "display.panel-height",
+          "kind": "number",
+          "label": "Panel height",
+          "unit": "mm",
+          "min": 100,
+          "max": 2000,
+          "default": 398.5,
+          "decimals": 1,
+          "level": "advanced",
+          "role": "screens.panelHeightMm",
+          "store": {
+            "section": "Triple",
+            "key": "PanelHeightMm"
+          }
+        },
+        {
+          "id": "display.side-angle",
+          "kind": "slider",
+          "label": "Side angle",
+          "unit": "°",
+          "min": 0,
+          "max": 90,
+          "default": 70,
+          "level": "advanced",
+          "role": "screens.sideAngleDeg",
+          "store": {
+            "section": "Triple",
+            "key": "SideAngle"
+          }
+        },
+        {
+          "id": "display.bezel-gap",
+          "kind": "number",
+          "label": "Bezel gap",
+          "unit": "mm",
+          "min": 0,
+          "max": 100,
+          "default": 8,
+          "level": "advanced",
+          "role": "screens.bezelMm",
+          "store": {
+            "section": "Triple",
+            "key": "BezelMm"
+          }
+        },
+        {
+          "id": "display.curve",
+          "kind": "number",
+          "label": "Curve radius",
+          "unit": "mm",
+          "min": 0,
+          "max": 20000,
+          "default": 0,
+          "level": "advanced",
+          "help": "0 for flat screens.",
+          "role": "screens.curveRadiusMm",
+          "store": {
+            "section": "Triple",
+            "key": "CurveRadiusMm"
+          }
+        },
+        {
+          "id": "display.frame-rate",
+          "kind": "toggle",
+          "label": "Show frame rate",
+          "level": "advanced",
+          "role": "display.showFrameRate",
+          "store": {
+            "section": "Display",
+            "key": "ShowFrameRate",
+            "on": "true",
+            "off": "false"
+          }
+        }
+      ],
+      "cameras": [
+        {
+          "id": "cameras.bonnet",
+          "kind": "toggle",
+          "label": "Bonnet camera",
+          "default": true,
+          "level": "advanced",
+          "role": "cameras.bonnetEnabled",
+          "store": {
+            "section": "Camera",
+            "key": "BonnetEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "cameras.bumper",
+          "kind": "toggle",
+          "label": "Bumper camera",
+          "default": true,
+          "level": "advanced",
+          "role": "cameras.bumperEnabled",
+          "store": {
+            "section": "Camera",
+            "key": "BumperEnabled",
+            "on": "true",
+            "off": "false"
+          }
+        }
+      ],
+      "telemetry": [
+        {
+          "id": "telemetry.enabled",
+          "kind": "toggle",
+          "label": "Telemetry",
+          "default": true,
+          "role": "telemetry.enabled",
+          "store": {
+            "section": "Telemetry",
+            "key": "Enabled",
+            "on": "true",
+            "off": "false"
+          }
+        },
+        {
+          "id": "telemetry.port",
+          "kind": "number",
+          "label": "Port",
+          "min": 0,
+          "max": 65535,
+          "default": 8000,
+          "level": "advanced",
+          "role": "telemetry.port",
+          "store": {
+            "section": "Telemetry",
+            "key": "ForzaPort"
+          }
+        },
+        {
+          "id": "telemetry.detail-port",
+          "kind": "number",
+          "label": "Detailed port",
+          "min": 0,
+          "max": 65535,
+          "default": 8001,
+          "level": "developer",
+          "role": "telemetry.detailPort",
+          "store": {
+            "section": "Telemetry",
+            "key": "DetailPort"
+          }
+        }
+      ]
+    }
+  },
+  "controls": {
+    "store": "woden-shim-ini-controls-1",
+    "profile": "BepInEx/config/dbce-controls.ini",
+    "settings": "BepInEx/config/dbce.wodenrallyedgewheel.cfg",
+    "optIn": {
+      "section": "Input",
+      "key": "Backend",
+      "value": "Shim",
+      "default": "Native",
+      "appliesAfterRestart": true
+    },
+    "delivered": [
+      "steer",
+      "throttle",
+      "brake",
+      "handbrake",
+      "shiftUp",
+      "shiftDown",
+      "neutral",
+      "reverse",
+      "confirm",
+      "back",
+      "start",
+      "navUp",
+      "navDown",
+      "navLeft",
+      "navRight",
+      "camera",
+      "lookBack",
+      "reset",
+      "horn",
+      "modMenu",
+      "muteFfb",
+      "gear1",
+      "gear2",
+      "gear3",
+      "gear4",
+      "gear5",
+      "gear6"
+    ],
+    "unsupported": {
+      "clutch": "not delivered by Woden wheel-only shim pilot",
+      "select": "not delivered by Woden wheel-only shim pilot",
+      "gear7": "not delivered by Woden wheel-only shim pilot",
+      "gear8": "not delivered by Woden wheel-only shim pilot"
+    },
+    "conditions": [
+      {
+        "actions": [
+          "shiftUp",
+          "shiftDown"
+        ],
+        "transmission": "Sequential",
+        "settingsKey": "NativeGearbox",
+        "settingsValues": [
+          "Manual"
+        ]
+      },
+      {
+        "actions": [
+          "neutral",
+          "reverse",
+          "gear1",
+          "gear2",
+          "gear3",
+          "gear4",
+          "gear5",
+          "gear6"
+        ],
+        "transmission": "H-pattern",
+        "settingsKey": "NativeGearbox",
+        "settingsValues": [
+          "Manual"
+        ]
+      }
+    ]
+  },
+  "cameras": [
+    {
+      "camera": "bonnet",
+      "start": "game",
+      "section": "Triple",
+      "key": "BonnetRealistic",
+      "realistic": "true",
+      "game": "false"
+    },
+    {
+      "camera": "bumper",
+      "start": "realistic",
+      "section": "Triple",
+      "key": "BumperRealistic",
+      "realistic": "true",
+      "game": "false"
+    },
+    {
+      "camera": "chase",
+      "start": "game",
+      "section": "Triple",
+      "key": "ChaseRealistic",
+      "realistic": "true",
+      "game": "false"
+    },
+    {
+      "camera": "isometric",
+      "start": "game",
+      "section": "Triple",
+      "key": "IsometricRealistic",
+      "realistic": "true",
+      "game": "false"
+    }
+  ],
+  "installed": {
+    "version": "0.2.16",
+    "commit": "38c14a4c2e24159b31d7c452e9fe61bdae8ec877",
+    "installedUtc": "2026-11-07T09:22:19.1002418Z",
+    "loaderInstalledByUs": false,
+    "files": [
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdgeWheel.dll",
+        "sha256": "feef0a0edd82f3d699713420289addd9b935941108e6ad52c64c54ee3e6683c6"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdge.Core.dll",
+        "sha256": "63ec1aa08415de0b4368fe10295e7d4fce2a26e453f972a77b5f31781c4cc56c"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Telemetry.dll",
+        "sha256": "765f5c77814f200b8e2407d141e352e0c9225dcbf2f92fd3f64e69b79c7436e2"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/Dbce.Wheel.Ffb.dll",
+        "sha256": "f5217f81b5bd305e0efca3aacc459b9066c4366cd220c3e4299c511e23b5431a"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll",
+        "sha256": "f8361a08bbe08eaab936b37800d308cf1fc7edab34e2839db16a447fe34178c5"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/telemetry-schema.json",
+        "sha256": "117449b8c350e65f0d67d86642d916f6eee9c02f8fae52a00dd215fb092b4d15"
+      },
+      {
+        "path": "BepInEx/plugins/WodenRallyEdgeWheel/dbce_shim.dll",
+        "sha256": "9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8"
+      }
+    ],
+    "backups": "WodenWheelBackups/before-install-20261107-032217-a601d6ff",
+    "flags": {
+      "curvedTriples": true,
+      "nativeGearboxPreference": true,
+      "controlsProfileHatNeighbours": true
+    }
+  }
+}
