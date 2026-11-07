@@ -2,14 +2,18 @@
 
 Pick this when there is no managed runtime to hook: a native game you sit
 beside. Windows loads your `dinput8.dll` instead of the system one, you forward
-every call to the real thing, and in between you hook the game.
+every call to the real one in `system32`, and in between you hook the game.
 
-Vendor: `-Parts include,native-<arch>,profiles` - and match the architecture to
-the game, not to your machine. OutRun 2006 is 32-bit.
+Vendor the shared native code (F6 panel, force layer, controls, settings,
+support report, display, Dear ImGui, triple-screen) into `src/vendor` from one
+toolkit commit and one triple-screen commit:
 
-Working examples: OutRun2006Tweaks-FFB (x86, produces force),
-milestone-wheel-tools (x64, taps the game's own force).
+```powershell
+pwsh <toolkit>\tools\Sync-Native.ps1 -GameRepo <this repo>          # toolkit master + triple-screen main
+pwsh <toolkit>\tools\Sync-Native.ps1 -GameRepo <this repo> -Check   # in build.ps1: fails if a vendored file was edited
+```
 
-Three files must reach the game folder: your `dinput8.dll`, `WheelFfb.dll`, and
-`force-profiles.ini`. Copy all three as a post-build step; a deploy that misses
-one loses force feedback silently.
+Build for the game's architecture, not your machine's: DiRT 3 and Sega Rally
+Revo are x86, the others x64.
+
+Working examples: GRID (2019), DiRT 4 and DiRT Rally 2.0 (x64), DiRT 3 (x86).

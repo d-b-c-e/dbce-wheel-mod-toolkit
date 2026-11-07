@@ -1,5 +1,15 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- `tools/Sync-Native.ps1` (TK-3, 2026-11-07): native dinput8-proxy games vendor `src/vendor` from one toolkit commit
+  and one triple-screen commit. The script copies whole folders (controls, dinput-proxy, forza, panel, settings,
+  support, imgui, shared/display; triple-screen compositor, geometry and layout) and leaves out tests, vectors and build
+  scripts. It writes a two-line `VERSION`.
+  - `-Check` exits 1 when any vendored file differs from the commits in `VERSION` (CRLF counts as LF). `-DryRun`
+    lists the deltas and writes nothing. `tools/tests/Test-SyncNative.ps1` covers both.
+  - A GRID dry run at 08a8c2a lists the 03-native-family section 2a deltas.
+  - `templates/native-dinput8-proxy` no longer carries WheelFfb guidance. It uses `Sync-Native`, `src/vendor` and
+    the force layer.
+
 - STD-044 settings writer on master (TK-2, 2026-11-07): `native/settings/dbce_ini_single_key_win.hpp` (`saveKey`,
   `saveKeys`; the 4f221fc header DiRT 3 vendors). The F6 panel's `[Panel]` and the FFB layer's `[FFB]` saves use it.
   - For plain mod INIs the bytes are what `WritePrivateProfileStringA` wrote (goldens in `settings/test.cpp`, now run

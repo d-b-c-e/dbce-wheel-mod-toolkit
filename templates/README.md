@@ -7,7 +7,7 @@ what you want to add:
 |---|---|---|
 | `unity-mono-umm/` | Unity with a Mono runtime, so Unity Mod Manager and Harmony work | art-of-sim-rally (Unity 2019.4) |
 | `unity-il2cpp-bepinex/` | Unity compiled to IL2CPP, so you need BepInEx 6 and interop assemblies | iracing-arcade-wheel (Unity 6) |
-| `native-dinput8-proxy/` | Not Unity, or no managed runtime to hook — a native game you sit beside | OutRun2006Tweaks-FFB, milestone-wheel-tools |
+| `native-dinput8-proxy/` | Not Unity, or no managed runtime to hook — a native game you sit beside | dbce-mods-grid-2019, dbce-mods-dirt-4 |
 
 Fingerprint the engine first. `dbce-mod-toolkit` does it across a Steam library
 and will tell you which of the three you are in.
@@ -43,7 +43,8 @@ Then, in order:
 2. Fill in the `TODO` markers in the copied `CLAUDE.md`. Do not delete the
    non-negotiables; they were each paid for once already.
 3. Copy `tools/Sync-Toolkit.ps1` from this repo into the new one and vendor
-   what that shape needs. Each template's README names its parts.
+   what that shape needs. Each template's README names its parts. A native
+   proxy instead runs this repo's `tools/Sync-Native.ps1`, which fills `src/vendor`.
 4. Write the sampler: game state to `ForceInputs`. This is the real work.
 5. **Measure the sign** before tuning anything. A force that pushes the wrong
    way feels like a broken wheel, not like a wrong constant, and every project

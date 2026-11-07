@@ -7,38 +7,37 @@
 
 A `dinput8.dll` wrapper placed beside `<GAME>.exe`. Windows loads it instead of
 the system one, it forwards every call to the real `system32\dinput8.dll`, and
-in between it hooks the game to add force feedback, telemetry and wheel support
-that the game does not have.
+in between it hooks the game to add force feedback control, telemetry and wheel
+support that the game does not have.
 
-It is **<32/64>-bit**, because the game is. That decides which `WheelFfb.dll`
-you vendor and nothing else.
+It is **<32/64>-bit**, because the game is.
 
 ## The toolkit boundary
 
-`lib/toolkit/` is vendored from
-[dbce-wheel-mod-toolkit](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit),
-pinned in `lib/toolkit/VERSION`:
+`src/vendor/` is an exact copy of one
+[dbce-wheel-mod-toolkit](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit)
+commit and one dbce-triple-screen-toolkit commit, named in `src/vendor/VERSION`:
 
 | Path | What it is |
 |---|---|
-| `include/wheelffb.h` | the C ABI of `WheelFfb.dll` and its runtime loader |
-| `include/force_model.h`, `force_profile.h` | the shared force model and the versioned tunes |
-| `include/forza_packet.h` | the Forza telemetry encoder |
-| `native/x86\|x64/WheelFfb.dll` | the DirectInput device and effect layer |
-| `profiles/force-profiles.ini` | the tunes, deployed beside the game and read at runtime |
+| `panel/` | the F6 panel and its D3D9/D3D11/D3D12 overlays |
+| `dinput-proxy/` | the force layer (`dbce_ffb_layer.h`), fence, test switches |
+| `controls/` | bindings, injection and shaping tables |
+| `settings/` | the STD-044 ini writer (`saveKey`, `saveKeys`) |
+| `support/`, `display/`, `forza/` | the issue report, monitor and racing-row rules, the Forza packet |
+| `third_party/imgui/`, `triple-screen/` | Dear ImGui; triple-screen geometry, layout and compositor |
 
 ```powershell
-.\tools\Sync-Toolkit.ps1 -Version vX.Y.Z -Parts include,native-<arch>,profiles
+pwsh <toolkit>\tools\Sync-Native.ps1 -GameRepo .            # re-vendor at toolkit master + triple-screen main
+pwsh <toolkit>\tools\Sync-Native.ps1 -GameRepo . -Check     # run from build.ps1
 ```
 
-**Fix device, effect, packet or force-model bugs in the toolkit, not here.**
-Then re-sync, rebuild — the headers are compiled in — and commit the bumped
-`lib/toolkit`. A second copy of that code is how two projects here came to fix
-the same bug on different days.
+**Never edit a file under `src/vendor`.** Fix it in the toolkit, sync again and
+commit the new `src/vendor`; `-Check` fails the build on any edited copy.
 
-What stays in this repo is **what the car is doing**: where the car state
-lives, which field means what, the game's own surface or collision data, and
-how a crash is detected. That part really is per game.
+What stays in this repo is **what the game is doing**: hook offsets, where the
+car state lives, which field means what, camera and menu adapters. That part
+really is per game.
 
 ## Player settings
 
@@ -50,80 +49,56 @@ controls and recovery accessible in Simple. Advanced adds detailed tuning and
 diagnostics over the same saved values; switching views never resets them or
 changes runtime behavior. Record each option's placement and the guidance hash
 with [acceptance evidence](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX-CHECKLIST.md).
-The toolkit does not supply a shared UI renderer or calibration workflow yet.
 
 ## Non-negotiables
 
 1. **Do nothing heavy in `DllMain`.** `LoadLibrary`, threads and DirectInput
-   under the loader lock deadlock. Defer to the first game tick; that is also
-   when a valid window handle exists, which DirectInput needs.
-2. **Load `WheelFfb.dll` at runtime, never import it.** A missing file must
-   cost force feedback, not stop the game from starting. `WheelFfb_LoadBeside`
-   does this; copy the DLL next to your own as a post-build step, because a
-   deploy that forgets it silently loses all force feedback.
-3. **Force feedback gets its own `EXCLUSIVE | BACKGROUND` device handle**,
-   separate from whatever polls input. A poll-side `Acquire()` on a shared
-   handle destroys downloaded effects mid-corner.
-4. **Zero the wheel while the game window still exists.** Hook `WM_CLOSE` and
-   `ExitProcess`. By `DLL_PROCESS_DETACH` nothing reaches the device, which is
-   how a wheel is left holding torque after Alt+F4.
-5. **Never hard-kill the game with a wheel attached**, for the same reason.
-6. **Measure the sign on real hardware** before tuning. A centring force pushes
-   *against* the steering; getting it backwards feels like a broken wheel, and
-   every project here has done it once.
-7. **No behaviour change to the game beyond what the mod is for.** Observe;
+   under the loader lock deadlock. Defer to the first game tick or the first
+   `DirectInput8Create`.
+2. **Load the real `dinput8.dll` from `system32` by full path**, never by bare
+   name, or the proxy loads itself.
+3. **Zero the wheel while the game window still exists.** Call
+   `dbce::ffb::StopForExit()` from `WM_CLOSE` and `WM_DESTROY`. By
+   `DLL_PROCESS_DETACH` nothing reaches the device, which is how a wheel is left
+   holding torque after Alt+F4.
+4. **Never hard-kill the game with a wheel attached**, for the same reason.
+5. **No behaviour change to the game beyond what the mod is for.** Observe;
    do not alter physics or difficulty.
 
 ## Build, deploy, test
 
-TODO: the build command.
+TODO: the build command. `build.ps1` runs `Sync-Native.ps1 -Check` first.
 
-Output must contain **three** files, and a deploy that misses one is a silent
-loss:
-
-```
-dinput8.dll          this mod
-WheelFfb.dll         the force-feedback layer
-force-profiles.ini   the tunes, read at runtime
-```
-
-Close the game before deploying; it locks the DLL.
+The output is one file, `dinput8.dll`, copied beside the game's exe. It writes
+`dbce-<game>.ini` and its log there. Close the game before deploying; it locks
+the DLL.
 
 TODO: where the logs land.
 
-## Wiring, in order
+## Wiring the force layer, in order
 
-```c
-#include "wheelffb.h"        // lib/toolkit/include
-#include "force_profile.h"
+The game drives its own force feedback through DirectInput; the force layer sits
+on those calls and gives the player FFB Off/On, Strength and F8 Stop FFB.
 
-static WheelFfbApi   ffb;
-static dbce::force::Profile profile;
-static dbce::force::Model*  model;
-static dbce::force::Shaper* shaper;
+```cpp
+#include "vendor/dinput-proxy/dbce_ffb_layer.h"
 
-// once, on the first game tick
-WheelFfb_LoadBeside(&ffb, myModule, L"WheelFfb.dll");
-dbce::force::load_profile_dir(gameFolder, iniProfileName, profile, &why);
-model  = new dbce::force::Model(profile.model);
-shaper = new dbce::force::Shaper(profile.shaper);
-ffb.SetPreferredDeviceGuid(&guidYourInputLayerChose);   // or ...Index
-ffb.InitDirectInput((int)(INT_PTR)hwnd);
+// once, before the game uses DirectInput (not from DllMain)
+dbce::ffb::Options o;
+o.iniPath = iniPath;            // [FFB] Enabled, Strength
+o.log = dlog;
+o.gainEmulation = false;        // true when the game scales force with DIEFFECT.dwGain
+dbce::ffb::Init(o);
 
-// every tick
-dbce::force::Inputs in;
-in.steer = /* TODO */;            in.has_steer = true;
-in.speed_mps = /* TODO */;
-in.lateral_g = /* TODO */;        in.has_lateral_g = true;
-float f = shaper->shape(model->compute(in, dt), in.speed_mps * 3.6f, dt, model->last_was_event);
-ffb.SetDeviceForcesXY((int)(f * 10000.f), 0);
+// in your DirectInput8Create export, after the real call succeeds
+dbce::ffb::HookDirectInput(*out);
 
-// at exit, from a real window message - not DllMain
-ffb.PanicStop();
+// F6 panel FFB page
+dbce::ffb::DrawPanelPage(advanced);
+
+// WM_CLOSE / WM_DESTROY
+dbce::ffb::StopForExit();
 ```
-
-Fill only the inputs the game actually exposes and leave the rest false; the
-model uses what it has.
 
 ## Measured facts — do not re-derive
 
