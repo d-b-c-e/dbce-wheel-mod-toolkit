@@ -26,15 +26,14 @@ through the existing offline `Dbce.Wheel.Course` reader:
 | `dbce.drive-course-route@1` | DRIVE `d91c394`, `CourseRouteCapture.cs` | `progress_raw`, nullable `offset_x/y/z`, native race flags |
 | `dbce.iracing-course-route@1` | iRacing `8763420` (capture `08357c0`), `CourseRouteCapture.cs` | nullable `raw_time`, `raw_clamped_time`, `participant_index` |
 
-All use `route.json`, `progress.tsv` and the existing `dbce-playback-seal-v1`
-seal. The same reader checks sizes before verification, rejects a seal over
-4 KiB or one naming anything except those two payloads, calls Playback's
-`ArtifactSeal.Verify`, then checks JSON/schema and every TSV row. The 8 MiB total
-includes the seal; caps remain 20,000 points and 36,000 rows. Duplicate JSON keys
+All use `route.json`, `progress.tsv` and a `complete.tsv` that the game writes
+last. The reader requires all three, checks sizes, then checks JSON/schema and
+every TSV row; it does not read `complete.tsv` itself (its digest check was
+removed on 2026-11-07). The 8 MiB total covers the two payloads; caps remain
+20,000 points and 36,000 rows. Duplicate JSON keys
 at any depth, malformed JSON/UTF-8, unknown schema versions, mismatched game/frame,
 non-finite or malformed numbers, wrong columns, partial nullable tuples,
-backward time/ticks, count mismatches and unwritten states are refused. Seal
-hashes bind exact bytes: same-size tampering is refused as well as truncation.
+backward time/ticks, count mismatches and unwritten states are refused.
 
 For raw schemas, `file.Raw` is a `RawCourseRoute`. Its `Waypoints` and each row's
 `Position` are **native X/Y/Z**, without compass mapping, scaling, list reversal,
@@ -45,10 +44,10 @@ known and unknown fields, nulls, units/direction qualification text, reported
 distances, origin offsets and native identity fields. Art's missing `courseSample`
 and iRacing's missing `capturedUtc` remain absent. Producer `pathHash` is retained
 as a producer claim (hex shape checked); it is not reinterpreted as a qualified
-course identity. The playback seal verifies the actual metadata/geometry bytes.
+course identity.
 
 ```csharp
-var file = CourseRouteFile.Read(folder); // read-only, sealed and schema checked
+var file = CourseRouteFile.Read(folder); // read-only, complete and schema checked
 if (file.Raw is { } raw) {
     var nativeXYZ = raw.Waypoints[0];
     var qualification = raw.Metadata.GetProperty("directionStatus").GetString();
@@ -64,7 +63,7 @@ coordinates. `SchemaId` identifies the admitted schema; `Raw == null` identifies
 the original Woden path. Common game/request/build/state/reason fields stay
 available on the parent result for all schemas.
 
-This is one reader entry point and one seal-validation path. There is no new
+This is one reader entry point. There is no new
 writer, runtime dependency, UDP/SimHub output or consumer binary repin. Actual
 game captures, physical units, route direction/origin coherence and conversion
 to `CourseSample` remain separate gates. Synthetic raw fixtures and the affected
@@ -92,7 +91,7 @@ integrate that prototype into canonical toolkit main or repin any consumer.
 | `CourseTracker` | Turns positions into progress, laps and completion; the rules are below |
 | `CourseSample` | One snapshot: id, name, length, loop flag, progress, laps, finished, position, yaw, lap time, session id, discontinuity count, spectator/replay/control flags. `TryValidate` checks the invariants |
 | `SimHubCourseFeed` | Draft "dbce course + dash v1" external-sim layout, with an encoder and a decoder. No socket, no SimHub files |
-| `Dbce.Wheel.Course` (net8.0, offline only) | `CourseRouteFile.Read` reads a `dbce.course-route@1` capture folder without changing it. It checks sizes before hashing or parsing (8 MB), then the seal through Playback's `ArtifactSeal`, then the schema: exact `schema`/`frame`, `state` Completed or LimitReached, sha256/request-id/UTC formats, 2-20,000 `[x, y, z]` float waypoints matching `waypointCount`, at most 20,001 distances, no duplicate properties, and every `progress.tsv` row (8 columns, finite numbers, time never going back, row count matching `rows`). Points map once through `CourseAxes.FromUnity`. `CourseCaptureCheck` judges a capture's own drive (game progress included) and a recorded trajectory read by Playback's existing `TrajectoryTape` (`dbce.trajectory@1`), so no second trajectory reader exists |
+| `Dbce.Wheel.Course` (net8.0, offline only) | `CourseRouteFile.Read` reads a `dbce.course-route@1` capture folder without changing it. It requires `complete.tsv`, checks sizes before parsing (8 MB), then the schema: exact `schema`/`frame`, `state` Completed or LimitReached, sha256/request-id/UTC formats, 2-20,000 `[x, y, z]` float waypoints matching `waypointCount`, at most 20,001 distances, no duplicate properties, and every `progress.tsv` row (8 columns, finite numbers, time never going back, row count matching `rows`). Points map once through `CourseAxes.FromUnity`. `CourseCaptureCheck` judges a capture's own drive (game progress included) and a recorded trajectory read by Playback's existing `TrajectoryTape` (`dbce.trajectory@1`), so no second trajectory reader exists |
 | `CourseComparison` | Offline judge for a route capture. It runs the tracker over a trajectory on the game's route and reports: fix, discontinuities, off-course and invalid counts, unflagged backward steps, p95/max offset, course distance against the plan path, and the game-progress scale and deltas. The game's unit is estimated, not assumed. Thresholds belong to the caller |
 
 ### Identity rules
@@ -183,7 +182,7 @@ No owner capture is committed or needed. Every expected value follows from the g
 
 `CourseFilesTests.cs` builds synthetic captures in Woden's exact format. It covers axis mapping, read-only access,
 own-drive unit recovery and trajectory judging, plus refusal of 14 malformed route fields, 4 kinds of unclean JSON,
-6 kinds of malformed progress rows, and changed, unsealed, missing or oversized captures. `CourseCaptureEvidenceTests`
+6 kinds of malformed progress rows, and incomplete, missing or oversized captures. `CourseCaptureEvidenceTests`
 applies the handoff's pass thresholds to an actual capture folder named by `DBCE_COURSE_CAPTURE`, and, if
 `DBCE_COURSE_REFERENCE` names one, to a recorded trajectory of the same course. Otherwise it is skipped.
 
@@ -239,7 +238,7 @@ All output is private and never committed. It goes to
   `totalLaps`, `isClosedCircuit`, `length`, `kms`, `unitConversionFactor`, `waypointCount`, `waypoints`
   (`[[x,y,z],…]`, float32 round-trip text), `distances`, `circuitSameAsStageProgress`, `capturedUtc`.
 - **`progress.tsv`**, with the header `tick	sim_s	px	py	pz	progress_distance	player_percentage	status`.
-- **`complete.tsv`**: names, sizes and sha256 in the existing `dbce-playback-seal-v1` form.
+- **`complete.tsv`**: written last; the reader only requires that it exists.
 
 Limits:
 - **Caps:** at most 20,000 waypoints (refuse above that) and 36,000 rows (600 s at 60 Hz), then stop. Under 8 MB

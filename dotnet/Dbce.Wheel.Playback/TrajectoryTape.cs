@@ -39,13 +39,20 @@ namespace Dbce.Wheel.Playback
     /// <summary>A deliberately bounded single-stage tape. Scene/car changes must start a separate capture.</summary>
     public sealed class TrajectoryTape
     {
+        /// <summary>Written last by <see cref="TrajectoryRecorder.Complete"/>; a tape without it is incomplete.</summary>
+        public const string CompleteFile = "complete.txt";
+        // Tapes recorded before 2026-11-07 end with this file instead.
+        private const string LegacyCompleteFile = "complete.tsv";
         public const string Header = "time_s\tpx_m\tpy_m\tpz_m\tqx\tqy\tqz\tqw\tvx_mps\tvy_mps\tvz_mps\twx_radps\twy_radps\twz_radps\tsteer\tthrottle\tbrake\trpm\tgear";
         public readonly Dictionary<string, string> Metadata;
         public readonly TrajectoryFrame[] Frames;
         private TrajectoryTape(Dictionary<string, string> metadata, TrajectoryFrame[] frames) { Metadata = metadata; Frames = frames; }
         public static TrajectoryTape Read(string directory)
         {
-            ArtifactSeal.Verify(directory, "trajectory.tsv", "trajectory.meta");
+            if (!File.Exists(Path.Combine(directory, CompleteFile)) && !File.Exists(Path.Combine(directory, LegacyCompleteFile)))
+                throw new InvalidDataException("Trajectory is incomplete: no " + CompleteFile);
+            foreach (var name in new[] { "trajectory.meta", "trajectory.tsv" })
+                if (!File.Exists(Path.Combine(directory, name))) throw new InvalidDataException("Trajectory is missing " + name);
             if (new FileInfo(Path.Combine(directory, "trajectory.tsv")).Length > 128 * 1024 * 1024) throw new InvalidDataException("Trajectory exceeds 128 MB");
             var meta = ReadMetadata(Path.Combine(directory, "trajectory.meta"));
             ValidateMetadata(meta);
@@ -138,7 +145,13 @@ namespace Dbce.Wheel.Playback
             {
                 writer.Dispose(); closed = true;
                 if (failed || Count < 2) throw new InvalidDataException("Incomplete or empty trajectory");
-                ArtifactSeal.Complete(directory, new[] { "trajectory.meta", "trajectory.tsv" }.Concat(additionalFiles).ToArray());
+                var files = new[] { "trajectory.meta", "trajectory.tsv" }.Concat(additionalFiles).ToArray();
+                foreach (var file in files)
+                    if (!File.Exists(Path.Combine(directory, file))) throw new InvalidDataException("Missing capture file: " + file);
+                // Written last, so its presence means every stream closed.
+                string temp = Path.Combine(directory, TrajectoryTape.CompleteFile + ".tmp");
+                File.WriteAllText(temp, "frames=" + Count + "\nfiles=" + string.Join(",", files) + "\n", new UTF8Encoding(false));
+                File.Move(temp, Path.Combine(directory, TrajectoryTape.CompleteFile));
             }
             catch { failed = true; throw; }
         }

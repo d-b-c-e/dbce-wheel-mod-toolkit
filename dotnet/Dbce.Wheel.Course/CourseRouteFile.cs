@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using Dbce.Wheel.Playback;
 using Dbce.Wheel.Telemetry;
 
 namespace Dbce.Wheel.Course;
@@ -15,14 +14,14 @@ public sealed record CourseRouteRow(long Tick, double SimSeconds, CourseVector P
     double? PlayerPercentage, string Status);
 
 /// <summary>
-/// Reader for sealed course captures: Woden's <c>dbce.course-route@1</c> and the game-specific raw
-/// Art/DRIVE/iRacing schemas. All use route.json, progress.tsv and complete.tsv.
+/// Reader for completed course captures: Woden's <c>dbce.course-route@1</c> and the game-specific raw
+/// Art/DRIVE/iRacing schemas. All use route.json, progress.tsv and complete.tsv, which the game writes last.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Read-only: files are opened for reading and nothing in the folder is changed. Order of checks: sizes
-/// (before any hashing or parsing), then the seal through <see cref="ArtifactSeal"/> (names, reparse points,
-/// every sealed byte), then the schema. Any violation is an <see cref="InvalidDataException"/> naming the field.
+/// Read-only: files are opened for reading and nothing in the folder is changed. Order of checks: the three
+/// files exist, sizes (before any parsing), then the schema. The contents of complete.tsv are not read. Any
+/// violation is an <see cref="InvalidDataException"/> naming the field.
 /// </para>
 /// <para>
 /// Woden points are mapped with <see cref="CourseAxes.FromUnity"/> as before. Raw imports preserve XYZ and
@@ -89,15 +88,8 @@ public sealed partial class CourseRouteFile
         string progressPath = Path.Combine(directory, "progress.tsv");
         foreach (var path in new[] { routePath, progressPath, Path.Combine(directory, "complete.tsv") })
             if (!File.Exists(path)) throw new InvalidDataException("Course route capture is missing " + Path.GetFileName(path));
-        long sealBytes = new FileInfo(Path.Combine(directory, "complete.tsv")).Length;
-        if (sealBytes > 4096 || new FileInfo(routePath).Length + new FileInfo(progressPath).Length + sealBytes > MaxBytes)
+        if (new FileInfo(routePath).Length + new FileInfo(progressPath).Length > MaxBytes)
             throw new InvalidDataException("Course route capture exceeds 8 MB");
-        // Do not let an otherwise valid seal send the shared verifier hashing arbitrary extra/unbounded files.
-        var seal = StrictLines(Path.Combine(directory, "complete.tsv"));
-        var sealedNames = seal.Skip(1).Select(l => l.Split('\t')[0]).ToArray();
-        if (seal.Length != 3 || !sealedNames.OrderBy(n => n, StringComparer.Ordinal).SequenceEqual(new[] { "progress.tsv", "route.json" }))
-            throw Bad("completion seal must bind exactly route.json and progress.tsv");
-        ArtifactSeal.Verify(directory, "route.json", "progress.tsv");
 
         JsonDocument json;
         try
@@ -267,7 +259,7 @@ public sealed partial class CourseRouteFile
 
     private static string[] StrictLines(string path)
     {
-        // This preflight also reads the seal before ArtifactSeal.Verify. Refuse linked paths before any text read.
+        // Refuse linked paths before any text read.
         for (string? current = Path.GetFullPath(path); current != null; current = Path.GetDirectoryName(current))
             if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw Bad("capture path is a reparse point");
         try

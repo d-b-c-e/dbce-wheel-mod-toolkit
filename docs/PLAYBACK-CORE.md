@@ -9,18 +9,14 @@ device, process launch, input injection or network dependency is present.
   retain their separate occurrences. A monotonic adapter clock bounds waiting.
 - `BufferedTapeWriter` uses an exclusive file and bounded background queue.
   Overflow, oversize rows and writer failure invalidate the capture; closing
-  drains the final tail before a completion seal can be created.
-- `ArtifactSeal` hashes completed files and validates required streams, sizes,
-  relative paths and hashes before playback. It rejects reparse-point payloads.
-  `CompleteNamed` / `VerifyNamed` support separate completion phases, for example
-  `recording-complete.tsv` while a game remains open. Existing `Complete` / `Verify`
-  retain `complete.tsv` and the same format. A seal is a digest of files, not evidence
-  of process exit or successful playback; the consumer validates those separately.
+  drains the final tail before the capture can complete.
 - `SignalStatistics` reports per-sample RMS, signed range, absolute nearest-rank
   percentiles and optional normalized saturation. Missing channels stay missing.
 - `TrajectoryTape` records a bounded single-stage pose stream with explicit game
   build, scene/car identity, timestep and physical-output policy. It rejects
-  nonfinite poses, invalid quaternions, missing physics steps and changed files.
+  nonfinite poses, invalid quaternions and missing physics steps. The recorder
+  writes `complete.txt` last (frame count and file list); `Read` refuses a tape
+  without it and still accepts the `complete.tsv` of tapes recorded before 2026-11-07.
 - `TrajectoryPlayer` owns the adapter through acquire/apply/release and checks
   position and rotation on the following tick, including the final pose. Any
   competing transform writer fails playback and restores the original flags.
@@ -35,7 +31,8 @@ device, process launch, input injection or network dependency is present.
   normally. Existing `Step()` still runs to the tape end with its final next-tick check.
   Native pause/menu timing, eligibility, output suppression and timeout policy remain
   in each game adapter. An interval return is not proof of a native pause or finish.
-- `StageSession` shares arming, capture, playback, completion and timeout behavior.
+- `StageSession` shares arming, capture, playback, completion and timeout behavior
+  behind the `IStageAdapter` interface.
   It keeps original signals alongside poses through game-specific callbacks.
   `FileSessionControl` provides expiring, identified local commands and status.
   Eligibility and timestep are checked throughout playback. Control storage

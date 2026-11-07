@@ -1,7 +1,7 @@
 // MIT. Source-vendored full-session timeline: a data-only JSON contract for one recorded launch.
 // Extracted from DRIVE Rally's DriveRally.Core/FullSessionTimeline.cs (dbce-mods-drive-rally 9f1b85e), keeping its
-// shape, field names and rules, with the schema string supplied by each game. Hosts use their existing serializer
-// and ArtifactSeal; there are no engine, device, input-injection, process or filesystem calls here.
+// shape, field names and rules, with the schema string supplied by each game. Hosts use their existing serializer;
+// there are no engine, device, input-injection, process or filesystem calls here.
 // Builds for netstandard2.0 and later.
 #nullable enable
 using System;

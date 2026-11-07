@@ -17,7 +17,7 @@ namespace Dbce.Wheel.Playback
         // Must latch device/network suppression, without disabling signal sampling.
         void MuteOutputs();
         void StartSignals(string directory);
-        // Flush and validate signals; return relative files to include in the seal.
+        // Flush and validate signals; return the relative files written, listed in complete.txt.
         string[] FinishSignals();
     }
 
@@ -147,7 +147,7 @@ namespace Dbce.Wheel.Playback
                 {
                     string[] files = signalsStarted ? adapter.FinishSignals() : new string[0]; signalsStarted = false;
                     int count = recorder.Count; recorder.Complete(files); recorder = null;
-                    Status = "recorded: " + count + " poses; complete seal written";
+                    Status = "recorded: " + count + " poses";
                 }
                 else if (player != null) { Abort("stopped before all poses were verified"); return; }
                 else Status = "cancelled before stage start";

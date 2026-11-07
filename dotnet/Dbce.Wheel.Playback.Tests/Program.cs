@@ -100,26 +100,6 @@ try
     }
     Check(File.ReadAllLines(Path.Combine(root, "rows")).SequenceEqual(Enumerable.Range(0, 10000).Select(i => i.ToString())), "Queue preserves every row in order including final tail");
     Reject(() => new BufferedTapeWriter(Path.Combine(root, "rows")), "Cannot overwrite a capture");
-    File.WriteAllText(Path.Combine(root, "metadata"), "fixture");
-    ArtifactSeal.Complete(root, new[] { "rows", "metadata" });
-    ArtifactSeal.Verify(root, "rows", "metadata"); assertions++;
-    var processSeal = File.ReadAllBytes(Path.Combine(root, "complete.tsv"));
-    ArtifactSeal.CompleteNamed(root, "recording-complete.tsv", new[] { "rows", "metadata" });
-    ArtifactSeal.VerifyNamed(root, "recording-complete.tsv", "rows", "metadata"); assertions++;
-    Check(processSeal.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "complete.tsv"))), "Independent recording seal leaves the process seal unchanged");
-    Reject(() => ArtifactSeal.CompleteNamed(root, "recording-complete.tsv", new[] { "rows" }), "Cannot replace a named completion seal");
-    foreach (var invalidSeal in new[] { "../escape", "nested/seal", "C:/escape", "", "seal:stream", "seal\\escape" })
-    {
-        Reject(() => ArtifactSeal.CompleteNamed(root, invalidSeal, new[] { "rows" }), "Reject invalid named seal before writes");
-        Reject(() => ArtifactSeal.VerifyNamed(root, invalidSeal, "rows"), "Reject invalid named seal before reads");
-    }
-    Reject(() => ArtifactSeal.VerifyNamed(root, "recording-complete.tsv", "missing"), "Named seal checks required streams");
-    Reject(() => ArtifactSeal.Verify(root, "missing"), "Required streams must be sealed");
-    File.AppendAllText(Path.Combine(root, "rows"), "extra");
-    Reject(() => ArtifactSeal.VerifyNamed(root, "recording-complete.tsv"), "Named seal rejects changed payload");
-    Reject(() => ArtifactSeal.Verify(root), "Changed or truncated payload fails verification");
-    File.WriteAllText(Path.Combine(root, "complete.tsv"), "dbce-playback-seal-v1\n../escape\t0\thash\n");
-    Reject(() => ArtifactSeal.Verify(root), "Reject traversal before opening referenced file");
     using (var writer = new BufferedTapeWriter(Path.Combine(root, "oversized")))
         Reject(() => writer.WriteLine(new string('a', 262145)), "Oversized rows rejected");
 }
@@ -135,6 +115,13 @@ try
     }
     var tape = TrajectoryTape.Read(trajectoryRoot);
     CheckIntervals(tape, 2);
+    string done = Path.Combine(trajectoryRoot, TrajectoryTape.CompleteFile), legacy = Path.Combine(trajectoryRoot, "complete.tsv");
+    Check(File.ReadAllText(done) == "frames=3\nfiles=trajectory.meta,trajectory.tsv\n", "Completion file lists the frames and files");
+    File.Move(done, legacy);
+    Check(TrajectoryTape.Read(trajectoryRoot).Frames.Length == 3, "A tape recorded before complete.txt still reads");
+    File.Delete(legacy);
+    Reject(() => TrajectoryTape.Read(trajectoryRoot), "A tape without its completion file is refused");
+    File.WriteAllText(done, "frames=3\nfiles=trajectory.meta,trajectory.tsv\n");
     foreach (int end in new[] { -1, 0, tape.Frames.Length + 1 })
     {
         var invalidTarget = new FixtureTarget();
@@ -183,9 +170,9 @@ try
     {
         var f = new TrajectoryFrame(); f.Values[6] = 1; writer.Write(f); f.Time = .04;
         Reject(() => writer.Write(f), "Capture missing physics step invalidates tape");
-        Reject(() => writer.Complete(), "Bad capture cannot acquire completion seal");
+        Reject(() => writer.Complete(), "Bad capture cannot complete");
     }
-    Check(!File.Exists(Path.Combine(trajectoryRoot + "-gap", "complete.tsv")), "Incomplete tape has no seal");
+    Check(!File.Exists(Path.Combine(trajectoryRoot + "-gap", TrajectoryTape.CompleteFile)), "Incomplete tape has no completion file");
 }
 finally { Directory.Delete(trajectoryRoot, true); if (Directory.Exists(trajectoryRoot + "-gap")) Directory.Delete(trajectoryRoot + "-gap", true); }
 var stageRoot = Path.Combine(Path.GetTempPath(), "dbce-stage-" + Guid.NewGuid().ToString("N"));
@@ -203,7 +190,7 @@ try
         for (int i = 0; i < 3; i++) { target.Current.Time = 100 + i * .02; target.Current.Values[0] = i; session.FixedStep(i * .02); }
         Check(!session.ReplayActive, "Live recording never grants replay mode");
         session.Stop();
-        Check(session.Status.StartsWith("recorded:") && !session.Active, "Stage completes capture and signal seal");
+        Check(session.Status.StartsWith("recorded:") && !session.Active, "Stage completes capture and signals");
     }
     var tape = TrajectoryTape.Read(Path.Combine(stageRoot, "capture"));
     Check(tape.Frames.Length == 3 && Math.Abs(tape.Frames[2].Time - .04) < 1e-9, "Capture uses actual physics clock relative to first frame");
@@ -224,7 +211,7 @@ try
     {
         session.Record(Path.Combine(stageRoot, "gap"), 10, 0);
         target.Current.Time = 20; session.FixedStep(0); target.Current.Time = 20.04; session.FixedStep(.04);
-        Check(session.Status.StartsWith("failed:") && !File.Exists(Path.Combine(stageRoot, "gap", "complete.tsv")), "Runner cannot hide a missing physics callback with a synthetic counter");
+        Check(session.Status.StartsWith("failed:") && !File.Exists(Path.Combine(stageRoot, "gap", TrajectoryTape.CompleteFile)), "Runner cannot hide a missing physics callback with a synthetic counter");
     }
     using (var session = new StageSession(target))
     {
@@ -286,10 +273,10 @@ finally { Directory.Delete(stageRoot, true); }
 if (args.Length > 0)
 {
     if (args.Length != 4 || args[0] != "--trajectory" || args[2] != "--pause-at" || !int.TryParse(args[3], out int boundary))
-        throw new ArgumentException("Expected --trajectory <sealed-directory> --pause-at <exclusive-index>");
+        throw new ArgumentException("Expected --trajectory <recorded-directory> --pause-at <exclusive-index>");
     var original = TrajectoryTape.Read(args[1]);
     CheckIntervals(original, boundary);
-    Console.WriteLine($"Original sealed trajectory: {original.Frames.Length} poses, interval boundary {boundary}; fake-target checks only");
+    Console.WriteLine($"Original trajectory: {original.Frames.Length} poses, interval boundary {boundary}; fake-target checks only");
 }
 Console.WriteLine($"Playback core passed {assertions} assertions");
 

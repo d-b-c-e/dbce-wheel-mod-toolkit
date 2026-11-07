@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using Dbce.Wheel.Course;
-using Dbce.Wheel.Playback;
 using Xunit;
 
 namespace Dbce.Wheel.Telemetry.Tests;
@@ -64,10 +63,8 @@ internal sealed class RawCapture : IDisposable
         string json = route.ToJsonString(), tsv = Headers[kind] + "\n" + string.Join("\n",Rows(kind)) + "\n";
         File.WriteAllText(Path.Combine(directory,"route.json"), editJson?.Invoke(json) ?? json, new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(directory,"progress.tsv"), editTsv?.Invoke(tsv) ?? tsv, new UTF8Encoding(false));
-        ArtifactSeal.Complete(directory,new[] { "route.json", "progress.tsv" }); return directory;
+        File.WriteAllText(Path.Combine(directory,"complete.tsv"),"complete\n"); return directory;   // written last, as the games do
     }
-    internal static void Reseal(string directory)
-    { File.Delete(Path.Combine(directory,"complete.tsv")); ArtifactSeal.Complete(directory,new[] { "route.json", "progress.tsv" }); }
     public void Dispose()
     {
         if (!Path.GetFullPath(Root).StartsWith(Path.GetFullPath(Path.GetTempPath()),StringComparison.OrdinalIgnoreCase) ||
@@ -140,7 +137,7 @@ public sealed class RawCourseFilesTests
 
     [Theory]
     [InlineData(0)] [InlineData(1)] [InlineData(2)]
-    public void RejectsMalformedCommonMetadataEvenWithAValidSeal(int kind)
+    public void RejectsMalformedCommonMetadataInACompleteCapture(int kind)
     {
         using var f = new RawCapture();
         foreach (Action<JsonObject> edit in new Action<JsonObject>[] {
@@ -160,7 +157,7 @@ public sealed class RawCourseFilesTests
 
     [Theory]
     [InlineData(0)] [InlineData(1)] [InlineData(2)]
-    public void RejectsWrongOrTruncatedRowsAndBrokenSeals(int kind)
+    public void RejectsWrongOrTruncatedRowsAndIncompleteCaptures(int kind)
     {
         using var f = new RawCapture();
         foreach (Func<string,string> edit in new Func<string,string>[] {
@@ -170,20 +167,15 @@ public sealed class RawCourseFilesTests
             t=>t.Replace("2\t0.2\t","0\t0.2\t"), t=>t.Replace("1\t0.1\t","bad\t0.1\t"), t=>t.Replace("1\t0.1\t","-1\t0.1\t"),
             t=>t+RawCapture.Rows(kind)[0]+"\n", t=>t.Replace("\t30\t","\t30\textra\t") })
             Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(f.Write(kind,editTsv:edit)));
+        string cut=f.Write(kind); string routePath=Path.Combine(cut,"route.json"); File.WriteAllBytes(routePath,File.ReadAllBytes(routePath)[..^1]);
+        Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(cut));
         foreach (string name in new[] { "route.json", "progress.tsv" })
         {
-            string dir = f.Write(kind); string path = Path.Combine(dir,name); byte[] bytes = File.ReadAllBytes(path);
-            File.WriteAllBytes(path,bytes[..^1]); Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(dir));
-            dir=f.Write(kind); path=Path.Combine(dir,name); bytes=File.ReadAllBytes(path); bytes[0]^=1; File.WriteAllBytes(path,bytes);
-            Assert.Contains("changed or truncated",Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(dir)).Message); // Same length still needs the exact digest.
-            dir=f.Write(kind); File.Delete(Path.Combine(dir,name)); Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(dir));
+            string dir = f.Write(kind); File.Delete(Path.Combine(dir,name)); Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(dir));
         }
-        string unsealed=f.Write(kind); File.Delete(Path.Combine(unsealed,"complete.tsv")); Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(unsealed));
-        string utf8=f.Write(kind); File.WriteAllBytes(Path.Combine(utf8,"progress.tsv"),new byte[]{0xff,0xfe,0xfa}); RawCapture.Reseal(utf8);
+        string incomplete=f.Write(kind); File.Delete(Path.Combine(incomplete,"complete.tsv")); Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(incomplete));
+        string utf8=f.Write(kind); File.WriteAllBytes(Path.Combine(utf8,"progress.tsv"),new byte[]{0xff,0xfe,0xfa});
         Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(utf8));
-        string extra=f.Write(kind); File.WriteAllText(Path.Combine(extra,"extra"),"unbounded extra payload should never be read");
-        File.Delete(Path.Combine(extra,"complete.tsv")); ArtifactSeal.Complete(extra,new[]{"route.json","progress.tsv","extra"});
-        Assert.Contains("exactly",Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(extra)).Message);
     }
 
     [Fact]
@@ -212,8 +204,6 @@ public sealed class RawCourseFilesTests
         using var f=new RawCapture();
         string large=f.Write(1); File.WriteAllText(Path.Combine(large,"route.json"),new string('x',(int)CourseRouteFile.MaxBytes));
         Assert.Contains("exceeds",Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(large)).Message);
-        string seal=f.Write(1); File.WriteAllText(Path.Combine(seal,"complete.tsv"),new string('x',4097));
-        Assert.Contains("exceeds",Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(seal)).Message);
         Assert.Throws<InvalidDataException>(()=>CourseRouteFile.Read(f.Write(1,r=>r["waypointCount"]=20001)));
     }
 }

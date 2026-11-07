@@ -15,7 +15,7 @@ namespace Dbce.Wheel.Telemetry.Tests
 {
     /// <summary>
     /// Synthetic route captures in the exact shape Woden's CourseRouteCapture writes (route.json fields,
-    /// progress.tsv columns, dbce-playback-seal-v1), so the reader is checked without any owner capture.
+    /// progress.tsv columns, a complete.tsv written last), so the reader is checked without any owner capture.
     /// </summary>
     internal sealed class SyntheticCapture : IDisposable
     {
@@ -64,7 +64,7 @@ namespace Dbce.Wheel.Telemetry.Tests
             return rows;
         }
 
-        /// <summary>Writes and seals a capture folder; edits run on the text before sealing, so the seal is valid.</summary>
+        /// <summary>Writes a capture folder, then complete.tsv last, the way the games do.</summary>
         public string Write(string name, JsonObject route, IList<string> rows, Func<string, string> editRoute = null, Func<string, string> editProgress = null)
         {
             string dir = System.IO.Path.Combine(Root, name);
@@ -73,7 +73,7 @@ namespace Dbce.Wheel.Telemetry.Tests
             string progressText = "tick\tsim_s\tpx\tpy\tpz\tprogress_distance\tplayer_percentage\tstatus\n" + string.Concat(rows.Select(r => r + "\n"));
             File.WriteAllText(System.IO.Path.Combine(dir, "route.json"), editRoute == null ? routeText : editRoute(routeText), new UTF8Encoding(false));
             File.WriteAllText(System.IO.Path.Combine(dir, "progress.tsv"), editProgress == null ? progressText : editProgress(progressText), new UTF8Encoding(false));
-            ArtifactSeal.Complete(dir, new[] { "route.json", "progress.tsv" });
+            File.WriteAllText(System.IO.Path.Combine(dir, "complete.tsv"), "complete\n");
             return dir;
         }
 
@@ -263,23 +263,19 @@ namespace Dbce.Wheel.Telemetry.Tests
         }
 
         [Fact]
-        public void RefusesUnsealedChangedMissingAndOversizedCaptures()
+        public void RefusesIncompleteMissingAndOversizedCaptures()
         {
             using var capture = new SyntheticCapture();
 
-            string changed = capture.Valid("changed");
-            File.AppendAllText(Path.Combine(changed, "progress.tsv"), "1\t1\t1\t1\t1\t1\t\tRACE\n");
-            Assert.Contains("changed or truncated", Assert.Throws<InvalidDataException>(() => CourseRouteFile.Read(changed)).Message);
-
-            string unsealed = capture.Valid("unsealed");
-            File.Delete(Path.Combine(unsealed, "complete.tsv"));
-            Assert.Contains("missing complete.tsv", Assert.Throws<InvalidDataException>(() => CourseRouteFile.Read(unsealed)).Message);
+            string incomplete = capture.Valid("incomplete");
+            File.Delete(Path.Combine(incomplete, "complete.tsv"));
+            Assert.Contains("missing complete.tsv", Assert.Throws<InvalidDataException>(() => CourseRouteFile.Read(incomplete)).Message);
 
             string missing = capture.Valid("missing");
             File.Delete(Path.Combine(missing, "route.json"));
             Assert.Contains("missing route.json", Assert.Throws<InvalidDataException>(() => CourseRouteFile.Read(missing)).Message);
 
-            // Over 8 MB is refused before any hashing or parsing.
+            // Over 8 MB is refused before any parsing.
             var rows = capture.Rows(30);
             string big = capture.Write("big", capture.Route(rows.Count), rows,
                 editRoute: t => t.Substring(0, t.Length - 1) + new string(' ', (int)CourseRouteFile.MaxBytes) + "}");
@@ -324,7 +320,7 @@ namespace Dbce.Wheel.Telemetry.Tests
         [CourseReferenceFact]
         public void ReferenceTrajectoryReadsThroughTheSharedTapeReader()
         {
-            // The reference a capture is judged against must pass Playback's own seal, metadata and timeline checks.
+            // The reference a capture is judged against must pass Playback's own completion, metadata and timeline checks.
             var tape = TrajectoryTape.Read(Environment.GetEnvironmentVariable(CourseCaptureFactAttribute.ReferenceVariable));
             double plan = 0;
             for (int i = 1; i < tape.Frames.Length; i++)
