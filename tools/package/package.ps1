@@ -72,6 +72,10 @@ Write-Host "== sync and native binding regression ==" -ForegroundColor Cyan
 & (Join-Path $root 'tools/tests/Test-SyncNative.ps1') | Out-Host
 & (Join-Path $root 'tools/tests/Test-NativeBinding.ps1') | Out-Host
 
+Write-Host "== mod packager and installer engine (fixture game folder) ==" -ForegroundColor Cyan
+& pwsh -NoProfile -File (Join-Path $root 'tools/tests/Test-ModPackage.ps1') | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "mod packager/installer tests failed" }
+
 Write-Host "== coherent POV snapshot fake devices (no hardware) ==" -ForegroundColor Cyan
 foreach ($arch in @('x64','x86')) {
  & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_pov_read_test.bat') $arch | Out-Host

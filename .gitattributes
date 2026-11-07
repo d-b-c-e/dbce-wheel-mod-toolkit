@@ -36,3 +36,6 @@ tests/SharedFfbOutput/SharedFfbOutput.csproj text eol=lf
 
 # UI-3 setup byte-diff fixtures: CRLF on purpose, compared byte for byte.
 native/ui-exe/fixtures/*.ini -text
+
+# Player package batch files (installer/, PKG-1) keep CRLF for cmd.exe.
+installer/*.bat text eol=crlf
