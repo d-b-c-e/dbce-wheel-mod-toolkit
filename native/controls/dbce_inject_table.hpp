@@ -4,7 +4,6 @@
 #pragma once
 #include "dbce_inject.hpp"
 #include <atomic>
-#include <algorithm>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -24,20 +23,6 @@ struct StateView {
 
 class InjectionTable {
 public:
-    // Optional consumer-side admission, configured before publication. The callback must
-    // not call this table. A denial/exception is terminal for this table's lifetime.
-    using Admission = bool (*)(void *);
-    explicit InjectionTable(Admission admission = nullptr, void *context = nullptr) : admission_(admission), context_(context) {}
-    bool pollAdmission()
-    {
-        std::lock_guard<std::mutex> g(m_);
-        return admitted_ ? checkAdmissionLocked() : !revoked_;
-    }
-    void revoke()
-    {
-        std::lock_guard<std::mutex> g(m_);
-        revokeLocked();
-    }
     // Adds or replaces the injection of the same object on the same instance. "" when accepted, else the reason.
     std::string add(const InjectCommand &c, uint64_t nowMs)
     {
@@ -48,7 +33,6 @@ public:
         if (c.binding.kind == Kind::Hat && (c.binding.index < 0 || c.binding.index > 3)) return "bad hat";
         if (c.binding.kind == Kind::None) return "bad kind";
         std::lock_guard<std::mutex> g(m_);
-        if (!checkAdmissionLocked()) return "consumer admission revoked";
         for (auto &i : items_) if (i.active && nowMs >= i.until) { i.active = false; active_.fetch_sub(1); }   // reclaimed by time, read or not
         Item *slot = nullptr;
         for (auto &i : items_) if (i.active && i.dev == c.binding.dev && i.kind == c.binding.kind && i.index == c.binding.index) slot = &i;
@@ -98,7 +82,6 @@ public:
         long mins[8] = {}, maxs[8] = {};
         {
             std::lock_guard<std::mutex> g(m_);
-            if (!checkAdmissionLocked()) return 0;
             for (auto &i : items_)
                 if (i.active && i.dev == dev && i.kind == Kind::Axis && nowMs < i.until && i.index >= 0 && i.index < 8) want[i.index] = true;
         }
@@ -106,94 +89,56 @@ public:
         for (int a = 0; a < 8; ++a) if (want[a] && s.axes) readable[a] = range(a, mins[a], maxs[a]) && maxs[a] > mins[a];
         int substituted = 0;
         std::lock_guard<std::mutex> g(m_);
-        // Device range callbacks above can reenter or revoke. Recheck at the consumer,
-        // then stage the whole read so a later denial never exposes a partial pulse.
-        if (!checkAdmissionLocked()) return 0;
-        long axes[8]{}; unsigned char buttons[128]{}; unsigned long povs[4]{};
-        std::vector<std::string> stagedLog;
-        auto &outputLog = admission_ ? stagedLog : log;
-        StateView target = s;
-        const int buttonCount = (std::max)(0, (std::min)(s.buttonCount, 128));
-        const int povCount = (std::max)(0, (std::min)(s.povCount, 4));
-        if (admission_) {
-            if (s.axes) { std::copy_n(s.axes, 8, axes); target.axes = axes; }
-            if (s.buttons) { std::copy_n(s.buttons, buttonCount, buttons); target.buttons = buttons; target.buttonCount = buttonCount; }
-            if (s.povs) { std::copy_n(s.povs, povCount, povs); target.povs = povs; target.povCount = povCount; }
-        }
         for (auto &i : items_) {
             if (!i.active || i.dev != dev) continue;
             const char *kind = i.kind == Kind::Axis ? "axis" : i.kind == Kind::Button ? "button" : "hat";
             if (nowMs >= i.until) {
                 i.active = false;
                 active_.fetch_sub(1);
-                outputLog.push_back(std::string("inject: ") + kind + " " + std::to_string(i.index) + " on " + dev + " ended after " + std::to_string(i.ms) + " ms");
+                log.push_back(std::string("inject: ") + kind + " " + std::to_string(i.index) + " on " + dev + " ended after " + std::to_string(i.ms) + " ms");
                 continue;
             }
             if (i.kind == Kind::Axis) {
-                if (!target.axes || i.index < 0 || i.index > 7) continue;
+                if (!s.axes || i.index < 0 || i.index > 7) continue;
                 if (!want[i.index]) continue;   // added during the range reads above: delivered from the next read
                 i.devMin = mins[i.index]; i.devMax = maxs[i.index];
                 i.rangeOk = readable[i.index];
                 if (!i.rangeOk) {
-                    if (!i.announced) { i.announced = true; outputLog.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " not delivered: the game's range for it is unreadable"); }
+                    if (!i.announced) { i.announced = true; log.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " not delivered: the game's range for it is unreadable"); }
                     continue;
                 }
                 long v = rescale(i.value, i.bindMin, i.bindMax, i.devMin, i.devMax);
                 v = v < i.devMin ? i.devMin : v > i.devMax ? i.devMax : v;
-                target.axes[i.index] = v;
+                s.axes[i.index] = v;
                 ++substituted;
                 if (!i.announced) {
                     i.announced = true;
-                    outputLog.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(v) + " (sample " + std::to_string(i.value) + " in " +
+                    log.push_back("inject: axis " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(v) + " (sample " + std::to_string(i.value) + " in " +
                                   std::to_string(i.bindMin) + ".." + std::to_string(i.bindMax) + ", the game's range " + std::to_string(i.devMin) + ".." +
                                   std::to_string(i.devMax) + ") for " + std::to_string(i.ms) + " ms");
                 }
             } else if (i.kind == Kind::Button) {
-                if (!target.buttons || i.index >= target.buttonCount) {
-                    if (!i.announced) { i.announced = true; outputLog.push_back("inject: button " + std::to_string(i.index) + " on " + dev + " is outside the " + std::to_string(target.buttonCount) + " buttons the game reads; not delivered"); }
+                if (!s.buttons || i.index >= s.buttonCount) {
+                    if (!i.announced) { i.announced = true; log.push_back("inject: button " + std::to_string(i.index) + " on " + dev + " is outside the " + std::to_string(s.buttonCount) + " buttons the game reads; not delivered"); }
                     continue;
                 }
-                target.buttons[i.index] = i.value ? 0x80 : 0;
+                s.buttons[i.index] = i.value ? 0x80 : 0;
                 ++substituted;
-                if (!i.announced) { i.announced = true; outputLog.push_back("inject: button " + std::to_string(i.index) + " on " + dev + (i.value ? " down" : " up") + " for " + std::to_string(i.ms) + " ms"); }
+                if (!i.announced) { i.announced = true; log.push_back("inject: button " + std::to_string(i.index) + " on " + dev + (i.value ? " down" : " up") + " for " + std::to_string(i.ms) + " ms"); }
             } else {
-                if (!target.povs || i.index >= target.povCount) {
-                    if (target.povs && !i.announced) { i.announced = true; outputLog.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " is outside the " + std::to_string(target.povCount) + " hats the game reads; not delivered"); }
+                if (!s.povs || i.index >= s.povCount) {
+                    if (s.povs && !i.announced) { i.announced = true; log.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " is outside the " + std::to_string(s.povCount) + " hats the game reads; not delivered"); }
                     continue;
                 }
-                target.povs[i.index] = (unsigned long)i.value;   // -1 is centred (0xFFFFFFFF)
+                s.povs[i.index] = (unsigned long)i.value;   // -1 is centred (0xFFFFFFFF)
                 ++substituted;
-                if (!i.announced) { i.announced = true; outputLog.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(i.value) + " for " + std::to_string(i.ms) + " ms"); }
+                if (!i.announced) { i.announced = true; log.push_back("inject: hat " + std::to_string(i.index) + " on " + dev + " = " + std::to_string(i.value) + " for " + std::to_string(i.ms) + " ms"); }
             }
-        }
-        if (admission_) {
-            if (!checkAdmissionLocked()) return 0;
-            if (s.axes) std::copy_n(axes, 8, s.axes);
-            if (s.buttons) std::copy_n(buttons, buttonCount, s.buttons);
-            if (s.povs) std::copy_n(povs, povCount, s.povs);
-            log.insert(log.end(), stagedLog.begin(), stagedLog.end());
         }
         return substituted;
     }
 
 private:
-    Admission admission_;
-    void *context_;
-    bool admitted_ = false, revoked_ = false;
-    void revokeLocked()
-    {
-        revoked_ = true;
-        for (auto &i : items_) i.active = false;
-        active_.store(0);
-    }
-    bool checkAdmissionLocked()
-    {
-        if (revoked_) return false;
-        if (!admission_) return true;
-        try { if (admission_(context_)) { admitted_ = true; return true; } } catch (...) {}
-        revokeLocked();
-        return false;
-    }
     struct Item {
         bool active = false;
         std::string dev;
