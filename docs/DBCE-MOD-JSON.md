@@ -102,7 +102,7 @@ default. It refuses uncommitted tracked source, a `dbce-mod.json` that is not co
 | the loader bundle | `loader.bundle`, when set |
 | `dbce\Install.ps1`, `dbce\DbceModFile.ps1` | `installer\` |
 | `dbce\dbce-ui.exe` (a mod with `settings`) | `native\ui-exe\build\dbce-ui.exe` or `-SetupTool` |
-| `licenses\` | the repo's `LICENSE*`, `THIRD-PARTY-NOTICES*` and `licenses\`, the toolkit's LICENSE and, with the setup tool, Dear ImGui's |
+| `licenses\` | the repo's `LICENSE*`, `THIRD-PARTY-NOTICES*` and `licenses\`, the toolkit's LICENSE and, with the setup tool or a toolkit F6 panel (`uiHost` other than game), Dear ImGui's |
 
 `dbce\Install.ps1` runs under Windows PowerShell 5.1 and PowerShell 7. `Install.bat`, `Uninstall.bat` and `Setup.bat`
 at the zip root call it.

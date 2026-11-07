@@ -75,8 +75,9 @@ try {
         if (-not [IO.File]::Exists($SetupTool)) { throw "The setup tool $SetupTool is missing; run native\ui-exe\build.ps1 or pass -SetupTool. Nothing packaged." }
         Put $SetupTool 'dbce\dbce-ui.exe'
         Put (Join-Path $installer 'Setup.bat') 'Setup.bat'
-        Put (Join-Path $toolkit 'native\third_party\imgui\LICENSE.txt') 'licenses\DearImGui-MIT.txt'
     }
+    # The setup tool and every toolkit F6 panel (uiHost other than game) compile in Dear ImGui.
+    if ($hasSetup -or $mod.Package.UiHost -ne 'game') { Put (Join-Path $toolkit 'native\third_party\imgui\LICENSE.txt') 'licenses\DearImGui-MIT.txt' }
     foreach ($f in Get-ChildItem -LiteralPath $Repo -File | Where-Object { $_.Name -like 'LICENSE*' -or $_.Name -like 'THIRD-PARTY-NOTICES*' }) { Put $f.FullName "licenses\$($f.Name)" }
     $licenses = Join-Path $Repo 'licenses'
     if ([IO.Directory]::Exists($licenses)) { foreach ($f in [IO.Directory]::GetFiles($licenses, '*', 'AllDirectories')) { Put $f (Join-Path 'licenses' ([IO.Path]::GetRelativePath($licenses, $f))) } }
