@@ -1,5 +1,14 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- One player packager and one installer engine (PKG-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`, "The package and the
+  installer"). `tools/package/New-ModPackage.ps1 -Repo <game repo>` builds `<name> <version>.zip` from the committed
+  `dbce-mod.json`: Install.bat, Uninstall.bat, Setup.bat, README.txt, the payload, the loader bundle, `dbce\dbce-ui.exe`
+  as the setup tool, licenses and `release-manifest.json` with computed SHA-256 values. `installer/Install.ps1`, shipped
+  as `dbce\Install.ps1`, does the B.2 steps for the dinput8 kind in PowerShell 5.1 and 7 and writes the `installed`
+  section. `tools/tests/Test-ModPackage.ps1` checks install, reinstall, uninstall, rollback, a foreign dinput8.dll,
+  links, a changed package and a failed write byte for byte on a fixture game folder. No game uses it yet; DiRT 4 is
+  first (PKG-2).
+
 - `dbce-mod.json` (XC-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`): one per-mod file for Wheelkit, the installer and F6.
   `schema/dbce-mod.schema.json` covers identity and the log start line, package, settings (the UI-1 block plus a
   `role` and `store` per row), controls, STD-046 camera starts, self-test probes and the installer's `installed`

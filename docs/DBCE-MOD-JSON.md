@@ -26,7 +26,7 @@ names Wheelkit reads today.
 | Section | Who writes it | Who reads it | Holds |
 |---|---|---|---|
 | identity: `schema`, `id`, `name`, `version`, `steamAppId`, `folder`, `exe`, `repository`, `log` | game repo | everyone | `schema` is `dbce.mod@1`. `id` is the catalog and grid id. `log.start` is the regular expression for the mod's first log line, with group `v` for the version. |
-| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` in the package, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, dbce-ui-exe, or game for a mod that still draws its own F6). |
+| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, dbce-ui-exe, or game for a mod that still draws its own F6). |
 | `settings` | game repo | F6 panel, `dbce-ui.exe --setup`, Wheelkit | The UI-1 block, unchanged (see `native/panel/dbce_panel_descriptor.h`), plus two optional fields: `format` (ini or xml) for `config`, and on each row a `role` and a `store`. |
 | `controls` | game repo | Wheelkit | `store` is `game` (the game's own controls menu) or the shared profile adapter id. Also `profile`, `settings`, `optIn` (section, key, value, default, appliesAfterRestart), `delivered` actions, `unsupported` (action to reason), `conditions` (actions, transmission, settingsKey, settingsValues, settingsDefault, note) and `gameControls` (id, kind, label, group). |
 | `cameras` | game repo | Wheelkit | STD-046 starting choices for triple screens: `camera` (cockpit, bonnet, bumper, chase, isometric), `start` (realistic or game), and where the choice lives (`file`, `section`, `key`), with the stored `realistic` and `game` values. |
@@ -84,23 +84,65 @@ Each line is `path=value`, in the order of `installer/DbceModFile.ps1` `Format-D
 - Strings are written as-is, with `\` written as `\\`, and CR and LF written as `\r` and `\n`.
 - Booleans are `true` or `false`. Numbers use the shortest round-trip form, invariant culture.
 
-## The installer's command line
+## The package and the installer (PKG-1)
 
-`dbce\Install.ps1` in every package runs under Windows PowerShell 5.1. `Install.bat` and `Uninstall.bat` at the zip
-root call it.
+`tools\package\New-ModPackage.ps1 -Repo <game repo> [-Out <folder>] [-SetupTool <dbce-ui.exe>]` builds
+`<name> <version>.zip` (for example `DiRT 4 Wheel Mod 0.2.5.zip`) and a `.sha256` file beside it, in `<repo>\dist` by
+default. It refuses uncommitted tracked source, a `dbce-mod.json` that is not committed, fails the schema or has an
+`installed` section, a missing payload file and an existing zip. Kinds handled so far: `dinput8`, without
+`knownBuilds`; the packager refuses the others until the installer handles them.
+
+| In the zip | From |
+|---|---|
+| `Install.bat`, `Uninstall.bat`, `Setup.bat` (a mod with `settings`) | `installer\*.bat` |
+| `README.txt` | written from the mod file: install, settings, keys, undo, log, repository |
+| `dbce-mod.json` | the repo's file, unchanged |
+| `release-manifest.json` | `schema` `dbce.release-manifest@1`, `id`, `name`, `version`, `commit` and the lower-case SHA-256 of every other file, all computed |
+| payload, optional and seed files | at their `from` path |
+| the loader bundle | `loader.bundle`, when set |
+| `dbce\Install.ps1`, `dbce\DbceModFile.ps1` | `installer\` |
+| `dbce\dbce-ui.exe` (a mod with `settings`) | `native\ui-exe\build\dbce-ui.exe` or `-SetupTool` |
+| `licenses\` | the repo's `LICENSE*`, `THIRD-PARTY-NOTICES*` and `licenses\`, the toolkit's LICENSE and, with the setup tool, Dear ImGui's |
+
+`dbce\Install.ps1` runs under Windows PowerShell 5.1 and PowerShell 7. `Install.bat`, `Uninstall.bat` and `Setup.bat`
+at the zip root call it.
 
 | Argument | Meaning |
 |---|---|
-| `-GameDir <path>` | The game folder. Without it the installer finds the game from `steamAppId` and `folder`, or asks. |
-| `-Uninstall` | Removes the files `installed.files` lists, when their hashes still match, and the loader only when `loaderInstalledByUs`. Restores the backups. Keeps settings and bindings. |
-| `-Rollback` | Puts back the previous install from `installed.backups`. |
+| `-GameDir <path>` | The game folder. Without it the installer finds the game in Steam's libraries from `steamAppId` (the app manifest's install folder) and `folder`, or asks when there are several. |
+| `-Uninstall` | Removes the files `installed.files` lists while their hashes still match, puts back the game files the mod replaced and deletes the backups. Files changed after the install, such as a setting the player changed, stay. |
+| `-Rollback` | Puts back the exact state before the last install from `installed.backups`: the previous install, or the game without the mod. |
+| `-Setup` | Opens `dbce\dbce-ui.exe --setup <game folder>\dbce-mod.json`, for settings with the game closed. |
 | `-Mode <Install\|Uninstall\|Rollback>` | The same three actions as one argument, so Wheelkit's `PackageScriptRunner` and `RepoScriptInstaller` call the installer unchanged. Combined with a switch, it must agree with the switch. |
 | `-PackageRoot <path>` | The unpacked package. It defaults to the folder above `dbce\`. |
 
-The installer reads `package` from the package's own `dbce-mod.json`. It copies it to the game folder with the
-`installed` section added. Old receipts, such as `dbce-dirt4-receipt.json`, `BepInEx\WodenWheel-install.json` and art's
-`Info.json` flags, are read once for migration and deleted on the next install. Output is plain American English, and
-the last line says what to do next.
+What install does, in order (`04-cross-cutting.md` B.2):
+
+1. Finds the game, checks an exe from `exe` is there and that the game is not running.
+2. Checks every package file against `release-manifest.json` before it touches anything.
+3. Refuses a game folder, target or backup folder that is or sits under a link or junction.
+4. Refuses a `conflicts` file that is present and not on this mod's install record (another mod's `dinput8.dll`).
+5. Installing the same version and commit again, with every file still in place, changes nothing.
+6. Backs up the exact state of every path it changes, `dbce-mod.json` included, into
+   `dbce-<id>-backups\<yyyyMMdd-HHmmss>-<id8>` with a `backup.json` list (path and SHA-256, or null for absent). A game
+   file it replaces for the first time is also kept in `dbce-<id>-backups\original` for uninstall.
+7. Writes everything in one transaction: temp file, then replace, then read back. If one write fails, every path is
+   put back as it was.
+8. Seeds `seedConfig` files only when absent (STD-044). A seed stays on the install record while unchanged, so
+   uninstall removes it; once the player changes it, it is theirs and is never touched.
+9. Writes the game folder's `dbce-mod.json`: the package's file, unchanged, with the `installed` section appended
+   (`loaderInstalledByUs` is false for dinput8). Files of the previous install that this build no longer ships are
+   removed while unchanged.
+
+Output is plain American English, and the last line says what to do next. Errors are one sentence that ends with
+"Nothing changed." when nothing did. Old receipts, such as `dbce-dirt4-receipt.json`, `BepInEx\WodenWheel-install.json`
+and art's `Info.json` flags, are to be read once for migration and deleted on the next install; that comes with each
+game's switch (PKG-2 for DiRT 4). Until then the old file in the conflict slot is refused as another mod's.
+
+Tested by `tools\tests\Test-ModPackage.ps1` (PowerShell 7; the installer in 5.1 and once in 7) on a fixture repo and
+game folder: package contents and computed hashes, the packager's refusals, install, reinstall, uninstall, a kept
+setting, upgrade and two rollbacks, a foreign `dinput8.dll`, a junction as the game folder and as a payload folder, a
+changed package file and a write that fails halfway. Each is compared byte for byte with a snapshot of the folder.
 
 ## How the fixtures map today's data
 
