@@ -66,6 +66,7 @@ if ($LASTEXITCODE -ne 0) { throw "forza_packet.h test failed" }
 
 Write-Host "== sync and native binding regression ==" -ForegroundColor Cyan
 & (Join-Path $root 'tools/tests/Test-SyncToolkit.ps1') | Out-Host
+& (Join-Path $root 'tools/tests/Test-SyncNative.ps1') | Out-Host
 & (Join-Path $root 'tools/tests/Test-NativeBinding.ps1') | Out-Host
 
 Write-Host "== coherent POV snapshot fake devices (no hardware) ==" -ForegroundColor Cyan

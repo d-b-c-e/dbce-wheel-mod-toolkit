@@ -27,6 +27,9 @@ jobs:
       - name: Transactional vendoring
         shell: powershell
         run: ./tools/tests/Test-SyncToolkit.ps1
+      - name: Native vendoring (Sync-Native)
+        shell: powershell
+        run: ./tools/tests/Test-SyncNative.ps1
       - name: Offline consumer status and provenance
         shell: powershell
         run: ./tools/tests/Test-ConsumerStatus.ps1

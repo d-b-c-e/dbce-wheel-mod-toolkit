@@ -80,6 +80,19 @@ identity, `Reinitialise` to switch, and `ShutdownAll` at final consumer exit.
 
 ## 3b. Native consumers (a dinput8 proxy, an emulator fork)
 
+A dinput8 proxy for a game that drives its own force feedback (DiRT, GRID, Revo and the
+other native racing games) does not use `WheelFfb.dll`. It vendors the F6 panel, the force
+layer and the rest into `src/vendor` from one toolkit commit and one triple-screen commit,
+and its build fails if a vendored file was edited:
+
+```powershell
+pwsh .\tools\Sync-Native.ps1 -GameRepo <game repo>            # toolkit master + triple-screen main
+pwsh .\tools\Sync-Native.ps1 -GameRepo <game repo> -Check     # exit 1 on any delta from src/vendor/VERSION
+```
+
+See `templates/native-dinput8-proxy`. The rest of this section is for consumers that make
+their own force, such as an emulator fork.
+
 Vendor `include` and the build for your architecture, then include the header
 and load the DLL at runtime — never import it, or a missing file stops the game
 from starting instead of merely costing force feedback:

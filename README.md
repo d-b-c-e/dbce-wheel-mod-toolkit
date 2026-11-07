@@ -160,6 +160,7 @@ dotnet test Dbce.Wheel.sln
 .\native\forza\build_test.bat                   # packet conformance
 .\tools\powershell\Test-DbceWheel.ps1
 .\tools\tests\Test-SyncToolkit.ps1
+.\tools\tests\Test-SyncNative.ps1
 .\tools\tests\Test-NativeBinding.ps1
 ```
 
