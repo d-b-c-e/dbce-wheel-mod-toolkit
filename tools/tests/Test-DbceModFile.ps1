@@ -51,7 +51,7 @@ foreach ($f in $files) {
         $dump = [IO.File]::ReadAllText($tmp)
     } finally { Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue }
     if ($Update) { [IO.File]::WriteAllText($golden, $dump, (New-Object Text.UTF8Encoding $false)); "wrote $golden" }
-    Check ($dump -ceq [IO.File]::ReadAllText($golden)) "PowerShell 5.1 reader matches $([IO.Path]::GetFileName($golden))"
+    Check ($dump.Replace("`r", '') -ceq [IO.File]::ReadAllText($golden).Replace("`r", '')) "PowerShell 5.1 reader matches $([IO.Path]::GetFileName($golden))"
 }
 if ($failed) { throw "$failed dbce-mod.json check(s) failed" }
 'dbce-mod.json checks passed'
