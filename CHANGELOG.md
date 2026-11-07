@@ -1,5 +1,13 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- Removed (TK-1, 2026-11-07; STD-050, STD-051): the `tools/playback` process, lease, watchdog, foreground,
+  owner-idle, stage-command and reference-copy scripts (only `Stage-Registry.ps1` remains, its test is now in
+  `tools/tests`); `tools/virtual-pad`; `Dbce.Wheel.Playback` `ArtifactSeal`.
+  - Trajectory tapes now end with `complete.txt`; `TrajectoryTape.Read` still accepts older tapes' `complete.tsv`.
+  - `CourseRouteFile.Read` still requires the games' `complete.tsv` but no longer hashes it.
+  - `Play-Macro.ps1` checks the game's PID and start time itself; `-LeasePath`/`-LeaseToken` are ignored.
+  - Games that vendored the deleted scripts or `ArtifactSeal` keep their copies until they re-sync.
+
 - shared/display: `dbce_racing_row.hpp` and `dbce_windows_monitors.hpp`, a C++ counterpart of the racing-row selector
   for native mods (sana 85075).
   - The rules and reason sentences are the same as `RacingRow.cs`, and the shared `racing-row-vectors.txt` keeps the

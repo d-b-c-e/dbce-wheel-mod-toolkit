@@ -7,7 +7,7 @@ The first DRIVE/Wheelkit UX pilot shares player-facing axis/button/hat names and
 Hardware indices in stored profiles remain zero based; buttons and hats shown to players are one based. Numeric
 values are finite, clamped and stepped from the minimum. Never normalize a saved value merely while displaying it.
 
-Copy exact source with its license and record the source commit/hash in the consumer. This small slice is not the
+Copy the source with its license into the consumer. This small slice is not the
 full mod-published setting descriptor/edit-session contract; see `docs/ux-audits/2026-10-11-wheelkit-drive-review.md`.
 
 ## Recording status
@@ -15,8 +15,8 @@ full mod-published setting descriptor/edit-session contract; see `docs/ux-audits
 `SessionStatusPresentation.cs` owns recording/playback states, American English
 wording, elapsed time and center-display placement. `unity/SessionStatusHud.cs`
 is the optional Unity IMGUI renderer; it must not be added to a portable managed
-assembly. Vendor exact source plus this repo's MIT license and a commit/hash pin.
-Native/WPF adapters use the same state contract with their own renderer.
+assembly. Vendor the source with this repo's MIT license.
+Recording is a developer tool (STD-050); player builds omit it. Native/WPF adapters use the same state contract with their own renderer.
 
 For IL2CPP games whose generated interop lacks managed `GUIStyle` setters,
 `unity/StrippedSessionStatusHud.cs` supplies the same presentation/layout with
@@ -24,14 +24,13 @@ a host-provided `Action<GUIStyle, int, bool>` style configurator. The host must
 pass its verified font-size and wrap setter. This variant avoids `GUI.depth`,
 `GUI.skin` and `GUIStyle.CalcHeight`; it preserves matrix, color and enabled
 state around drawing. Its fixed minimum height is sized for two wrapped lines;
-check the text visually at the host's actual screen resolution. The ordinary
-Mono renderer and existing consumer pins remain separate.
+check the text visually at the host's actual screen resolution.
 
 Game adapters provide real lifecycle state, output mute state and elapsed time,
-and show only a stop action that the host actually supports. **Saved means the full artifact seal
-succeeded**, not a key press or signal footer. An error never displays Saved.
+and show only a stop action that the host actually supports. **Saved means every recording file
+was written and closed**, not a key press or signal footer. An error never displays Saved.
 `Limited` is a distinct warning for a time/size/row-limited partial capture;
-retained or sealed partial data does not turn that outcome into Saved.
+retained partial data does not turn that outcome into Saved.
 `DataWritten` means a source was closed but a host-specific companion or case
 finalizer has not yet established a complete package. Hosts with a separate
 finalizer can replace the active stop hint without changing other consumers.
@@ -41,12 +40,9 @@ global input. Public builds that exclude internal recording omit the adapter.
 The host controls OnGUI ordering; setting and restoring GUI.depth inside the
 renderer does not establish ordering between MonoBehaviour callbacks.
 
-Shared acceptance: an ordinary recording shows REC + timer + stop hint through
-title, menus, loading, driving and pause; on triples it stays on the center
-display; the host's shown stop action closes the recording without closing the game; Saving remains until
-completion; Saved/Incomplete agree with the actual sealed files. No armed session
-means no banner or recording hotkey behavior. Verify the installed consumer, not
-just these source tests (`dotnet run --project tests/SessionStatus`).
+A recording shows REC, a timer and the stop hint through title, menus, loading,
+driving and pause, on the center display with triples. No armed session means no
+banner. Tests: `dotnet run --project tests/SessionStatus`.
 
 ## F6 panel rows
 
@@ -57,12 +53,9 @@ group. `Note` remains a visible temporary refusal and continues to disable edits
 without hiding a supported row. RowState still describes binding/capture/error
 state; do not infer applicability from its value or from wording in Note.
 
-Hosts that already filter unsupported actions need no change. When HCT or
-Truckful adopts this source, mark genuinely undeclared actions explicitly.
-HCT's temporary native menu-consumer/hash refusal remains Supported plus Note,
-unlike its fixed `ShimFrame.Unsupported` partition. Keep current qualified
-consumer pins until their own coherent adoption. Save/Discard remain reachable
-even if no supported row is selectable; their access/capture/draft gates remain.
+Hosts that already filter unsupported actions need no change; others mark
+genuinely undeclared actions explicitly. Save/Discard remain reachable even if no
+supported row is selectable; their access/capture/draft gates remain.
 
 `F6Style.cs` holds the shared F6 presentation rules. It is engine-free C# 7.3, so it works in Unity 2019 Mono and
 in newer hosts:
@@ -133,10 +126,8 @@ Label, Help, Button and the binding panel are unchanged. Hosts check their own
 interop for the IMGUI calls they use, and close text input while the game takes
 typed keys.
 
-First isolated consumer: Truckful F6 source candidate, not built or rendered yet.
-Its production-linked offline fixture lives in that game's `tests/F6Bindings.Offline`.
-The existing Mono widgets and iRacing renderer/pins are unchanged. Missing native
-snapshot exports disable capture; a UI adapter cannot provide those exports.
+Missing native snapshot exports disable capture; a UI adapter cannot provide
+those exports.
 
 ## Shared binding Save status
 
@@ -146,7 +137,7 @@ render SaveFailure independently from capture/general messages every frame.
 Successful Save and explicit Discard resolve the warning; a new host starts clear.
 The optional ISharedBindingSaveStatus companion leaves ISharedBindingHost
 compatible. No parser, writer, reader, native/force or file calls are added.
-Vendor the exact helper and MIT license with source commit/hash provenance.
+Vendor the helper with its MIT license.
 
 
 `DBCE_INPUT_NET35` also enables the legacy binding panel/status whitespace checks
@@ -154,6 +145,4 @@ and predicate-free row grouping/selection. The modern LINQ path is unchanged.
 Some Unity consumer builds expose newer implicit reference assemblies even when
 supplying game references: a LINQ predicate can then compile to mscorlib Func,
 which old Mono defines only in System.Core. The legacy panel avoids that emitted
-reference. HCT actual-framework compile and affected plugin/API passed at
-shared54dbaa0/game6ac31a94; rendered UI remains unobserved. Input README records the
-focused legacy, host and x86 snapshot qualification and retained failures.
+reference.

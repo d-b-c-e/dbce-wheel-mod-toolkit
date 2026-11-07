@@ -4,7 +4,7 @@
 the detector owns no clock, cancellation, acquisition or force output. Held buttons and hats need release/repress,
 axes use a fixed rest, and ambiguous changes never guess. Optional per-axis known minimum/maximum values scale the
 threshold to the reader's range; absent/unknown ranges are excluded. Existing callers without range metadata keep
-the original 12000 threshold. A rest sample is not endpoint calibration or sustained-neutral qualification.
+the original 12000 threshold. A rest sample is not endpoint calibration.
 
 `ControlProfileDocument.cs` reads Schema 1 with the canonical `ControlBinding` parser. It preserves action, device,
 product, inversion, range/rest/travel, transmission and revision, and retains unrelated INI lines. Only explicitly
@@ -18,12 +18,12 @@ inversion on a copy. There is no host-specific binding grammar or second profile
 `ControlProfileDraft.cs` adds the shared in-game active/saved/draft lifecycle. It performs file I/O only on explicit
 Save: bounded expected-source reads, a flushed temporary file, atomic replacement with a unique backup, and readback.
 Failed Save retains the draft; successful Save changes the next-start document without changing Active. Hosts supply
-their maximum full-profile byte limit and own access, focus and input suppression. The portable helper keeps its
-existing admitted writer transaction; this small source is for Mono/IL2CPP hosts that cannot load Wheelkit.Core.
+their maximum full-profile byte limit and own access, focus and input suppression. This small source is for
+Mono/IL2CPP hosts that cannot load Wheelkit.Core.
 
 `BindingEditorContract.cs` is the renderer-neutral `ISharedBindingHost` and snapshot view model contract. Active,
 NextStart and Draft are distinct typed values; null means no delta and `Bound=false` is an explicit unbound value.
-Each host supplies labels, reasons, qualified device views and capture commands. A panel consumes this contract and
+Each host supplies labels, reasons, device views and capture commands. A panel consumes this contract and
 opens no devices. Vendor this shared contract rather than maintaining game-namespace copies.
 
 # Optional POV reader for existing managed pins
@@ -72,8 +72,8 @@ and Unity Mono consumers can vendor it. The tests in `Dbce.Wheel.Input.Tests` ma
 
 ### Clock-injected capture lifecycle
 
-`SharedBindingCaptureFlow` consumes `AcceptedBindingObservation` from an already-qualified reader. The adapter keeps
-its binary decoder, applies metadata masks, admits the action and supplies its menu/focus policy. Observations carry
+`SharedBindingCaptureFlow` consumes `AcceptedBindingObservation` from the host's reader. The adapter keeps
+its binary decoder, applies metadata masks, chooses the action and supplies its menu/focus policy. Observations carry
 exact instance/product identities, an opaque identity key, a per-instance generation/epoch, native read sequence and
 the injected local-clock `Seen`. Only new valid, non-stale reads are observations; loss/ended/closed/decode refusal calls
 `Remove` with an actionable reason. Repeated or regressed sequences never refresh eligibility. No reader is opened.
@@ -83,12 +83,10 @@ canonical `FromCapture` and exactly one result callback into the host's draft. C
 the callback returns null only after accepting the draft edit, or a refusal reason without changing prior state. A
 refusal cannot show a captured-success message. Save/restart remain separate. Art and DRIVE retain their different ABI decoders.
 
-One flow belongs to one qualified reader handle lifetime, with monotonically advancing per-instance epochs and read
-sequences. `Remove` and `ReaderStopped` retain watermarks against cached replay; they do not authorize a recreated
-reader to reset epochs. A new qualified handle requires a new flow, and must pass the adapter's normal ownership
-qualification first. Art and DRIVE currently keep their attached reader/host for the process and stop permanently.
+One flow belongs to one reader handle lifetime, with per-instance epochs and read sequences that only advance.
+`Remove` and `ReaderStopped` keep watermarks against cached replay, so a recreated reader needs a new flow.
 Observe accepted ticks while the editable F6 binding editor is visible, including before Begin, to supply the device
-list without a pending-start lifecycle. This copies the existing cache; it never activates another reader.
+list. This copies the existing cache; it never activates another reader.
 
 ### Legacy Mono binding consumers
 
@@ -101,14 +99,3 @@ round-trip grammar. Parse refusal uses IOException where the shipped framework
 lacks InvalidDataException. Explicit Save flushes the managed stream, then Windows
 FlushFileBuffers on its SafeFileHandle before the existing guarded Replace and
 readback. This Windows-only path is opt-in, not a general cross-platform fallback.
-
-HCT consumer qualification (October 16, product shared54dbaa0/game6ac31a94):
-207 existing grammar vectors / 288494 Input checks in the new legacy variant;
-38 existing snapshot/feed cases in that variant; direct compilation against the
-actual HCT mscorlib/System/System.Core and the existing API check; 30 new HCT host
-composition checks plus pure snapshot Cdecl ABI/sizes/invalid-handle refusal under
-Windows CLR2/x86. The ordinary x86 native7DE31B3E snapshot fixture passed241 checks;
-its prior177 ABI checks were retained, not repeated. No game/provider/device ran.
-Actual plugin build/API passed after the shared legacy panel avoided compiler-
-selected mscorlib Func predicates. Original runner-argument and compiled-plugin
-API failures remain in the HCT worktree artifacts/shared-bindings-20261016.
