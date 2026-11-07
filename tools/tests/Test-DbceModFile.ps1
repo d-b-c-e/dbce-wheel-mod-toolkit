@@ -1,6 +1,6 @@
 # dbce-mod.json (XC-1): the schema validates the three fixtures and the UI-1 settings samples unchanged, refuses
 # broken files, and the PowerShell 5.1 reader's dump of each fixture equals schema/fixtures/<id>.dump.txt. The C#
-# (Dbce.Wheel.Mod.Tests) and C++ (native/panel/build_test.ps1) readers compare with the same dump files.
+# (Dbce.Wheel.ModFile.Tests) and C++ (native/panel/build_test.ps1) readers compare with the same dump files.
 # Runs under pwsh 7 (Test-Json); the reader itself runs in Windows PowerShell 5.1. -Update rewrites the dumps.
 param([switch]$Update)
 $ErrorActionPreference = 'Stop'

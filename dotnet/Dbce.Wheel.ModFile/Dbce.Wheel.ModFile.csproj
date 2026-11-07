@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- netstandard2.0 build of the engine-free dbce-mod.json reader in shared/mod (docs/DBCE-MOD-JSON.md), for Wheelkit;
+       Unity mods compile the same source on Mono 2.0. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.ModFile</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Mod</RootNamespace>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/mod/*.cs" LinkBase="mod" />
+  </ItemGroup>
+
+</Project>
