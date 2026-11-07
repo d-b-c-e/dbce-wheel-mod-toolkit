@@ -1,5 +1,26 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- Unity delivery by version (TK-4, 2026-11-07; architecture 02-unity-family, step A5):
+  - `Dbce.Wheel.Input`, `Dbce.Wheel.Display` and `Dbce.Wheel.Ui` are netstandard2.0 projects in the solution. Display
+    builds the racing row, monitors, window landing and span target. Ui builds the F6 presentation sources and
+    `SupportReport`. `TripleLayout` and `TripleSettingsDraft` stay source-only, because they need
+    `Dbce.TripleScreen.Core`.
+  - `Sync-Toolkit.ps1` gains three parts. `shared` delivers `shared/` plus the Input sources as `shared/input`, `unity`
+    delivers the shared Unity layer, and `installer` is the slot for Phase C1. The SHA-256 manifest and the refusal to
+    overwrite edited files cover the new parts. `dotnet` also carries the three new DLLs, and the release zip stages
+    all of it.
+  - `unity/Dbce.Unity.props` sets `DBCE_IL2CPP`, `DBCE_NET35` (with `DBCE_INPUT_NET35` and `DBCE_SUPPORT_NET35`),
+    `DBCE_IMGUI_RECT` and `DBCE_URP` from `DbceRuntime`, `DbceImgui` and `DbcePipeline`. Mono 2.0 compiles the
+    engine-free sources in; Mono 4.x and IL2CPP reference the DLLs. `unity/Runtime/ModDescriptor.cs` is the skeleton
+    descriptor.
+  - `tools/Check-Net35Api.ps1` (from HCT) and `tools/Find-StrippedInteropCalls.ps1` (from Truckful) move into the
+    toolkit.
+  - Mono 2.0 fixes, found by running the API check on the shared sources:
+    - `SharedBindingValue` uses explicit getters under `DBCE_INPUT_NET35` (no `IsReadOnlyAttribute`).
+    - `BindingPresentation.Footer` trims with an empty set (no `Array.Empty`). The text is unchanged.
+  - `tools/tests/Test-UnityConsumer.ps1` syncs into a scratch game and compiles a dummy plugin for Mono, Mono 2.0 and
+    IL2CPP. `package.ps1` runs it.
+
 - `tools/Sync-Native.ps1` (TK-3, 2026-11-07): native dinput8-proxy games vendor `src/vendor` from one toolkit commit
   and one triple-screen commit. The script copies whole folders (controls, dinput-proxy, forza, panel, settings,
   support, imgui, shared/display; triple-screen compositor, geometry and layout) and leaves out tests, vectors and build

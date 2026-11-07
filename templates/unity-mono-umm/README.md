@@ -4,7 +4,8 @@ Pick this when the game runs a **Mono** runtime, so Harmony patches behave and
 reflection works normally. Check with `dbce-mod-toolkit`'s engine
 fingerprinter; a `Managed` folder full of ordinary assemblies is the tell.
 
-Vendor: `-Parts native,dotnet`
+Vendor: `-Parts native,dotnet,shared,unity`, then import `lib/toolkit/unity/Dbce.Unity.props` from
+`Directory.Build.props` with `DbceRuntime` `Mono` (or `Mono20` for a .NET 3.5 game). See `unity/README.md`.
 
 Working example: [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally),
 art of rally, Unity 2019.4.

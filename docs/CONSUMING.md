@@ -36,6 +36,16 @@ It fills `lib\toolkit\native\WheelFfb.dll`, `lib\toolkit\dotnet\Dbce.Wheel.*.dll
 (`!lib/toolkit/` and `!lib/toolkit/**` after a `lib/` rule) so the pinned
 binaries are committed with the mod.
 
+Unity games also take the source parts, `-Parts native,dotnet,shared,unity`:
+- `shared` copies `shared/` and the `Dbce.Wheel.Input` sources (as `shared/input`).
+- `unity` copies the shared Unity layer and `Dbce.Unity.props`, which the game imports from its
+  `Directory.Build.props`. It sets the runtime defines and references `Dbce.Wheel.{Input,Display,Ui}.dll`, or, on
+  Mono 2.0, compiles the same sources in. See [unity/README.md](../unity/README.md).
+- `installer` is the slot for the shared installer (Phase C1).
+
+`lib\toolkit\MANIFEST.txt` records every vendored file's SHA-256. A sync refuses to replace a vendored file that was
+edited in the game; `-Force` keeps the edit as a `.local-*` backup.
+
 ## 2. Telemetry
 
 Replace the local encoder project with a reference to the vendored assembly:

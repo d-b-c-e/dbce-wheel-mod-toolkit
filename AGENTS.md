@@ -7,18 +7,19 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 
 ## What is in it
 - `native/wheelffb` — C-ABI DirectInput FFB DLL (`include/wheelffb.h`, `WheelFfb.def`). Other C++ modules: `native/forza`, `forcemodel`, `shim`, `panel`, `ue4ss-panel`, `session`, `settings`, `telemetry`, `support`.
-- `dotnet/` — `Dbce.Wheel.Telemetry`, `Ffb`, `Input`, `Shim`, `Playback`, `Recording`, `Course` (netstandard2.0) with matching `*.Tests`.
+- `dotnet/` — `Dbce.Wheel.Telemetry`, `Ffb`, `Input`, `Display`, `Ui`, `Shim`, `Playback`, `Recording`, `Course` (netstandard2.0) with matching `*.Tests`. `Display` and `Ui` build the engine-free sources in `shared/display`, `shared/ui` and `shared/support`.
 - `shared/` — display, ffb, session, support and UI code that games consume; `profiles/` — force tunes as data.
-- `tools/` — `Sync-Toolkit.ps1`, `Sync-Native.ps1`, `package/package.ps1`, `powershell/`, `playback/`, `window-capture/`, `ffbprobe/`, `Get-ConsumerStatus.ps1`.
+- `unity/` — the shared Unity layer compiled into each plugin, and `Dbce.Unity.props` (runtime defines; the DLLs, or the same sources on Mono 2.0). `installer/` — slot for the shared installer.
+- `tools/` — `Sync-Toolkit.ps1`, `Sync-Native.ps1`, `package/package.ps1`, `powershell/`, `playback/`, `window-capture/`, `ffbprobe/`, `Get-ConsumerStatus.ps1`; post-build checks `Check-Net35Api.ps1` (Mono 2.0) and `Find-StrippedInteropCalls.ps1` (IL2CPP).
 - `knowledge/` (every item carries `[repo, YYYY-MM-DD]` provenance), `docs/` (`STATE.md`, `CONSUMERS.md`, `PLAN.md`, ADRs), `STANDARDS.md` (product standards, append-only).
 
 ## Build and test
-- `dotnet test Dbce.Wheel.sln`; `native\wheelffb\build.ps1` (x64, checks exports against the header); `native\wheelffb\build.bat x86` (32-bit games); `native\forza\build_test.bat`; `native\forcemodel\build_conformance.bat`; `tools\powershell\Test-DbceWheel.ps1`; `tools\tests\Test-SyncToolkit.ps1`; `tools\tests\Test-SyncNative.ps1`; `tools\tests\Test-NativeBinding.ps1`.
+- `dotnet test Dbce.Wheel.sln`; `native\wheelffb\build.ps1` (x64, checks exports against the header); `native\wheelffb\build.bat x86` (32-bit games); `native\forza\build_test.bat`; `native\forcemodel\build_conformance.bat`; `tools\powershell\Test-DbceWheel.ps1`; `tools\tests\Test-SyncToolkit.ps1`; `tools\tests\Test-UnityConsumer.ps1` (dummy plugin for Mono, Mono 2.0 and IL2CPP); `tools\tests\Test-SyncNative.ps1`; `tools\tests\Test-NativeBinding.ps1`.
 - `tools\package\package.ps1 -Version X.Y.Z` runs the offline suites and builds the zip in `dist\`.
 - Hardware smoke (`native\wheelffb\test\build_smoke.bat x86`) needs a wheel and applies no torque without `--force`; run it whenever the native DLL changes.
 
 ## How games consume it
-- `tools\Sync-Toolkit.ps1 -Version <tag>` (release) or `-LocalRepo <path>` (local checkout) vendors native, dotnet, include, profiles, powershell, tools or knowledge parts into a game repo and records provenance. Wheelkit installs and configures the resulting mod packages.
+- `tools\Sync-Toolkit.ps1 -Version <tag>` (release) or `-LocalRepo <path>` (local checkout) vendors native, dotnet, include, profiles, powershell, tools, knowledge, shared, unity or installer parts into a game repo. Its SHA-256 `MANIFEST.txt` makes it refuse to overwrite vendored files edited in the game. Wheelkit installs and configures the resulting mod packages.
 - Native dinput8-proxy games use `tools\Sync-Native.ps1 -GameRepo <game> [-Commit <wheel>] [-TripleCommit <triple>]` instead: it copies a fixed folder list (no tests) into `src/vendor` with a two-line `VERSION`. `-Check` exits 1 when any vendored file differs from those commits; `-DryRun` lists the deltas.
 - `docs/CONSUMERS.md` is the register of which game uses which version; `tools\Get-ConsumerStatus.ps1` reports it.
 
