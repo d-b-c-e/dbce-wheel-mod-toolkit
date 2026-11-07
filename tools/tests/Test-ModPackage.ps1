@@ -42,6 +42,7 @@ try {
             kind = 'dinput8'; loader = $null
             payload = @([ordered]@{ from = 'build/dinput8.dll'; to = 'dinput8.dll' }, [ordered]@{ from = 'build/dbce/fixture-data.bin'; to = 'dbce/fixture-data.bin' })
             conflicts = @('dinput8.dll'); seedConfig = @([ordered]@{ from = 'config/dbce-fixture.ini'; to = 'dbce-fixture.ini' }); uiHost = 'native-panel'
+            oldReceipts = @([ordered]@{ receipt = 'dbce-fixture-receipt.json'; backups = 'dbce-fixture-backups' })
         }
         settings = [ordered]@{ product = 'Fixture Game Wheel Mod'; keys = 'F6 settings'; config = 'dbce-fixture.ini'
             pages = [ordered]@{ ffb = @([ordered]@{ id = 'ffb.enabled'; kind = 'toggle'; label = 'Force feedback'; default = $true }) } }
@@ -175,6 +176,32 @@ try {
     $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
     Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $sBusy) 'uninstall puts back the game file it replaced, byte-exact'
     Remove-Item -LiteralPath (Join-Path $game 'dbce') -Recurse
+
+    # The game's installer before this one left dinput8.dll, its receipt ({file, sha256}) and a backups folder.
+    function Set-OldInstall([string]$Sha) {
+        Write-Bytes (Join-Path $game 'dinput8.dll') 'the old installer''s dll'
+        if (-not $Sha) { $Sha = (Sha (Join-Path $game 'dinput8.dll')).ToUpperInvariant() }
+        Write-Bytes (Join-Path $game 'dbce-fixture-receipt.json') ('{"schema":"dbce.fixture-install@2","file":"dinput8.dll","sha256":"' + $Sha + '"}')
+        Write-Bytes (Join-Path $game 'dbce-fixture-backups\20260101-000000-old\receipt.json') 'an earlier receipt'
+    }
+    Set-OldInstall
+    $sOld = Snapshot $game
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game)
+    Check ($r.Code -eq 0 -and (Sha (Join-Path $game 'dinput8.dll')) -eq (Sha (Join-Path $pkg1 'build\dinput8.dll')) -and -not [IO.File]::Exists((Join-Path $game 'dbce-fixture-receipt.json'))) 'install over an old receipted dll replaces it and deletes the old receipt'
+    Check (-not [IO.Directory]::Exists((Join-Path $game 'dbce-fixture-game-backups\original'))) 'the old install is not kept as a game file'
+    $r = Invoke-Installer $pkg1 @('-Rollback', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and $r.Out -match 'earlier install' -and (Snapshot $game) -ceq $sOld) 'rollback returns the old install byte-exact'
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game)
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $s0) 'uninstall after the migration returns the game folder byte-exact, old backups included'
+    Set-OldInstall
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $s0) 'uninstall of an old install alone returns the game folder byte-exact'
+    Set-OldInstall ('0' * 64)
+    $sMismatch = Snapshot $game
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game)
+    Check ($r.Code -ne 0 -and $r.Out -match 'belongs to another mod' -and (Snapshot $game) -ceq $sMismatch) 'a dll that differs from its old receipt is refused and nothing changes'
+    foreach ($p in 'dinput8.dll', 'dbce-fixture-receipt.json', 'dbce-fixture-backups') { Remove-Item -LiteralPath (Join-Path $game $p) -Recurse }
 
     # Wheelkit's RepoScriptInstaller runs the script in PowerShell 7 with -GameDir and -Uninstall.
     $r = Invoke-Installer $pkg1 @('-GameDir', $game) -Pwsh7

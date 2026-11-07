@@ -45,6 +45,8 @@ function Read-DbceModFile {
         KnownBuilds = @(foreach ($b in (DmList $pk 'knownBuilds')) { [pscustomobject][ordered]@{ File = DmStr $b 'file'; Sha256 = DmStr $b 'sha256'; Label = DmStr $b 'label' } })
         Strict = DmBool $pk 'strict'
         UiHost = $(if (DmStr $pk 'uiHost') { DmStr $pk 'uiHost' } else { 'game' })
+        # Read by the installer only; not part of the canonical dump.
+        OldReceipts = @(foreach ($o in (DmList $pk 'oldReceipts')) { [pscustomobject][ordered]@{ Receipt = DmStr $o 'receipt'; Backups = DmStr $o 'backups' } })
     }
 
     $settings = $null

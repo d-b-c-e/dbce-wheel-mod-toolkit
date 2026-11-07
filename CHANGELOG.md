@@ -1,5 +1,10 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- The shared installer migrates a game's old receipt (PKG-2, 2026-11-07). `package.oldReceipts` names the earlier
+  installer's receipt (`{file, sha256}`) and backups folder. The file it lists counts as the mod's while unchanged, the
+  install deletes the old receipt and keeps it in its backup for `-Rollback`, and uninstall also removes the old
+  backups folder. `Test-ModPackage.ps1` checks migrate, rollback and uninstall byte for byte.
+
 - One player packager and one installer engine (PKG-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`, "The package and the
   installer"). `tools/package/New-ModPackage.ps1 -Repo <game repo>` builds `<name> <version>.zip` from the committed
   `dbce-mod.json`: Install.bat, Uninstall.bat, Setup.bat, README.txt, the payload, the loader bundle, `dbce\dbce-ui.exe`

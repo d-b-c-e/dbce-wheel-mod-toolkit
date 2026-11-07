@@ -9,6 +9,7 @@
    Installing the same build again changes nothing.
    -Uninstall removes the files the install record lists while they are unchanged, puts back game files it replaced,
    and keeps settings the player changed. -Rollback puts back the exact state before the last install.
+   A receipt of the game's earlier installer (package.oldReceipts) is read once, so its file counts as this mod's.
    -Mode Install|Uninstall|Rollback and -PackageRoot are the arguments Wheelkit's PackageScriptRunner passes. #>
 [CmdletBinding()]
 param(
@@ -169,8 +170,25 @@ if ([IO.File]::Exists($receiptPath)) {
     if ($current.Id -ne $mod.Id) { throw "This folder's dbce-mod.json belongs to another mod ($($current.Name)). Nothing changed." }
     if ($null -eq $current.Installed) { throw "This folder's dbce-mod.json has no install record. Nothing changed." }
 }
-$owned = @{}
-if ($null -ne $current) { foreach ($f in $current.Installed.Files) { $owned[$f.Path.ToLowerInvariant()] = $f.Sha256 } }
+$owned = @{}; $ownedFiles = New-Object System.Collections.ArrayList
+function Add-Owned([string]$Rel, [string]$Sha) {
+    if ($owned.ContainsKey($Rel.ToLowerInvariant())) { return }
+    $owned[$Rel.ToLowerInvariant()] = $Sha.ToLowerInvariant(); [void]$ownedFiles.Add([pscustomobject]@{ Path = $Rel; Sha256 = $Sha.ToLowerInvariant() })
+}
+if ($null -ne $current) { foreach ($f in $current.Installed.Files) { Add-Owned $f.Path $f.Sha256 } }
+# Receipts of the game's installer before this one (package.oldReceipts, {file, sha256}) are read once: the file they
+# list is this mod's while unchanged. Install deletes the old receipt (its backup lets -Rollback restore it); uninstall
+# also deletes the old backups folder, which holds only earlier builds of this mod.
+$oldPresent = @()
+foreach ($o in $mod.Package.OldReceipts) {
+    $path = In-Game $o.Receipt; Assert-Unlinked $path
+    if (-not [IO.File]::Exists($path)) { continue }
+    $oldPresent += $o.Receipt
+    $r = $null; try { $r = [IO.File]::ReadAllText($path) | ConvertFrom-Json } catch { }
+    if ($null -ne $r -and $r.file -and [string]$r.sha256 -match '^[0-9A-Fa-f]{64}$') {
+        $rel = ([string]$r.file).Replace('\', '/'); Assert-Relative $rel; Add-Owned $rel ([string]$r.sha256)
+    }
+}
 function Is-Ours([string]$Rel, $Bytes) { $null -ne $Bytes -and $owned.ContainsKey($Rel.ToLowerInvariant()) -and (Hash $Bytes) -ceq $owned[$Rel.ToLowerInvariant()] }
 function Remove-Backups([string]$Path) { Assert-Unlinked $Path; if ([IO.Directory]::Exists($Path)) { [IO.Directory]::Delete($Path, $true) } }
 
@@ -184,10 +202,10 @@ if ($action -eq 'Setup') {
 }
 
 if ($action -eq 'Uninstall') {
-    if ($null -eq $current) { Write-Host "$($mod.Name) is not installed in $GameDir. Nothing changed."; return }
+    if ($null -eq $current -and -not $oldPresent.Count) { Write-Host "$($mod.Name) is not installed in $GameDir. Nothing changed."; return }
     # Files changed after the install are the player's (a setting) or another tool's: they stay.
     $changes = [ordered]@{}; $kept = @(); $blocked = @()
-    foreach ($f in $current.Installed.Files) {
+    foreach ($f in $ownedFiles) {
         $bytes = Read-Bytes (In-Game $f.Path)
         if ($null -eq $bytes) { continue }
         if ((Hash $bytes) -ceq $f.Sha256) { $changes[$f.Path] = $null } else { $kept += $f.Path }
@@ -203,11 +221,15 @@ if ($action -eq 'Uninstall') {
         }
     }
     $changes['dbce-mod.json'] = $null
+    foreach ($o in $oldPresent) { $changes[$o] = $null }
     Set-Files $changes
     Write-Host "Removed $($mod.Name) from $GameDir."
     if ($kept.Count) { Write-Host "Kept because they changed after the install (your settings stay): $($kept -join ', ')." }
     if ($blocked.Count) { Write-Host "The game's own copy of $($blocked -join ', ') is kept in $originals; Steam's ""Verify integrity of game files"" also brings it back." }
-    else { Remove-Backups $backupsRoot }
+    else {
+        Remove-Backups $backupsRoot
+        foreach ($o in $mod.Package.OldReceipts) { if ($o.Backups) { Remove-Backups (In-Game $o.Backups) } }
+    }
     Write-Host "You can start $gameName as usual."
     return
 }
@@ -237,7 +259,8 @@ if ($action -eq 'Rollback') {
         Write-Host "Went back to $($mod.Name) $was in $GameDir."
     } else {
         Remove-Backups $backupsRoot
-        Write-Host "Went back to $gameName without the mod in $GameDir."
+        if (@($mod.Package.OldReceipts | Where-Object { [IO.File]::Exists((In-Game $_.Receipt)) }).Count) { Write-Host "Went back to the earlier install of $($mod.Name) in $GameDir." }
+        else { Write-Host "Went back to $gameName without the mod in $GameDir." }
     }
     Write-Host "You can start $gameName as usual."
     return
@@ -281,15 +304,14 @@ foreach ($e in $mod.Package.SeedConfig) {
     if ($null -eq $here) { $changes[$e.To] = $new; [void]$files.Add([ordered]@{ path = $e.To; sha256 = (Hash $new) }) }
     elseif (Is-Ours $e.To $here) { [void]$files.Add([ordered]@{ path = $e.To; sha256 = (Hash $here) }) }
 }
-# Files of the previous install that this build no longer ships go, while unchanged.
+# Files of the previous install that this build no longer ships go, while unchanged. So do old receipts.
 $keep = @{}; foreach ($f in $files) { $keep[$f.path.ToLowerInvariant()] = $true }
-if ($null -ne $current) {
-    foreach ($f in $current.Installed.Files) {
-        if ($keep.ContainsKey($f.Path.ToLowerInvariant())) { continue }
-        $here = Read-Bytes (In-Game $f.Path)
-        if (Is-Ours $f.Path $here) { $changes[$f.Path] = $null }
-    }
+foreach ($f in $ownedFiles) {
+    if ($keep.ContainsKey($f.Path.ToLowerInvariant())) { continue }
+    $here = Read-Bytes (In-Game $f.Path)
+    if (Is-Ours $f.Path $here) { $changes[$f.Path] = $null }
 }
+foreach ($o in $oldPresent) { $changes[$o] = $null }
 $same = $null -ne $current -and $current.Installed.Commit -ceq [string]$manifest.commit -and $current.Installed.Version -ceq $mod.Version
 foreach ($k in @($changes.Keys)) { if (-not (Same-Bytes (Read-Bytes (In-Game $k)) $changes[$k])) { $same = $false } }
 if ($same) {
@@ -315,7 +337,7 @@ try {
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($copy)); [IO.File]::WriteAllBytes($copy, $here)
         # A game file the mod replaces for the first time is kept for uninstall.
         $orig = Join-Path $originals ($k.Replace('/', '\'))
-        if ($k -ne 'dbce-mod.json' -and -not (Is-Ours $k $here) -and -not [IO.File]::Exists($orig)) {
+        if ($k -ne 'dbce-mod.json' -and $oldPresent -notcontains $k -and -not (Is-Ours $k $here) -and -not [IO.File]::Exists($orig)) {
             [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($orig)); [IO.File]::WriteAllBytes($orig, $here)
         }
     }

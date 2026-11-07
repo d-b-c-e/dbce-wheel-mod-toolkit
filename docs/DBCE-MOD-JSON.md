@@ -26,7 +26,7 @@ names Wheelkit reads today.
 | Section | Who writes it | Who reads it | Holds |
 |---|---|---|---|
 | identity: `schema`, `id`, `name`, `version`, `steamAppId`, `folder`, `exe`, `repository`, `log` | game repo | everyone | `schema` is `dbce.mod@1`. `id` is the catalog and grid id. `log.start` is the regular expression for the mod's first log line, with group `v` for the version. |
-| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, dbce-ui-exe, or game for a mod that still draws its own F6). |
+| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, dbce-ui-exe, or game for a mod that still draws its own F6), `oldReceipts` (installer only, not in the dump: the game's earlier installer's `receipt` and `backups` folder, read once for migration). |
 | `settings` | game repo | F6 panel, `dbce-ui.exe --setup`, Wheelkit | The UI-1 block, unchanged (see `native/panel/dbce_panel_descriptor.h`), plus two optional fields: `format` (ini or xml) for `config`, and on each row a `role` and a `store`. |
 | `controls` | game repo | Wheelkit | `store` is `game` (the game's own controls menu) or the shared profile adapter id. Also `profile`, `settings`, `optIn` (section, key, value, default, appliesAfterRestart), `delivered` actions, `unsupported` (action to reason), `conditions` (actions, transmission, settingsKey, settingsValues, settingsDefault, note) and `gameControls` (id, kind, label, group). |
 | `cameras` | game repo | Wheelkit | STD-046 starting choices for triple screens: `camera` (cockpit, bonnet, bumper, chase, isometric), `start` (realistic or game), and where the choice lives (`file`, `section`, `key`), with the stored `realistic` and `game` values. |
@@ -135,14 +135,22 @@ What install does, in order (`04-cross-cutting.md` B.2):
    removed while unchanged.
 
 Output is plain American English, and the last line says what to do next. Errors are one sentence that ends with
-"Nothing changed." when nothing did. Old receipts, such as `dbce-dirt4-receipt.json`, `BepInEx\WodenWheel-install.json`
-and art's `Info.json` flags, are to be read once for migration and deleted on the next install; that comes with each
-game's switch (PKG-2 for DiRT 4). Until then the old file in the conflict slot is refused as another mod's.
+"Nothing changed." when nothing did.
+
+Old receipts (`package.oldReceipts`, PKG-2). A game's installer before this one left a receipt such as
+`dbce-dirt4-receipt.json` (`{file, sha256}`) and a backups folder such as `dbce-dirt4-backups`. The installer reads the
+receipt once: the file it lists counts as this mod's while its hash matches, so the install replaces it instead of
+refusing it as another mod's. Install deletes the old receipt and keeps it in its backup, so `-Rollback` puts the old
+install back exactly; the old backups folder stays until uninstall, which removes it with the mod (it holds only earlier
+builds of the mod). Uninstall also removes an old install that the shared installer never touched. A file that differs
+from its old receipt is refused as another mod's. Other receipt shapes (`BepInEx\WodenWheel-install.json`, art's
+`Info.json` flags) come with those games' switch.
 
 Tested by `tools\tests\Test-ModPackage.ps1` (PowerShell 7; the installer in 5.1 and once in 7) on a fixture repo and
 game folder: package contents and computed hashes, the packager's refusals, install, reinstall, uninstall, a kept
 setting, upgrade and two rollbacks, a foreign `dinput8.dll`, a junction as the game folder and as a payload folder, a
-changed package file and a write that fails halfway. Each is compared byte for byte with a snapshot of the folder.
+changed package file, a write that fails halfway, and an old receipted install that is migrated, rolled back and
+uninstalled. Each is compared byte for byte with a snapshot of the folder.
 
 ## How the fixtures map today's data
 
