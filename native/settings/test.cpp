@@ -1,4 +1,4 @@
-#include "dbce_ini_settings_win.hpp"
+#include "dbce_ini_single_key_win.hpp"
 #include <cassert>
 #include <cstdio>
 using namespace dbce::settings;
@@ -68,5 +68,52 @@ int main(int argc, char** argv) {
     assert(save(path.c_str(), "Triple", {{"Screens", "Off"}}, true));
     assert(read() == "[Triple]\nScreens=Off\n");
     DeleteFileA(path.c_str());
+
+    // The F6 panel's [Panel] and the FFB layer's [FFB] saves used WritePrivateProfileStringA before saveKey. For the
+    // layouts mods write, saveKey must give the same bytes; Windows' own writer is checked against each golden too.
+    struct Golden { const char *before, *section, *key, *value, *after; };
+    const Golden goldens[] = {
+        {"[FFB]\r\nEnabled=1\r\nStrength=50\r\n", "FFB", "Strength", "60", "[FFB]\r\nEnabled=1\r\nStrength=60\r\n"},
+        {"[FFB]\r\nEnabled=1\r\n", "FFB", "Strength", "60", "[FFB]\r\nEnabled=1\r\nStrength=60\r\n"},
+        {"[FFB]\r\nEnabled=1", "FFB", "Strength", "60", "[FFB]\r\nEnabled=1\r\nStrength=60\r\n"},
+        {"[FFB]\r\nEnabled=1\r\n\r\n", "FFB", "Strength", "60", "[FFB]\r\nEnabled=1\r\n\r\nStrength=60\r\n"},
+        {"; mod settings\r\n[FFB]\r\n; force\r\nEnabled=1\r\n", "FFB", "Enabled", "0", "; mod settings\r\n[FFB]\r\n; force\r\nEnabled=0\r\n"},
+        {"[ffb]\r\nenabled=1\r\n", "FFB", "Enabled", "0", "[ffb]\r\nenabled=0\r\n"},
+        {"[FFB]\nEnabled=1\n", "FFB", "Enabled", "0", "[FFB]\nEnabled=0\n"},
+        {"[Panel]\r\nPage=FFB\r\n[FFB]\r\nEnabled=1\r\n", "Panel", "View", "Advanced", "[Panel]\r\nPage=FFB\r\nView=Advanced\r\n[FFB]\r\nEnabled=1\r\n"},
+        {"[FFB]\r\nEnabled=1\r\n", "Panel", "Page", "FFB", "[FFB]\r\nEnabled=1\r\n[Panel]\r\nPage=FFB\r\n"},
+        {"[FFB]\r\nEnabled=1\r\n\r\n", "Panel", "Page", "FFB", "[FFB]\r\nEnabled=1\r\n\r\n[Panel]\r\nPage=FFB\r\n"},
+        {"[FFB]\r\nEnabled=1\r\n", "FFB", "Enabled", "1", "[FFB]\r\nEnabled=1\r\n"},
+    };
+    for (const auto& g : goldens) {
+        write(g.before);
+        assert(saveKey(path.c_str(), g.section, g.key, g.value));
+        assert(read() == g.after);
+        write(g.before);
+        assert(WritePrivateProfileStringA(g.section, g.key, g.value, path.c_str()));
+        assert(read() == g.after);
+    }
+    // Intended STD-044 differences: spacing, BOM and malformed files are kept or refused instead of rewritten.
+    write("[FFB]\r\nStrength = 50\r\n");
+    assert(saveKey(path.c_str(), "FFB", "Strength", "60") && read() == "[FFB]\r\nStrength = 60\r\n");
+    write("\xef\xbb\xbf; mod\r\n[FFB]\r\nEnabled=1\r\n");
+    assert(saveKey(path.c_str(), "FFB", "Enabled", "0") && read() == "\xef\xbb\xbf; mod\r\n[FFB]\r\nEnabled=0\r\n");
+    assert(GetPrivateProfileIntA("FFB", "Enabled", 1, path.c_str()) == 0);
+    write("[FFB]\r\ngarbage\r\n");
+    assert(!saveKey(path.c_str(), "FFB", "Enabled", "0") && read() == "[FFB]\r\ngarbage\r\n");
+    // First F6 save creates the INI (LF, where Windows wrote CRLF); the game's reader sees the same value.
+    DeleteFileA(path.c_str());
+    assert(saveKey(path.c_str(), "Panel", "Page", "FFB") && read() == "[Panel]\nPage=FFB\n");
+    char page[16] = "";
+    GetPrivateProfileStringA("Panel", "Page", "", page, sizeof page, path.c_str());
+    assert(std::string(page) == "FFB");
+    assert(saveKeys(path.c_str(), "Panel", {{"View", "Advanced"}, {"Scale", "125"}}));
+    assert(read() == "[Panel]\nPage=FFB\nView=Advanced\nScale=125\n");
+    assert(!saveKey(path.c_str(), "Panel", nullptr, "x") && !saveKeys(path.c_str(), "Panel", {}));
+    DeleteFileA(path.c_str());
+    const std::string missing = std::string(argv[1]) + "/no-such-folder/settings.ini";
+    assert(!saveKey(missing.c_str(), "Panel", "Page", "FFB"));
+    assert(GetFileAttributesA((std::string(argv[1]) + "/no-such-folder").c_str()) == INVALID_FILE_ATTRIBUTES);
     puts("PASS: INI byte preservation, batched camera saves, malformed/locked refusal and atomic disk replacement");
+    puts("PASS: saveKey matches WritePrivateProfileStringA for plain mod INIs; creates, batches and refuses as STD-044 says");
 }

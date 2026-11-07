@@ -6,11 +6,12 @@ The caller serializes writers and excludes external editors while running. The f
 
 For native mods whose first F6 save creates their INI, `save(path, section, changes, true)` explicitly allows an absent/empty file or missing target section. Existing bytes and encoding are retained when adding a section. Malformed/duplicate input still refuses. Initial installation uses a non-overwriting atomic move, so a file appearing during creation is not replaced. The default remains existing-file/existing-section only; no directory is created.
 
-Offline fixture (use a disposable output folder):
+For F6 and force saves, `dbce_ini_single_key_win.hpp` supplies `saveKey(path, section, key, value)` and `saveKeys(path, section, changes)` (STD-044). Both create the INI or section on first use (never its folder) and share one mutex for the whole linked module, so route every in-process batch through `saveKeys`; other processes and external editors are not serialized. The shared panel's `[Panel]` and the FFB layer's `[FFB]` saves use `saveKey`. For plain mod INIs it writes the same bytes `WritePrivateProfileStringA` did; it keeps spacing and a BOM instead of rewriting them, refuses malformed files, and writes LF when it creates a new file.
+
+Offline fixture (MSVC x64 and x86; files are written under `build\`):
 
 ```powershell
-& E:\msys64\mingw64\bin\g++.exe -std=c++17 -Wall -Wextra -Werror -static -o build/ini-settings-test.exe native/settings/test.cpp
-& build/ini-settings-test.exe build
+.\native\settings\build_test.ps1
 ```
 
-The fixture checks exact UTF-8/BOM/UTF-16LE output, unknown/comment retention, absent-key placement, batched updates, duplicate/malformed refusal and disk replacement/locked-file preservation. It does not establish game UI behavior.
+The fixture checks exact UTF-8/BOM/UTF-16LE output, unknown/comment retention, absent-key placement, batched updates, duplicate/malformed refusal, disk replacement/locked-file preservation, and golden `saveKey` output checked against `WritePrivateProfileStringA`. It does not establish game UI behavior.
