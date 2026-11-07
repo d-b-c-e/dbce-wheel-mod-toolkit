@@ -1,5 +1,17 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- STD-044 settings writer on master (TK-2, 2026-11-07): `native/settings/dbce_ini_single_key_win.hpp` (`saveKey`,
+  `saveKeys`; the 4f221fc header DiRT 3 vendors). The F6 panel's `[Panel]` and the FFB layer's `[FFB]` saves use it.
+  - For plain mod INIs the bytes are what `WritePrivateProfileStringA` wrote (goldens in `settings/test.cpp`, now run
+    by `settings/build_test.ps1` on x64 and x86). Spacing and a BOM are kept, malformed files are refused, and a
+    newly created INI uses LF.
+  - Removed: `RawSnapshotStore` and its fence and FFB-layer hooks; the `InjectionTable` admission API (0182c27) with
+    its test and doc; the forcemodel checkpoint-copy fixture. No toolkit consumer used them; DR2's vendored inject table
+    keeps the admission API until DR2 re-vendors and drops `dr2_injection_gate`.
+  - The side branches `napo/dirt4-ini-compat-20261103`, `remi/vrally4-ini-compat-20261103` and
+    `remi/dirt3-atomic-writers-20261104` and their COMPATIBILITY notes are deleted. Games that vendored from them
+    re-vendor from master.
+
 - Removed (TK-1, 2026-11-07; STD-050, STD-051): the `tools/playback` process, lease, watchdog, foreground,
   owner-idle, stage-command and reference-copy scripts (only `Stage-Registry.ps1` remains, its test is now in
   `tools/tests`); `tools/virtual-pad`; `Dbce.Wheel.Playback` `ArtifactSeal`.
