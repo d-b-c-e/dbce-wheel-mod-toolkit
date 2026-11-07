@@ -13,7 +13,7 @@ Use a dedicated device-owner process with a real top-level HWND created by that
 process. Enter on its window thread, before any concurrent toolkit use and with
 no open readers, effects or legacy exit/watchdog guard. An existing idle shared
 DirectInput instance is allowed. The owner handles every DirectInput read and
-effect; UI/virtual-pad processes communicate over consumer-owned bounded IPC.
+effect; UI processes communicate over consumer-owned bounded IPC.
 
 `ExternalFfbEnter` installs an owner-window guard and a 5 ms watchdog, verifies
 own-process/top-level/thread identity, and marks the HWND with a property to
