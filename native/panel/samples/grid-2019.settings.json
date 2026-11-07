@@ -17,7 +17,8 @@
           "help": "50% is the game's own strength; 100% doubles it." },
         { "id": "ffb.session", "kind": "status", "label": "This session", "text": "Game-provided FFB" },
         { "id": "ffb.normalize-gain", "kind": "toggle", "label": "Normalize effect gain", "level": "advanced", "apply": "next-start",
-          "help": "For wheels that ignore the game's effect gain. Adds Strength." }
+          "help": "For wheels that ignore the game's effect gain. Adds Strength." },
+        { "id": "ffb.effects", "kind": "status", "label": "Effects the game uses", "level": "advanced", "text": "None yet." }
       ],
       "display": [
         { "id": "display.screens", "kind": "choice", "label": "Screens", "apply": "next-start",
