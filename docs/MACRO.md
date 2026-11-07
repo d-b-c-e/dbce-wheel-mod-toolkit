@@ -63,26 +63,28 @@ dev wheel {d71b8350-61b7-11f1-8001-444553540000}     # a name for a device insta
 `inject.on` and `ffb-fence.on` must have existed when the game started.
 
 ```
-pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -ProcessId <pid> [-Device wheel={guid}] [-LeasePath p -LeaseToken t [-RequireForeground]]
+pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -ProcessId <pid> [-Device wheel={guid}] [-RequireForeground]
 pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -Launch <exe> [-LaunchWaitSeconds 60]
 pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -Launch <appid|steam://...> -GameExe <game exe> [-LaunchWaitSeconds 60]
 pwsh tools\macro\Play-Macro.ps1 -Macro <file> -Game <folder> -DryRun     # print the steps only
 ```
 
 - `-Game` is a plain folder token (letters, digits, `-`, `_`).
-- The game is identified by PID and creation time (`tools/playback/Stage-ProcessIdentity.ps1`); a Steam launch follows
-  the one new `-GameExe` process, not Steam's. The identity and (with `-LeasePath`) the rig lease are checked at least
+- Hold the rig lease (hub `tools/Rig-Lease.ps1`) around the run. `-LeasePath` and `-LeaseToken` are accepted and
+  ignored, so older callers still run.
+- The game is identified by PID and creation time; a Steam launch follows
+  the one new `-GameExe` process, not Steam's. The identity is checked at least
   every second of every wait (launch waits, the Steam follow loop, the steps and the final hold) and right after the
   last sleep before every send; on loss playback stops.
-- Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` (needs the lease) brings the game to
+- Focus is opt-in: fenced controllers are read in the background. `-RequireForeground` brings the game to
   the front once at startup (below); if that is still unmet after the one fallback, playback stops before any macro
   step is sent (the fallback's own F24 press is the only input). Afterwards every check also
   observes (read-only, never re-requested) that the same game window is the foreground window and belongs to the game.
 - Foreground at startup, once, in this order (`tools/macro/MacroForeground.ps1`): the game window already in front;
-  else the ordinary `Stage-GameForeground` request (input-free); else a reobservation; else ONE activation-key
+  else one ordinary `SetForegroundWindow` request once the game's main window is visible (input-free); else a reobservation; else ONE activation-key
   fallback, because unattended launches on the rig never get focus (foreground lock timeout at its maximum; novi
   found that one F24 press through `SendInput`, then `SetForegroundWindow`, brings the game to the front). The
-  fallback first revalidates the lease, the game's birth time and path, and that its exact window is visible and not
+  fallback first revalidates the game's birth time, and that its exact window is visible and not
   minimized; it sends nothing if Shift, Ctrl, Alt, Windows or F24 is already held; it sends F24 down and up in one
   `SendInput` call and releases F24 if only one event went in or the call failed; then `SetForegroundWindow` on that
   window. Success comes only from observing that exact window in front, never from an API return. It is logged
@@ -146,6 +148,6 @@ if (g_fence) dbce::fence::settings().recorder = &g_recorder;
 
 ## Observe an already focused window
 
-`-RequireForeground -ObserveForegroundWindow <decimal HWND>` only observes that exact window and the identified process. It never requests activation or uses the F24 fallback. A mismatch stops before the first key; later focus loss uses the existing per-step guards and release cleanup. Supply a handle from the same live launch's verified render-window listing. Use the authorized operator/provider to establish foreground before invoking this mode. Omitting the parameter preserves the existing macro behavior.
+`-RequireForeground -ObserveForegroundWindow <decimal HWND>` only observes that exact window and the identified process. It never requests activation or uses the F24 fallback. A mismatch stops before the first key; later focus loss uses the existing per-step guards and release cleanup. Supply a handle from the same live launch's verified render-window listing. Omitting the parameter preserves the existing macro behavior.
 
-Offline qualification: Test-Macro.ps1 passes 95 checks, including production INPUT packing for E0 and ordinary down/up events. A hidden disposable process with foreign HWND 123 was refused before any send, with `no activation requested`. No real game/key/foreground test is implied.
+`tools/macro/Test-Macro.ps1` covers the parser, timing, holds, checkpoints, delivery and the foreground order with mocks.

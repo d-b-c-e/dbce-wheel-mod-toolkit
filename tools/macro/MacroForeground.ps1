@@ -2,12 +2,12 @@
 # Foreground for Play-Macro -RequireForeground. Dot-sourcing loads nothing native and touches no window; the player
 # passes the real operations, the tests pass mocks.
 #
-# Order, once at startup and never again: the game window already in front -> the ordinary Stage-GameForeground
+# Order, once at startup and never again: the game window already in front -> the ordinary SetForegroundWindow
 # request -> a reobservation -> ONE activation-key fallback (novi, 2026-10-28: unattended launches never get focus with
 # the rig's foreground lock timeout at its maximum; one F24 through SendInput, then SetForegroundWindow, brings the
 # game to the front). SendInput is global input: the F24 press reaches whatever window is in front at that moment.
 # It is a deliberate, minimal, logged exception, attempted only when the ordinary request is genuinely unmet, after
-# the lease, the game's identity and its exact visible, unminimized window are revalidated, and only when no
+# the game's identity and its exact visible, unminimized window are revalidated, and only when no
 # modifier or F24 is already held. Success comes only from observing the exact window in front.
 
 # Observe: {Window, Owner} in front. Request: the ordinary helper's result {status, window, reason}.

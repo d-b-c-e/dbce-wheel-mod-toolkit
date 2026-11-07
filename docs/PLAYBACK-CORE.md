@@ -72,13 +72,4 @@ No consumer pin or installation changes follow automatically from this source ch
 Consumers vendor the DLL with source commit, version and SHA-256; this component
 is not part of the existing whole-toolkit package pin.
 
-`tools/playback/Stage-Session.ps1 -Game woden|drive|iracing -Action Record
--Path <new-directory> -Seconds 60` arms one stage. Select the desired stage/car
-in the game. `-Action Replay -Path <capture> -Output <new-directory>` requires
-the recorded build, scenario and physics rate. `-Launch` optionally opens Steam;
-it does not dismiss Steam prompts. `-Action Status` reports the acknowledged
-request ID and terminal result; F12 or `-Action Stop` stops the session.
-Physical-output suppression stays latched until the game restarts. Stop before
-quitting and verify `complete.tsv`; an incomplete directory is evidence of a
-failure, never a playable capture. These commands require a compatible game
-adapter and do not imply that its game hooks have been runtime-qualified.
+Each game repo carries its own development stage command; the toolkit no longer ships one.

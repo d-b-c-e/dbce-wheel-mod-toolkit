@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 # Isolated HKCU fixture only; no game settings, launch, display or hardware access.
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'Stage-Registry.ps1')
+. (Join-Path $PSScriptRoot '../playback/Stage-Registry.ps1')
 Initialize-StageRegistry
 $id = [guid]::NewGuid().ToString('N')
 $sub = 'Software\Dbce\StageRegistryTests\' + $id

@@ -1,9 +1,9 @@
 #Requires -Version 7.0
 # Plays a macro (docs/MACRO.md) into a fenced game through %LOCALAPPDATA%\dbce\<Game>\inject.txt, with its timing:
 # no screen reads between steps. The game is -ProcessId or started by -Launch (an exe, or a Steam appid/URL with
-# -GameExe); its identity (PID + creation time, Stage-ProcessIdentity) and the rig lease (-LeasePath) are rechecked
-# before every batch and during every wait, and playback stops on loss. Fenced controllers are read in the background,
-# so focus is opt-in (-RequireForeground: at startup only, the ordinary Stage-GameForeground request and, if that is
+# -GameExe); its identity (PID + creation time) is rechecked before every batch and during every wait, and playback
+# stops on loss. The caller holds the rig lease (hub tools/Rig-Lease.ps1). Fenced controllers are read in the
+# background, so focus is opt-in (-RequireForeground: at startup only, one SetForegroundWindow request and, if that is
 # genuinely unmet, one logged F24 activation-key fallback (MacroForeground.ps1); then only observed).
 # "expect <ref.bmp>" lines compare one game frame with a reference and stop on mismatch; -RecordCheckpoint <name>
 # saves the current frame as <name>.bmp beside the macro. "key <scan>" steps (SendInput) need -RequireForeground.
@@ -17,7 +17,7 @@ param(
     [string]$Launch, [string[]]$LaunchArgs = @(), [ValidateRange(0, 600)][int]$LaunchWaitSeconds = 0,
     [string]$GameExe,                             # with a Steam -Launch: the game's exact executable path
     [int]$ProcessId,                              # the running game, when not launched here
-    [string]$LeasePath, [string]$LeaseToken,
+    [string]$LeasePath, [string]$LeaseToken,     # ignored; kept so older callers still run (the caller holds the lease)
     [switch]$RequireForeground,
     [long]$ObserveForegroundWindow,             # exact observed HWND; never requests activation or F24
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RecordCheckpoint,   # save the current frame as <name>.bmp and exit
@@ -147,7 +147,7 @@ $steps = @(for ($i = 0; $i -lt $events.Count; $i++) {
 $steps = @($steps | Sort-Object At -Stable)   # key-ups land at their time
 for ($k = 0; $k -lt $steps.Count; $k++) { $steps[$k] | Add-Member -NotePropertyName N -NotePropertyValue ($k + 1) }
 if (!$RecordCheckpoint -and !$RequireForeground -and ($steps | Where-Object { $null -ne $_.KeyScan })) {
-    throw "${Macro}: key steps go to whatever window is in front, so they need -RequireForeground (and the rig lease)"
+    throw "${Macro}: key steps go to whatever window is in front, so they need -RequireForeground"
 }
 $hasCmd = [bool]($steps | Where-Object { $_.Cmd })
 if (!$RecordCheckpoint -and $hasCmd -and !$CommandFile) { throw "${Macro}: cmd steps need -CommandFile (the game's command file)" }
@@ -248,12 +248,8 @@ foreach ($flag in @(@(if (!$nonce) { 'ffb-fence.on' }) + 'inject.on') | Where-Ob
     if (!(Test-Path -LiteralPath (Join-Path $dir $flag))) { throw "Missing $dir\$flag (needed when the game starts); nothing sent." }
 }
 if (!$Launch -and !$ProcessId) { throw 'Name the game: -ProcessId or -Launch.' }
-if ([bool]$LeasePath -ne [bool]$LeaseToken) { throw '-LeasePath and -LeaseToken go together.' }
-if ($RequireForeground -and !$LeasePath) { throw '-RequireForeground needs the rig lease (-LeasePath, -LeaseToken).' }
 $steam = $Launch -match '^\d+$' -or $Launch -like 'steam://*'
 if ($steam -and !$GameExe) { throw 'A Steam -Launch needs -GameExe (the game executable to follow).' }
-. (Join-Path $PSScriptRoot '..\playback\Stage-ProcessIdentity.ps1')
-if ($LeasePath) { . (Join-Path $PSScriptRoot '..\playback\Stage-RigLease.ps1'); Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
 
 $sendCount = @($steps | Where-Object { !$_.Expect }).Count
 $result = [ordered]@{ macroDispatched = $false; stepsSent = 0; stepsTotal = $sendCount; checkpointsPassed = 0; checkpoints = @(); stepsDelivered = $null; stoppedReason = $null; gameplayReady = $null }
@@ -271,17 +267,46 @@ function Send([string[]]$lines) {
 # Read-only foreground observation (no activation).
 function Get-Front {
     if (!('Dbce.MacroFront' -as [type])) {
-        Add-Type -Namespace Dbce -Name MacroFront -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint p);'
+        Add-Type -Namespace Dbce -Name MacroFront -MemberDefinition ('[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint p); ' +
+            '[DllImport("user32.dll")] public static extern bool IsWindowVisible(System.IntPtr h); [DllImport("user32.dll")] public static extern bool IsIconic(System.IntPtr h); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h);')
     }
     $front = [Dbce.MacroFront]::GetForegroundWindow()
     [uint32]$owner = 0
     [void][Dbce.MacroFront]::GetWindowThreadProcessId($front, [ref]$owner)
     [pscustomobject]@{ Window = $front.ToInt64(); Owner = $owner }
 }
-# Lease, game identity and (once foreground was observed) the same game window still in front. Read-only.
+# The ordinary request: wait up to 30 s for the game's visible main window, ask once for the foreground, then observe
+# for 2 s. Returns {status, window, reason} for Invoke-MacroForeground.
+function Request-GameForeground([int]$GamePid) {
+    [void](Get-Front)   # loads Dbce.MacroFront
+    $w = [IntPtr]::Zero; $wait = [Diagnostics.Stopwatch]::StartNew()
+    while ($wait.ElapsedMilliseconds -lt 30000) {
+        Assert-Game
+        $w = (Get-Process -Id $GamePid).MainWindowHandle
+        if ($w -ne [IntPtr]::Zero -and [Dbce.MacroFront]::IsWindowVisible($w) -and ![Dbce.MacroFront]::IsIconic($w)) { break }
+        $w = [IntPtr]::Zero; Start-Sleep -Milliseconds 200
+    }
+    if ($w -eq [IntPtr]::Zero) { return [pscustomobject]@{ status = 'unmet'; window = 0L; reason = 'no visible game window within 30 s' } }
+    [void][Dbce.MacroFront]::SetForegroundWindow($w)
+    $wait.Restart()
+    while ($wait.ElapsedMilliseconds -lt 2000) {
+        $f = Get-Front
+        if ($f.Window -eq $w.ToInt64() -and $f.Owner -eq $GamePid) { return [pscustomobject]@{ status = 'observed'; window = $w.ToInt64(); reason = '' } }
+        Start-Sleep -Milliseconds 50
+    }
+    [pscustomobject]@{ status = 'unmet'; window = $w.ToInt64(); reason = 'the game window did not come to the front' }
+}
+# The recorded game: OriginalAlive, Absent (exited) or Reused (same PID, different creation time).
+function Get-GameState {
+    $p = Get-Process -Id $script:identity.processId -ErrorAction SilentlyContinue
+    if (!$p -or $p.HasExited) { return 'Absent' }
+    try { $started = $p.StartTime.ToUniversalTime() } catch { return 'Absent' }
+    if ([Math]::Abs(($started - ([datetime]$script:identity.createdUtc).ToUniversalTime()).TotalSeconds) -gt 1) { return 'Reused' }
+    'OriginalAlive'
+}
+# Game identity and (once foreground was observed) the same game window still in front. Read-only.
 function Assert-Game {
-    if ($LeasePath) { Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
-    $state = (Get-StageProcessIdentityDisposition -Recorded $script:identity -Snapshot (Get-StageProcessIdentitySnapshot)).state
+    $state = Get-GameState
     if ($state -ne 'OriginalAlive') { throw "game process $($script:identity.processId) is $state" }
     if ($script:fgWindow) { Assert-MacroForeground $script:fgWindow $script:identity.processId { Get-Front } }
 }
@@ -358,7 +383,6 @@ try {
         $want = [IO.Path]::GetFullPath($GameExe)
         for ($k = 0; !$script:identity; $k++) {
             if ($k -ge 120) { throw "no new $want within 120 s of $url" }
-            if ($LeasePath) { Assert-StageRigLease -Path $LeasePath -Token $LeaseToken }
             Start-Sleep -Seconds 1
             $found = @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object { $_.ExecutablePath -and $_.ExecutablePath -eq $want -and $_.CreationDate -ge $since })
             if ($found.Count -gt 1) { throw "more than one new $want" }
@@ -373,29 +397,24 @@ try {
     Wait-Until ($clock.ElapsedMilliseconds + 1000L * $LaunchWaitSeconds)
     if ($RequireForeground) {   # once, before playback (MacroForeground.ps1); afterwards only observed, never requested again
         . (Join-Path $PSScriptRoot 'MacroForeground.ps1')
-        . (Join-Path $PSScriptRoot '..\playback\Stage-GameForeground.ps1')
         $p = Get-Process -Id $identity.processId
-        $exe = $p.Path; $ticks = $p.StartTime.ToUniversalTime().Ticks
         if ($ObserveForegroundWindow) {
             $front = Get-Front
             if ($front.Window -ne $ObserveForegroundWindow -or $front.Owner -ne $p.Id) { throw 'the exact observed game window is not in front; no activation requested' }
             $fg = [pscustomobject]@{ status = 'observed'; window = $ObserveForegroundWindow; via = 'read-only exact HWND observation'; reason = '' }
         } else {
         $fg = Invoke-MacroForeground -ProcessId $identity.processId -Observe { Get-Front } -Log { param($l) [Console]::Error.WriteLine($l) } `
-            -Request { Request-StageGameForeground -ProcessId $p.Id -StartedUtcTicks $ticks -ExecutablePath $exe -LeasePath $LeasePath -LeaseToken $LeaseToken } `
+            -Request { Request-GameForeground $p.Id } `
             -Validate { param($w)
-                Assert-Game   # lease and birth time
-                $q = Get-Process -Id $identity.processId
-                Assert-StageForegroundIdentity ([pscustomobject]@{ Id = $q.Id; StartedUtcTicks = $q.StartTime.ToUniversalTime().Ticks; ExecutablePath = [string]$q.Path }) $p.Id $ticks $exe
-                Initialize-StageForegroundNative
+                Assert-Game   # birth time
                 [uint32]$owner = 0
-                [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId([IntPtr]$w, [ref]$owner)
-                if ($owner -ne $p.Id -or ![Dbce.StageForegroundNative]::IsWindowVisible([IntPtr]$w) -or [Dbce.StageForegroundNative]::IsIconic([IntPtr]$w)) { throw 'the game window is gone, hidden or minimized' }
+                [void][Dbce.MacroFront]::GetWindowThreadProcessId([IntPtr]$w, [ref]$owner)
+                if ($owner -ne $p.Id -or ![Dbce.MacroFront]::IsWindowVisible([IntPtr]$w) -or [Dbce.MacroFront]::IsIconic([IntPtr]$w)) { throw 'the game window is gone, hidden or minimized' }
             } `
             -KeysHeld { Initialize-MacroActivation; [Dbce.MacroActivation]::AnyHeld() } `
             -SendF24 { Initialize-MacroActivation; [Dbce.MacroActivation]::DownUp() } `
             -Release { Initialize-MacroActivation; [Dbce.MacroActivation]::Up() } `
-            -Activate { param($w) [Dbce.StageForegroundNative]::SetForegroundWindow([IntPtr]$w) }
+            -Activate { param($w) [Dbce.MacroFront]::SetForegroundWindow([IntPtr]$w) }
         }
         $result.foreground = $fg
         if ($fg.status -ne 'observed') { throw "foreground unmet: $($fg.reason)" }

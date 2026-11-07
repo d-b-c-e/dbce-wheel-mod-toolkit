@@ -12,52 +12,9 @@ pedal bindings and camera preference. See [the shared registry helper](STAGE-REG
 Before reusing an older runner, inspect its snapshot path. Matching `.reg` files
 does not establish full restoration. Existing native raw helpers remain valid.
 
-For unattended launch admission, `tools/playback/Stage-OwnerIdle.ps1` provides
-`Assert-StageOwnerIdle` (300 seconds by default). It reads raw Windows last-input
-age and refuses recent, missing or invalid observations; it never injects input,
-changes focus, waits or launches. Call before taking the lease and again just
-before launching. Sonic's probe runner pins and enforces this check; adoption by
-other runners remains separate. A queue may wait outside the lease and retry.
-Do not discount input merely because a game or launcher is foreground: this
-conservative check makes no owner-versus-tool attribution. It is launch admission,
-not an active-game takeover detector. Recovery/restoration must remain available
-when the owner returns.
-
-For a coordinated child operation under an existing rig slot, use
-`Assert-StageRigLease -Path <slot> -Token <original-caller-token>` before work.
-It validates exact, unexpired ownership without rewriting, renewing or releasing
-the parent's lease. Sonic addon setup/removal accepts `-LeaseToken`; default
-standalone setup still acquires/releases its own slot. Keep the original token
-returned by the caller's acquisition, not an arbitrary token read from the slot.
-The lease itself does not check idle input. The caller still owns settings
-backup/restoration, launch/close and final release. This does not add borrowed
-lease support to the Unity replay runners.
-
-When a recipe uses the [virtual pad](../tools/virtual-pad/README.md), wait for
-its `neutral readback verified` readiness line before game input. Command slot
-and XInput user index are different identities. The October 8 helper verifies
-all fields through the pad's actual XInput index; an initial zero report alone
-did not guarantee neutral state on this rig. Keep the input log and independent
-readback beside controlled-response experiments.
-
-## Preserve a qualified reference before worktree cleanup
-
-For the shared core's sealed trajectories (Woden, iRacing and DRIVE), use the
-toolkit's PowerShell 7 helper to copy **all sealed streams** to a new private
-directory. It verifies source and destination hashes, rejects linked/escaping
-paths and overwrites, and publishes the copy only after verification:
-
-```powershell
-./tools/playback/Copy-StageReference.ps1 -Source 'E:/path/to/recording' -Destination "$env:LOCALAPPDATA/Dbce/StagePlayback/references/game-reference-date"
-```
-
-Save its JSON receipt beside the new reference, then run the game's original-data
-review command against that copy. This preserves bytes; it does not qualify a
-recording or copy unsealed logs, screenshots or owner-state backups. Archive those
-separately and verify the archive before retiring a worktree. Art session 5 uses
-an older format without this seal; follow its dedicated instructions below.
-`tools/playback/Test-StageReference.ps1` exercises complete/nested copy, overwrite,
-changed-stream, nested-destination, escaping-path and duplicate-name refusals.
+The game-run scripts these sections describe live in each game repo. The toolkit's old
+process, lease, watchdog and reference-copy helpers were removed on 2026-11-07; hold the
+hub `tools/Rig-Lease.ps1` lease around a game run instead.
 
 ## Art of Rally: known-good reference playback
 
@@ -260,8 +217,7 @@ geometry and existing tuning; a display fix is not grounds to repeat the route.
 
 See the consumer `docs/STAGE-PLAYBACK.md` and
 `docs/reviews/2026-10-05-unattended-playback.md` for exact evidence and limits.
-The launcher is currently source-checkout tooling; the installed generic
-`Stage-Session.ps1` alone does not provide supervision/restoration.
+The launcher is source-checkout tooling.
 
 ## Woden: accepted reference, background replay and span startup
 
@@ -320,7 +276,6 @@ Set-Location 'E:/Source/games/dbce-mods-woden-rally-edge'
 ```
 
 Build the consumer TelemetryInspector before using source-checkout supervision.
-The installed Stage-Session.ps1 alone does not back up/restore the environment.
 The historical session-span.2 player package passed 111 stock Windows PowerShell
 5.1 installer checks. Current public packaging and historical span qualification
 are recorded separately in consumer `docs/PUBLIC-RELEASE.md` and
@@ -398,18 +353,6 @@ request-ID correlation and completion seals; an old status file is not evidence
 of the current run. Supervised wrappers are the normal operator entry points.
 
 ## Maintainer entry points
-
-For new supervised adapters, use the [owned-process watchdog contract](STAGE-SUPERVISION.md).
-Pin the watcher/policy scripts together. Never kill games by name or rewrite the
-monitor profile as a generic response to a stalled recording.
-
-Woden, iRacing and DRIVE runners now use hash-pinned `Stage-RigLease.ps1`: acquire
-before backup/arming/launch and release only the matching token after game close.
-A fresh slot refuses the run before owner mutation. The installed generic command
-does not replace the supervisor or owner-state backup/restore wrapper. iRacing's
-qualified repack.114 now has current-request output-mute heartbeats and identified
-process supervision. Woden has not adopted that heartbeat; do not retrofit forced
-termination by assuming its physical outputs are off.
 
 ### Sonic CrossWorlds preparation
 
@@ -554,33 +497,6 @@ or automatic-wheel live check is implied.
   earlier 0.1 pin intentionally; a documentation update does not require repinning.
 - Run `dotnet run --project dotnet/Dbce.Wheel.Playback.Tests -c Release` for
   device-free core coverage. These checks never establish live game support.
-- Runner adapters can vendor `tools/playback/Stage-RunnerLifecycle.ps1` with a
-  source/hash pin. Resolve every caller path through `Resolve-StageFileSystemPath`
-  before use: .NET process CWD can differ from PowerShell Set-Location/Start-Job.
-  `Get-StageProcessSnapshot` separates closed-during-read from unavailable identity;
-  `Get-StageProcessDisposition` refuses changed PID/start/image or multiple processes.
-  Run `Test-StageRunnerLifecycle.ps1` for offline coverage.
-  In a finally path, use `Complete-StageSession` with game-specific evidence,
-  watchdog, disarm, restore and lease callbacks. It waits boundedly for two closed
-  observations, always attempts evidence, restores despite ancillary errors, and
-  retains the lease if the game remains/identity is unknown or recovery fails.
-  It never stops a game or sends input. Do not turn a route pass into a whole-run
-  pass if shutdown, watchdog or restoration failed.
-  A successful `CloseMainWindow()` means the close request was sent, not that
-  shutdown succeeded. Preserve the launched process object, observe its exit
-  code even if it already closed before cleanup, and record unknown separately
-  from zero. Require the expected clean exit code for a whole-run pass; keep
-  valid input/route results and exact restoration as separate evidence. The
-  pure `New-StageGameExitEvidence` helper records these separate fields and
-  accepts only an observed Int32 exit code of zero for `shutdownPass`; null,
-  strings and booleans cannot be coerced into success. It does not observe or
-  close a process. Retain the process handle while alive and pass the actual
-  nullable observation from the runner. Adapters adopt it with their next
-  reviewed runner update; existing vendor pins do not change automatically.
-  The October 13 iRacing diagnostic proved stock player joining but exited with
-  `0xC0000005`; its first runner incorrectly printed PASS because it checked
-  only process closure. Its corrected `-SelfTest` rejects a crash code, an
-  unobserved code and a still-running process without discarding the input proof.
 - Shared lessons and this runbook are indexed from toolkit AGENTS.md, CLAUDE.md,
   STATE.md and knowledge/README.md. Update the evidence/status after each new
   adapter's live qualification; keep failures, source identity and limits visible.

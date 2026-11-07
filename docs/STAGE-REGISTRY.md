@@ -53,7 +53,7 @@ before/after `.reg` files can still pass: both are incomplete. This is why
 PowerShell `Get-ItemProperty` also throws on some unsigned Unity DWORD values.
 Do not repair this by skipping unreadable values or coercing data through strings.
 
-Run `tools/playback/Test-StageRegistry.ps1` in both shells. It creates and removes
+Run `tools/tests/Test-StageRegistry.ps1` in both shells. It creates and removes
 only an isolated randomly named test key, retains evidence in the temporary
 directory, and does not open a game or a force device. The reg.exe reproduction
 is informational on hosts where Microsoft has fixed the defect; exact native
