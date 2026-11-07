@@ -6,7 +6,7 @@
 
 Six force-feedback implementations exist across the family. Four talk to
 DirectInput 8 directly (art-of-sim-rally / iracing-arcade-wheel, OutRun2006Tweaks-FFB,
-cannonball-se on Windows, xoutput-redux in C#). One uses **SDL2 haptics**
+cannonball-se on Windows, and a C# controller mapper since retired by STD-051). One uses **SDL2 haptics**
 (cruisn-collection, inside a MAME fork, modelled on Cannonball DX and Flycast).
 One tried **SDL3 haptics** and removed it (OutRun2006Tweaks-FFB, commit `eddaa28`).
 

@@ -103,7 +103,7 @@ keeper), the shaping constants and the device-quirk data now, and the DLL's
 SDL2 backend later if the conformance probe shows no regression. Its
 diagnostics (`ffb_trace_report`, `support_bundle`) move *into* the toolkit.
 
-### 6. cannonball-se, mame-racing, xoutput-redux — knowledge only
+### 6. cannonball-se, mame-racing and the retired C# mapper — knowledge only
 
 Their DirectInput FFB code is recorded in the knowledge base (VID:PID
 targeting, the non-exclusive-when-SDL-owns-the-device condition, Linux

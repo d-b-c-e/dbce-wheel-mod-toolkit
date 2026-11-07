@@ -28,8 +28,8 @@ already drifted.
 | milestone-wheel-tools | Gravel (UE 4.17) | `dinput8.dll` proxy | **consumes** the game's FFB (vtable tap); SIXDOF→DRIVING re-type | Forza 232/311/324 (C++) from FMOD + UE4 reflection | game's own DirectInput, tapped; PowerShell bind wizard |
 
 Adjacent and load-bearing: `cannonball-se` (SDL2 FFB direction/range fix),
-`mame-racing` (SDL2 haptics in the MAME OSD), `xoutput-redux` (DirectInput
-FFB routing, .NET), `dinputto8`, `launchbox/devreorder-bridge` and
+`mame-racing` (SDL2 haptics in the MAME OSD), a C# controller mapper (DirectInput
+FFB routing, .NET; retired by STD-051), `dinputto8`, `launchbox/devreorder-bridge` and
 `Launchbox-Racing` (two more dinput8 proxies), `launchbox-ez-config`
 (DirectInput detection, FFB plugin config writer), `wheel-db` /
 `controller-input-db` (per-game wheel data), `dbce-retro-gaming-mcp`
@@ -40,12 +40,12 @@ backends, dependency installer).
 
 | Thing | Copies | State |
 |---|---|---|
-| DirectInput constant-force FFB implementation | 6 | art-of-sim-rally (937), iracing-arcade-wheel (783, same origin), OutRun (1,540 incl. periodics), cannonball-se (378, also Linux evdev), milestone (consumer-side tap), xoutput-redux (C#); each re-derives effect creation, acquisition and recovery |
+| DirectInput constant-force FFB implementation | 6 | art-of-sim-rally (937), iracing-arcade-wheel (783, same origin), OutRun (1,540 incl. periodics), cannonball-se (378, also Linux evdev), milestone (consumer-side tap), a C# controller mapper (since retired); each re-derives effect creation, acquisition and recovery |
 | Forza "Data Out" encoder | 5 (C# ×2 identical, C++ ×3) | 324 B in art of rally, iRacing, cruisn and the MAME driver itself; 311 B in OutRun; offsets validated once, in cruisn, and propagated by comment. Three of them independently synthesise a plausible RPM for games that have none |
 | Forza probe / listener / synth | 4 Python scripts in 4 repos | two are the same file, diverged |
 | `UnityForceFeedback.cpp` | 2 | product name, env var and log path are the only intended differences; art-of-sim-rally has since gained the crash fix, Fanatec-twin fallback, capability labels and axis reading |
 | dinput8 proxy scaffold | 3 | milestone, devreorder-bridge, Launchbox-Racing |
-| DirectInput device enumeration | 8+ | C++ ×4, C# ×4 (xoutput, ez-config, ReduxConfig, InputBridge), Python ctypes ×1, PowerShell Add-Type ×1 |
+| DirectInput device enumeration | 8+ | C++ ×4, C# ×4 (the retired controller mapper, ez-config, ReduxConfig, InputBridge), Python ctypes ×1, PowerShell Add-Type ×1 |
 | Steam library discovery (registry + `libraryfolders.vdf`) | 6+ | triplicated inside milestone alone |
 | Support / crash bundle | 3 | C# (art of rally), Python (cruisn), C++ minidump zip (OutRun upstream) |
 | `wheelprobe` vs `dinput-enum` | 2 | same purpose, different repos |
