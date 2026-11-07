@@ -216,7 +216,15 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     const std::string good = std::string(root) + "\\settings.ini";
     const std::string bad = std::string(root) + "\\blocked.ini";
     check(CreateDirectoryA(bad.c_str(), nullptr) != FALSE, "save-failure target is a directory");
-    check(WritePrivateProfileStringA("FFB", "Strength", "50", good.c_str()) != FALSE, "baseline INI created");
+    auto iniBytes = [&good]() {
+        std::string s; FILE *f = nullptr;
+        if (fopen_s(&f, good.c_str(), "rb") == 0 && f) { int ch; while ((ch = fgetc(f)) != EOF) s += char(ch); fclose(f); }
+        return s;
+    };
+    {
+        FILE *f = nullptr;
+        check(fopen_s(&f, good.c_str(), "wb") == 0 && f && fputs("; mod settings\r\n[FFB]\r\nStrength = 50\r\n", f) >= 0 && fclose(f) == 0, "baseline INI created");
+    }
     char ini[MAX_PATH];
     strcpy_s(ini, good.c_str());
     o.iniPath = ini;
@@ -225,6 +233,7 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     check(dbce::ffb::Strength() == 60 && effect.magnitude == 2400 && GetPrivateProfileIntA("FFB", "Strength", 0, ini) == 60, "successful strength save applies and persists exact gain");
     dbce::ffb::SetOn(false);
     check(!dbce::ffb::On() && GetPrivateProfileIntA("FFB", "Enabled", 1, ini) == 0, "successful Off stops and persists");
+    check(iniBytes() == "; mod settings\r\n[FFB]\r\nStrength = 60\r\nEnabled=0\r\n", "[FFB] saves change only their own values and keep comments, spacing and CRLF (STD-044)");
 
     strcpy_s(ini, bad.c_str());   // same options pointer, genuine Win32 profile-write failure
     const int starts = effect.starts, updates = effect.updates;
@@ -287,7 +296,6 @@ static void saveStateChecks(IDirectInputDevice8A *dev, dbce::ffb::Options o)
     fake->effect = nullptr;
     o.iniPath = nullptr;
     dbce::ffb::Init(o);   // no dangling options pointer after this fixture
-    WritePrivateProfileStringA(nullptr, nullptr, nullptr, good.c_str());
     check(DeleteFileA(good.c_str()) && RemoveDirectoryA(bad.c_str()) && RemoveDirectoryA(root), "private INI and directories removed");
 }
 

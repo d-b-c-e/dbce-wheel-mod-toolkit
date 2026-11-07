@@ -10,6 +10,7 @@
 #include <string>
 #include <algorithm>
 #include "dbce_panel.h"
+#include "../settings/dbce_ini_single_key_win.hpp"
 #include "../third_party/imgui/imgui.h"
 #include "../third_party/imgui/imgui_internal.h"
 #include "../third_party/imgui/backends/imgui_impl_dx11.h"
@@ -141,8 +142,7 @@ int main(int argc, char **argv)
                 if ((status || hidden) && view) continue;
                 if (view == 1 && w != 2560) continue;   // Advanced once, at the owner's monitor size
                 DeleteFileA(ini);
-                WritePrivateProfileStringA("Panel", "Page", pg, ini);
-                WritePrivateProfileStringA("Panel", "View", view ? "Advanced" : "Simple", ini);
+                CHECK(dbce::settings::saveKeys(ini, "Panel", {{"Page", pg}, {"View", view ? "Advanced" : "Simple"}}));
                 dbce::panel::Config c;
                 c.modName = "Example mod 0.0.0 (panel render check)";
                 c.modRepositoryUrl = "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit";
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
         for (int on = 0; on < 2; ++on) {
             const int w = sz[0], h = sz[1];
             DeleteFileA(ini);
-            WritePrivateProfileStringA("Panel", "ShowFrameRate", on ? "1" : "0", ini);
+            CHECK(dbce::settings::saveKey(ini, "Panel", "ShowFrameRate", on ? "1" : "0"));
             dbce::panel::Config c;
             c.iniPath = ini;
             dbce::panel::Configure(c);

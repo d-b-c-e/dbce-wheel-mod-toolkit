@@ -1,6 +1,7 @@
 // See dbce_ffb_layer.h. Ported from the Rush Rally 3 proxy (0.2.2/0.3.0, 2026-10-08), where it was verified muted.
 #define DIRECTINPUT_VERSION 0x0800
 #include "dbce_ffb_layer.h"
+#include "../settings/dbce_ini_single_key_win.hpp"
 #include "dbce_ffb_gain.hpp"
 #include "../panel/dbce_panel.h"
 #include "../controls/dbce_inject_table.hpp"
@@ -647,7 +648,7 @@ HRESULT STDMETHODCALLTYPE hkCreateDevice(void *self, REFGUID g, void **out, LPUN
 bool saveIni(const char *key, const char *value, const char *failure = "Settings could not be saved")
 {
     if (!g_opt.iniPath) return true;   // explicitly memory-only: no persistence is requested
-    if (WritePrivateProfileStringA("FFB", key, value, g_opt.iniPath)) {
+    if (dbce::settings::saveKey(g_opt.iniPath, "FFB", key, value)) {
         dbce::panel::NoteSaved(true);
         return true;
     }
