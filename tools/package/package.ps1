@@ -12,6 +12,9 @@
       dotnet\Dbce.Wheel.Telemetry.dll (+xml)    Forza encoder, idle keeper, RPM synth
       dotnet\Dbce.Wheel.Ffb.dll (+xml)          binding, shaper, model, diagnostics
       dotnet\Dbce.Wheel.Recording.dll (+xml)    bounded diagnostic JSONL capture and streaming replay reader
+      dotnet\Dbce.Wheel.{Input,Display,Ui}.dll  bindings, racing row and window landing, F6 presentation
+      shared\**, shared\input\*.cs, unity\**, installer\**   source parts (Sync-Toolkit shared, unity, installer)
+      tools\Check-Net35Api.ps1, tools\Find-StrippedInteropCalls.ps1   post-build checks for Mono 2.0 and IL2CPP
       tools\forza\*.py, tools\dev\*.ps1, tools\Sync-Toolkit.ps1, tools\ffbprobe\ffbprobe.exe (if built)
       knowledge\**\*.md, docs\adr\*.md, README.md, CHANGELOG.md, LICENSE
     Consumers vendor from this zip with Sync-Toolkit.ps1.
@@ -111,6 +114,8 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet build failed" }
 dotnet test (Join-Path $root 'Dbce.Wheel.sln') -c Release --no-build | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "tests failed" }
 & (Join-Path $root 'dotnet/Dbce.Wheel.Recording.Tests/Test-RecordingPackaging.ps1') | Out-Host
+Write-Host "== dummy Unity consumer (Mono, Mono20, Il2Cpp) ==" -ForegroundColor Cyan
+& (Join-Path $root 'tools/tests/Test-UnityConsumer.ps1') -SkipBuild | Out-Host
 
 $probeSrc = Join-Path $root 'tools\ffbprobe'
 if (-not (Test-Path (Join-Path $probeSrc 'ffbprobe.exe'))) {
@@ -145,6 +150,15 @@ Copy-Item (Join-Path $ffbBin 'Dbce.Wheel.*.xml') (Join-Path $stage 'dotnet') -Er
 $recordingBin = Join-Path $root 'dotnet\Dbce.Wheel.Recording\bin\Release\netstandard2.0'
 Copy-Item (Join-Path $recordingBin 'Dbce.Wheel.Recording.dll') (Join-Path $stage 'dotnet')
 Copy-Item (Join-Path $recordingBin 'Dbce.Wheel.Recording.xml') (Join-Path $stage 'dotnet')
+foreach ($lib in 'Input', 'Display', 'Ui') {
+    Copy-Item (Join-Path $root "dotnet\Dbce.Wheel.$lib\bin\Release\netstandard2.0\Dbce.Wheel.$lib.dll") (Join-Path $stage 'dotnet')
+}
+# Source parts, laid out as Sync-Toolkit -LocalRepo delivers them: the Input sources go to shared\input.
+foreach ($part in 'shared', 'unity', 'installer') { Copy-Item (Join-Path $root $part) $stage -Recurse }
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'shared\input') | Out-Null
+Get-ChildItem (Join-Path $root 'dotnet\Dbce.Wheel.Input') -File | Where-Object Extension -ne '.csproj' |
+    Copy-Item -Destination (Join-Path $stage 'shared\input')
+Copy-Item (Join-Path $root 'tools\Check-Net35Api.ps1'), (Join-Path $root 'tools\Find-StrippedInteropCalls.ps1') (Join-Path $stage 'tools')
 Copy-Item (Join-Path $root 'tools\forza\*.py') (Join-Path $stage 'tools\forza')
 Copy-Item (Join-Path $root 'tools\dev\*.ps1') (Join-Path $stage 'tools\dev')
 Copy-Item (Join-Path $root 'tools\Sync-Toolkit.ps1') (Join-Path $stage 'tools')

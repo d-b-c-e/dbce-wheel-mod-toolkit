@@ -2,14 +2,16 @@
    edit is checked before replacing the destination. Failed commits roll back.
    -Force retains local edits alongside the replacement. Unselected files and their
    manifest entries survive partial syncs. Load supports renamed native DLLs in 0.12+.
-   -LocalRepo records its full revision and dirty state; it never claims a release tag. #>
+   -LocalRepo records its full revision and dirty state; it never claims a release tag.
+   Source parts: shared (shared/ plus the Dbce.Wheel.Input sources as shared/input), unity (the shared
+   Unity layer and Dbce.Unity.props) and installer. #>
 [CmdletBinding()]
 param([string]$Version, [string]$LocalRepo, [string]$Destination,
       [string[]]$Parts = @('native','dotnet'), [switch]$Force,
       [string]$Repo = 'd-b-c-e/dbce-wheel-mod-toolkit')
 $ErrorActionPreference = 'Stop'
 $Parts = @($Parts | ForEach-Object { $_ -split ',' } | Where-Object { $_ } | Select-Object -Unique)
-$valid = @('native','native-x86','include','profiles','powershell','dotnet','tools','knowledge')
+$valid = @('native','native-x86','include','profiles','powershell','dotnet','tools','knowledge','shared','unity','installer')
 if ($Parts.Count -eq 0 -or @($Parts | Where-Object { $_ -notin $valid }).Count) { throw 'Unknown or empty Parts selection' }
 if ([bool]$Version -eq [bool]$LocalRepo) { throw 'Specify exactly one of -Version or -LocalRepo' }
 $root = Split-Path -Parent $PSScriptRoot
@@ -38,6 +40,7 @@ $transaction = Join-Path $parent ('.toolkit-transaction-' + [guid]::NewGuid().To
 $staged = Join-Path $transaction 'next'
 $backup = Join-Path $transaction 'previous'
 $keepRecovery = $false
+$under = @{}
 try {
     if ($LocalRepo) {
         $LocalRepo = [IO.Path]::GetFullPath($LocalRepo)
@@ -54,11 +57,19 @@ try {
             powershell = @(Join-Path $LocalRepo 'tools/powershell')
             # Source builds include the unreleased recorder. -Version below only
             # copies archive contents, so published v0.12.0 needs no Recording DLL.
+            # Ui's output also carries Dbce.Wheel.Input.dll, its dependency.
             dotnet = @((Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Ffb/bin/Release/netstandard2.0'),
-                       (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Recording/bin/Release/netstandard2.0'))
+                       (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Recording/bin/Release/netstandard2.0'),
+                       (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Ui/bin/Release/netstandard2.0'),
+                       (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Display/bin/Release/netstandard2.0'))
             tools = @(Join-Path $LocalRepo 'tools')
             knowledge = @(Join-Path $LocalRepo 'knowledge')
+            shared = @((Join-Path $LocalRepo 'shared'), (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Input'))
+            unity = @(Join-Path $LocalRepo 'unity')
+            installer = @(Join-Path $LocalRepo 'installer')
         }
+        # Release archives already hold the Input sources at shared/input (tools/package/package.ps1).
+        $under[(Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Input')] = 'input'
     } else {
         New-Item -ItemType Directory -Path $download | Out-Null
         & gh release download $Version --repo $Repo --pattern 'dbce-wheel-mod-toolkit-*.zip' --dir $download
@@ -98,13 +109,16 @@ try {
                 'include' { @(Get-ChildItem -LiteralPath $from -Filter '*.h' -File) }
                 'powershell' { @(Get-ChildItem -LiteralPath $from -Filter '*.psm1' -File) }
                 'dotnet' { @(Get-ChildItem -LiteralPath $from -File | Where-Object { $_.Name -like 'Dbce.Wheel.*.dll' -or $_.Name -like 'Dbce.Wheel.*.xml' }) }
+                # A project folder (dotnet/Dbce.Wheel.Input) gives its top-level sources, never the project or bin/obj.
+                { $under.ContainsKey($from) } { @(Get-ChildItem -LiteralPath $from -File | Where-Object { $_.Extension -ne '.csproj' }) }
                 default { @(Get-ChildItem -LiteralPath $from -Recurse -File) }
             }
             if ($files.Count -eq 0) { throw "Empty requested part source: $from" }
             if ($part -eq 'dotnet' -and @($files | Where-Object Extension -eq '.dll').Count -eq 0) { throw 'No managed assemblies in dotnet part' }
             foreach ($file in $files) {
                 Assert-Unlinked $file.FullName
-                $relative = $to + '/' + $file.FullName.Substring($from.TrimEnd('\','/').Length + 1).Replace('\','/')
+                $prefix = if ($under.ContainsKey($from)) { $to + '/' + $under[$from] } else { $to }
+                $relative = $prefix + '/' + $file.FullName.Substring($from.TrimEnd('\','/').Length + 1).Replace('\','/')
                 if ($plan.ContainsKey($relative)) { throw "Duplicate destination: $relative" }
                 $target = Join-Path $Destination $relative
                 $hash = (Get-FileHash -LiteralPath $file.FullName).Hash

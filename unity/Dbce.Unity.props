@@ -1,0 +1,58 @@
+<Project>
+  <!--
+    Shared Unity build settings. A game imports this file from its Directory.Build.props, after setting the
+    properties below, from the copy Sync-Toolkit vendors into lib/toolkit/unity:
+
+      <DbceRuntime>Il2Cpp</DbceRuntime>     Mono (Unity Mono 4.x), Mono20 (legacy Mono 2.0 / .NET 3.5) or Il2Cpp
+      <DbceImgui>Rect</DbceImgui>           Layout (GUILayout) or Rect (GUI.* rectangles, for stripped IL2CPP)
+      <DbcePipeline>Urp</DbcePipeline>      BuiltIn or Urp
+      <Import Project="lib\toolkit\unity\Dbce.Unity.props" />
+
+    Defines: DBCE_IL2CPP, DBCE_NET35 (with DBCE_INPUT_NET35 and DBCE_SUPPORT_NET35, which the shared sources read),
+    DBCE_IMGUI_RECT and DBCE_URP. Mono 4.x sets none of the runtime defines.
+
+    The engine-free libraries (Dbce.Wheel.Input, Display, Ui) are referenced as netstandard2.0 DLLs from
+    lib/toolkit/dotnet, except on Mono20, which cannot load netstandard2.0: there the same sources from
+    lib/toolkit/shared compile into the plugin. DbceSharedSources narrows that list (input;display;ui;support).
+    Everything under unity/ compiles into the plugin on every runtime.
+  -->
+  <PropertyGroup>
+    <DbceToolkitDir Condition="'$(DbceToolkitDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</DbceToolkitDir>
+    <DbceRuntime Condition="'$(DbceRuntime)' == ''">Mono</DbceRuntime>
+    <DbceImgui Condition="'$(DbceImgui)' == ''">Layout</DbceImgui>
+    <DbcePipeline Condition="'$(DbcePipeline)' == ''">BuiltIn</DbcePipeline>
+    <DbceSharedSources Condition="'$(DbceSharedSources)' == '' and '$(DbceRuntime)' == 'Mono20'">input;display;ui;support</DbceSharedSources>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants Condition="'$(DbceRuntime)' == 'Il2Cpp'">$(DefineConstants);DBCE_IL2CPP</DefineConstants>
+    <DefineConstants Condition="'$(DbceRuntime)' == 'Mono20'">$(DefineConstants);DBCE_NET35;DBCE_INPUT_NET35;DBCE_SUPPORT_NET35</DefineConstants>
+    <DefineConstants Condition="'$(DbceImgui)' == 'Rect'">$(DefineConstants);DBCE_IMGUI_RECT</DefineConstants>
+    <DefineConstants Condition="'$(DbcePipeline)' == 'Urp'">$(DefineConstants);DBCE_URP</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(DbceToolkitDir)unity/**/*.cs" LinkBase="Toolkit/unity" />
+  </ItemGroup>
+
+  <!-- Mono 2.0: the same engine-free sources, compiled in. SpanTarget.cs and the Triple* helpers need .NET 4.x, and the
+       developer-only NativeTestInjectionClient.cs takes a Func, which Mono 2.0 has only in System.Core. -->
+  <ItemGroup Condition="'$(DbceRuntime)' == 'Mono20'">
+    <Compile Condition="$(DbceSharedSources.Contains('input'))" Include="$(DbceToolkitDir)shared/input/*.cs" Exclude="$(DbceToolkitDir)shared/input/NativeTestInjectionClient.cs" LinkBase="Toolkit/input" />
+    <Compile Condition="$(DbceSharedSources.Contains('display'))" Include="$(DbceToolkitDir)shared/display/RacingRow.cs;$(DbceToolkitDir)shared/display/WindowsMonitors.cs;$(DbceToolkitDir)shared/display/WindowLanding.cs" LinkBase="Toolkit/display" />
+    <Compile Condition="$(DbceSharedSources.Contains('ui'))" Include="$(DbceToolkitDir)shared/ui/*.cs" LinkBase="Toolkit/ui" />
+    <Compile Condition="$(DbceSharedSources.Contains('support'))" Include="$(DbceToolkitDir)shared/support/SupportReport.cs" LinkBase="Toolkit/support" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(DbceRuntime)' != 'Mono20'">
+    <Reference Include="Dbce.Wheel.Input" Condition="Exists('$(DbceToolkitDir)dotnet/Dbce.Wheel.Input.dll')"><HintPath>$(DbceToolkitDir)dotnet/Dbce.Wheel.Input.dll</HintPath></Reference>
+    <Reference Include="Dbce.Wheel.Display" Condition="Exists('$(DbceToolkitDir)dotnet/Dbce.Wheel.Display.dll')"><HintPath>$(DbceToolkitDir)dotnet/Dbce.Wheel.Display.dll</HintPath></Reference>
+    <Reference Include="Dbce.Wheel.Ui" Condition="Exists('$(DbceToolkitDir)dotnet/Dbce.Wheel.Ui.dll')"><HintPath>$(DbceToolkitDir)dotnet/Dbce.Wheel.Ui.dll</HintPath></Reference>
+  </ItemGroup>
+
+  <Target Name="DbceUnityCheckSettings" BeforeTargets="CoreCompile">
+    <Error Condition="'$(DbceRuntime)' != 'Mono' and '$(DbceRuntime)' != 'Mono20' and '$(DbceRuntime)' != 'Il2Cpp'" Text="DbceRuntime must be Mono, Mono20 or Il2Cpp, not '$(DbceRuntime)'." />
+    <Error Condition="'$(DbceImgui)' != 'Layout' and '$(DbceImgui)' != 'Rect'" Text="DbceImgui must be Layout or Rect, not '$(DbceImgui)'." />
+    <Error Condition="'$(DbcePipeline)' != 'BuiltIn' and '$(DbcePipeline)' != 'Urp'" Text="DbcePipeline must be BuiltIn or Urp, not '$(DbcePipeline)'." />
+  </Target>
+</Project>

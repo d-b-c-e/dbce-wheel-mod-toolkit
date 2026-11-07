@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Dummy Unity plugin for tools/tests/Test-UnityConsumer.ps1. It has no Unity references: it compiles the toolkit's
+       shared layer the way a game does, from lib/toolkit through Dbce.Unity.props (imported by the game's
+       Directory.Build.props). Mono20 builds net35 (the API surface) and net472 (how HCT compiles). -->
+  <PropertyGroup>
+    <TargetFramework Condition="'$(DbceRuntime)' == 'Il2Cpp'">net6.0</TargetFramework>
+    <TargetFramework Condition="'$(DbceRuntime)' == 'Mono'">net472</TargetFramework>
+    <TargetFrameworks Condition="'$(DbceRuntime)' == 'Mono20'">net35;net472</TargetFrameworks>
+    <GenerateTargetFrameworkAttribute Condition="'$(DbceRuntime)' == 'Mono20'">false</GenerateTargetFrameworkAttribute>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>DummyPlugin</AssemblyName>
+    <DefineConstants>$(DefineConstants);EXPECT_$(DbceRuntime.ToUpperInvariant());EXPECT_IMGUI_$(DbceImgui.ToUpperInvariant());EXPECT_PIPELINE_$(DbcePipeline.ToUpperInvariant())</DefineConstants>
+  </PropertyGroup>
+</Project>
