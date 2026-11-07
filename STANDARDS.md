@@ -886,3 +886,26 @@ triple screens, the triple-screen toolkit and Wheelkit · Refines STD-007, STD-0
   the front edge of the roof, pitched slightly down (the reference van: 2.24 m up, pitch −4°), not just ahead of the
   windscreen glass, where the front corner pods fill the side screens.
 - Reference: toolkit `reference/turtle-van-real-scale.mesh.json` (149cc66); art of rally's next rc does the same.
+
+## STD-050 — Recording and playback are developer tools, not player features
+2026-11-06 · owner · applies to: every game · Supersedes the player-facing parts of STD-002 and STD-012, and the REC/PLY rows of STD-020
+
+- Drive recording and drive playback are no longer features of a game. They are removed from the portfolio grid and
+  don't count toward a game being done or shippable.
+- They never appear in player-facing interfaces: no F6 page, button, hotkey hint or status indicator, no Wheelkit UI,
+  and no mention in player packages or player docs. Where a game already has them, they move behind the developer
+  opt-in, or are removed.
+- The shared libraries (`Dbce.Wheel.Recording`, `Dbce.Wheel.Playback`, `Dbce.Wheel.Course`) stay as developer tooling.
+  Build recording or playback for a game only when a while-driving regression check (force feedback, performance
+  under load, cameras at speed) can't be done another way, and preferably after that game's self-test can reach a stage.
+- Why: they were meant to replace slow screenshot-driven testing, but they cost 1,500–6,500 lines and weeks per game
+  and were finished in only 4 games. The in-mod self-test (a developer-flag scripted sequence the mod runs by itself,
+  with results read afterwards) covers most of that need far more cheaply.
+
+## STD-051 — Virtual-controller routes are removed
+2026-11-06 · owner · applies to: every game, Wheelkit · Completes STD-039
+
+- Remove the virtual-controller code paths: ViGEm or XOutputRedux routes, and synthesized gamepad states used as
+  steering input. That includes Wheelkit's XOutputRedux route for Truckful and the unused Sonic companion route.
+- A game whose wheel input still depends on one gets in-process steering (STD-039) as its replacement work. Until then,
+  the grid shows its wheel support as in progress, not done.
