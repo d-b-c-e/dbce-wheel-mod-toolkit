@@ -26,7 +26,7 @@ $ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'
 # Source folder -> folder under src/vendor. Whole folders, the same list for every game.
 $sources = @(
   @{ Name = 'dbce-wheel-mod-toolkit'; Repo = $ToolkitRepo; Ref = $Commit; Folders = [ordered]@{
-      'native/controls' = 'controls'; 'native/dinput-proxy' = 'dinput-proxy'; 'native/forza' = 'forza'
+      'native/cameras' = 'cameras'; 'native/controls' = 'controls'; 'native/dinput-proxy' = 'dinput-proxy'; 'native/forza' = 'forza'
       'native/panel' = 'panel'; 'native/settings' = 'settings'; 'native/support' = 'support'
       'native/third_party/imgui' = 'third_party/imgui'; 'shared/display' = 'display' } },
   @{ Name = 'dbce-triple-screen-toolkit'; Repo = $TripleRepo; Ref = $TripleCommit; Folders = [ordered]@{
