@@ -83,6 +83,11 @@ bool ParseRuntimeSettings(const char *json, size_t length, RuntimeSettings &out,
 bool LoadRuntimeSettings(const wchar_t *path, RuntimeSettings &out, std::string &error);
 std::string DumpRuntimeSettings(const RuntimeSettings &settings);
 
+// The shim's [Controls] profile (ini-controls-1) for a game's store profile, limited to the actions the build delivers;
+// the C++ twin of shared/mod/DbceStoreControls.cs, byte for byte. Empty, with the reason in why, when the profile has no
+// steering the build can use or its name does not fit the shim. Implemented in dbce_store_controls.cpp (links bcrypt).
+std::string StoreControlsText(const StoreProfile &profile, const std::vector<std::string> &delivered, std::string &why);
+
 // %LOCALAPPDATA%\Wheelkit\store, and the two files in it; empty when LOCALAPPDATA is unset.
 std::wstring StoreFolder();
 std::wstring StoreProfilesPath();

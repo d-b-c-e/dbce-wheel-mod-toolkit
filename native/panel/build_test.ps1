@@ -27,7 +27,7 @@ foreach ($arch in 'x64', 'x86') {
     $outMod | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $outMod; throw "dbce-mod.json check failed ($arch)" }
     # The shared store (docs/STORE.md): the same goldens as the PowerShell and C# readers, unknown fields ignored.
-    $outStore = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_store.cpp dbce_panel_descriptor.cpp /Fo`"$dir\\`" /Fe`"$dir\test_store.exe`" && `"$dir\test_store.exe`" ..\..\schema\fixtures\store" 2>&1
+    $outStore = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_store.cpp dbce_panel_descriptor.cpp dbce_store_controls.cpp /Fo`"$dir\\`" /Fe`"$dir\test_store.exe`" && `"$dir\test_store.exe`" ..\..\schema\fixtures\store" 2>&1
     $outStore | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $outStore; throw "store check failed ($arch)" }
 }

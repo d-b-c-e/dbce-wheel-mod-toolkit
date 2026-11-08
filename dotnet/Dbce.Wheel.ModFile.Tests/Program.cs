@@ -87,6 +87,8 @@ for (int i = 0; i < wantIni.Length; i++)
     Check(wantIni[i].StartsWith("Revision = ") ? gotIni[i].StartsWith("Revision = ") && gotIni[i].Length == wantIni[i].Length : gotIni[i] == wantIni[i],
         $"DRIVE controls line {i + 1}: got '{gotIni[i]}', want '{wantIni[i]}'");
 Check(DbceStoreControls.Text(driveProfile, driveDelivers, out _) == driveText, "the same profile gives the same revision");
+// The exact bytes, Revision included; native/panel/test_store.cpp checks the C++ twin against the same file.
+Check(driveText == File.ReadAllText(Path.Combine(controlsDir, "drive-rally.store-controls.txt")), "DRIVE controls equal drive-rally.store-controls.txt byte for byte");
 string Transmission(string t) { driveProfile.Transmission = t; return DbceStoreControls.Text(driveProfile, driveDelivers, out _)!; }
 string hp = Transmission("H-pattern"), auto = Transmission("Automatic");
 driveProfile.Transmission = "Sequential";

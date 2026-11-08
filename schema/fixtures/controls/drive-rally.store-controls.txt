@@ -1,0 +1,10 @@
+[Controls]
+Schema = 1
+Profile = Synthetic qualification rig
+Revision = FE1E99A304C32F56F1384B7A56EF553A01C9C6CC9C7769A1DEA63035682403F7
+Transmission = Sequential
+steer = axis 0 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=33265 travel=-1 name="Fixture wheel"
+throttle = axis 2 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=0 travel=+1 name="Fixture wheel"
+brake = axis 5 dev={00000000-0000-0000-0000-0000000000a1} prod={0006346e-0000-0000-0000-504944564944} range=0..65535 rest=1743 travel=+1 name="Fixture wheel"
+shiftUp = button 9 dev={00000000-0000-0000-0000-0000000000b2} prod={05310483-0000-0000-0000-504944564944} name="Fixture shifter"
+shiftDown = button 10 dev={00000000-0000-0000-0000-0000000000b2} prod={05310483-0000-0000-0000-504944564944} name="Fixture shifter"

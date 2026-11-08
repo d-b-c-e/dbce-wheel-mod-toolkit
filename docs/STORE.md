@@ -69,11 +69,14 @@ and `native/panel/build_test.ps1` (x64 and x86) all compare it, line for line, w
 
 A mod that hands the shim a `[Controls]` profile (ini-controls-1, `docs/controls-contract.md`) builds it at start from
 the store with `DbceStoreControls.Text(store.For(gameId).Profile, delivered, out why)` (`shared/mod/DbceStoreControls.cs`)
-instead of reading a `dbce-controls.ini` Wheelkit wrote. `delivered` is the build's own list of actions it takes. The
+instead of reading a `dbce-controls.ini` Wheelkit wrote; a native mod calls `StoreControlsText(profile, delivered, why)`
+(`native/panel/dbce_store.h`, in `dbce_store_controls.cpp`), which gives the same bytes. `delivered` is the build's own
+list of actions it takes. The
 rules are those of Wheelkit's `SharedControlsWriter`, which it replaces game by game: only delivered actions, gears by the
 profile's transmission, two gears on one control write neither, and no text without usable steering. The test in
 `Dbce.Wheel.ModFile.Tests` checks DRIVE's profile against the file Wheelkit wrote for it, line for line
-(`schema/fixtures/controls`), apart from the Revision, which the store's text derives from the profile itself.
+(`schema/fixtures/controls`), apart from the Revision, which the store's text derives from the profile itself; it and
+`native/panel/test_store.cpp` (x64 and x86) also compare their text with `drive-rally.store-controls.txt` byte for byte.
 
 ## Fixtures
 
