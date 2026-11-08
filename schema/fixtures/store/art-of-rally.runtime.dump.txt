@@ -1,0 +1,12 @@
+schema=1
+game=art-of-rally
+profile=b48801d3034e49428e23bdd0735bb7c4
+values.count=4
+values[0].key=ffb.strength
+values[0].number=55
+values[1].key=camera.fov
+values[1].number=72.5
+values[2].key=camera.realistic
+values[2].bool=true
+values[3].key=camera.start
+values[3].string=cockpit

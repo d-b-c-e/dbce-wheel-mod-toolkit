@@ -1,0 +1,28 @@
+{
+  "Schema": 2,
+  "ActiveId": "track",
+  "Profiles": [
+    {
+      "Id": "track",
+      "Profile": {
+        "Name": "Widescreen track",
+        "Transmission": "Sequential",
+        "Wheel": "33333333-3333-3333-3333-333333333333",
+        "Bindings": {
+          "steer": { "InstanceGuid": "33333333-3333-3333-3333-333333333333", "ProductGuid": "c24f046d-0000-0000-0000-504944564944", "DeviceName": "Example Wheel", "Kind": "Axis", "Index": 0, "Direction": 1, "Rest": 32767, "CalLow": 1200, "CalCentre": 32800, "CalHigh": 64100, "Inverted": true },
+          "shiftUp": { "InstanceGuid": "33333333-3333-3333-3333-333333333333", "Kind": "Button", "Index": 5, "Direction": 1 },
+          "camera": { "InstanceGuid": "33333333-3333-3333-3333-333333333333", "Kind": "Hat", "Index": 0, "Direction": 9000 }
+        }
+      },
+      "Rig": { "FfbStrength": 35, "FfbOn": false, "Screens": { "Count": 1, "WidthPixels": 5120, "SeparateMonitors": false, "AspectWidth": 32, "MeasuredWidthMm": 1190.5 } }
+    },
+    {
+      "Id": "pad",
+      "Profile": { "Name": "No rig settings" }
+    }
+  ],
+  "Games": {
+    "slow-roads": { "Profile": "pad" },
+    "dirt-4": { "Profile": "deleted-profile" }
+  }
+}

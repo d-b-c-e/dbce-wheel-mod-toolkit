@@ -1,0 +1,1090 @@
+{
+  "Schema": 2,
+  "ActiveId": "b48801d3034e49428e23bdd0735bb7c4",
+  "Profiles": [
+    {
+      "Id": "default",
+      "Profile": {
+        "Schema": 1,
+        "Name": "Moza KS Pro Triple Manual",
+        "Transmission": "H-pattern",
+        "Wheel": "11111111-1111-1111-1111-111111111111",
+        "Shifter": "22222222-2222-2222-2222-222222222222",
+        "Bindings": {
+          "steer": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 0,
+            "Direction": -1,
+            "Rest": 33265,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "throttle": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "brake": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 1743,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "clutch": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 6,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "handbrake": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 7,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "shiftUp": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 9,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "shiftDown": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 10,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "reverse": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 7,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "confirm": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 31,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "back": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 18,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "start": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 35,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "select": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 22,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navUp": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 0,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navDown": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 18000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navLeft": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 27000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navRight": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 9000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "camera": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 32,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "lookBack": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 10,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "reset": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 33,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "horn": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 1,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear1": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 0,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear2": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 1,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear3": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear4": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 3,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear5": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 4,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear6": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear7": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 6,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          }
+        },
+        "FutureProfile": 12.5
+      },
+      "Name": "Moza KS Pro Triple Manual",
+      "Rig": {
+        "Schema": 1,
+        "TriplesOn": true,
+        "SideAngle": null,
+        "FfbStrength": null,
+        "FfbOn": true,
+        "CameraStart": {
+          "Cockpit": true,
+          "Bonnet": false,
+          "Bumper": true,
+          "Chase": false
+        },
+        "CameraKeys": null,
+        "TelemetryOn": null,
+        "TelemetryPort": null,
+        "Screens": null,
+        "Games": {
+          "dirt-3": {
+            "ScsViewMode": null,
+            "ScsDriverProfile": null,
+            "ScsSteeringWheel": null,
+            "ScsWindowPlacement": null,
+            "Skip": true,
+            "TriplesOn": null,
+            "SideAngle": null,
+            "FfbStrength": null,
+            "TelemetryOn": null
+          }
+        },
+        "FutureRig": [
+          "a"
+        ]
+      },
+      "ModifiedAt": "2026-10-24T04:21:31.1691705+00:00",
+      "FutureEntry": true
+    },
+    {
+      "Id": "b48801d3034e49428e23bdd0735bb7c4",
+      "Profile": {
+        "Schema": 1,
+        "Name": "Moza KS Pro Triple Auto",
+        "Transmission": "Automatic",
+        "Wheel": "11111111-1111-1111-1111-111111111111",
+        "Shifter": "22222222-2222-2222-2222-222222222222",
+        "Bindings": {
+          "steer": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 0,
+            "Direction": -1,
+            "Rest": 33265,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "throttle": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "brake": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 1743,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "clutch": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 6,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "handbrake": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Axis",
+            "Index": 7,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "shiftUp": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 9,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "shiftDown": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 10,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "reverse": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 7,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "confirm": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 31,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "back": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 18,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "start": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 35,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "select": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 22,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navUp": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 0,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navDown": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 18000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navLeft": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 27000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "navRight": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Hat",
+            "Index": 0,
+            "Direction": 9000,
+            "Rest": -1,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "camera": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 32,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "lookBack": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 10,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "reset": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 33,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "horn": {
+            "InstanceGuid": "11111111-1111-1111-1111-111111111111",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "MOZA R12 Base",
+            "Kind": "Button",
+            "Index": 1,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear1": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 0,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear2": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 1,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear3": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear4": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 3,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear5": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 4,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear6": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          },
+          "gear7": {
+            "InstanceGuid": "22222222-2222-2222-2222-222222222222",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "DS-8X Shifter",
+            "Kind": "Button",
+            "Index": 6,
+            "Direction": 1,
+            "Rest": 0,
+            "Minimum": 0,
+            "Maximum": 65535,
+            "Calibrated": false,
+            "Inverted": false,
+            "FutureBinding": {
+              "deadzone": 3
+            }
+          }
+        },
+        "FutureProfile": 12.5
+      },
+      "Name": "Moza KS Pro Triple Auto",
+      "Rig": {
+        "Schema": 1,
+        "TriplesOn": true,
+        "SideAngle": null,
+        "FfbStrength": null,
+        "FfbOn": true,
+        "CameraStart": {
+          "Cockpit": true,
+          "Bonnet": false,
+          "Bumper": true,
+          "Chase": false
+        },
+        "CameraKeys": null,
+        "TelemetryOn": null,
+        "TelemetryPort": null,
+        "Screens": null,
+        "Games": {
+          "dirt-3": {
+            "ScsViewMode": null,
+            "ScsDriverProfile": null,
+            "ScsSteeringWheel": null,
+            "ScsWindowPlacement": null,
+            "Skip": true,
+            "TriplesOn": null,
+            "SideAngle": null,
+            "FfbStrength": null,
+            "TelemetryOn": null
+          }
+        },
+        "FutureRig": [
+          "a"
+        ]
+      },
+      "ModifiedAt": "2026-11-07T22:22:31.7550034+00:00",
+      "FutureEntry": true
+    }
+  ],
+  "Cockpit": {
+    "Count": 3,
+    "WidthPixels": 2560,
+    "HeightPixels": 1440,
+    "SeparateMonitors": true,
+    "DiagonalInches": 32,
+    "AspectWidth": 2560,
+    "AspectHeight": 1440,
+    "EyeDistanceMm": 660,
+    "SideAngleDegrees": 70,
+    "BezelGapMm": 8,
+    "CurveRadiusMm": 1500,
+    "MeasuredWidthMm": null,
+    "FutureCockpit": "curved-wrap"
+  },
+  "Games": {
+    "adrift": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "american-truck-simulator": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "art-of-rally": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "dirt-3": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "dirt-4": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "dirt-rally-2": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "drive-rally": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "euro-truck-simulator-2": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "f-zero": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "gravel": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "grid-2019": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "horizon-chase-turbo": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "iracing-arcade": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "outrun-2006": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "over-the-hill": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "rush-rally-3": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "rush-rally-origins": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "sega-rally-revo": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "slipstream": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "slow-roads": {
+      "Profile": "default",
+      "FutureGame": "x"
+    },
+    "sonic-crossworlds": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "super-woden-rally-edge": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "truckful": {
+      "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+      "FutureGame": "x"
+    },
+    "v-rally-4": {
+      "Profile": "default",
+      "FutureGame": "x"
+    }
+  },
+  "FutureTop": {
+    "nested": [
+      1,
+      2,
+      {
+        "x": null
+      }
+    ]
+  }
+}

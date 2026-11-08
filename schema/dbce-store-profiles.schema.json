@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/schema/dbce-store-profiles.schema.json",
+  "title": "Shared store: profiles.json",
+  "description": "%LOCALAPPDATA%\\Wheelkit\\store\\profiles.json: the profiles, the shared cockpit and which profile each game uses. Wheelkit is its only writer; mods read it. It is Wheelkit's mapping-profiles.json (schema 2) plus Cockpit and Games. Files only gain fields and readers ignore fields they do not know, so no object here sets additionalProperties to false (docs/STORE.md).",
+  "type": "object",
+  "required": ["Schema", "Profiles"],
+  "properties": {
+    "Schema": { "const": 2, "description": "Always 2. It never changes: the file only gains fields." },
+    "ActiveId": { "type": "string", "description": "The profile Wheelkit has selected for editing, and the one a game without an assignment uses." },
+    "Profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } },
+    "Cockpit": { "oneOf": [{ "$ref": "#/$defs/screens" }, { "type": "null" }], "description": "The one screen layout and measurements every profile uses unless it sets its own Rig.Screens. Null: none saved; each mod keeps its own screen settings." },
+    "Games": {
+      "type": "object",
+      "description": "Which profile each game uses, by the game's dbce-mod.json id. An object per game so it can gain fields.",
+      "additionalProperties": { "$ref": "#/$defs/assignment" }
+    }
+  },
+  "$defs": {
+    "assignment": {
+      "type": "object",
+      "required": ["Profile"],
+      "properties": { "Profile": { "type": "string", "description": "A profile Id. An Id that names no profile falls back to ActiveId." } }
+    },
+    "entry": {
+      "type": "object",
+      "required": ["Id", "Profile"],
+      "description": "One profile: a whole setup, copied rather than inherited (Wheelkit's MappingPreset).",
+      "properties": {
+        "Id": { "type": "string", "minLength": 1 },
+        "Name": { "type": "string", "description": "Written by Wheelkit as a copy of Profile.Name; readers use Profile.Name." },
+        "Profile": { "$ref": "#/$defs/controls" },
+        "Rig": { "oneOf": [{ "$ref": "#/$defs/rig" }, { "type": "null" }] },
+        "ModifiedAt": { "type": ["string", "null"] }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "description": "Devices, bindings and transmission (Wheelkit's MappingProfile).",
+      "properties": {
+        "Schema": { "type": "integer" },
+        "Name": { "type": "string" },
+        "Transmission": { "enum": ["Automatic", "Sequential", "H-pattern"], "description": "Default Automatic." },
+        "Wheel": { "type": ["string", "null"], "description": "The wheel's DirectInput instance GUID." },
+        "Shifter": { "type": ["string", "null"], "description": "The shifter's DirectInput instance GUID." },
+        "Bindings": { "type": "object", "description": "Action id (docs/controls-contract.md section 1) to binding, in file order.", "additionalProperties": { "$ref": "#/$defs/binding" } }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "required": ["InstanceGuid", "Kind", "Index"],
+      "properties": {
+        "InstanceGuid": { "type": "string" },
+        "ProductGuid": { "type": "string" },
+        "DeviceName": { "type": "string" },
+        "Kind": { "enum": ["Axis", "Button", "Hat"] },
+        "Index": { "type": "integer", "minimum": 0 },
+        "Direction": { "type": "integer" },
+        "Rest": { "type": "integer" },
+        "Minimum": { "type": "integer", "description": "Default 0." },
+        "Maximum": { "type": "integer", "description": "Default 65535." },
+        "Calibrated": { "type": "boolean" },
+        "Inverted": { "type": "boolean" },
+        "CalLow": { "type": ["integer", "null"] },
+        "CalCentre": { "type": ["integer", "null"] },
+        "CalHigh": { "type": ["integer", "null"] }
+      }
+    },
+    "rig": {
+      "type": "object",
+      "description": "The profile's other settings (Wheelkit's RigProfile). Mods read FfbStrength, FfbOn and Screens; Wheelkit owns the rest.",
+      "properties": {
+        "Schema": { "type": "integer" },
+        "TriplesOn": { "type": "boolean" },
+        "SideAngle": { "type": ["integer", "null"] },
+        "FfbStrength": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Steering strength; null is the default 50 (art of rally at 50 is the reference, STD-021)." },
+        "FfbOn": { "type": "boolean", "description": "Default true." },
+        "CameraStart": { "type": ["object", "null"] },
+        "CameraKeys": { "type": ["object", "null"] },
+        "TelemetryOn": { "type": ["boolean", "null"] },
+        "TelemetryPort": { "type": ["integer", "null"] },
+        "Screens": { "oneOf": [{ "$ref": "#/$defs/screens" }, { "type": "null" }], "description": "This profile's own screens, overriding Cockpit (for example a Widescreen profile with one screen). Null: the profile uses Cockpit." },
+        "Games": { "type": "object", "description": "Wheelkit's per-game overrides inside this profile." }
+      }
+    },
+    "screens": {
+      "type": "object",
+      "description": "Screen layout and measurements (Wheelkit's ScreenSetup). A missing field has the default shown.",
+      "properties": {
+        "Count": { "enum": [1, 3], "description": "Default 3." },
+        "WidthPixels": { "type": "integer", "description": "Per screen. Default 2560." },
+        "HeightPixels": { "type": "integer", "description": "Default 1440." },
+        "SeparateMonitors": { "type": "boolean", "description": "Default true." },
+        "DiagonalInches": { "type": "number", "description": "Default 32." },
+        "AspectWidth": { "type": "number", "description": "Default 16." },
+        "AspectHeight": { "type": "number", "description": "Default 9." },
+        "EyeDistanceMm": { "type": "number", "description": "Default 660." },
+        "SideAngleDegrees": { "type": "number", "description": "Default 70." },
+        "BezelGapMm": { "type": "number", "description": "Default 8." },
+        "CurveRadiusMm": { "type": "number", "description": "0 is flat. Default 0." },
+        "MeasuredWidthMm": { "type": ["number", "null"], "description": "Measured visible width; null derives it from the diagonal." }
+      }
+    }
+  }
+}

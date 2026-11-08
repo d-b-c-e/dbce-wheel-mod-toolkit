@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/schema/dbce-store-runtime.schema.json",
+  "title": "Shared store: runtime\\<game-id>.json",
+  "description": "%LOCALAPPDATA%\\Wheelkit\\store\\runtime\\<game-id>.json: one game's runtime settings, the values its F6 panel changes. Only that game's mod writes it. Files only gain fields and readers ignore fields they do not know (docs/STORE.md).",
+  "type": "object",
+  "required": ["Schema", "Game"],
+  "properties": {
+    "Schema": { "const": 1, "description": "Always 1. It never changes: the file only gains fields." },
+    "Game": { "type": "string", "minLength": 1, "description": "The game's dbce-mod.json id; also the file name." },
+    "Profile": { "type": "string", "description": "The profile Id the game used when these values were saved. A value that starts from the profile (FFB strength) applies only while the game still uses this profile." },
+    "Values": {
+      "type": "object",
+      "description": "F6 row id (the game's dbce-mod.json settings rows) to its value, in file order. Readers skip values of other types.",
+      "additionalProperties": { "type": ["string", "number", "boolean"] }
+    }
+  }
+}

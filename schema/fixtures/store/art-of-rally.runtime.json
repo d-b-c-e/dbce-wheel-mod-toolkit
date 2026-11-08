@@ -1,0 +1,11 @@
+{
+  "Schema": 1,
+  "Game": "art-of-rally",
+  "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+  "Values": {
+    "ffb.strength": 55,
+    "camera.fov": 72.5,
+    "camera.realistic": true,
+    "camera.start": "cockpit"
+  }
+}

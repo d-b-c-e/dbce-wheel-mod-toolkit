@@ -1,0 +1,16 @@
+{
+  "Schema": 1,
+  "FutureTop": { "list": [1, "two", null] },
+  "Game": "art-of-rally",
+  "Profile": "b48801d3034e49428e23bdd0735bb7c4",
+  "Values": {
+    "ffb.strength": 55,
+    "future.curve": { "points": [0, 0.5, 1] },
+    "camera.fov": 72.5,
+    "future.list": [1, 2],
+    "camera.realistic": true,
+    "future.unset": null,
+    "camera.start": "cockpit"
+  },
+  "FutureEnd": 1
+}
