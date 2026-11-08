@@ -59,6 +59,25 @@ try {
  Set-Content -LiteralPath $vendored 'binding'
  & $scriptPath -LocalRepo $repo -Destination $dest -Parts shared
  Assert ((Get-Content -LiteralPath $vendored -Raw).Trim() -eq 'binding two') 'Unedited vendored source was not updated'
+ # triple: the sibling triple checkout's core sources (no csproj, no bin) and contracts, its revision in the header.
+ $triple=Join-Path $caseRoot 'dbce-triple-screen-toolkit'
+ Reject { & $scriptPath -LocalRepo $repo -Destination $dest -Parts triple }
+ New-Item -ItemType Directory -Path (Join-Path $triple 'src/Dbce.TripleScreen.Core/bin/Release'),(Join-Path $triple 'contracts') -Force | Out-Null
+ Set-Content -LiteralPath (Join-Path $triple 'src/Dbce.TripleScreen.Core/Vector3d.cs') 'vector'
+ Set-Content -LiteralPath (Join-Path $triple 'src/Dbce.TripleScreen.Core/Dbce.TripleScreen.Core.csproj') 'project'
+ Set-Content -LiteralPath (Join-Path $triple 'src/Dbce.TripleScreen.Core/bin/Release/Dbce.TripleScreen.Core.dll') 'built'
+ Set-Content -LiteralPath (Join-Path $triple 'contracts/README.md') 'contracts'
+ & git -C $triple init -q; & git -C $triple add .
+ & git -C $triple -c user.name=SyncTest -c user.email=sync-test@example.invalid commit -qm fixture
+ if ($LASTEXITCODE -ne 0) { throw 'Triple fixture git failed' }
+ Reject { & $scriptPath -Version v0.0.0 -Destination $dest -Parts triple }
+ & $scriptPath -LocalRepo $repo -Destination $dest -Parts triple
+ $lines=@(Get-Content -LiteralPath (Join-Path $dest 'MANIFEST.txt'))
+ foreach ($want in 'triple/core/Vector3d.cs','triple/contracts/README.md','shared/input/ControlBinding.cs') {
+  Assert (@($lines | Where-Object { $_ -match ('^[A-F0-9]{64}  ' + [regex]::Escape($want) + '$') }).Count -eq 1) "Manifest lacks $want"
+ }
+ Assert (@($lines | Where-Object { $_ -match '^[A-F0-9]{64}  triple/.*(\.csproj$|/bin/)' }).Count -eq 0) 'Triple project file or build output delivered'
+ Assert ($lines[0] -match 'selected parts: triple; toolkit local\+[a-f0-9]{40}\.(clean|dirty); triple local\+[a-f0-9]{40}\.clean$') 'Manifest header lacks the triple revision'
  # Inject a failure at the second rename. All other filesystem operations are real.
  $global:SyncMoveCalls=0
  function global:Move-Item { param([string]$LiteralPath,[string]$Destination)
