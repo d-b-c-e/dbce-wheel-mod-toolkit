@@ -23,7 +23,7 @@ It fills `lib\toolkit\native\WheelFfb.dll`, `lib\toolkit\dotnet\Dbce.Wheel.*.dll
 binaries are committed with the mod.
 
 Unity games also take the source parts, `-Parts native,dotnet,shared,unity`:
-- `shared` copies `shared/` and the `Dbce.Wheel.Input` sources (as `shared/input`).
+- `shared` copies `shared/` and the `Dbce.Wheel.Input` and `Dbce.Wheel.Shim` sources (as `shared/input` and `shared/shim`).
 - `unity` copies the shared Unity layer and `Dbce.Unity.props`, which the game imports from its
   `Directory.Build.props`. It sets the runtime defines and references `Dbce.Wheel.{Input,Display,Ui}.dll`, or, on
   Mono 2.0, compiles the same sources in. See [unity/README.md](../unity/README.md).

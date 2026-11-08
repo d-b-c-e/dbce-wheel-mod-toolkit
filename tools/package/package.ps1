@@ -13,7 +13,7 @@
       dotnet\Dbce.Wheel.Ffb.dll (+xml)          binding, shaper, model, diagnostics
       dotnet\Dbce.Wheel.Recording.dll (+xml)    bounded diagnostic JSONL capture and streaming replay reader
       dotnet\Dbce.Wheel.{Input,Display,Ui}.dll  bindings, racing row and window landing, F6 presentation
-      shared\**, shared\input\*.cs, unity\**, installer\**   source parts (Sync-Toolkit shared, unity, installer)
+      shared\**, shared\input\*.cs, shared\shim\*.cs, unity\**, installer\**   source parts (Sync-Toolkit shared, unity, installer)
       tools\Check-Net35Api.ps1, tools\Find-StrippedInteropCalls.ps1   post-build checks for Mono 2.0 and IL2CPP
       tools\forza\*.py, tools\dev\*.ps1, tools\Sync-Toolkit.ps1, tools\ffbprobe\ffbprobe.exe (if built)
       knowledge\**\*.md, docs\adr\*.md, README.md, CHANGELOG.md, LICENSE
@@ -150,11 +150,14 @@ Copy-Item (Join-Path $recordingBin 'Dbce.Wheel.Recording.xml') (Join-Path $stage
 foreach ($lib in 'Input', 'Display', 'Ui') {
     Copy-Item (Join-Path $root "dotnet\Dbce.Wheel.$lib\bin\Release\netstandard2.0\Dbce.Wheel.$lib.dll") (Join-Path $stage 'dotnet')
 }
-# Source parts, laid out as Sync-Toolkit -LocalRepo delivers them: the Input sources go to shared\input.
+# Source parts, laid out as Sync-Toolkit -LocalRepo delivers them: the Input sources go to shared\input, the Shim sources to shared\shim.
 foreach ($part in 'shared', 'unity', 'installer') { Copy-Item (Join-Path $root $part) $stage -Recurse }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'shared\input') | Out-Null
 Get-ChildItem (Join-Path $root 'dotnet\Dbce.Wheel.Input') -File | Where-Object Extension -ne '.csproj' |
     Copy-Item -Destination (Join-Path $stage 'shared\input')
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'shared\shim') | Out-Null
+Get-ChildItem (Join-Path $root 'dotnet\Dbce.Wheel.Shim') -File | Where-Object Extension -ne '.csproj' |
+    Copy-Item -Destination (Join-Path $stage 'shared\shim')
 Copy-Item (Join-Path $root 'tools\Check-Net35Api.ps1'), (Join-Path $root 'tools\Find-StrippedInteropCalls.ps1') (Join-Path $stage 'tools')
 Copy-Item (Join-Path $root 'tools\forza\*.py') (Join-Path $stage 'tools\forza')
 Copy-Item (Join-Path $root 'tools\dev\*.ps1') (Join-Path $stage 'tools\dev')

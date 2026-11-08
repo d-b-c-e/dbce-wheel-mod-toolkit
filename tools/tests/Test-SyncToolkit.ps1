@@ -34,19 +34,21 @@ try {
  & $scriptPath -LocalRepo $repo -Destination $dest -Parts tools
  Assert ((Get-Content -LiteralPath (Join-Path $dest 'tools/a/same.txt') -Raw).Trim() -eq 'a') 'Nested path a lost'
  Assert ((Get-Content -LiteralPath (Join-Path $dest 'tools/b/same.txt') -Raw).Trim() -eq 'b') 'Nested path b lost'
- # Source parts: shared/ with the Input project's sources as shared/input (no csproj, no bin), unity, installer.
+ # Source parts: shared/ with the Input and Shim projects' sources as shared/input and shared/shim (no csproj, no bin), unity, installer.
  Reject { & $scriptPath -LocalRepo $repo -Destination $dest -Parts shared }
- New-Item -ItemType Directory -Path (Join-Path $repo 'shared/ui'),(Join-Path $repo 'dotnet/Dbce.Wheel.Input/bin/Release'),(Join-Path $repo 'unity/Runtime'),(Join-Path $repo 'installer') -Force | Out-Null
+ New-Item -ItemType Directory -Path (Join-Path $repo 'shared/ui'),(Join-Path $repo 'dotnet/Dbce.Wheel.Input/bin/Release'),(Join-Path $repo 'dotnet/Dbce.Wheel.Shim'),(Join-Path $repo 'unity/Runtime'),(Join-Path $repo 'installer') -Force | Out-Null
  Set-Content -LiteralPath (Join-Path $repo 'shared/ui/F6Style.cs') 'f6'
  Set-Content -LiteralPath (Join-Path $repo 'dotnet/Dbce.Wheel.Input/ControlBinding.cs') 'binding'
  Set-Content -LiteralPath (Join-Path $repo 'dotnet/Dbce.Wheel.Input/Dbce.Wheel.Input.csproj') 'project'
+ Set-Content -LiteralPath (Join-Path $repo 'dotnet/Dbce.Wheel.Shim/ShimSnapshot.cs') 'snapshot'
+ Set-Content -LiteralPath (Join-Path $repo 'dotnet/Dbce.Wheel.Shim/Dbce.Wheel.Shim.csproj') 'project'
  Set-Content -LiteralPath (Join-Path $repo 'dotnet/Dbce.Wheel.Input/bin/Release/Dbce.Wheel.Input.dll') 'built'
  Set-Content -LiteralPath (Join-Path $repo 'unity/Dbce.Unity.props') 'props'
  Set-Content -LiteralPath (Join-Path $repo 'unity/Runtime/ModDescriptor.cs') 'descriptor'
  Set-Content -LiteralPath (Join-Path $repo 'installer/README.md') 'installer'
  & $scriptPath -LocalRepo $repo -Destination $dest -Parts shared,unity,installer
  $lines=@(Get-Content -LiteralPath (Join-Path $dest 'MANIFEST.txt'))
- foreach ($want in 'shared/ui/F6Style.cs','shared/input/ControlBinding.cs','unity/Dbce.Unity.props','unity/Runtime/ModDescriptor.cs','installer/README.md','profiles/force-profiles.ini') {
+ foreach ($want in 'shared/ui/F6Style.cs','shared/input/ControlBinding.cs','shared/shim/ShimSnapshot.cs','unity/Dbce.Unity.props','unity/Runtime/ModDescriptor.cs','installer/README.md','profiles/force-profiles.ini') {
   Assert (@($lines | Where-Object { $_ -match ('^[A-F0-9]{64}  ' + [regex]::Escape($want) + '$') }).Count -eq 1) "Manifest lacks $want"
  }
  Assert (@($lines | Where-Object { $_ -match '\.csproj$|/bin/' }).Count -eq 0) 'Project file or build output delivered as source'

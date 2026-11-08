@@ -3,7 +3,7 @@
    -Force retains local edits alongside the replacement. Unselected files and their
    manifest entries survive partial syncs. Load supports renamed native DLLs in 0.12+.
    -LocalRepo records its full revision and dirty state; it never claims a release tag.
-   Source parts: shared (shared/ plus the Dbce.Wheel.Input sources as shared/input), unity (the shared
+   Source parts: shared (shared/ plus the Dbce.Wheel.Input sources as shared/input and the Dbce.Wheel.Shim sources as shared/shim), unity (the shared
    Unity layer and Dbce.Unity.props) and installer. shim (the built dbce_shim.dll and headers) comes from a release archive.
    triple (dbce-triple-screen-toolkit's core sources as triple/core, no project or bin, and contracts as triple/contracts)
    comes from the triple checkout beside -LocalRepo, or -TripleRepo; the manifest header records its revision.
@@ -92,12 +92,13 @@ try {
                        (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Display/bin/Release/netstandard2.0'))
             tools = @(Join-Path $LocalRepo 'tools')
             knowledge = @(Join-Path $LocalRepo 'knowledge')
-            shared = @((Join-Path $LocalRepo 'shared'), (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Input'))
+            shared = @((Join-Path $LocalRepo 'shared'), (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Input'), (Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Shim'))
             unity = @(Join-Path $LocalRepo 'unity')
             installer = @(Join-Path $LocalRepo 'installer')
         }
-        # Release archives already hold the Input sources at shared/input (tools/package/package.ps1).
+        # Release archives already hold the Input and Shim sources at shared/input and shared/shim (tools/package/package.ps1).
         $under[(Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Input')] = 'input'
+        $under[(Join-Path $LocalRepo 'dotnet/Dbce.Wheel.Shim')] = 'shim'
         if ($Parts -contains 'triple') {
             if (-not $TripleRepo) { $TripleRepo = Join-Path (Split-Path -Parent $LocalRepo) 'dbce-triple-screen-toolkit' }
             $TripleRepo = [IO.Path]::GetFullPath($TripleRepo)
@@ -149,7 +150,7 @@ try {
                 'include' { @(Get-ChildItem -LiteralPath $from -Filter '*.h' -File) }
                 'powershell' { @(Get-ChildItem -LiteralPath $from -Filter '*.psm1' -File) }
                 'dotnet' { @(Get-ChildItem -LiteralPath $from -File | Where-Object { $_.Name -like 'Dbce.Wheel.*.dll' -or $_.Name -like 'Dbce.Wheel.*.xml' }) }
-                # A project folder (dotnet/Dbce.Wheel.Input) gives its top-level sources, never the project or bin/obj.
+                # A project folder (dotnet/Dbce.Wheel.Input or .Shim) gives its top-level sources, never the project or bin/obj.
                 { $under.ContainsKey($from) } { @(Get-ChildItem -LiteralPath $from -File | Where-Object { $_.Extension -ne '.csproj' }) }
                 default { @(Get-ChildItem -LiteralPath $from -Recurse -File) }
             }
