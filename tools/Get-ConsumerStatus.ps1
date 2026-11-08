@@ -13,26 +13,24 @@
     means a component changed, a repo/pin/provenance is missing or invalid, or the
     comparison needs manual review. This does not certify installed game adoption.
 .PARAMETER Root
-    Workspace root, games folder, or legacy consumer parent. Defaults to the workspace
-    root when the toolkit is under toolkits, otherwise this repo's parent.
+    The folder holding the game repos. Defaults to game-modding when the toolkit is
+    under _toolkits, otherwise this repo's parent.
 .PARAMETER Current
     Toolkit tag to compare against. Defaults to the nearest local reachable tag.
-.PARAMETER All
-    Retained for compatibility. All consumers are shown so missing repos stay visible.
 .PARAMETER AsJson
     Emit structured rows instead of the human-readable table; exit meanings are unchanged.
 .EXAMPLE
-    .\tools\Get-ConsumerStatus.ps1 -Root E:\Source -Current v0.13.0 -All
+    .\tools\Get-ConsumerStatus.ps1 -Root E:\Source\game-modding -Current v0.13.0
 .EXAMPLE
-    .\tools\Get-ConsumerStatus.ps1 -Root E:\Source -Current v0.13.0 -AsJson
+    .\tools\Get-ConsumerStatus.ps1 -Root E:\Source\game-modding -Current v0.13.0 -AsJson
 #>
 [CmdletBinding()]
-param([string]$Root, [string]$Current, [switch]$All, [switch]$AsJson)
+param([string]$Root, [string]$Current, [switch]$AsJson)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 if (-not $Root) {
     $Root = Split-Path -Parent $repo
-    if ((Split-Path -Leaf $Root) -eq 'toolkits') { $Root = Split-Path -Parent $Root }
+    if ((Split-Path -Leaf $Root) -in @('_toolkits', 'toolkits')) { $Root = Split-Path -Parent $Root }
 }
 
 function Invoke-Git([string[]]$GitArgs) {
@@ -82,22 +80,7 @@ function Read-TextPin([string]$RepoPath, [string]$RelativePath) {
 
 function Get-ConsumerPin([string]$RepoPath, [string]$PinKind) {
     if ($PinKind -eq 'toolkit.version') {
-        # An invalid explicit pin is an error, never an excuse to guess from history.
-        if (Test-Path -LiteralPath (Join-Path $RepoPath 'toolkit.version')) {
-            return Read-TextPin $RepoPath 'toolkit.version'
-        }
-        $legacy = Join-Path $RepoPath 'CHANGELOG.md'
-        if (Test-Path -LiteralPath $legacy -PathType Leaf) {
-            $best = $null
-            foreach ($match in [regex]::Matches((Get-Content -LiteralPath $legacy -Raw),
-                '(?i)toolkit\s+(?:bumped\s+to\s+)?v?(\d+\.\d+\.\d+)')) {
-                $number = $null
-                if ([version]::TryParse($match.Groups[1].Value, [ref]$number) -and
-                    (-not $best -or $number -gt $best)) { $best = $number }
-            }
-            if ($best) { return Pin-Result ('v' + $best.ToString()) 'CHANGELOG.md (legacy inference)' }
-        }
-        return Pin-Result '' 'toolkit.version' 'missing toolkit.version; no legacy changelog pin found'
+        return Read-TextPin $RepoPath 'toolkit.version'
     }
     if ($PinKind -eq 'dependencies.json:toolkit.version') {
         $file = Join-Path $RepoPath 'dependencies.json'
@@ -140,17 +123,10 @@ $consumers = @(
 )
 
 function Resolve-ConsumerPath($Consumer) {
-    # Current product locations take precedence over retained legacy checkouts.
-    # A bad canonical pin must not fall back to an older, apparently valid pin.
-    if ($Consumer.Canonical) {
-        foreach ($candidate in @((Join-Path $Root ('games/'+$Consumer.Canonical)), (Join-Path $Root $Consumer.Canonical))) {
-            if (Test-Path -LiteralPath $candidate -PathType Container) {
-                if ($Consumer.ComponentRoot) { return Join-Path $candidate $Consumer.ComponentRoot }
-                return $candidate
-            }
-        }
-    }
-    return Join-Path $Root $Consumer.Name
+    if (-not $Consumer.Canonical) { return Join-Path $Root $Consumer.Name }
+    $path = Join-Path $Root $Consumer.Canonical
+    if ($Consumer.ComponentRoot) { $path = Join-Path $path $Consumer.ComponentRoot }
+    return $path
 }
 
 function Test-Shipped([string]$Path, [string]$Part, $Headers) {
@@ -259,7 +235,6 @@ function Compare-Component($Consumer, $Component, $Pin, $Parts, $Headers, [strin
             } else { $row.Status = 'behind, unaffected'; $row.Why = 'nothing this component uses changed' }
         }
     }
-    if ($Pin.Source -like '*legacy inference*') { $row.Note = ($row.Note + ' Legacy changelog inference only; add an explicit toolkit.version.').Trim() }
     [pscustomobject]$row
 }
 

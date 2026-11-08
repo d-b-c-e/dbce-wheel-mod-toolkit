@@ -10,6 +10,10 @@ $powershell = Join-Path $PSHOME $(if (Test-Path (Join-Path $PSHOME 'pwsh.exe')) 
 $script:checks = 0
 $names = @('art-of-sim-rally', 'iracing-arcade-wheel', 'woden-rally-edge-wheel',
     'drive-rally-wheel', 'OutRun2006Tweaks-FFB', 'milestone-wheel-tools', 'cruisn-collection')
+$folders = @{ 'art-of-sim-rally' = 'dbce-mods-art-of-rally'; 'iracing-arcade-wheel' = 'dbce-mods-iracing-arcade/components/wheel'
+    'woden-rally-edge-wheel' = 'dbce-mods-woden-rally-edge/components/wheel'; 'drive-rally-wheel' = 'dbce-mods-drive-rally'
+    'OutRun2006Tweaks-FFB' = 'dbce-mods-outrun-2006'; 'milestone-wheel-tools' = 'milestone-wheel-tools'; 'cruisn-collection' = 'cruisn-collection' }
+function Consumer-Dir([string]$Name) { Join-Path $siblings $folders[$Name] }
 function Assert($Condition, [string]$Message) { $script:checks++; if (-not $Condition) { throw $Message } }
 function Write-Fixture([string]$Path, [string]$Content) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $Path) -Force | Out-Null
@@ -25,7 +29,7 @@ function Commit-Tag([string]$Tag) {
     Invoke-FixtureGit @('tag', $Tag)
 }
 function Set-Pin([string]$Name, [string]$Pin) {
-    $base = Join-Path $siblings $Name
+    $base = Consumer-Dir $Name
     if ($Name -eq 'iracing-arcade-wheel') { Write-Fixture (Join-Path $base 'toolkit.version') $Pin }
     elseif ($Name -eq 'drive-rally-wheel') { Write-Fixture (Join-Path $base 'dependencies.json') (@{toolkit=@{version=$Pin}} | ConvertTo-Json -Depth 3) }
     else { Write-Fixture (Join-Path $base 'lib/toolkit/VERSION') $Pin }
@@ -39,7 +43,7 @@ function Snapshot {
 function Run-Status([string]$Current = 'v0.13.0', [switch]$Human, [string]$ConsumerRoot = $siblings) {
     $before = Snapshot
     $arguments = @('-NoProfile', '-File', $fixtureScript, '-Root', $ConsumerRoot, '-Current', $Current)
-    if (-not $Human) { $arguments += '-AsJson' } else { $arguments += '-All' }
+    if (-not $Human) { $arguments += '-AsJson' }
     $output = @(& $powershell @arguments 2>&1)
     $code = $LASTEXITCODE
     Assert ((Snapshot) -ceq $before) 'Status command wrote to fixture repo/consumers'
@@ -54,7 +58,7 @@ function Row($Result, [string]$Name, [string]$Component = 'baseline') {
     return $rows[0]
 }
 function Write-Override([string]$Baseline = 'v0.8.0', [string]$Override = 'v0.13.0') {
-    $base = Join-Path $siblings 'OutRun2006Tweaks-FFB/lib/toolkit'
+    $base = Join-Path (Consumer-Dir 'OutRun2006Tweaks-FFB') 'lib/toolkit'
     Write-Fixture (Join-Path $base 'NATIVE-VERSION') $Override
     Write-Fixture (Join-Path $base 'include/wheelffb.h') 'fixture ABI header, native override'
     Write-Fixture (Join-Path $base 'native/x86/WheelFfb.dll') 'fixture binary bytes, not executable'
@@ -66,7 +70,7 @@ function Write-Override([string]$Baseline = 'v0.8.0', [string]$Override = 'v0.13
     Write-Fixture (Join-Path $base 'NATIVE-PROVENANCE.json') ($manifest | ConvertTo-Json -Depth 5)
 }
 function Remove-Override {
-    $base = Join-Path $siblings 'OutRun2006Tweaks-FFB/lib/toolkit'
+    $base = Join-Path (Consumer-Dir 'OutRun2006Tweaks-FFB') 'lib/toolkit'
     foreach ($file in @('NATIVE-VERSION', 'NATIVE-PROVENANCE.json')) {
         $path = Join-Path $base $file
         if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
@@ -99,12 +103,10 @@ try {
     Assert ((Row $result 'cruisn-collection').Status -eq 'behind, unaffected') 'Cruisn must not inherit DirectInput adoption'
 
     Set-AllPins 'v0.13.0'
-    Write-Fixture (Join-Path $siblings 'iracing-arcade-wheel/CHANGELOG.md') 'Future discussion: toolkit v9.9.9. Older toolkit v0.8.0.'
     Set-Pin 'OutRun2006Tweaks-FFB' 'v0.8.0'
     Write-Override
     $result = Run-Status
     Assert ($result.Code -eq 0) 'Native-only changes must not falsely affect a split baseline'
-    Assert ((Row $result 'iracing-arcade-wheel').Pinned -eq 'v0.13.0') 'Explicit iRacing pin must outrank highest changelog mention'
     Assert ((Row $result 'OutRun2006Tweaks-FFB' 'baseline (split)').Status -eq 'behind, unaffected') 'Override source leaked into baseline comparison'
     Assert ((Row $result 'OutRun2006Tweaks-FFB' 'native/header override').Status -eq 'current') 'Matching native override should be current'
     $result = Run-Status 'v0.12.0'
@@ -124,7 +126,7 @@ try {
     $human = Run-Status 'v0.14.0' -Human
     Assert ($human.Code -eq 1 -and $human.Text -match 'native/header override' -and $human.Text -notmatch 'Sync-Toolkit.ps1 -Version') 'Human output must describe split components without blanket sync'
 
-    $overrideBase = Join-Path $siblings 'OutRun2006Tweaks-FFB/lib/toolkit'
+    $overrideBase = Join-Path (Consumer-Dir 'OutRun2006Tweaks-FFB') 'lib/toolkit'
     Write-Fixture (Join-Path $overrideBase 'native/x86/WheelFfb.dll') 'tampered'
     $result = Run-Status
     Assert ((Row $result 'OutRun2006Tweaks-FFB' 'native/header override').Why -match 'hash mismatch') 'Changed override bytes were trusted'
@@ -141,7 +143,7 @@ try {
     Set-AllPins 'v0.14.0'
     Write-Fixture (Join-Path $toolkit 'dotnet/Dbce.Wheel.Recording/Recorder.cs') 'unpublished, separate provenance'
     Commit-Tag 'v0.15.0'
-    Write-Fixture (Join-Path $siblings 'drive-rally-wheel/vendor/recording/provenance.json') '{"version":"v9.9.9"}'
+    Write-Fixture (Join-Path (Consumer-Dir 'drive-rally-wheel') 'vendor/recording/provenance.json') '{"version":"v9.9.9"}'
     $result = Run-Status 'v0.15.0'
     Assert ($result.Code -eq 0 -and (Row $result 'drive-rally-wheel').Pinned -eq 'v0.14.0') 'Recording must not broaden managed adoption or replace the release pin'
     foreach ($file in @('native/wheelffb/test/smoke.c', 'dotnet/Dbce.Wheel.Telemetry.Tests/Test.cs', 'native/forcemodel/test_signal_contracts.cpp',
@@ -166,21 +168,21 @@ try {
     Set-AllPins 'v0.13.0'
     Set-Pin 'iracing-arcade-wheel' 'garbage'
     $result = Run-Status
-    Assert ($result.Code -eq 1 -and (Row $result 'iracing-arcade-wheel').Status -eq 'INVALID / MISSING PIN') 'Malformed explicit pin fell back to changelog'
+    Assert ($result.Code -eq 1 -and (Row $result 'iracing-arcade-wheel').Status -eq 'INVALID / MISSING PIN') 'Malformed explicit pin not reported'
     Set-Pin 'iracing-arcade-wheel' ''
     $result = Run-Status
-    Assert ((Row $result 'iracing-arcade-wheel').Status -eq 'INVALID / MISSING PIN' -and (Row $result 'iracing-arcade-wheel').PinSource -eq 'toolkit.version') ('Empty explicit pin fell back to changelog: ' + $result.Text)
+    Assert ((Row $result 'iracing-arcade-wheel').Status -eq 'INVALID / MISSING PIN' -and (Row $result 'iracing-arcade-wheel').PinSource -eq 'toolkit.version') ('Empty explicit pin not reported: ' + $result.Text)
     Assert ((Row $result 'iracing-arcade-wheel').Why -match 'empty pin') 'Empty file should be identified as an empty pin, not an I/O error'
-    Remove-Item -LiteralPath (Join-Path $siblings 'iracing-arcade-wheel/toolkit.version')
-    Write-Fixture (Join-Path $siblings 'iracing-arcade-wheel/CHANGELOG.md') 'toolkit v0.13.0'
+    Remove-Item -LiteralPath (Join-Path (Consumer-Dir 'iracing-arcade-wheel') 'toolkit.version')
+    Write-Fixture (Join-Path (Consumer-Dir 'iracing-arcade-wheel') 'CHANGELOG.md') 'toolkit v0.13.0'
     $result = Run-Status
-    Assert ($result.Code -eq 0 -and (Row $result 'iracing-arcade-wheel').PinSource -match 'legacy inference') 'Legacy iRacing fallback lost or unlabeled'
+    Assert ((Row $result 'iracing-arcade-wheel').Status -eq 'INVALID / MISSING PIN') 'A changelog mention was read as a pin'
     Set-Pin 'iracing-arcade-wheel' 'v0.13.0'
-    Write-Fixture (Join-Path $siblings 'drive-rally-wheel/dependencies.json') '{not JSON'
+    Write-Fixture (Join-Path (Consumer-Dir 'drive-rally-wheel') 'dependencies.json') '{not JSON'
     $result = Run-Status
     Assert ($result.Code -eq 1 -and (Row $result 'drive-rally-wheel').Why -match 'malformed dependencies') 'Malformed Drive pin was hidden'
     Set-Pin 'drive-rally-wheel' 'v0.13.0'
-    Remove-Item -LiteralPath (Join-Path $siblings 'woden-rally-edge-wheel/lib/toolkit/VERSION')
+    Remove-Item -LiteralPath (Join-Path (Consumer-Dir 'woden-rally-edge-wheel') 'lib/toolkit/VERSION')
     $result = Run-Status
     Assert ((Row $result 'woden-rally-edge-wheel').Why -match 'missing') 'Missing Woden pin not reported'
     Set-Pin 'woden-rally-edge-wheel' 'v0.13.0'
@@ -188,21 +190,9 @@ try {
     $result = Run-Status
     Assert ($result.Code -eq 1 -and (Row $result 'art-of-sim-rally').Status -eq 'LOCAL / DEVELOPMENT PIN') 'Local pin misclassified as release'
     Set-Pin 'art-of-sim-rally' 'v0.13.0'
-    $canonical = Join-Path $siblings 'games/dbce-mods-woden-rally-edge/components/wheel/lib/toolkit/VERSION'
-    Write-Fixture $canonical 'v0.13.0'
+    Remove-Item -LiteralPath (Consumer-Dir 'iracing-arcade-wheel') -Recurse -Force
     $result = Run-Status
-    Assert ((Row $result 'woden-rally-edge-wheel').RepoPath -like '*games*dbce-mods-woden-rally-edge*components*wheel') 'Canonical component root not selected'
-    $result = Run-Status -ConsumerRoot (Join-Path $siblings 'games')
-    Assert ((Row $result 'woden-rally-edge-wheel').Status -eq 'CURRENT') 'Root=games did not resolve the direct canonical candidate'
-    New-Item -ItemType Directory -Path (Join-Path $siblings 'games/dbce-mods-iracing-arcade') | Out-Null
-    $result = Run-Status
-    Assert ((Row $result 'iracing-arcade-wheel').Why -match 'repo not found') 'Missing canonical components/wheel fell back to legacy'
-    Write-Fixture $canonical 'invalid-current-pin'
-    $result = Run-Status
-    Assert ((Row $result 'woden-rally-edge-wheel').Status -eq 'INVALID / MISSING PIN') 'Invalid canonical pin fell back to valid stale legacy checkout'
-    Remove-Item -LiteralPath $canonical
-    $result = Run-Status
-    Assert ((Row $result 'woden-rally-edge-wheel').Why -match 'missing') 'Missing canonical pin fell back to valid stale legacy checkout'
+    Assert ((Row $result 'iracing-arcade-wheel').Why -match 'repo not found') 'A game repo without components/wheel was not reported'
     $result = Run-Status 'v99.0.0'
     Assert ($result.Code -eq 1 -and -not $result.Data.TargetAvailable) 'Missing comparison target should require review'
     [ordered]@{ status = 'passed'; assertions = $script:checks; scope = 'offline pins, git ranges, split provenance, output/exit and read-only snapshots' } | ConvertTo-Json -Compress
