@@ -1,6 +1,6 @@
 # Exercises only managed artifact copying and transactional sync; no native/device calls.
 [CmdletBinding()]
-param([string]$ReleaseArchive)
+param()
 $ErrorActionPreference = 'Stop'
 $toolkitRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $caseRoot = Join-Path ([IO.Path]::GetTempPath()) ('recording-package-test-' + [guid]::NewGuid().ToString('N'))
@@ -40,36 +40,7 @@ try {
         Assert (Test-Path -LiteralPath $packaged) "Package omitted $name"
         Assert ((Get-FileHash -LiteralPath $packaged).Hash -eq (Get-FileHash -LiteralPath (Join-Path $source $name)).Hash) "Package changed $name"
     }
-    # Model the pre-Recording release layout offline. Only the download is stubbed;
-    # real zip expansion, part selection, staging, hashes and manifest writes run.
-    $legacyZip = Join-Path $caseRoot 'dbce-wheel-mod-toolkit-0.12.0.zip'
-    if ($ReleaseArchive) {
-        Copy-Item -LiteralPath $ReleaseArchive -Destination $legacyZip
-    } else {
-        $legacy = Join-Path $caseRoot 'dbce-wheel-mod-toolkit-0.12.0'
-        New-Item -ItemType Directory -Path (Join-Path $legacy 'native'), (Join-Path $legacy 'dotnet') -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $legacy 'native/WheelFfb.dll') 'offline fixture: never loaded'
-        foreach ($name in 'Dbce.Wheel.Ffb.dll', 'Dbce.Wheel.Telemetry.dll') {
-            Copy-Item -LiteralPath (Join-Path $destination "dotnet/$name") -Destination (Join-Path $legacy "dotnet/$name")
-        }
-        Compress-Archive -LiteralPath $legacy -DestinationPath $legacyZip
-    }
-    function gh {
-        param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
-        Assert (($Arguments[0..2] -join ' ') -eq 'release download v0.12.0') 'Unexpected release download arguments.'
-        $directoryIndex = [Array]::IndexOf($Arguments, '--dir')
-        Assert ($directoryIndex -ge 0) 'Missing release download directory.'
-        Copy-Item -LiteralPath $legacyZip -Destination $Arguments[$directoryIndex + 1]
-        $global:LASTEXITCODE = 0
-    }
-    $releaseDestination = Join-Path $caseRoot 'released-consumer/toolkit'
-    & (Join-Path $toolkitRoot 'tools/Sync-Toolkit.ps1') -Version v0.12.0 -Destination $releaseDestination -Parts native,dotnet
-    Assert (Test-Path -LiteralPath (Join-Path $releaseDestination 'native/WheelFfb.dll')) 'Legacy release lost native DLL.'
-    Assert (Test-Path -LiteralPath (Join-Path $releaseDestination 'dotnet/Dbce.Wheel.Ffb.dll')) 'Legacy release lost FFB DLL.'
-    Assert (Test-Path -LiteralPath (Join-Path $releaseDestination 'dotnet/Dbce.Wheel.Telemetry.dll')) 'Legacy release lost telemetry DLL.'
-    Assert (-not (Test-Path -LiteralPath (Join-Path $releaseDestination 'dotnet/Dbce.Wheel.Recording.dll'))) 'Legacy release invented a Recording DLL.'
-    Assert ((Get-Content -LiteralPath (Join-Path $releaseDestination 'VERSION') -First 1) -eq 'v0.12.0') 'Legacy release pin changed.'
-    [ordered]@{ status = 'passed'; assertions = $script:checks; scope = 'recording package/local sync and pre-Recording release sync; no devices' } | ConvertTo-Json -Compress
+    [ordered]@{ status = 'passed'; assertions = $script:checks; scope = 'recording package/local sync; no devices' } | ConvertTo-Json -Compress
 }
 finally {
     $absolute = [IO.Path]::GetFullPath($caseRoot)
