@@ -13,7 +13,7 @@ assumed to have reached them.*
 
 **Do not read the historical table below as current state.** Run the script for
 its declared release-baseline consumers. Newer component overrides and consumers
-outside that bounded register require the [fleet follow-up](FLEET-FFB-2026-10-08.md).
+outside that bounded register need a manual check.
 
 **October 8 additional consumer:** `games/dbce-mods-outrun-arcade` is now a
 Windows native consumer with a temporary original-capture qualification at
@@ -55,7 +55,7 @@ where its pin lives, and what breaks if you get it wrong.
 **Release update, 2026-09-27:** official v0.15.0 promotes Art's frozen
 `local+358add53af220eb95bf606e240b230e23a6ea197.clean` payloads. An isolated repin
 using Art's current sync script proved all five DLL/XML files byte-identical;
-only provenance changed. [Exact release evidence](RELEASE-0.15.0.md).
+only provenance changed.
 This publication does not change another consumer's pin or install. Inspect
 effective components before adopting it; Recording remains separately pinned.
 
@@ -68,9 +68,6 @@ Current product destinations are `dbce-mods-art-of-rally`,
 `dbce-mods-drive-rally` and `dbce-mods-outrun-2006`; older names below in
 history and local checkout paths are retained as provenance. Sonic's canonical
 source is `dbce-mods-sonic-crossworlds`, and Gravel's is `dbce-mods-gravel`.
-The [shared checklist](SHARED-REPOSITORY-CHECKLIST.md#reviewed-consumer-source-publications)
-records exact reviewed product source commits and verified OutRun/Gravel CI.
-Those source commits are not dependency pins or installed-version evidence.
 The status script was corrected on October 8 to resolve these five canonical
 products under `games/`, including Woden/iRacing `components/wheel`. It accepts
 the workspace root or games folder and retains legacy-root fixture support.
@@ -143,10 +140,8 @@ treating this cached file as adopted runtime profile support.
 ## Per-consumer traps
 
 - **`iracing-arcade-wheel` gitignores `lib/`, but now tracks `toolkit.version`.**
-  Read the explicit pin first. For older checkouts lacking that file, the tool
-  retains the historical highest-version changelog inference and labels it as
-  legacy inference. An empty, malformed or unreadable explicit file must never
-  fall back to changelog guesses. Update the tracked pin and dependency evidence
+  The tool reads only that explicit pin; a missing, empty, malformed or unreadable
+  file is reported, never guessed from the changelog. Update the tracked pin and dependency evidence
   together when the owning project adopts a release.
   Its `tools/Sync-Recording.ps1` builds the unpublished Recording extension into
   `lib/recording` and records source-file hashes/base revision and binary hash in

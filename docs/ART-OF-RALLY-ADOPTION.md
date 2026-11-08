@@ -60,4 +60,4 @@ explicit consumer validation step. The export binding avoids the unsupported
 alias-search assumption, but these offline checks do not claim a Mono game run.
 
 Combined v0.12.0 packaging passed with 121 managed tests, 24 sync assertions and
-40 binding assertions on each tested runtime. See STATE.md for the full gate list.
+40 binding assertions on each tested runtime.

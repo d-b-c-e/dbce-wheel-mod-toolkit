@@ -128,5 +128,5 @@ Compile the harness, then arrange an attended slot before running it. Physical
 hat directions, disconnect/reconnect, game input coexistence and real FFB remain
 consumer acceptance work.
 
-See `docs/STATE.md` for completed offline gates and `dist/POV-HANDOFF.json` in
+See `dist/POV-HANDOFF.json` in
 this worktree for the local artifact's exact commit, dirty state and hashes.

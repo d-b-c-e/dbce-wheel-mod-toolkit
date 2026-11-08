@@ -13,7 +13,7 @@ repository text links. A host can place its separate issue/report action there;
 the shared renderer owns the link ordering and styling. This does not change
 report preparation, browser admission, input handling or overlay behavior.
 
-The standard **Wheel settings** panel (STD-004, STD-017, STD-022, STD-030; UX-1 in `docs/CONSUMER-UX.md`) for mods that
+The standard **Wheel settings** panel (STD-004, STD-017, STD-022, STD-030, STD-053) for mods that
 are native DLLs (DirectInput proxies and similar), drawn with Dear ImGui (`native/third_party/imgui`, vendored, MIT).
 
 | File | What it does |

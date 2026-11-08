@@ -38,15 +38,9 @@ state, which field is slip angle, where the camera lives, what the UI shows.
 
 ## Player settings
 
-Follow [UX-1](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX.md)
-and [Simple/Advanced placement (UX-01-S)](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-SETTINGS-VIEWS.md).
-F6 opens Wheel settings in Simple by default; remember an explicit view choice.
-Keep complete ordinary binding/calibration, camera shortcut rebinding, main FFB
-controls and recovery accessible in Simple. Advanced adds detailed tuning and
-diagnostics over the same saved values; switching views never resets them or
-changes runtime behavior. Record each option's placement and the guidance hash
-with [acceptance evidence](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX-CHECKLIST.md).
-The toolkit does not supply a shared UI renderer or calibration workflow yet.
+Setup (bindings, cockpit, screens, telemetry output) lives in Wheelkit, which comes with every mod (STD-053). F6 is
+runtime only and follows the page spec in the hub's `docs/architecture/2026-11/05-ux-simplification.md`: at most five
+controls per page, plus one "More options" row.
 
 ## Non-negotiables
 

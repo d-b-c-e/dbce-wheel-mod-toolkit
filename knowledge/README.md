@@ -25,8 +25,7 @@ finite-value boundaries and sampled effects versus Art's native effects.
 [dbce-wheel-mod-toolkit and local read-only preset snapshot, 2026-10-07]:
 saved versus active configuration, duration/sequence metrics and next-drive limits.
 
-**Recording/playback, October 4:** [failure analysis and acceptance rules](RECORDING-PLAYBACK-LESSONS.md)
-and [copy-and-paste operational runbook](../docs/RECORDING-PLAYBACK-RUNBOOK.md).
+**Recording/playback:** developer tools only (STD-050); see [the developer page](../docs/RECORDING-PLAYBACK.md).
 Start here for Art's known-good recording or a new game adapter; the older
 unattended-input notes below are historical, not proof that input replay works.
 

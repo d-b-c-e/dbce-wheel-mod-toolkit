@@ -307,7 +307,7 @@ namespace Dbce.Wheel.Telemetry.Tests
     }
 
     /// <summary>
-    /// The pass thresholds from docs/COURSE-TELEMETRY.md ("Woden route extraction handoff"), applied to an actual
+    /// The pass thresholds of the Woden route extraction handoff, applied to an actual
     /// capture folder and, when <see cref="CourseCaptureFactAttribute.ReferenceVariable"/> names one, a recorded
     /// trajectory of the same course. Nothing is copied or changed.
     /// </summary>

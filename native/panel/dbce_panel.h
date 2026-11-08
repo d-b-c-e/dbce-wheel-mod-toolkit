@@ -1,4 +1,4 @@
-// Shared F6 settings panel for native mods (STD-004, STD-017, STD-022, STD-030; UX-1 in docs/CONSUMER-UX.md).
+// Shared F6 settings panel for native mods (STD-004, STD-017, STD-022, STD-030, STD-053).
 //
 // The panel owns the frame (title, View: Simple/Advanced, Close, Stop FFB, flat page tabs in the standard order) and
 // a set of standard widgets; the mod draws each page's body with those widgets and keeps its settings in its own

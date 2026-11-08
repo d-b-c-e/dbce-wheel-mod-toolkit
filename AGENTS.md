@@ -13,7 +13,7 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 - `tools/` — `Sync-Toolkit.ps1`, `Sync-Native.ps1`, `package/package.ps1` (the toolkit zip), `package/New-ModPackage.ps1` (a game's player zip from its `dbce-mod.json`), `powershell/`, `playback/`, `window-capture/`, `ffbprobe/`, `Get-ConsumerStatus.ps1`; post-build checks `Check-Net35Api.ps1` (Mono 2.0) and `Find-StrippedInteropCalls.ps1` (IL2CPP).
 - `schema/dbce-mod.schema.json` — the one per-mod file `dbce-mod.json` (`docs/DBCE-MOD-JSON.md`), with fixtures; readers in `installer/DbceModFile.ps1`, `shared/mod/DbceModFile.cs` and `native/panel/dbce_mod_file.h`, tested by `tools\tests\Test-DbceModFile.ps1`, `dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests` and `native\panel\build_test.ps1`. `schema/dbce-selftest.schema.json` and `schema/dbce-selftest-result.schema.json` are the self-test script and `result.json`, with fixtures in `schema/fixtures/selftest`.
 - `schema/dbce-store-profiles.schema.json` and `schema/dbce-store-runtime.schema.json` — the shared store in `%LOCALAPPDATA%\Wheelkit\store` (profiles, the shared cockpit, each game's profile, each game's runtime settings; `docs/STORE.md`). Files only gain fields. Readers in `installer/DbceStore.ps1`, `shared/mod/DbceStore.cs` and `native/panel/dbce_store.h`, tested by `tools\tests\Test-DbceStore.ps1` and the same two reader tests.
-- `knowledge/` (every item carries `[repo, YYYY-MM-DD]` provenance), `docs/` (`STATE.md`, `CONSUMERS.md`, `PLAN.md`, ADRs), `STANDARDS.md` (product standards, append-only).
+- `knowledge/` (every item carries `[repo, YYYY-MM-DD]` provenance), `docs/` (`CONSUMERS.md`, `STORE.md`, `SELFTEST.md`, `DBCE-MOD-JSON.md`, ADRs), `STANDARDS.md` (product standards, append-only).
 
 ## Build and test
 - `dotnet test Dbce.Wheel.sln`; `native\wheelffb\build.ps1` (x64, checks exports against the header); `native\wheelffb\build.bat x86` (32-bit games); `native\forza\build_test.bat`; `native\forcemodel\build_conformance.bat`; `native\panel\build_test.ps1`; `native\ui-host\build.ps1` (dbce_ui.dll x86 and x64, WARP host check, 2 MB limit); `native\ui-exe\build.ps1` (dbce-ui.exe, `--setup` byte-diff check, 5 MB limit); `native\selftest\build_test.ps1` (self-test interpreter on a fake host, every fixture); `tools\tests\Test-SelfTestSchema.ps1`; `tools\tests\Test-DbceStore.ps1`; `tools\powershell\Test-DbceWheel.ps1`; `tools\tests\Test-SyncToolkit.ps1`; `tools\tests\Test-UnityConsumer.ps1` (dummy plugin for Mono, Mono 2.0 and IL2CPP); `tools\tests\Test-SyncNative.ps1`; `tools\tests\Test-NativeBinding.ps1`; `tools\tests\Test-ModPackage.ps1` (player packager and `installer/Install.ps1` on a fixture game folder).
@@ -33,7 +33,7 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 - No physics or assist changes here; no game files or assets. Keep the classic `.sln` format. No secrets, device GUIDs or personal profiles.
 
 ## Key docs
-- `STANDARDS.md` (product standards), `docs/STATE.md`, `docs/CONSUMERS.md`, `README.md`, `docs/adr/` (ADR-0001 FFB output backends), `docs/RECORDING-PLAYBACK-RUNBOOK.md`
+- `STANDARDS.md` (product standards), `docs/CONSUMERS.md`, `README.md`, `docs/adr/` (ADR-0001 FFB output backends), `docs/RECORDING-PLAYBACK.md` (developer tools only, STD-050)
 
 <!-- BEGIN project-file-location -->
 ## Project files and temporary work

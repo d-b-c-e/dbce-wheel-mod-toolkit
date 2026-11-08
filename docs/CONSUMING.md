@@ -1,22 +1,8 @@
-> 0.12.0 integration updates: [consumer UX APIs](CONSUMER-EXPERIENCE.md) and
-> [native loading, strict identity, lifecycle and compatibility curve](ART-OF-RALLY-ADOPTION.md).
-> Consumer status below contains historical migration notes; use CONSUMERS.md
-> and Get-ConsumerStatus.ps1 for current pins. A failed sync leaves the existing
-> destination intact, or reports the retained original recovery directory if
-> rollback itself cannot complete. It does not advance VERSION on conflicts.
-
 # Consuming the toolkit from a game mod
 
-Player-facing integration follows [UX-1](CONSUMER-UX.md): common navigation,
-wording, binding/calibration, camera/FFB handoff and telemetry status. Use the
-[install/setup guide](CONSUMER-SETUP.md) and record adoption with the
-[UX checklist](CONSUMER-UX-CHECKLIST.md). These are standards to implement in the
-consumer, not a shipped shared UI library.
-
-Apply [Simple and Advanced settings (UX-01-S)](CONSUMER-SETTINGS-VIEWS.md): default
-to Simple, keep complete basic setup there, and place detailed tuning/diagnostics
-in Advanced. Inventory each setting's placement and prove existing settings are
-preserved on upgrade and view changes. Copying a toolkit DLL does not adopt this UI.
+Setup (bindings, cockpit, screens) belongs to Wheelkit, which comes with every mod (STD-053); F6 is runtime only. Use
+`docs/CONSUMERS.md` and `tools/Get-ConsumerStatus.ps1` for current pins. A failed sync leaves the existing destination
+intact and does not advance VERSION.
 
 Consumers vendor **built artifacts**, pinned by version. No cross-repo project
 references: a toolkit change never reaches a game without an explicit,

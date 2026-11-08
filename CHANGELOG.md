@@ -1,5 +1,10 @@
 ## Unreleased master - 2026-10-13 (shared input shim source)
 
+- Legacy removal (TK-L, 2026-11-08). Deleted the external FFB session spike (its eight exports, headers, managed
+  binding, tests and doc; no consumer used it), the playback reader for the old `complete.tsv` name, the consumer
+  report's changelog guess and `-All`, the unused menu-edge header, the release check runner, and the review, plan,
+  release and setup-guide docs from before STD-053. `TripleLayout` now frames triples with the STD-047 eye distance.
+
 - The in-mod self-test, C++ half (ST-1, 2026-11-07; `docs/SELFTEST.md`). `schema/dbce-selftest.schema.json` and
   `schema/dbce-selftest-result.schema.json` define the dbce.selftest@1 script and `result.json`. Fixture scripts and
   their expected results are in `schema/fixtures/selftest`. `native/selftest/dbce_selftest.hpp` runs a script through
@@ -157,27 +162,12 @@
 
 ## Unreleased master - 2026-10-04 (native 0.10.0, 55 exports)
 
-- Merged the actuator-rearm, external-session and attended-comparison branches
+- Merged the actuator-rearm and attended-comparison branches
   onto the reviewed shutdown/lock-publication design. Kept: api mutex on every
   export, internal/export split, no join under the effect lock, unbounded
   fail-closed watchdog wait, single bounded constant-force reacquire.
-- External-session latch is checked before and under the api mutex in every
-  legacy export; ExternalFfbEnter serializes with legacy calls and uses the
-  module-lifetime effect lock.
-- Offline only; see docs/STATE.md for the attended checks still outstanding.
+- Offline only.
 
-## 0.16.0-external.1 (local experiment; not released)
-
-- Native 0.10.0: eight additive external-session exports (55 total), finite
-  constant output, fixed process/window/device identity, bounded original-QPC
-  leases, explicit generation rearm, independent policy revocation and serialized
-  cancellation including same-thread message-pump reentry.
-- Preserve existing force behavior outside explicit sticky opt-in. Block legacy
-  force bypass after opt-in; preserve coherent shared-wheel reads, input with
-  FFB Off, and exact prior autocentre restoration with retained API failures.
-- Optional netstandard binding and x64/x86 fake COM/platform/ABI compatibility
-  gates. Package -Offline skips machine/device discovery. Real hardware and
-  consumer acceptance remain untested; see docs/EXTERNAL-FFB.md and STATE.md.
 ## Unreleased local POV candidate - 2026-09-28
 
 - Added coherent axes/buttons/four-hat input through existing native reader
@@ -293,8 +283,7 @@ only ever gains exports.
   including finite constant impacts, shaped sine bursts and opt-in force tracing.
   This is a tagged runtime branch, separate from the newer UX documentation here.
 - Verify Art's official repin preserves all five DLL/XML payloads, and publish
-  archive checksums, a 63-file payload inventory and portable provenance. See
-  [the release handoff](docs/RELEASE-0.15.0.md) for exact identity and test limits.
+  archive checksums, a 63-file payload inventory and portable provenance.
   No native/managed rebuild or hardware validation accompanied publication.
 
 ## [0.13.0] - 2026-09-13 (prepared 2026-09-12)
@@ -335,8 +324,7 @@ only ever gains exports.
 - Add real-filesystem transaction and fake-native regression gates to packaging
   and Windows CI; Linux CI also checks recovery invariants. Correct the no-force
   smoke's damper probe to remain zero unless `--force` is supplied.
-- See `docs/CONSUMER-EXPERIENCE.md` for implemented APIs and the remaining consumer
-  UI roadmap. Native API acceptance is not evidence of physical force feel.
+- Native API acceptance is not evidence of physical force feel.
 
 ## [0.11.1] - 2026-09-06
 

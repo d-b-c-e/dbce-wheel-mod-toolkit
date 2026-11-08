@@ -32,8 +32,6 @@ toward Art's level and character. Do not ask the owner to use 35 in one game or
 Replay success and complete input coverage are separate. Preserve partial
 crash qualification through exports, record independent hook availability and
 exclude absent grounded tyre forces without dropping genuine observed zeros.
-The [October 7 review lessons](../knowledge/RECORDING-QUALIFICATION-2026-10-07.md)
-include reproduced DRIVE failures and the required car-state boundaries.
 
 The versioned software reference is
 [`art-of-rally-50-v1.json`](../profiles/normalization/art-of-rally-50-v1.json),

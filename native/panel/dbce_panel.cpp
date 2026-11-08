@@ -1,4 +1,4 @@
-// Shared F6 settings panel: frame, navigation and standard widgets (see dbce_panel.h; UX-1 in docs/CONSUMER-UX.md).
+// Shared F6 settings panel: frame, navigation and standard widgets (see dbce_panel.h).
 #include "dbce_panel.h"
 #include "../settings/dbce_ini_single_key_win.hpp"
 #include "dbce_panel_input.h"

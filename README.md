@@ -1,174 +1,63 @@
 # dbce-wheel-mod-toolkit
 
-[Cross-game FFB comparison](docs/FFB-NORMALIZATION.md) provides device-free,
-duration-weighted analysis and production-model trial commands. See the
-[first five-game findings](knowledge/FFB-NORMALIZATION-2026-10-06.md) before
-changing gains or interpreting muted force data.
+The shared core for mods that add **force feedback, telemetry and wheel support** to racing games: one native FFB and
+device layer with a C ABI, .NET bindings that load in Unity Mono, IL2CPP and CoreCLR, the shared F6 panel core,
+installer and packager, settings store readers, a knowledge base, and templates for the next game.
 
-The shared core for a family of mods that add **force feedback, telemetry and
-wheel support** to racing games that lack them. One native FFB and device
-layer with a C ABI, thin .NET bindings that load in Unity Mono and CoreCLR
-alike, shared tooling, a knowledge base of everything that has already been
-paid for once, and templates for the next game.
+Anything that knows a particular game (hooks, samplers, force signals and their tuning, cameras, game UI) stays in
+that game's repo and consumes this one. Setup (bindings, cockpit, screens) belongs to Wheelkit, which comes with every
+mod (STD-053); the in-game F6 panel is runtime only.
 
-The native device layer, managed telemetry, force models and versioned profiles
-have consumers. SDL backend consolidation and the common input library remain
-in progress. The [independent review](docs/REVIEW-2026-09-05.md) distinguishes
-implemented behavior from plans and identifies the remaining contract gaps.
+## What is here
 
-**Master native 0.10.0 / 55 exports (2026-10-04, local, unreleased).** The
-three native FFB feature branches (actuator rearm, external sessions, attended
-comparison) are merged onto the reviewed shutdown/lock-publication design. All
-offline gates pass on x64/x86; nothing in the merge has been driven on a real
-wheel. See [STATE](docs/STATE.md) for what still needs an attended test.
-
-[Recorded playback tooling](docs/RECORDED-PLAYBACK.md) validates portable case
-identities and compares bounded device-free force observations. Game adapters
-retain their input formats and replay execution; signal reprocessing does not
-imply deterministic gameplay or physical force acceptance.
-
-Published **[v0.15.0](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/releases/tag/v0.15.0)**
-promotes the frozen finite-constant branch (native **0.8.0**, 46 exports).
-It includes shaped sine bursts, independent finite constant impacts and opt-in
-force tracing. See the [release handoff](docs/RELEASE-0.15.0.md) for exact hashes,
-verification limits and Art's binary-identical repin. The default branch holds
-newer UX guidance but not that runtime branch; use the tag to reproduce the release.
-
-Local experiment **0.16.0-external.1** adds a dedicated-owner finite constant
-API (native **0.10.0**, 55 exports), optional managed binding, bounded original-
-capture leases and explicit lifecycle status. It is **offline verified only**;
-hardware and game integration remain untested. See the
-[external-session contract](docs/EXTERNAL-FFB.md) and exact clean-source receipt
-in `dist/EXTERNAL-HANDOFF.json`. Existing consumers retain the old behavior
-unless they explicitly opt in. No official release or adoption is implied.
-
-Preserved local candidate **0.16.0-pov.1**, based on the `v0.15.0` runtime tag, adds a
-coherent axes/buttons/four-POV snapshot (native **0.9.0**, 47 exports) and an
-optional managed reader. It is not published or hardware-validated. See the
-[POV contract and integration order](docs/POV-INPUT.md).
-
-Source version **0.12.0** adds transactional updates, exact-module managed
-loading, strict saved-wheel selection, force-state recovery and actionable
-setup diagnostics. See [consumer experience](docs/CONSUMER-EXPERIENCE.md) for
-integration examples and [art of rally adoption](docs/ART-OF-RALLY-ADOPTION.md)
-for the compatibility curve and validation limits.
-
-For a consistent experience across games, use the [shared UX standard](docs/CONSUMER-UX.md),
-[install and first-drive guide](docs/CONSUMER-SETUP.md), and
-[consumer audit checklist](docs/CONSUMER-UX-CHECKLIST.md). They define the intended
-player experience; adoption and runtime verification remain per consumer.
-The [binding-group guidance](docs/CONSUMER-UX.md#binding-ownership-and-useful-space--ux-03-g)
-defines visual ownership, local instructions and useful initial viewport checks.
-The September 22 clarification requires perceptible boundaries and distinct flat
-navigation, and makes Setup optional when it merely duplicates Controls/FFB.
-Consumers preserve old saved page meanings when migrating their navigation.
-The [RC14 follow-up](docs/ux-audits/2026-09-22-art-rc14-commands-handoff.md) extends
-compact commands across all pages and specifies a scoped native-menu handoff
-that cannot be trapped by unrelated resting wheel inputs.
-The 2026-09-16 [Simple/Advanced standard](docs/CONSUMER-SETTINGS-VIEWS.md) makes
-Simple the default for basic setup and driving. Advanced adds detailed tuning
-and diagnostics over the same saved settings. It includes exact page placement,
-upgrade rules and acceptance checks. The [consumer deployment ledger](docs/ux-audits/2026-09-19-deployment.md)
-tracks implementation, installed packages and remaining live checks separately.
-All seven consumers have local deployed builds as of September 19; the ledger
-retains the specific game/physical acceptance still outstanding.
-The [interactive reference](docs/reference/wheel-settings.html) illustrates the
-flows; its [preview guide](docs/reference/README.md) identifies newer guidance
-that supersedes the demo's layout and styling.
-It is an offline browser demo, with no game connection or force output.
-The 2026-09-14 revision requires analog handbrake hardware support and an
-FFB device dropdown that defaults to the wheel bound to Steering, while retaining
-explicit overrides and saved device identities.
-The [binding/camera workflows](docs/CONSUMER-CONTROLS-CAMERAS.md) define the
-handbrake capture flow, live numpad defaults and in-panel adjustment rebinding.
-The [Woden reconciliation audit](docs/ux-audits/2026-09-14-woden-controls-camera.md)
-records the source gaps at that audit date and the required interaction checks.
-See the [first cross-consumer UX audit](docs/ux-audits/2026-09-13-consumers.md)
-for specific gaps in iRacing Arcade Wheel and Art of Sim Rally.
-
-## Why
-
-| Before this repo | Copies |
+| Folder | Contents |
 |---|---|
-| DirectInput constant-force FFB implementations | 6 |
-| Forza "Data Out" telemetry encoders (two incompatible layouts) | 5 |
-| dinput8 proxy scaffolds | 3 |
-| DirectInput device enumerators | 8+ |
-| The `DIERR_NOTEXCLUSIVEACQUIRED` fix, the Fanatec twin-device fallback, the vJoy blocklist, the exit-time zeroing, the 323-vs-324-byte Forza trap… | 1 each, in five different repos |
+| `native/wheelffb` | `WheelFfb.dll` (x64 and x86): DirectInput force feedback and device reads; C ABI in `include/wheelffb.h` |
+| `native/` (others) | Force model, Forza telemetry packets, input shim, F6 panel (`panel`, `ui-host`), cameras, controls, settings, session writer, in-mod self-test |
+| `dotnet/` | `Dbce.Wheel.*` libraries (netstandard2.0) and their tests |
+| `shared/`, `unity/` | Engine-free display, FFB, UI and support sources; the Unity layer compiled into each plugin |
+| `installer/`, `schema/` | The player installer, `dbce-mod.json` and the shared store schemas, with readers in PowerShell, C# and C++ |
+| `tools/` | Sync into games (`Sync-Toolkit.ps1`, `Sync-Native.ps1`), packagers, probes, consumer report |
+| `profiles/` | Force tunes as data, read at runtime by both force models |
+| `knowledge/`, `docs/`, `templates/` | What has been learned, how-to pages and ADRs, starting points for a new game |
 
-Full survey and rationale: [docs/PROPOSAL.md](docs/PROPOSAL.md).
+## How games use it
 
-## What lives here, and what does not
+- Managed mods reference the `Dbce.Wheel.*` DLLs; native mods include `wheelffb.h` and load `WheelFfb.dll` at
+  runtime, so a missing file costs force feedback rather than the game.
+- `tools/Sync-Toolkit.ps1` vendors a pinned build into a game repo; native dinput8-proxy games use
+  `tools/Sync-Native.ps1`. Never edit a vendored copy in a game: change it here and re-sync.
+- `tools/package/New-ModPackage.ps1` builds a game's single player zip from its `dbce-mod.json`.
+- Who uses which version: [docs/CONSUMERS.md](docs/CONSUMERS.md) and `tools/Get-ConsumerStatus.ps1`.
+  More detail: [docs/CONSUMING.md](docs/CONSUMING.md).
 
-**Here:** device → forces (`native/wheelffb`), frame → telemetry
-(`dotnet/Dbce.Wheel.Telemetry`), force shaping and device selection
-(`dotnet/Dbce.Wheel.Ffb`), vendorable binding source
-(`dotnet/Dbce.Wheel.Input`), managed ABI-2 shim bridge
-(`dotnet/Dbce.Wheel.Shim`), the dinput8 proxy scaffold (`native/dinput-proxy`),
-tooling (`tools/`), knowledge (`knowledge/`), and documentation starting points
-in `templates/` (not compilable scaffolds or a shared UI).
+## Key docs
 
-**Not here:** anything that knows a particular game — hooks, samplers, force
-signals and their tuning, physics changes and their online gates, cameras, UI
-content. Those stay in each game's repo and consume this one.
-
-## Consumers
-
-- [art-of-sim-rally](https://github.com/d-b-c-e/art-of-sim-rally) — art of rally, Unity 2019 Mono, Unity Mod Manager
-- iracing-arcade-wheel — iRacing Arcade, Unity 6 IL2CPP, BepInEx 6
-- woden-rally-edge-wheel — Super Woden Rally Edge, Unity 6 IL2CPP, BepInEx 6
-- drive-rally-wheel — #DRIVE Rally, Unity Mono, BepInEx 5; telemetry/research foundation
-- cruisn-collection — Cruis'n USA / World / Off Road / Exotica, MAME fork
-- OutRun2006Tweaks-FFB — OutRun 2006, native dinput8 proxy
-- milestone-wheel-tools — Gravel and other Milestone UE4 titles, native dinput8 proxy
-
-How a game feels is data: `profiles/force-profiles.ini` holds named, versioned
-tunes that ship beside the game and are read at runtime, so swapping one is a
-text edit rather than a build. Both the managed and the native model read the
-same file and are pinned to the same golden output.
-
-Who is on which version, and which release obliges whom to move:
-[docs/CONSUMERS.md](docs/CONSUMERS.md), with `tools/Get-ConsumerStatus.ps1`
-to check it against reality.
-
-A managed mod references `Dbce.Wheel.*.dll`; a native mod includes
-`native/wheelffb/include/wheelffb.h` and loads `WheelFfb.dll` at runtime, so a
-missing file costs force feedback rather than stopping the game from starting.
-Either way the consumer vendors a **built, pinned** version under `lib/toolkit`
-(`tools/Sync-Toolkit.ps1`) — see [docs/CONSUMING.md](docs/CONSUMING.md).
-
-## Migration order
-
-1. Knowledge base and this skeleton.
-2. Forza telemetry library with its existing test suite; both Unity mods consume it.
-3. Native FFB core unified on the most complete implementation, plus the lifecycle rules the others learned; both Unity mods ship one binary.
-4. Device identification and the per-brand quirk table, feeding `wheel-db`.
-5. Input kit, IL2CPP-safe IMGUI widgets, templates and the new-game checklist.
-
-## Decisions
-
-- [ADR-0001 — FFB output backends: DirectInput primary, SDL2 secondary, one interface](docs/adr/0001-ffb-output-backends.md)
+- [STANDARDS.md](STANDARDS.md): product standards (append-only).
+- [docs/DBCE-MOD-JSON.md](docs/DBCE-MOD-JSON.md), [docs/STORE.md](docs/STORE.md), [docs/SELFTEST.md](docs/SELFTEST.md).
+- [docs/RECORDING-PLAYBACK.md](docs/RECORDING-PLAYBACK.md): recording and playback, developer tools only (STD-050).
+- [docs/FFB-NORMALIZATION.md](docs/FFB-NORMALIZATION.md): device-free cross-game FFB comparison.
+- [ADR-0001](docs/adr/0001-ffb-output-backends.md): DirectInput primary, SDL2 secondary, one interface.
 
 ## Building
 
 ```powershell
 dotnet test Dbce.Wheel.sln
-.\native\wheelffb\build.ps1                     # x64, verifies every export
+.\native\wheelffb\build.ps1                     # x64, checks every export against the header
 .\native\wheelffb\build.bat x86                 # 32-bit games
-.\native\wheelffb\test\build_pov_read_test.bat  # production read path, fake devices only
-.\native\wheelffb\test\build_smoke.bat x86     # then build\x86\smoke.exe
-.\native\forza\build_test.bat                   # packet conformance
-.\tools\powershell\Test-DbceWheel.ps1
+.\native\panel\build_test.ps1
+.\native\ui-host\build.ps1
+.\tools\tests\Test-NativeBinding.ps1
 .\tools\tests\Test-SyncToolkit.ps1
 .\tools\tests\Test-SyncNative.ps1
-.\tools\tests\Test-NativeBinding.ps1
+.\tools\tests\Test-ModPackage.ps1
 ```
 
-`smoke.exe` walks the whole C ABI against a real wheel and applies no torque
-unless given `--force`, so it is safe to run beside a live direct-drive base.
+`AGENTS.md` lists every suite. `native\wheelffb\test\build_smoke.bat x86` walks the C ABI against a real wheel and
+applies no torque unless given `--force`; run it whenever the native DLL changes.
 
-Needs the .NET SDK and Visual Studio Build Tools with the C++ workload and the
-Windows SDK (`dinput8.lib`). No game needs to be installed.
+Needs the .NET SDK and Visual Studio Build Tools with the C++ workload and the Windows SDK (`dinput8.lib`). No game
+needs to be installed.
 
 ## Licence
 

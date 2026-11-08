@@ -8,7 +8,7 @@ Hardware indices in stored profiles remain zero based; buttons and hats shown to
 values are finite, clamped and stepped from the minimum. Never normalize a saved value merely while displaying it.
 
 Copy the source with its license into the consumer. This small slice is not the
-full mod-published setting descriptor/edit-session contract; see `docs/ux-audits/2026-10-11-wheelkit-drive-review.md`.
+full mod-published setting descriptor/edit-session contract.
 
 ## Recording status
 
