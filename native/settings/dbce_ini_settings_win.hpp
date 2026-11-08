@@ -20,7 +20,8 @@ inline std::string lower(std::string s) {
 
 // Operate on ASCII INI syntax while retaining every original byte outside the owned values.
 // UTF-16 uses a one-byte syntax view; all other code units remain opaque in the original file.
-inline bool edit(const std::string& bytes, const std::string& section, const Changes& changes, std::string& out, bool allow_create = false) {
+// remove: each listed key's whole line goes instead (the values are ignored); a missing section or key is left as it is.
+inline bool edit(const std::string& bytes, const std::string& section, const Changes& changes, std::string& out, bool allow_create = false, bool remove = false) {
     auto ascii = [](const std::string& s) { for (unsigned char c : s) if (c < 32 || c >= 127) return false; return true; };
     if (section.empty() || !ascii(section) || section.find_first_of("[]") != section.npos) return false;
     for (size_t j = 0; j < changes.size(); ++j) {
@@ -70,12 +71,14 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
                         if ((syntax[k] == ';' || syntax[k] == '#') && (syntax[k - 1] == ' ' || syntax[k - 1] == '\t')) { last = k; break; }
                     while (v < last && (syntax[v] == ' ' || syntax[v] == '\t')) ++v;
                     while (last > v && (syntax[last - 1] == ' ' || syntax[last - 1] == '\t')) --last;
-                    edits.push_back({v, last, changes[j].second});
+                    if (remove) edits.push_back({a, end < syntax.size() ? end + 1 : end, ""});
+                    else edits.push_back({v, last, changes[j].second});
                 }
             }
         }
         a = end < syntax.size() ? end + 1 : end;
     }
+    if (!seen && remove) { out = bytes; return true; }
     if (!seen) {
         if (!allow_create || changes.empty()) return false;
         // Opt-in first setup only. The scan above has already refused malformed input.
@@ -86,7 +89,7 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
         return edit(seeded, section, changes, out);
     }
     std::string extra;
-    for (size_t j = 0; j < changes.size(); ++j) if (!found[j]) extra += changes[j].first + "=" + changes[j].second + eol;
+    for (size_t j = 0; j < changes.size(); ++j) if (!found[j] && !remove) extra += changes[j].first + "=" + changes[j].second + eol;
     if (!extra.empty()) {
         if (insert && syntax[insert - 1] != '\n') extra = eol + extra;
         edits.push_back({insert, insert, extra});
@@ -101,7 +104,7 @@ inline bool edit(const std::string& bytes, const std::string& section, const Cha
     return true;
 }
 
-inline bool save(const char* path, const char* section, const Changes& changes, bool allow_create = false) {
+inline bool save(const char* path, const char* section, const Changes& changes, bool allow_create = false, bool remove = false) {
     HANDLE input = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
     const bool existed = input != INVALID_HANDLE_VALUE;
     if (!existed && !(allow_create && GetLastError() == ERROR_FILE_NOT_FOUND)) return false;
@@ -112,7 +115,7 @@ inline bool save(const char* path, const char* section, const Changes& changes, 
               info.nNumberOfLinks == 1 && GetFileSizeEx(input, &size) && (size.QuadPart > 0 || allow_create) && size.QuadPart <= 1024 * 1024);
     std::string bytes(ok ? size_t(size.QuadPart) : 0, '\0'), next;
     DWORD got = 0;
-    ok = ok && (!existed || (ReadFile(input, bytes.data(), DWORD(bytes.size()), &got, nullptr) && got == bytes.size())) && edit(bytes, section, changes, next, allow_create);
+    ok = ok && (!existed || (ReadFile(input, bytes.data(), DWORD(bytes.size()), &got, nullptr) && got == bytes.size())) && edit(bytes, section, changes, next, allow_create, remove);
     if (ok && next == bytes) { if (existed) CloseHandle(input); return true; }
     char suffix[96];
     snprintf(suffix, sizeof suffix, ".dbce-%lu-%llu.tmp", GetCurrentProcessId(), GetTickCount64());

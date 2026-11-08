@@ -93,6 +93,28 @@ int main(int argc, char** argv) {
         assert(WritePrivateProfileStringA(g.section, g.key, g.value, path.c_str()));
         assert(read() == g.after);
     }
+    // eraseKey removes a key's line as WritePrivateProfileStringA(section, key, nullptr) does; absent is already removed.
+    const Golden erases[] = {
+        {"[Cameras]\r\nA=1\r\nB=2\r\n", "Cameras", "A", nullptr, "[Cameras]\r\nB=2\r\n"},
+        {"[Cameras]\r\nA=1\r\nB=2\r\n", "Cameras", "B", nullptr, "[Cameras]\r\nA=1\r\n"},
+        {"; note\r\n[Cameras]\r\nA=1\r\n[FFB]\r\nA=3\r\n", "Cameras", "a", nullptr, "; note\r\n[Cameras]\r\n[FFB]\r\nA=3\r\n"},
+        {"[Cameras]\r\nA=1\r\n", "Cameras", "C", nullptr, "[Cameras]\r\nA=1\r\n"},
+        {"[FFB]\r\nA=1\r\n", "Cameras", "A", nullptr, "[FFB]\r\nA=1\r\n"},
+    };
+    for (const auto& g : erases) {
+        write(g.before);
+        assert(eraseKey(path.c_str(), g.section, g.key));
+        assert(read() == g.after);
+        write(g.before);
+        WritePrivateProfileStringA(g.section, g.key, nullptr, path.c_str());
+        assert(read() == g.after);
+    }
+    write("[Cameras]\nA=1\nB=2");
+    assert(eraseKey(path.c_str(), "Cameras", "B") && read() == "[Cameras]\nA=1\n");
+    write("[Cameras]\r\ngarbage\r\nA=1\r\n");
+    assert(!eraseKey(path.c_str(), "Cameras", "A") && read() == "[Cameras]\r\ngarbage\r\nA=1\r\n");
+    DeleteFileA(path.c_str());
+    assert(eraseKey(path.c_str(), "Cameras", "A") && GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES);
     // Intended STD-044 differences: spacing, BOM and malformed files are kept or refused instead of rewritten.
     write("[FFB]\r\nStrength = 50\r\n");
     assert(saveKey(path.c_str(), "FFB", "Strength", "60") && read() == "[FFB]\r\nStrength = 60\r\n");
@@ -115,5 +137,5 @@ int main(int argc, char** argv) {
     assert(!saveKey(missing.c_str(), "Panel", "Page", "FFB"));
     assert(GetFileAttributesA((std::string(argv[1]) + "/no-such-folder").c_str()) == INVALID_FILE_ATTRIBUTES);
     puts("PASS: INI byte preservation, batched camera saves, malformed/locked refusal and atomic disk replacement");
-    puts("PASS: saveKey matches WritePrivateProfileStringA for plain mod INIs; creates, batches and refuses as STD-044 says");
+    puts("PASS: saveKey and eraseKey match WritePrivateProfileStringA for plain mod INIs; create, batch and refuse as STD-044 says");
 }
