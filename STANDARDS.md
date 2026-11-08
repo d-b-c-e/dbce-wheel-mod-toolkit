@@ -909,3 +909,19 @@ triple screens, the triple-screen toolkit and Wheelkit · Refines STD-007, STD-0
   steering input. That includes Wheelkit's XOutputRedux route for Truckful and the unused Sonic companion route.
 - A game whose wheel input still depends on one gets in-process steering (STD-039) as its replacement work. Until then,
   the grid shows its wheel support as in progress, not done.
+
+## STD-053 — Wheelkit comes with every mod; one shared store; F6 is runtime only
+2026-11-08 · owner · applies to: every game, Wheelkit · Supersedes STD-040's "nothing may require Wheelkit"; STD-040's one simple download per game still holds
+
+- Every mod package carries the full Wheelkit installer, which works offline. Setup installs Wheelkit centrally, or
+  updates it if it's older, then adds the game. There is exactly one Wheelkit on the machine. Wheelkit is the primary
+  app: profiles, bindings, screens, transmission, install, update and Play.
+- Profiles are whole copies. Each game remembers its profile, and every way of launching uses it. One shared cockpit
+  holds the screen layout and measurements, and a profile may override it.
+- Wheelkit is the only editor of profiles, the cockpit and profile assignments. A mod reads them and writes only its
+  own game's files and its own runtime settings. Wheelkit has no game-specific writers; it runs the game's install
+  script.
+- The shared store's files only gain fields, and readers ignore unknown fields. This is the only compatibility rule.
+- F6 has runtime settings only: FFB strength, cameras and field of view, and status. It has no setup, binding or
+  screen pages. Profiles change only before launch, in Wheelkit.
+- Design: hub `docs/architecture/2026-11/08-install-and-configuration.md`.
