@@ -1,3 +1,4 @@
+#nullable disable   // also compiled as a source copy inside nullable-enabled game projects
 using System;
 
 namespace Dbce.Wheel.Telemetry

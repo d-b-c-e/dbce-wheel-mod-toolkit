@@ -86,6 +86,15 @@ try {
   $failed=$false; try { & $scriptPath -LocalRepo $repo -Destination $dest -Parts native } catch { $failed=$true }
   Assert $failed 'Locked file was accepted'
  } finally { $locked.Dispose() }
+ # -Check changes nothing: it passes on the synced tree and fails on an edited or unlisted file.
+ Reject { & $scriptPath -Check -Destination $dest }   # the -Force backup above is an unlisted local edit
+ Get-ChildItem -LiteralPath $dest -Recurse -File -Filter '*.local-*' | Remove-Item
+ & $scriptPath -Check -Destination $dest | Out-Null
+ $vendored=Join-Path $dest 'native/WheelFfb.dll'; $good=[IO.File]::ReadAllBytes($vendored)
+ Add-Content -LiteralPath $vendored 'edit'; Reject { & $scriptPath -Check -Destination $dest }
+ [IO.File]::WriteAllBytes($vendored,$good); Set-Content -LiteralPath (Join-Path $dest 'stray.txt') 'x'
+ Reject { & $scriptPath -Check -Destination $dest }
+ Remove-Item -LiteralPath (Join-Path $dest 'stray.txt'); & $scriptPath -Check -Destination $dest | Out-Null
  $before=Snapshot
  $file=Join-Path $repo 'native/wheelffb/build/WheelFfb.dll'
  Remove-Item -LiteralPath $file
