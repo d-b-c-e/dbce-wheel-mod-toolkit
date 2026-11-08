@@ -10,5 +10,6 @@
     <ProjectReference Include="..\Dbce.Wheel.ModFile\Dbce.Wheel.ModFile.csproj" />
     <None Include="../../schema/fixtures/*" LinkBase="fixtures" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../schema/fixtures/store/*" LinkBase="fixtures/store" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../schema/fixtures/controls/*" LinkBase="fixtures/controls" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

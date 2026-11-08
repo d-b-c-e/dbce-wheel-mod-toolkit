@@ -65,6 +65,16 @@ Each reader also writes a canonical dump, one `path=value` line per value read p
 `Test-DbceStore.ps1` (schemas and the PowerShell 5.1 reader), `dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests`
 and `native/panel/build_test.ps1` (x64 and x86) all compare it, line for line, with `schema/fixtures/store/*.dump.txt`.
 
+## Controls from the store
+
+A mod that hands the shim a `[Controls]` profile (ini-controls-1, `docs/controls-contract.md`) builds it at start from
+the store with `DbceStoreControls.Text(store.For(gameId).Profile, delivered, out why)` (`shared/mod/DbceStoreControls.cs`)
+instead of reading a `dbce-controls.ini` Wheelkit wrote. `delivered` is the build's own list of actions it takes. The
+rules are those of Wheelkit's `SharedControlsWriter`, which it replaces game by game: only delivered actions, gears by the
+profile's transmission, two gears on one control write neither, and no text without usable steering. The test in
+`Dbce.Wheel.ModFile.Tests` checks DRIVE's profile against the file Wheelkit wrote for it, line for line
+(`schema/fixtures/controls`), apart from the Revision, which the store's text derives from the profile itself.
+
 ## Fixtures
 
 - `owner.profiles.json`: the owner's Moza KS Pro Triple Manual and Auto profiles, converted once from Wheelkit's

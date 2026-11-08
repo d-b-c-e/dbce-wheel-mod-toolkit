@@ -71,4 +71,29 @@ bool StoreRefused(string json) { try { DbceStore.Parse(json); return false; } ca
 Check(StoreRefused("{\"Schema\":3,\"Profiles\":[{\"Id\":\"a\",\"Profile\":{}}]}"), "refuses another profiles schema");
 Check(StoreRefused("{\"Schema\":2,\"Profiles\":[]}"), "refuses no profiles");
 Check(StoreRefused("{\"Schema\":2,\"Profiles\":[{\"Id\":\"a\",\"Profile\":{}},{\"Id\":\"a\",\"Profile\":{}}]}"), "refuses duplicate profile ids");
+// The shim's [Controls] text from the store (DbceStoreControls): DRIVE's assigned profile gives, line for line, the
+// dbce-controls.ini Wheelkit's SharedControlsWriter wrote for the same profile (its golden, copied to
+// schema/fixtures/controls), except the Revision, which is now the store's own.
+string controlsDir = Path.Combine(dir, "controls");
+var driveStore = DbceStore.Load(Path.Combine(controlsDir, "drive-rally.profiles.json"));
+string[] driveDelivers = { "steer", "throttle", "brake", "handbrake", "shiftUp", "shiftDown", "reverse", "start", "camera", "reset",
+    "gear1", "gear2", "gear3", "gear4", "gear5", "gear6", "gear7", "gear8" };
+var driveProfile = driveStore.For("drive-rally").Profile;
+string? driveText = DbceStoreControls.Text(driveProfile, driveDelivers, out string driveWhy);
+Check(driveText != null && driveWhy == "", "DRIVE's profile gives controls: " + driveWhy);
+string[] gotIni = Lines(driveText!), wantIni = Lines(File.ReadAllText(Path.Combine(controlsDir, "drive-rally.controls.ini")));
+Check(gotIni.Length == wantIni.Length, $"DRIVE controls: {gotIni.Length} lines, want {wantIni.Length}");
+for (int i = 0; i < wantIni.Length; i++)
+    Check(wantIni[i].StartsWith("Revision = ") ? gotIni[i].StartsWith("Revision = ") && gotIni[i].Length == wantIni[i].Length : gotIni[i] == wantIni[i],
+        $"DRIVE controls line {i + 1}: got '{gotIni[i]}', want '{wantIni[i]}'");
+Check(DbceStoreControls.Text(driveProfile, driveDelivers, out _) == driveText, "the same profile gives the same revision");
+string Transmission(string t) { driveProfile.Transmission = t; return DbceStoreControls.Text(driveProfile, driveDelivers, out _)!; }
+string hp = Transmission("H-pattern"), auto = Transmission("Automatic");
+driveProfile.Transmission = "Sequential";
+Check(hp.Contains("reverse = button 7 ") && hp.Contains("gear7 = ") && !hp.Contains("shiftUp"), "H-pattern writes the gates, not the shifts");
+Check(!auto.Contains("shift") && !auto.Contains("gear") && !auto.Contains("reverse") && auto.Contains("Transmission = Automatic"), "Automatic writes no gears");
+driveProfile.Bindings.Single(b => b.Action == "shiftDown").Index = 9;
+Check(!DbceStoreControls.Text(driveProfile, driveDelivers, out string clashWhy)!.Contains("shift") && clashWhy.Contains("gears"), "two gears on one control write neither");
+Check(DbceStoreControls.Text(driveStore.For("unassigned").Profile, driveDelivers, out string noSteer) == null && noSteer.Contains("no steering"), "no steering, no controls");
+Check(DbceStoreControls.Text(driveProfile, new[] { "throttle" }, out _) == null, "a build that does not take steering gets no controls");
 Console.WriteLine($"PASS {checks} dbce-mod.json and store reader checks");

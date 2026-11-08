@@ -1,0 +1,155 @@
+{
+  "Schema": 2,
+  "ActiveId": "other",
+  "Profiles": [
+    {
+      "Id": "other",
+      "Profile": {
+        "Name": "Other",
+        "Transmission": "Automatic",
+        "Bindings": {}
+      }
+    },
+    {
+      "Id": "fixture-rig",
+      "Profile": {
+        "Name": "Synthetic qualification rig",
+        "Transmission": "Sequential",
+        "Bindings": {
+          "steer": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000a1",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture wheel",
+            "Kind": "Axis",
+            "Index": 0,
+            "Direction": -1,
+            "Rest": 33265
+          },
+          "throttle": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000a1",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture wheel",
+            "Kind": "Axis",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "brake": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000a1",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture wheel",
+            "Kind": "Axis",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 1743
+          },
+          "confirm": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000a1",
+            "ProductGuid": "0006346e-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture wheel",
+            "Kind": "Button",
+            "Index": 31,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "shiftUp": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 9,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "shiftDown": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 10,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "reverse": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 7,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear1": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 0,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear2": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 1,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear3": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 2,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear4": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 3,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear5": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 4,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear6": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 5,
+            "Direction": 1,
+            "Rest": 0
+          },
+          "gear7": {
+            "InstanceGuid": "00000000-0000-0000-0000-0000000000b2",
+            "ProductGuid": "05310483-0000-0000-0000-504944564944",
+            "DeviceName": "Fixture shifter",
+            "Kind": "Button",
+            "Index": 6,
+            "Direction": 1,
+            "Rest": 0
+          }
+        }
+      }
+    }
+  ],
+  "Cockpit": null,
+  "Games": {
+    "drive-rally": {
+      "Profile": "fixture-rig"
+    }
+  }
+}
