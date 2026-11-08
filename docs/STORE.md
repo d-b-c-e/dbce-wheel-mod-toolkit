@@ -75,8 +75,11 @@ and `native/panel/build_test.ps1` (x64 and x86) all compare it, line for line, w
   with no `Rig`, no cockpit, and an assignment to a deleted profile.
 - `art-of-rally.runtime.json`: a runtime file with each value type.
 
-## Not here yet
+## Writers
 
-- Writers. Wheelkit writes profiles.json (CFG-2). Each mod's runtime writer arrives with its move to the shared F6
-  core, and it must keep members it does not know when it rewrites its file.
-- Wheelkit still reads and writes `%LOCALAPPDATA%\Wheelkit\mapping-profiles.json` until CFG-2 moves it to the store.
+- Wheelkit writes profiles.json from 0.6.77 (CFG-2). Its first start copies the old
+  `%LOCALAPPDATA%\Wheelkit\mapping-profiles.json` there unchanged. A game's page assigns its profile in `Games`, Apply
+  records the profile it applied, and Rig profile > Screens moves a profile to the cockpit or gives it its own screens.
+  Wheelkit's `StoreTests` checks that every game resolves to the same profile in Wheelkit and in `DbceStore`.
+- Not here yet: each mod's runtime writer arrives with its move to the shared F6 core, and it must keep members it does
+  not know when it rewrites its file.
