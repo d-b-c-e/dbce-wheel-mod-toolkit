@@ -16,11 +16,11 @@ function Sync([hashtable]$more, [string]$commit = 'HEAD') {
   @{ Out = $out; Code = $LASTEXITCODE } }
 function Fails([scriptblock]$action) { try { & $action | Out-Null; return $false } catch { return $true } }
 try {
-  $kept = 'native/controls/dbce_controls.hpp', 'native/controls/NATIVE-BINDING-EDITOR.md', 'native/dinput-proxy/dbce_ffb_layer.cpp',
+  $kept = 'native/cameras/camera_sets.hpp', 'native/controls/dbce_controls.hpp', 'native/controls/NATIVE-BINDING-EDITOR.md', 'native/dinput-proxy/dbce_ffb_layer.cpp',
     'native/forza/forza_packet.h', 'native/panel/dbce_panel.cpp', 'native/settings/dbce_ini_single_key_win.hpp',
     'native/support/support_report.cpp', 'native/third_party/imgui/imgui.cpp', 'native/third_party/imgui/backends/imgui_impl_dx11.cpp',
     'shared/display/dbce_racing_row.hpp'
-  $dropped = 'native/controls/test_controls.cpp', 'native/controls/build_test.ps1', 'native/controls/controls-vectors.txt',
+  $dropped = 'native/cameras/test.cpp', 'native/controls/test_controls.cpp', 'native/controls/build_test.ps1', 'native/controls/controls-vectors.txt',
     'native/controls/fixtures/axis.hpp', 'native/controls/.gitignore', 'native/dinput-proxy/tools/probe.cpp',
     'native/dinput-proxy/test_input_suppression.inc', 'native/dinput-proxy/build_ffb_layer.ps1', 'native/settings/test.cpp',
     'native/support/CMakeLists.txt', 'shared/display/RacingRow.cs', 'native/wheelffb/WheelFfb.cpp', 'docs/README.md'
@@ -39,7 +39,7 @@ try {
   $r = Sync @{}
   Assert ($r.Code -eq 0) "sync failed: $($r.Out)"
   $files = @(Get-ChildItem -LiteralPath $vendor -File -Recurse -Force | ForEach-Object { $_.FullName.Substring($vendor.Length + 1).Replace('\', '/') } | Sort-Object)
-  $expected = @('controls/dbce_controls.hpp', 'controls/NATIVE-BINDING-EDITOR.md', 'dinput-proxy/dbce_ffb_layer.cpp', 'display/dbce_racing_row.hpp',
+  $expected = @('cameras/camera_sets.hpp', 'controls/dbce_controls.hpp', 'controls/NATIVE-BINDING-EDITOR.md', 'dinput-proxy/dbce_ffb_layer.cpp', 'display/dbce_racing_row.hpp',
     'forza/forza_packet.h', 'panel/dbce_panel.cpp', 'settings/dbce_ini_single_key_win.hpp', 'support/support_report.cpp',
     'third_party/imgui/backends/imgui_impl_dx11.cpp', 'third_party/imgui/imgui.cpp', 'triple-screen/compositor/dbce_triple_compositor.hpp',
     'triple-screen/geometry/dbce_triple_geometry.hpp', 'triple-screen/layout/dbce_triple_ini.hpp', 'VERSION') | Sort-Object
