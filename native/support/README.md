@@ -7,6 +7,11 @@ No managed runtime, game/provider, panel, HTTP client, browser, picker, clipboar
 or process-launch dependency. Win32 is used only for strict Unicode conversion,
 the current home path, bounded local-file IO and create-new export.
 
+`support_desktop.hpp` (header-only, host side) is the one-press **Report a problem** action of the F6 Help page
+(descriptor action `help.report`): `SaveReportToDesktop(game, version, repository, modLog, error)` prepares the
+report with the mod's log, writes it to a new file on the Desktop and opens the repository's new-issue page. Link
+`support_report.cpp`, `shell32.lib` and `ole32.lib`. It is kept out of `support_report.hpp`, which opens nothing.
+
 The shared [host contract](../../shared/support/README.md) applies unchanged:
 package known product/version/repository metadata; let the user explicitly
 select known relevant text logs and enter a title/description; prepare only on
