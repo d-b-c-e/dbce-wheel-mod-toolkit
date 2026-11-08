@@ -30,8 +30,10 @@ $sources = @(
       'native/panel' = 'panel'; 'native/settings' = 'settings'; 'native/support' = 'support'
       'native/third_party/imgui' = 'third_party/imgui'; 'shared/display' = 'display' } },
   @{ Name = 'dbce-triple-screen-toolkit'; Repo = $TripleRepo; Ref = $TripleCommit; Folders = [ordered]@{
-      'native/compositor' = 'triple-screen/compositor'; 'native/geometry' = 'triple-screen/geometry'
-      'native/layout' = 'triple-screen/layout' } })
+      'native/camera' = 'triple-screen/camera'; 'native/compositor' = 'triple-screen/compositor'
+      'native/geometry' = 'triple-screen/geometry'; 'native/layout' = 'triple-screen/layout' } })
+# Folders an older pinned commit does not have yet (native/camera came in triple-screen 82db326): skipped there.
+$newer = @('native/camera')
 # Tests, test vectors, build scripts, git dotfiles and the managed (.cs) half of shared/display stay behind.
 $drop = '(^|/)(build|tests?|fixtures|tools)/|(^|/)(test[^/]*|[^/]*_test\.[^/]*|build_[^/]*|[^/]*-vectors\.txt|CMakeLists\.txt|\.git[^/]*|[^/]*\.cs)$'
 $vendor = Join-Path (Resolve-Path -LiteralPath $GameRepo).ProviderPath 'src/vendor'
@@ -49,10 +51,11 @@ try {
     $sha = & git -C $s.Repo rev-parse --verify --quiet "$($s.Ref)^{commit}"
     if ($LASTEXITCODE -ne 0 -or -not $sha) { throw "Commit '$($s.Ref)' not found in $($s.Repo); fetch it there first" }
     $zip = "$stage-$($s.Name).zip"; $raw = "$stage-$($s.Name)"
-    & git -C $s.Repo -c core.autocrlf=false archive --format=zip -o $zip $sha -- @($s.Folders.Keys)
+    $folders = @($s.Folders.Keys | Where-Object { $_ -notin $newer -or (& git -C $s.Repo ls-tree --name-only $sha -- $_) })
+    & git -C $s.Repo -c core.autocrlf=false archive --format=zip -o $zip $sha -- @($folders)
     if ($LASTEXITCODE -ne 0) { throw "git archive failed in $($s.Repo) at $sha" }
     Expand-Archive -LiteralPath $zip -DestinationPath $raw
-    foreach ($folder in $s.Folders.Keys) {
+    foreach ($folder in $folders) {
       $root = [IO.Path]::GetFullPath((Join-Path $raw $folder))
       if (-not (Test-Path -LiteralPath $root)) { throw "$($s.Name) $sha has no $folder" }
       foreach ($file in Get-ChildItem -LiteralPath $root -File -Recurse -Force) {
