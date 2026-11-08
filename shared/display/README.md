@@ -41,7 +41,8 @@ ValueTuple and Func, and stays .NET 4.x and netstandard2.0 only.
 
 **Native mods (C++).** `dbce_racing_row.hpp` is the C++ counterpart of `RacingRow.cs`: the same rules and the same
 reason sentences, header-only C++17, with no Windows calls. `dbce_windows_monitors.hpp` is the counterpart of
-`WindowsMonitors.cs`. The two implementations are kept equal by `racing-row-vectors.txt`. Every vector gives the
+`WindowsMonitors.cs`. It also has `read_primary_size_mm`, the primary display's picture size from
+Windows (EDID through GDI), for default triple measurements; call it outside DllMain. The two implementations are kept equal by `racing-row-vectors.txt`. Every vector gives the
 monitors, the expected row and the exact reason, and both test harnesses run every vector they can.
 `tests/RacingRow` runs the vectors that use the 2.9:1 rule. `tests/RacingRow/Native/build_test.ps1` runs all of them
 with MSVC x64 and x86 as C++17, and x64 as C++20, with warnings as errors. A rule change updates both files and the
