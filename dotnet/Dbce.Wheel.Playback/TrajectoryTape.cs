@@ -41,15 +41,13 @@ namespace Dbce.Wheel.Playback
     {
         /// <summary>Written last by <see cref="TrajectoryRecorder.Complete"/>; a tape without it is incomplete.</summary>
         public const string CompleteFile = "complete.txt";
-        // Tapes recorded before 2026-11-07 end with this file instead.
-        private const string LegacyCompleteFile = "complete.tsv";
         public const string Header = "time_s\tpx_m\tpy_m\tpz_m\tqx\tqy\tqz\tqw\tvx_mps\tvy_mps\tvz_mps\twx_radps\twy_radps\twz_radps\tsteer\tthrottle\tbrake\trpm\tgear";
         public readonly Dictionary<string, string> Metadata;
         public readonly TrajectoryFrame[] Frames;
         private TrajectoryTape(Dictionary<string, string> metadata, TrajectoryFrame[] frames) { Metadata = metadata; Frames = frames; }
         public static TrajectoryTape Read(string directory)
         {
-            if (!File.Exists(Path.Combine(directory, CompleteFile)) && !File.Exists(Path.Combine(directory, LegacyCompleteFile)))
+            if (!File.Exists(Path.Combine(directory, CompleteFile)))
                 throw new InvalidDataException("Trajectory is incomplete: no " + CompleteFile);
             foreach (var name in new[] { "trajectory.meta", "trajectory.tsv" })
                 if (!File.Exists(Path.Combine(directory, name))) throw new InvalidDataException("Trajectory is missing " + name);

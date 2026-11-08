@@ -115,11 +115,9 @@ try
     }
     var tape = TrajectoryTape.Read(trajectoryRoot);
     CheckIntervals(tape, 2);
-    string done = Path.Combine(trajectoryRoot, TrajectoryTape.CompleteFile), legacy = Path.Combine(trajectoryRoot, "complete.tsv");
+    string done = Path.Combine(trajectoryRoot, TrajectoryTape.CompleteFile);
     Check(File.ReadAllText(done) == "frames=3\nfiles=trajectory.meta,trajectory.tsv\n", "Completion file lists the frames and files");
-    File.Move(done, legacy);
-    Check(TrajectoryTape.Read(trajectoryRoot).Frames.Length == 3, "A tape recorded before complete.txt still reads");
-    File.Delete(legacy);
+    File.Delete(done);
     Reject(() => TrajectoryTape.Read(trajectoryRoot), "A tape without its completion file is refused");
     File.WriteAllText(done, "frames=3\nfiles=trajectory.meta,trajectory.tsv\n");
     foreach (int end in new[] { -1, 0, tape.Frames.Length + 1 })
