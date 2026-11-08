@@ -4,7 +4,7 @@
    manifest entries survive partial syncs. Load supports renamed native DLLs in 0.12+.
    -LocalRepo records its full revision and dirty state; it never claims a release tag.
    Source parts: shared (shared/ plus the Dbce.Wheel.Input sources as shared/input), unity (the shared
-   Unity layer and Dbce.Unity.props) and installer.
+   Unity layer and Dbce.Unity.props) and installer. shim (the built dbce_shim.dll and headers) comes from a release archive.
    -Check changes nothing: it fails when a vendored file differs from MANIFEST.txt, is missing, or is not listed.
    Run it in the consumer's build so a local edit to a vendored copy stops the build. #>
 [CmdletBinding()]
@@ -35,7 +35,7 @@ if ($Check) {
     return
 }
 $Parts = @($Parts | ForEach-Object { $_ -split ',' } | Where-Object { $_ } | Select-Object -Unique)
-$valid = @('native','native-x86','include','profiles','powershell','dotnet','tools','knowledge','shared','unity','installer')
+$valid = @('native','native-x86','include','profiles','powershell','dotnet','tools','knowledge','shared','unity','installer','shim')
 if ($Parts.Count -eq 0 -or @($Parts | Where-Object { $_ -notin $valid }).Count) { throw 'Unknown or empty Parts selection' }
 if ([bool]$Version -eq [bool]$LocalRepo) { throw 'Specify exactly one of -Version or -LocalRepo' }
 $root = Split-Path -Parent $PSScriptRoot
