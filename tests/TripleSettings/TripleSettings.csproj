@@ -14,5 +14,6 @@
     <Compile Include="../../shared/display/TripleSettingsDraft.cs" Link="TripleSettingsDraft.cs" />
     <Compile Include="../../shared/display/RacingRow.cs" Link="RacingRow.cs" />
     <Compile Include="$(TripleScreenToolkitRoot)/src/Dbce.TripleScreen.Core/*.cs" LinkBase="TripleScreen" />
+    <None Include="$(TripleScreenToolkitRoot)/native/geometry/geometry-vectors.txt" Link="geometry-vectors.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

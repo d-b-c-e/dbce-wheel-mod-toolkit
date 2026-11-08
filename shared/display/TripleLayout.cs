@@ -100,9 +100,11 @@ internal static class TriplePanels
         if (centerVerticalFov is double fov)
         {
             if (!(fov > 1 && fov < 179)) throw new ArgumentOutOfRangeException(nameof(centerVerticalFov));
-            // Eye distances are measured to the glass middle. Without the redraw the framing distance is to the chord
-            // plane the builder places (the picture is drawn there); with it, to the glass the picture ends up on.
-            eye = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov) + (warped ? 0 : rig.CurveDepth());
+            // Eye distances are to the plane through the panel edges (STD-047), where the builder puts each chord.
+            // Without the redraw the picture is drawn on that plane, so it gets the game's field of view; with it, the
+            // picture ends up on the glass, one curve depth further away, so the glass gets it.
+            double framing = TripleRigDefinition.EyeDistanceForVerticalFov(rig.PanelHeightMm, fov);
+            eye = warped ? framing - rig.CurveDepth() : framing;
         }
         var definition = new TripleRigDefinition(rig.PanelWidthMm, rig.PanelHeightMm, eye, rig.SideAngle, rig.SideAngle, 0, rig.BezelMm, rig.CurveRadiusMm);
         var result = new PanelFrustum[3];

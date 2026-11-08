@@ -1,8 +1,8 @@
 using Dbce.TripleScreen;
 using Dbce.Wheel.Display;
 
-// [Triple] CurveRadiusMm: the glass-to-chord eye correction the shared geometry applies, its validation and the F6
-// draft. No within-panel warp: the picture is not changed, only where the eye is taken to be.
+// [Triple] CurveRadiusMm: the measured eye distance is to the plane through the panel edges (STD-047), so the curve
+// leaves the chord frustums alone and only warps the redrawn picture; its validation and the F6 draft.
 internal static class CurveChecks
 {
     internal static int Run()
@@ -22,8 +22,9 @@ internal static class CurveChecks
 
         var flatViews = TriplePanels.Compute(flat);
         var curvedViews = TriplePanels.Compute(curved);
-        Check(curvedViews[1].Top > flatViews[1].Top && curvedViews[1].YawDegrees == 0, "Measured eye: the chord is not one sagitta closer");
-        Check(curvedViews[0] != flatViews[0] && Math.Abs(curvedViews[0].YawDegrees + 70) < 1e-9, "Measured eye: side yaw left the panel angle or the side frustum did not move");
+        for (int i = 0; i < 3; i++)
+            Check(Near(curvedViews[i], flatViews[i]), "Measured eye: the curve moved a chord off the panel-edge plane (STD-047)");
+        Check(Math.Abs(curvedViews[0].YawDegrees + 70) < 1e-9, "Measured eye: side yaw left the panel angle");
         foreach (var rig in new[] { flat, curved })
             Check(Math.Abs(TriplePanels.VerticalFov(TriplePanels.Compute(rig, 60)[1]) - 60) < 1e-9, "Game framing lost the game's vertical FOV on the chord");
 
@@ -44,7 +45,7 @@ internal static class CurveChecks
             "Chord frustum is not wider than the glass framing");
         var measured = TriplePanels.ComputeWarped(curved, null, out var measuredWarps);
         var measuredChord = TriplePanels.Compute(curved);
-        Check(Math.Abs(-measuredWarps[1].Panel.Center.Z - (660 - curved.CurveDepth())) < 1e-9, "Measured-eye warped centre moved");
+        Check(Math.Abs(-measuredWarps[1].Panel.Center.Z - 660) < 1e-9, "Measured-eye warped chord left the panel-edge plane");
         for (int i = 0; i < 3; i++)
             Check(Near(measured[i], measuredChord[i]) && curvedSource[i].YawDegrees == curvedChord[i].YawDegrees, "Measured-eye warped frustum differs from the chord frustum");
         curvedWarps[1].SourceUv(.5, .5, out double su, out double sv);
