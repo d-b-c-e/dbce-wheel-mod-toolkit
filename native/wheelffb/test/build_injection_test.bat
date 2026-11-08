@@ -20,7 +20,7 @@ if /i "%ARCH%"=="x86" ( call "!VSPATH!\VC\Auxiliary\Build\vcvars32.bat" >nul ) e
 cl.exe /nologo /std:c++17 /O2 /W4 /EHsc /Fo"%OUT%\\" /Fe"%OUT%\injection_test.exe" injection_test.cpp /link user32.lib dinput8.lib dxguid.lib ole32.lib
 if errorlevel 1 exit /b 1
 
-for %%s in (armed forcefirst effectfirst externalfirst) do (
+for %%s in (armed forcefirst effectfirst) do (
   .\%OUT%\injection_test.exe %%s
   if errorlevel 1 exit /b 1
 )

@@ -1,6 +1,6 @@
 // Test injection and its process-latched no-force mode (STD-033 section 6; Astra 3842/3921), against the actual
 // exports with fake COM devices. The latch is per process, so each scenario is its own run:
-//   injection_test.exe armed | forcefirst | effectfirst | externalfirst | race
+//   injection_test.exe armed | forcefirst | effectfirst | race
 // No system DirectInput object, window, game or hardware is opened.
 #include "../WheelFfb.cpp"
 #include <cassert>
@@ -132,7 +132,6 @@ static void forceExportsRefused(FakeInput& input, FakeDevice& ffb)
     CHECK(UpdateConditionEffect(0, 5000, 10000, 0, 0) == 0);
     CHECK(StartEffect() == FALSE);
     CHECK(SetAutoCenter(TRUE) == FALSE);
-    CHECK(ExternalFfbEnter((HWND)1) == EXT_BUSY && !g_externalMode.load());
     CHECK(input.creates.load() == creates && ffb.creates == 0 && ffb.commands == 0 && ffb.acquires == 0 && ffb.properties == 0);
     CHECK(g_device == nullptr && g_effect == nullptr);
 }
@@ -319,13 +318,6 @@ static int effectFirst()
     std::printf("PASS effectfirst: %d checks\n", g_checks);
     return 0;
 }
-static int externalFirst()
-{
-    CHECK(ExternalFfbEnter(nullptr) != EXT_OK);   // refused by its own checks, but the attempt latches
-    CHECK(EnableTestInjection(1) == 0);
-    std::printf("PASS externalfirst: %d checks\n", g_checks);
-    return 0;
-}
 // Enable and a force open at the same time: exactly one wins, and if the test mode won, nothing was opened.
 static int race()
 {
@@ -412,8 +404,7 @@ int main(int argc, char** argv)
     if (s == "armed") return armed();
     if (s == "forcefirst") return forceFirst();
     if (s == "effectfirst") return effectFirst();
-    if (s == "externalfirst") return externalFirst();
     if (s == "race") return race();
-    std::fprintf(stderr, "usage: injection_test armed|forcefirst|effectfirst|externalfirst|race\n");
+    std::fprintf(stderr, "usage: injection_test armed|forcefirst|effectfirst|race\n");
     return 2;
 }

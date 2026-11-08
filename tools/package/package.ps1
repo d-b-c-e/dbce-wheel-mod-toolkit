@@ -88,12 +88,6 @@ foreach ($arch in @('x64','x86')) {
  if ($LASTEXITCODE -ne 0) { throw "read slot caps checks failed: $arch" }
 }
 
-Write-Host "== external sessions, fake platform and COM driver only ==" -ForegroundColor Cyan
-foreach ($arch in @('x64','x86')) {
- & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_external_session_test.bat') $arch | Out-Host
- if ($LASTEXITCODE -ne 0) { throw "External session checks failed: $arch" }
-}
-
 Write-Host "== finite burst fake effects (no hardware) ==" -ForegroundColor Cyan
 foreach ($arch in @('x64','x86')) {
  & cmd.exe /c (Join-Path $root 'native/wheelffb/test/build_burst_test.bat') $arch | Out-Host
@@ -140,7 +134,6 @@ New-Item -ItemType Directory -Force -Path (Join-Path $stage 'native\x86'), (Join
 Copy-Item $native (Join-Path $stage 'native')
 Copy-Item $nativeX86 (Join-Path $stage 'native\x86')
 Copy-Item (Join-Path $root 'native\wheelffb\include\wheelffb.h') (Join-Path $stage 'native\include')
-Copy-Item (Join-Path $root 'native\wheelffb\include\external_ffb.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forza\forza_packet.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_model.h') (Join-Path $stage 'native\include')
 Copy-Item (Join-Path $root 'native\forcemodel\force_profile.h') (Join-Path $stage 'native\include')

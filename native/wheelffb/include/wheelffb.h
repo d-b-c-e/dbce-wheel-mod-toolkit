@@ -63,9 +63,9 @@
  * is acquired or set. Optional for older DLLs (find it by name).
  *
  * Test injection (STD-033 section 6), development only. EnableTestInjection(1) latches an irreversible no-force
- * mode for the process, and only before any force path was ever used (InitDirectInput, Aquire, an effect, an
- * external session; attempted counts). Then every force export refuses before touching a device, an effect or a
- * hook, reads keep working through OpenReadDevice's own non-exclusive handles, and SubmitTestInjection adds a raw
+ * mode for the process, and only before any force path was ever used (InitDirectInput, Aquire, an effect;
+ * attempted counts). Then every force export refuses before touching a device, an effect or a hook, reads keep
+ * working through OpenReadDevice's own non-exclusive handles, and SubmitTestInjection adds a raw
  * sample ("inject raw <axis|button|hat> <index> [angle] dev=<instance> value=<raw> ms=<50-15000>", printable
  * ASCII, 1-512 bytes) that ReadDeviceState and ReadDeviceStateWithPov deliver into the next successful reads of the
  * read slot with that instance GUID. LastReadInjected(slot) reports whether the slot's last read attempt actually
@@ -87,7 +87,6 @@
 
 #include <windows.h>
 #include <string.h>
-#include "external_ffb.h"
 #include "read_slot_caps.h"
 
 #ifdef __cplusplus
@@ -144,14 +143,6 @@ extern "C" {
     X(void, ReleaseConditionEffects,(void)) \
     X(void, SetStrictDeviceSelection,(int enabled)) \
     X(int, ReadDeviceStateWithPov, (int slot, int* axes, int axisCount, unsigned char* buttons, int buttonCount, int* pov, int povCount)) \
-    X(int, ExternalFfbEnter, (HWND ownerWindow)) \
-    X(int, ExternalFfbOpen, (const ExternalFfbConfigV1* config, const wchar_t* targetImagePath, unsigned int pathChars, unsigned long long* session)) \
-    X(int, ExternalFfbArm, (unsigned long long session, ExternalFfbArmTicketV1* ticket)) \
-    X(int, ExternalFfbRenewClient, (unsigned long long session, const ExternalFfbClientFrameV1* frame)) \
-    X(int, ExternalFfbSubmitConstant, (unsigned long long session, const ExternalFfbForceFrameV1* frame)) \
-    X(int, ExternalFfbDisarm, (unsigned long long session, unsigned int reason)) \
-    X(int, ExternalFfbClose, (unsigned long long session)) \
-    X(int, ExternalFfbGetStatus, (unsigned long long session, ExternalFfbStatusV1* status)) \
     X(int, EnableTestInjection, (int flags)) \
     X(int, SubmitTestInjection, (const char* line, char* why, int whySize)) \
     X(int, GetTestInjectionStatus, (char* buf, int size)) \

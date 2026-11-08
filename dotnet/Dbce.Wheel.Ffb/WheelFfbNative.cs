@@ -247,7 +247,6 @@ namespace Dbce.Wheel.Ffb
                     _stopConstantBurst = Optional<StopBurstCall>(h, "StopConstantBurst");
                     _releaseConstantBursts = Optional<ReleaseConstantBurstsCall>(h, "ReleaseConstantBursts");
                     _stopBurst = Optional<StopBurstCall>(h, "StopPeriodicBurst");
-                    BindExternalSessions(h);
                     LoadedFrom = path; _loaded = true; LastError = null;
                     h = IntPtr.Zero; // Keep our successful module reference for the process lifetime.
                     return true;

@@ -23,8 +23,6 @@ partial class Program {
   Check(!WheelFfbNative.Load(Environment.SystemDirectory,"kernel32.dll"),"incomplete exports accepted");
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),WheelFfbNative.LastError);
   Check(WheelFfbNative.Load(dir,Path.GetFileName(path)),"repeat load");
-  if(args.Length>1 && args[1].StartsWith("external"))return TestExternalBinding(args[1],dir,path);
-  Check(!WheelFfbNative.SupportsExternalSessions && WheelFfbNative.EnterExternalSession(new IntPtr(123))==ExternalFfbResult.Unavailable,"old DLL external capability/fallback");
   if(args.Length>1) {
     var a=new int[]{1,1,1,1,1,1,1,1};var b=new byte[]{1};var p=new int[]{0,9000,18000,27000};
     Check(!WheelFfbNative.SupportsPovRead && !WheelFfbNative.Read(0,a,b,p),"old DLL advertised POV or fallback read");

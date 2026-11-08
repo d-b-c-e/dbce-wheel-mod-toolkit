@@ -36,7 +36,6 @@ int wmain(int argc, wchar_t** argv)
     if (strncmp(status, "armed: no force (no-force build); ", 34) != 0) return fail("not armed at load");
     if (version != _wtoi(argv[3])) return fail("version differs from the product");
     if (api.InitDirectInput(0) != 0 || api.GetLastHResult() != (int)E_ACCESSDENIED) return fail("InitDirectInput not refused at the gate");
-    if (api.ExternalFfbEnter(NULL) != EXT_BUSY) return fail("ExternalFfbEnter not refused at the gate");
     if (api.CreatePeriodicEffect(10) != -1 || api.SetDeviceForcesXY(5000, 0) != 0) return fail("an effect export was not refused");
     if (api.InstallExitGuards() != 0) return fail("InstallExitGuards installed a guard");
     /* Armed: a sample gets past the armed check and is refused only because no read slot has that instance open. */

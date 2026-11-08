@@ -53,14 +53,6 @@ EXPORTS
     PlayConstantBurst
     StopConstantBurst
     ReleaseConstantBursts
-    ExternalFfbEnter
-    ExternalFfbOpen
-    ExternalFfbArm
-    ExternalFfbRenewClient
-    ExternalFfbSubmitConstant
-    ExternalFfbDisarm
-    ExternalFfbClose
-    ExternalFfbGetStatus
     EnableTestInjection
     SubmitTestInjection
     GetTestInjectionStatus
