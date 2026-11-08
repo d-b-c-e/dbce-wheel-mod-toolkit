@@ -2,6 +2,7 @@
 // UTF-8 text, \u escapes including surrogate pairs) feeds a validator that knows the fixed page set and row kinds.
 #include "dbce_panel_descriptor.h"
 #include "dbce_mod_file.h"
+#include "dbce_store.h"
 #include <charconv>
 #include <windows.h>
 #include <math.h>
@@ -674,6 +675,246 @@ std::string DumpModFile(const ModFile &m)
         }
     }
     return w.out;
+}
+
+// ---- the shared store (dbce_store.h, docs/STORE.md) -----------------------------------------------------------
+namespace {
+
+bool ReadSmallFile(const wchar_t *path, const char *what, std::string &text, std::string &error)
+{
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) { error = std::string(what) + ": cannot open the file"; return false; }
+    LARGE_INTEGER size;
+    bool ok = GetFileSizeEx(f, &size) && size.QuadPart < (4 << 20);
+    if (ok) {
+        text.resize((size_t)size.QuadPart);
+        DWORD got = 0;
+        ok = text.empty() || (ReadFile(f, &text[0], (DWORD)text.size(), &got, nullptr) && got == text.size());
+    }
+    CloseHandle(f);
+    if (!ok) error = std::string(what) + ": cannot read the file (or it is over 4 MB)";
+    return ok;
+}
+
+bool ParseRoot(const char *json, size_t length, Json &root, const char *what, std::string &error)
+{
+    Parser parser(json ? json : "", json ? length : 0, error);
+    if (!parser.document(root)) return false;
+    if (root.type != Json::Object) { error = std::string(what) + " must be an object"; return false; }
+    return true;
+}
+
+bool Screens(const Json *s, StoreScreens &out)
+{
+    out = StoreScreens();
+    if (!s || s->type != Json::Object) return false;
+    out.count = (int)N(s, "Count", out.count); out.widthPixels = (int)N(s, "WidthPixels", out.widthPixels); out.heightPixels = (int)N(s, "HeightPixels", out.heightPixels);
+    const Json *sep = s->get("SeparateMonitors");
+    if (sep && sep->type == Json::Bool) out.separateMonitors = sep->b;
+    out.diagonalInches = N(s, "DiagonalInches", out.diagonalInches); out.aspectWidth = N(s, "AspectWidth", out.aspectWidth); out.aspectHeight = N(s, "AspectHeight", out.aspectHeight);
+    out.eyeDistanceMm = N(s, "EyeDistanceMm", out.eyeDistanceMm); out.sideAngleDegrees = N(s, "SideAngleDegrees", out.sideAngleDegrees);
+    out.bezelGapMm = N(s, "BezelGapMm", out.bezelGapMm); out.curveRadiusMm = N(s, "CurveRadiusMm", out.curveRadiusMm);
+    const Json *m = s->get("MeasuredWidthMm");
+    out.hasMeasuredWidth = m && m->type == Json::Number;
+    if (out.hasMeasuredWidth) out.measuredWidthMm = m->n;
+    return true;
+}
+
+void DumpScreens(Dumper &w, const std::string &p, bool has, const StoreScreens &s)
+{
+    if (!has) { w.null(p); return; }
+    w.n(p + ".count", s.count); w.n(p + ".widthPixels", s.widthPixels); w.n(p + ".heightPixels", s.heightPixels); w.b(p + ".separateMonitors", s.separateMonitors);
+    w.n(p + ".diagonalInches", s.diagonalInches); w.n(p + ".aspectWidth", s.aspectWidth); w.n(p + ".aspectHeight", s.aspectHeight);
+    w.n(p + ".eyeDistanceMm", s.eyeDistanceMm); w.n(p + ".sideAngleDegrees", s.sideAngleDegrees); w.n(p + ".bezelGapMm", s.bezelGapMm);
+    w.n(p + ".curveRadiusMm", s.curveRadiusMm);
+    if (s.hasMeasuredWidth) w.n(p + ".measuredWidthMm", s.measuredWidthMm); else w.null(p + ".measuredWidthMm");
+}
+
+const StoreProfile *FindProfile(const Store &store, const std::string &id)
+{
+    for (const StoreProfile &p : store.profiles) if (p.id == id) return &p;
+    return nullptr;
+}
+
+std::wstring LocalAppData()
+{
+    wchar_t path[MAX_PATH];
+    DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", path, MAX_PATH);
+    return n && n < MAX_PATH ? std::wstring(path, n) : std::wstring();
+}
+
+} // namespace
+
+bool ParseStore(const char *json, size_t length, Store &out, std::string &error)
+{
+    out = Store();
+    error.clear();
+    Json root;
+    if (!ParseRoot(json, length, root, "profiles.json", error)) return false;
+    Store st;
+    st.schema = (int)N(&root, "Schema", 0);
+    if (st.schema != 2) { error = "not a store profiles.json (Schema 2)"; return false; }
+    st.activeId = S(&root, "ActiveId");
+    st.hasCockpit = Screens(root.get("Cockpit"), st.cockpit);
+    const Json *profiles = root.get("Profiles");
+    if (!profiles || profiles->type != Json::Array || profiles->a.empty()) { error = "profiles.json needs at least one profile"; return false; }
+    for (const Json &e : profiles->a) {
+        const Json *c = Obj(&e, "Profile");
+        if (S(&e, "Id").empty() || !c) { error = "each profile needs an Id and a Profile"; return false; }
+        if (FindProfile(st, S(&e, "Id"))) { error = "duplicate profile Id '" + S(&e, "Id") + "'"; return false; }
+        StoreProfile p;
+        p.id = S(&e, "Id"); p.name = S(c, "Name"); p.wheel = S(c, "Wheel"); p.shifter = S(c, "Shifter");
+        if (!S(c, "Transmission").empty()) p.transmission = S(c, "Transmission");
+        if (const Json *bindings = Obj(c, "Bindings"))
+            for (const auto &kv : bindings->o) {
+                const Json &b = kv.second;
+                if (b.type != Json::Object) continue;
+                StoreBinding x;
+                x.action = kv.first; x.instanceGuid = S(&b, "InstanceGuid"); x.productGuid = S(&b, "ProductGuid"); x.deviceName = S(&b, "DeviceName");
+                x.kind = S(&b, "Kind"); x.index = (int)N(&b, "Index", 0); x.direction = (int)N(&b, "Direction", 0); x.rest = (int)N(&b, "Rest", 0);
+                x.minimum = (int)N(&b, "Minimum", 0); x.maximum = (int)N(&b, "Maximum", 65535);
+                x.calibrated = B(&b, "Calibrated"); x.inverted = B(&b, "Inverted");
+                static const char *const kCal[3] = {"CalLow", "CalCentre", "CalHigh"};
+                for (int i = 0; i < 3; ++i) {
+                    const Json *v = b.get(kCal[i]);
+                    x.hasCal[i] = v && v->type == Json::Number;
+                    if (x.hasCal[i]) x.cal[i] = (int)v->n;
+                }
+                p.bindings.push_back(x);
+            }
+        if (const Json *rig = Obj(&e, "Rig")) {
+            p.ffbStrength = (int)N(rig, "FfbStrength", 50);
+            const Json *on = rig->get("FfbOn");
+            if (on && on->type == Json::Bool) p.ffbOn = on->b;
+            p.hasScreens = Screens(rig->get("Screens"), p.screens);
+        }
+        st.profiles.push_back(p);
+    }
+    if (const Json *games = Obj(&root, "Games"))
+        for (const auto &kv : games->o)
+            if (kv.second.type == Json::Object) st.games.emplace_back(kv.first, S(&kv.second, "Profile"));
+    out = st;
+    return true;
+}
+
+bool LoadStore(const wchar_t *path, Store &out, std::string &error)
+{
+    out = Store();
+    std::string text;
+    return ReadSmallFile(path, "profiles.json", text, error) && ParseStore(text.data(), text.size(), out, error);
+}
+
+StoreChoice StoreFor(const Store &store, const std::string &gameId)
+{
+    StoreChoice c;
+    for (const auto &g : store.games) if (g.first == gameId) c.profile = FindProfile(store, g.second);
+    if (!c.profile) c.profile = FindProfile(store, store.activeId);
+    if (!c.profile && !store.profiles.empty()) c.profile = &store.profiles[0];
+    if (c.profile && c.profile->hasScreens) { c.screens = &c.profile->screens; c.screensFrom = "profile"; }
+    else if (store.hasCockpit) { c.screens = &store.cockpit; c.screensFrom = "cockpit"; }
+    return c;
+}
+
+std::string DumpStore(const Store &st)
+{
+    Dumper w;
+    w.n("schema", st.schema); w.s("activeId", st.activeId);
+    DumpScreens(w, "cockpit", st.hasCockpit, st.cockpit);
+    w.n("profiles.count", (double)st.profiles.size());
+    for (size_t k = 0; k < st.profiles.size(); ++k) {
+        const StoreProfile &p = st.profiles[k];
+        const std::string q = "profiles[" + std::to_string(k) + "]";
+        w.s(q + ".id", p.id); w.s(q + ".name", p.name); w.s(q + ".transmission", p.transmission); w.s(q + ".wheel", p.wheel); w.s(q + ".shifter", p.shifter);
+        w.n(q + ".ffbStrength", p.ffbStrength); w.b(q + ".ffbOn", p.ffbOn);
+        DumpScreens(w, q + ".screens", p.hasScreens, p.screens);
+        w.n(q + ".bindings.count", (double)p.bindings.size());
+        for (size_t i = 0; i < p.bindings.size(); ++i) {
+            const StoreBinding &b = p.bindings[i];
+            const std::string r = q + ".bindings[" + std::to_string(i) + "]";
+            w.s(r + ".action", b.action); w.s(r + ".instanceGuid", b.instanceGuid); w.s(r + ".productGuid", b.productGuid); w.s(r + ".deviceName", b.deviceName);
+            w.s(r + ".kind", b.kind); w.n(r + ".index", b.index); w.n(r + ".direction", b.direction); w.n(r + ".rest", b.rest);
+            w.n(r + ".minimum", b.minimum); w.n(r + ".maximum", b.maximum); w.b(r + ".calibrated", b.calibrated); w.b(r + ".inverted", b.inverted);
+            static const char *const kCal[3] = {".calLow", ".calCentre", ".calHigh"};
+            for (int c = 0; c < 3; ++c) { if (b.hasCal[c]) w.n(r + kCal[c], b.cal[c]); else w.null(r + kCal[c]); }
+        }
+    }
+    w.n("games.count", (double)st.games.size());
+    for (size_t k = 0; k < st.games.size(); ++k) {
+        w.s("games[" + std::to_string(k) + "].id", st.games[k].first); w.s("games[" + std::to_string(k) + "].profile", st.games[k].second);
+    }
+    std::vector<std::string> ids;
+    for (const auto &g : st.games) ids.push_back(g.first);
+    ids.push_back("unassigned-game");
+    for (const std::string &id : ids) {
+        const StoreChoice c = StoreFor(st, id);
+        w.s("for[" + id + "].profile", c.profile ? c.profile->id : std::string()); w.s("for[" + id + "].screens", c.screensFrom);
+    }
+    return w.out;
+}
+
+bool ParseRuntimeSettings(const char *json, size_t length, RuntimeSettings &out, std::string &error)
+{
+    out = RuntimeSettings();
+    error.clear();
+    Json root;
+    if (!ParseRoot(json, length, root, "runtime settings", error)) return false;
+    RuntimeSettings r;
+    r.schema = (int)N(&root, "Schema", 0);
+    if (r.schema != 1) { error = "not a store runtime file (Schema 1)"; return false; }
+    r.game = S(&root, "Game");
+    if (r.game.empty()) { error = "a runtime file needs its Game"; return false; }
+    r.profile = S(&root, "Profile");
+    if (const Json *values = Obj(&root, "Values"))
+        for (const auto &kv : values->o) {
+            RuntimeValue v;
+            v.key = kv.first;
+            if (kv.second.type == Json::Number) { v.type = RuntimeValue::Number; v.number = kv.second.n; }
+            else if (kv.second.type == Json::Bool) { v.type = RuntimeValue::Bool; v.flag = kv.second.b; }
+            else if (kv.second.type == Json::String) { v.type = RuntimeValue::String; v.text = kv.second.s; }
+            else continue;
+            r.values.push_back(v);
+        }
+    out = r;
+    return true;
+}
+
+bool LoadRuntimeSettings(const wchar_t *path, RuntimeSettings &out, std::string &error)
+{
+    out = RuntimeSettings();
+    std::string text;
+    return ReadSmallFile(path, "runtime settings", text, error) && ParseRuntimeSettings(text.data(), text.size(), out, error);
+}
+
+std::string DumpRuntimeSettings(const RuntimeSettings &r)
+{
+    Dumper w;
+    w.n("schema", r.schema); w.s("game", r.game); w.s("profile", r.profile);
+    w.n("values.count", (double)r.values.size());
+    for (size_t k = 0; k < r.values.size(); ++k) {
+        const RuntimeValue &v = r.values[k];
+        const std::string q = "values[" + std::to_string(k) + "]";
+        w.s(q + ".key", v.key);
+        if (v.type == RuntimeValue::Number) w.n(q + ".number", v.number);
+        else if (v.type == RuntimeValue::Bool) w.b(q + ".bool", v.flag);
+        else w.s(q + ".string", v.text);
+    }
+    return w.out;
+}
+
+std::wstring StoreFolder()
+{
+    const std::wstring base = LocalAppData();
+    return base.empty() ? base : base + L"\\Wheelkit\\store";
+}
+std::wstring StoreProfilesPath()
+{
+    const std::wstring dir = StoreFolder();
+    return dir.empty() ? dir : dir + L"\\profiles.json";
+}
+std::wstring StoreRuntimePath(const wchar_t *gameId)
+{
+    const std::wstring dir = StoreFolder();
+    return dir.empty() || !gameId || !*gameId ? std::wstring() : dir + L"\\runtime\\" + gameId + L".json";
 }
 
 }} // namespace dbce::panel

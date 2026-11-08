@@ -26,6 +26,10 @@ foreach ($arch in 'x64', 'x86') {
     $outMod = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_mod_file.cpp dbce_panel_descriptor.cpp /Fo`"$dir\\`" /Fe`"$dir\test_mod_file.exe`" && `"$dir\test_mod_file.exe`" ..\..\schema\fixtures" 2>&1
     $outMod | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
     if ($LASTEXITCODE) { $outMod; throw "dbce-mod.json check failed ($arch)" }
+    # The shared store (docs/STORE.md): the same goldens as the PowerShell and C# readers, unknown fields ignored.
+    $outStore = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vv`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_store.cpp dbce_panel_descriptor.cpp /Fo`"$dir\\`" /Fe`"$dir\test_store.exe`" && `"$dir\test_store.exe`" ..\..\schema\fixtures\store" 2>&1
+    $outStore | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { "${arch}: $($_.Line)" }
+    if ($LASTEXITCODE) { $outStore; throw "store check failed ($arch)" }
 }
 if ($InputCustodyOnly) { return }
 $imgui = "$im\imgui.cpp $im\imgui_draw.cpp $im\imgui_tables.cpp $im\imgui_widgets.cpp $im\backends\imgui_impl_dx11.cpp $im\backends\imgui_impl_dx12.cpp $im\backends\imgui_impl_dx9.cpp"
