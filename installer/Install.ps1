@@ -10,7 +10,11 @@
    -Uninstall removes the files the install record lists while they are unchanged, puts back game files it replaced,
    and keeps settings the player changed. -Rollback puts back the exact state before the last install.
    A receipt of the game's earlier installer (package.oldReceipts) is read once, so its file counts as this mod's.
-   -Mode Install|Uninstall|Rollback and -PackageRoot are the arguments Wheelkit's PackageScriptRunner passes. #>
+   -Mode Install|Uninstall|Rollback and -PackageRoot are the arguments Wheelkit's PackageScriptRunner passes.
+   -Mode Apply (CFG-2; Wheelkit runs it on Play, with the game closed): reads the game's profile from the shared store
+   (-StorePath, else %LOCALAPPDATA%\Wheelkit\store\profiles.json; docs/STORE.md) and, when the package has the game's
+   dbce\Apply.ps1, writes the files that script returns (game-relative path to bytes, $null deletes) in one transaction.
+   Apply.ps1 is the only place a game's boot-time files are written from a profile. #>
 [CmdletBinding()]
 param(
     [string]$GameDir = '',
@@ -18,7 +22,8 @@ param(
     [switch]$Rollback,
     [switch]$Setup,
     [string]$Mode = '',
-    [string]$PackageRoot = ''
+    [string]$PackageRoot = '',
+    [string]$StorePath = ''
 )
 $ErrorActionPreference = 'Stop'
 # Players see one plain sentence, not PowerShell's error record.
@@ -30,7 +35,7 @@ if ($Uninstall) { $action = 'Uninstall' }
 if ($Rollback) { if ($Uninstall) { throw 'Choose -Uninstall or -Rollback, not both. Nothing changed.' }; $action = 'Rollback' }
 if ($Setup) { if ($Uninstall -or $Rollback) { throw 'Choose one of -Setup, -Uninstall and -Rollback. Nothing changed.' }; $action = 'Setup' }
 if ($Mode) {
-    if ($Mode -notin 'Install', 'Uninstall', 'Rollback') { throw "Unknown -Mode '$Mode'. Use Install, Uninstall or Rollback. Nothing changed." }
+    if ($Mode -notin 'Install', 'Uninstall', 'Rollback', 'Apply') { throw "Unknown -Mode '$Mode'. Use Install, Uninstall, Rollback or Apply. Nothing changed." }
     if (($Uninstall -or $Rollback -or $Setup) -and $Mode -ne $action) { throw "-Mode $Mode disagrees with -$action. Nothing changed." }
     $action = $Mode
 }
@@ -198,6 +203,22 @@ if ($action -eq 'Setup') {
     if ($null -eq $current) { throw "$($mod.Name) is not installed in $GameDir. Double-click Install.bat first." }
     Start-Process -FilePath $tool -ArgumentList @('--setup', ('"' + $receiptPath + '"')) -WorkingDirectory $GameDir
     Write-Host "The $($mod.Name) setup window is open. Close it when you are done."
+    return
+}
+
+if ($action -eq 'Apply') {
+    if ($null -eq $current) { throw "$($mod.Name) is not installed in $GameDir. Install it first. Nothing changed." }
+    . (Join-Path $PSScriptRoot 'DbceStore.ps1')
+    if (-not $StorePath) { $StorePath = Join-Path (Get-DbceStoreFolder) 'profiles.json' }
+    if (-not [IO.File]::Exists($StorePath)) { Write-Host 'There are no Wheelkit profiles yet. Nothing changed.'; return }
+    $choice = Get-DbceStoreChoice -Store (Read-DbceStore -Path $StorePath) -GameId $mod.Id
+    $hook = Join-Path $PSScriptRoot 'Apply.ps1'
+    if ([IO.File]::Exists($hook)) {
+        $changes = & $hook -GameDir $GameDir -Choice $choice -Mod $mod
+        if ($changes -isnot [Collections.IDictionary]) { throw 'This package is damaged: dbce\Apply.ps1 returned no file list. Nothing changed.' }
+        if ($changes.Count) { Set-Files $changes }
+    }
+    Write-Host "$($mod.Name) uses the profile $($choice.Profile.Name)."
     return
 }
 

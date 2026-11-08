@@ -5,8 +5,9 @@ B.2 and B.6). `tools\package\New-ModPackage.ps1` copies these files into each zi
 
 | File | In the zip | What it does |
 |---|---|---|
-| `Install.ps1` | `dbce\Install.ps1` | Finds the game, checks the package, backs up, copies in one transaction and writes the `installed` section of the game folder's `dbce-mod.json`. `-Uninstall`, `-Rollback`, `-Setup`, and `-Mode`/`-PackageRoot` for Wheelkit. Windows PowerShell 5.1 and PowerShell 7. Kinds: dinput8. |
+| `Install.ps1` | `dbce\Install.ps1` | Finds the game, checks the package, backs up, copies in one transaction and writes the `installed` section of the game folder's `dbce-mod.json`. `-Uninstall`, `-Rollback`, `-Setup`, and `-Mode`/`-PackageRoot` for Wheelkit; `-Mode Apply` writes the game's profile through the package's `dbce\Apply.ps1`. Windows PowerShell 5.1 and PowerShell 7. Kinds: dinput8. |
 | `DbceModFile.ps1` | `dbce\DbceModFile.ps1` | The PowerShell reader of `dbce-mod.json` (XC-1). |
+| `DbceStore.ps1` | `dbce\DbceStore.ps1` | The PowerShell reader of the shared store (CFG-1, `docs/STORE.md`), for `-Mode Apply`. |
 | `Install.bat`, `Uninstall.bat`, `Setup.bat` | zip root | What the player double-clicks. |
 
 The rules, the package layout and the command line are in `docs/DBCE-MOD-JSON.md`, "The package and the installer".

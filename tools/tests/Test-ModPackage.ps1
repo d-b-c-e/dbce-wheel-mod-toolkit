@@ -59,6 +59,8 @@ try {
     Write-Bytes (Join-Path $repo '.gitignore') "build/`ndist/`n"
     Write-Bytes (Join-Path $repo 'LICENSE') 'MIT fixture license'
     Write-Bytes (Join-Path $repo 'config\dbce-fixture.ini') "[Settings]`r`nffb.enabled=1`r`n"
+    # The game's profile step (-Mode Apply): writes the name of the game's profile from the store.
+    Write-Bytes (Join-Path $repo 'dbce\Apply.ps1') "param(`$GameDir, `$Choice, `$Mod)`r`n@{ 'dbce/fixture-profile.txt' = [Text.Encoding]::UTF8.GetBytes(`$Choice.Profile.Name) }`r`n"
     Set-Build '1.0.0' 'fixture proxy dll 1.0.0'
     Invoke-Git add -A; Invoke-Git commit -q -m v1
     $head1 = (& git -C $repo rev-parse HEAD).Trim()
@@ -71,7 +73,7 @@ try {
     Check ((Get-Content -LiteralPath "$zip1.sha256" -Raw).StartsWith((Sha $zip1) + '  ')) 'the .sha256 beside the zip matches it'
     $pkg1 = Join-Path $work 'pkg1'; Expand-Archive -LiteralPath $zip1 -DestinationPath $pkg1
     foreach ($f in 'Install.bat', 'Uninstall.bat', 'Setup.bat', 'README.txt', 'dbce-mod.json', 'release-manifest.json', 'dbce\Install.ps1', 'dbce\DbceModFile.ps1',
-        'dbce\dbce-ui.exe', 'build\dinput8.dll', 'build\dbce\fixture-data.bin', 'config\dbce-fixture.ini', 'licenses\LICENSE', 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt', 'licenses\DearImGui-MIT.txt') {
+        'dbce\DbceStore.ps1', 'dbce\Apply.ps1', 'dbce\dbce-ui.exe', 'build\dinput8.dll', 'build\dbce\fixture-data.bin', 'config\dbce-fixture.ini', 'licenses\LICENSE', 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt', 'licenses\DearImGui-MIT.txt') {
         Check ([IO.File]::Exists((Join-Path $pkg1 $f))) "the zip holds $f"
     }
     $manifest = Get-Content -LiteralPath (Join-Path $pkg1 'release-manifest.json') -Raw | ConvertFrom-Json
@@ -202,6 +204,24 @@ try {
     $r = Invoke-Installer $pkg1 @('-GameDir', $game)
     Check ($r.Code -ne 0 -and $r.Out -match 'belongs to another mod' -and (Snapshot $game) -ceq $sMismatch) 'a dll that differs from its old receipt is refused and nothing changes'
     foreach ($p in 'dinput8.dll', 'dbce-fixture-receipt.json', 'dbce-fixture-backups') { Remove-Item -LiteralPath (Join-Path $game $p) -Recurse }
+
+    # -Mode Apply (CFG-2): the game's profile from the store, written by the package's dbce\Apply.ps1.
+    $store = Join-Path $work 'store\profiles.json'
+    Write-Bytes $store '{"Schema":2,"ActiveId":"a","Profiles":[{"Id":"a","Profile":{"Name":"Track"}},{"Id":"b","Profile":{"Name":"Arcade"}}],"Games":{"fixture-game":{"Profile":"b"}},"Later":1}'
+    $apply = @('-Mode', 'Apply', '-GameDir', $game, '-PackageRoot', $pkg1, '-StorePath', $store)
+    $r = Invoke-Installer $pkg1 $apply
+    Check ($r.Code -ne 0 -and $r.Out -match 'not installed' -and (Snapshot $game) -ceq $s0) 'Apply refuses a game without the mod and changes nothing'
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game); $sApply = Snapshot $game
+    $r = Invoke-Installer $pkg1 ($apply[0..5] + @('-StorePath', (Join-Path $work 'store\missing.json')))
+    Check ($r.Code -eq 0 -and $r.Out -match 'no Wheelkit profiles' -and (Snapshot $game) -ceq $sApply) 'Apply without a store changes nothing'
+    $r = Invoke-Installer $pkg1 $apply
+    Check ($r.Code -eq 0 -and $r.Out.Trim().Split("`n")[-1].Trim() -ceq 'Fixture Game Wheel Mod uses the profile Arcade.') 'Apply names the game''s profile from the store'
+    Check ([IO.File]::ReadAllText((Join-Path $game 'dbce\fixture-profile.txt')) -ceq 'Arcade') 'Apply writes the files the game''s Apply.ps1 returns'
+    $r = Invoke-Installer $pkg1 $apply -Pwsh7
+    Check ($r.Code -eq 0 -and [IO.File]::ReadAllText((Join-Path $game 'dbce\fixture-profile.txt')) -ceq 'Arcade') 'Apply succeeds in PowerShell 7'
+    Remove-Item -LiteralPath (Join-Path $game 'dbce\fixture-profile.txt')
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $s0) 'uninstall after Apply returns the game folder byte-exact'
 
     # Wheelkit's RepoScriptInstaller runs the script in PowerShell 7 with -GameDir and -Uninstall.
     $r = Invoke-Installer $pkg1 @('-GameDir', $game) -Pwsh7

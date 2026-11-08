@@ -66,6 +66,9 @@ try {
     Put $modPath 'dbce-mod.json'
     Put (Join-Path $installer 'Install.ps1') 'dbce\Install.ps1'
     Put (Join-Path $installer 'DbceModFile.ps1') 'dbce\DbceModFile.ps1'
+    Put (Join-Path $installer 'DbceStore.ps1') 'dbce\DbceStore.ps1'
+    # The game's profile step (Install.ps1 -Mode Apply): the files a profile sets that the game reads at boot.
+    if ([IO.File]::Exists((Join-Path $Repo 'dbce\Apply.ps1'))) { Put (Join-Path $Repo 'dbce\Apply.ps1') 'dbce\Apply.ps1' }
     Put (Join-Path $installer 'Install.bat') 'Install.bat'
     Put (Join-Path $installer 'Uninstall.bat') 'Uninstall.bat'
     Put (Join-Path $toolkit 'LICENSE') 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt'

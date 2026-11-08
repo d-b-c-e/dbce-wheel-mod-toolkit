@@ -116,6 +116,7 @@ at the zip root call it.
 | `-Setup` | Opens `dbce\dbce-ui.exe --setup <game folder>\dbce-mod.json`, for settings with the game closed. |
 | `-Mode <Install\|Uninstall\|Rollback>` | The same three actions as one argument, so Wheelkit's `PackageScriptRunner` and `RepoScriptInstaller` call the installer unchanged. Combined with a switch, it must agree with the switch. |
 | `-PackageRoot <path>` | The unpacked package. It defaults to the folder above `dbce\`. |
+| `-Mode Apply [-StorePath <profiles.json>]` | Wheelkit runs it on Play, with the game closed (CFG-2). It reads the game's profile from the shared store (`docs/STORE.md`; `-StorePath` defaults to `%LOCALAPPDATA%\Wheelkit\store\profiles.json`) and, when the package has the game's `dbce\Apply.ps1` (the repo's `dbce\Apply.ps1`, shipped by `New-ModPackage`), writes the files it returns in one transaction: a hashtable of game-relative path (with `/`) to bytes, `$null` to delete. `Apply.ps1` gets `-GameDir`, `-Choice` (`Get-DbceStoreChoice`: `Profile`, `Screens`, `ScreensFrom`) and `-Mod`. It is the only place a game's boot-time files are written from a profile. The last line names the profile. |
 
 What install does, in order (`04-cross-cutting.md` B.2):
 
