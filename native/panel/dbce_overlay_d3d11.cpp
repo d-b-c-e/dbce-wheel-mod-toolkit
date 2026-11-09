@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 namespace dbce { namespace overlay {
 
@@ -59,6 +60,63 @@ void drawFrame(int w, int h)
     ImGui::NewFrame();
     dbce::panel::Draw(w, h);
     ImGui::Render();
+}
+
+// ImGui draws in sRGB (gamma) space. A plain 8-bit UNORM back buffer holds those values as-is, so no conversion is
+// needed. An _SRGB back buffer encodes on render-target write (linear -> sRGB) and a float back buffer holds linear
+// values, so for those the panel's sRGB colours are linearized first, keeping its contrast (the washed-out panel found
+// on art of rally's single-screen fullscreen window; UI-9S).
+const char *formatName(DXGI_FORMAT f)
+{
+    switch (f) {
+    case DXGI_FORMAT_R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: return "R8G8B8A8_UNORM_SRGB";
+    case DXGI_FORMAT_B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB: return "B8G8R8A8_UNORM_SRGB";
+    case DXGI_FORMAT_R10G10B10A2_UNORM: return "R10G10B10A2_UNORM";
+    case DXGI_FORMAT_R16G16B16A16_FLOAT: return "R16G16B16A16_FLOAT";
+    case DXGI_FORMAT_R11G11B10_FLOAT: return "R11G11B10_FLOAT";
+    case DXGI_FORMAT_R32G32B32A32_FLOAT: return "R32G32B32A32_FLOAT";
+    default: return "other";
+    }
+}
+bool linearColors(DXGI_FORMAT f)
+{
+    switch (f) {
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+    case DXGI_FORMAT_R16G16B16A16_FLOAT:
+    case DXGI_FORMAT_R11G11B10_FLOAT:
+    case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        return true;
+    default:
+        return false;
+    }
+}
+// 8-bit sRGB -> 8-bit linear byte (white stays white), the inverse of the hardware's render-target encode.
+unsigned char linearByte(unsigned char c)
+{
+    const float s = (float)c / 255.0f;
+    const float lin = s <= 0.04045f ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
+    const float v = lin * 255.0f + 0.5f;
+    return v >= 255.0f ? 255u : (unsigned char)v;
+}
+// Rewrite every vertex colour from sRGB to its linear 8-bit value (alpha untouched), so the _SRGB render-target
+// encode, or a float buffer holding linear values, reproduces the panel's original sRGB colours.
+void linearizeDrawData(ImDrawData *dd)
+{
+    struct Lut { unsigned char b[256]; Lut() { for (int i = 0; i < 256; ++i) b[i] = linearByte((unsigned char)i); } };
+    static const Lut lut;
+    for (int n = 0; n < dd->CmdListsCount; ++n) {
+        ImDrawList *dl = dd->CmdLists[n];
+        for (int i = 0; i < dl->VtxBuffer.Size; ++i) {
+            ImDrawVert &v = dl->VtxBuffer[i];
+            unsigned char *c = (unsigned char *)&v.col;
+            c[0] = lut.b[c[0]];
+            c[1] = lut.b[c[1]];
+            c[2] = lut.b[c[2]];
+        }
+    }
 }
 
 static HMODULE moduleOf(const void *p)
@@ -348,6 +406,7 @@ ID3D11Device *g_device;             // owned reference while ImGui's DX11 backen
 ID3D11DeviceContext *g_context;
 ID3D11RenderTargetView *g_rtv;
 bool g_backend;
+DXGI_FORMAT g_backFormat = DXGI_FORMAT_UNKNOWN;   // logged when the adopted back buffer's format changes
 bool g_inputOn;                     // the panel's input hook is on g_window: only while g_chain can be drawn on
 HWND g_attachFailed;                // a window whose input hook could not be set (not tried again)
 IDXGISwapChain *g_undrawableNoted;  // the last chain logged as one the panel cannot draw on
@@ -398,6 +457,11 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
     if (FAILED(sc->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&back)) || !back) return;
     D3D11_TEXTURE2D_DESC td;
     back->GetDesc(&td);
+    if (td.Format != g_backFormat) {
+        g_backFormat = td.Format;
+        logf("overlay: back buffer format %s%s", detail::formatName(td.Format),
+             detail::linearColors(td.Format) ? " (sRGB/float: linearizing ImGui colours)" : "");
+    }
     if (!g_rtv && FAILED(g_device->CreateRenderTargetView(back, nullptr, &g_rtv))) g_rtv = nullptr;
     back->Release();
     if (!g_rtv) return;
@@ -405,6 +469,7 @@ void render11(IDXGISwapChain *sc, ID3D11Device *dev)
     if (dbce::panel::Prepare(w, h)) { dbce::panel::BuildFonts(); ImGui_ImplDX11_InvalidateDeviceObjects(); }
     ImGui_ImplDX11_NewFrame();
     detail::drawFrame(w, h);
+    if (detail::linearColors(td.Format)) detail::linearizeDrawData(ImGui::GetDrawData());
     // Draw on the back buffer and give the game its render targets back.
     ID3D11RenderTargetView *saved[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
     ID3D11DepthStencilView *savedDepth = nullptr;

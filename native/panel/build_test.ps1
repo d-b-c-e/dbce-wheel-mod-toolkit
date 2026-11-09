@@ -62,6 +62,13 @@ $outRc = cmd /c $cmdRc 2>&1
 $outRc | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|flip chain' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $outRc | Select-Object -Last 25; throw 'D3D11 recreate check failed' }
 
+# The panel's contrast on an sRGB back buffer must match a plain UNORM one (the washed-out panel art of rally found on a
+# single-screen fullscreen window): the panel's sRGB colours are linearized for the _SRGB render-target encode.
+$cmdSrgb = "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_srgb.cpp /Fo`"$build\\`" $($objs -join ' ') /Fe`"$build\test_overlay_srgb.exe`" /link user32.lib && `"$build\test_overlay_srgb.exe`""
+$outSrgb = cmd /c $cmdSrgb 2>&1
+$outSrgb | Select-String -Pattern ' warning | error |FAIL|PASS|log:|pixel|chain:' | ForEach-Object { $_.Line }
+if ($LASTEXITCODE) { $outSrgb | Select-Object -Last 25; throw 'D3D11 sRGB check failed' }
+
 # D3D9 overlay with this machine's D3D9 device on a hidden window (no WARP for D3D9): Present/Reset lifecycle, on x64
 # and on x86, which most D3D9 games are.
 $cmd9 = "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /I$im test_overlay_d3d9.cpp dbce_overlay_d3d9.cpp /Fo`"$build\\`" $($objs -join ' ') `"$build\imgui_impl_dx9.obj`" /Fe`"$build\test_overlay_d3d9.exe`" && `"$build\test_overlay_d3d9.exe`" `"$build`""
