@@ -28,7 +28,7 @@ mod (STD-053); the in-game F6 panel is runtime only.
 - `tools/Sync-Toolkit.ps1` vendors a pinned build into a game repo; native dinput8-proxy games use
   `tools/Sync-Native.ps1`. Never edit a vendored copy in a game: change it here and re-sync.
 - `tools/package/New-ModPackage.ps1` builds a game's single player zip from its `dbce-mod.json`.
-- Who uses which version: [docs/CONSUMERS.md](docs/CONSUMERS.md) and `tools/Get-ConsumerStatus.ps1`.
+- Who uses which version and which shared pieces: the hub's `E:\Source\dbce-project-mgmt\tools\Get-Adoption.ps1`.
   More detail: [docs/CONSUMING.md](docs/CONSUMING.md).
 
 ## Key docs

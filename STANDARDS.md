@@ -13,7 +13,7 @@ Rules:
 - Details live in the linked guide; the entry is the one-line contract.
 - Adoption is recorded in each game repo, not here. Portfolio rollup:
   `E:\Source\dbce-project-mgmt\tools\Get-StandardsBacklog.ps1`.
-- Code and version pins are tracked separately by `tools/Get-ConsumerStatus.ps1`.
+- Code and version pins are reported by the hub's `E:\Source\dbce-project-mgmt\tools\Get-Adoption.ps1`.
 
 Statuses in a game's `TOOLKIT-ADOPTION.md`: `adopted` (with commit/branch),
 `partial`, `pending`, `n/a` (with the reason), `unchecked` (nobody has looked yet).

@@ -1,7 +1,7 @@
 # Consuming the toolkit from a game mod
 
 Setup (bindings, cockpit, screens) belongs to Wheelkit, which comes with every mod (STD-053); F6 is runtime only. Use
-`docs/CONSUMERS.md` and `tools/Get-ConsumerStatus.ps1` for current pins. A failed sync leaves the existing destination
+the hub's `E:\Source\dbce-project-mgmt\tools\Get-Adoption.ps1` for current pins. A failed sync leaves the existing destination
 intact and does not advance VERSION.
 
 Consumers vendor **built artifacts**, pinned by version. No cross-repo project
