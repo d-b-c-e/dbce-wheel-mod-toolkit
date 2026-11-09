@@ -545,6 +545,24 @@ bool ParseModFile(const char *json, size_t length, ModFile &out, std::string &er
         m.selfTestFolder = S(t, "folder"); m.selfTestSteps = Strs(t, "steps");
         for (const Json &p : Arr(t, "probes")) m.probes.push_back({S(&p, "id"), S(&p, "type"), S(&p, "label")});
     }
+    if (const Json *tt = Obj(&root, "test")) {
+        m.hasTest = true;
+        if (const Json *la = Obj(tt, "launch")) {
+            m.hasLaunch = true;
+            m.launchSteamAppId = (long)N(la, "steamAppId", 0); m.launchExe = S(la, "exe"); m.launchArgs = Strs(la, "args");
+        }
+        m.protect = Strs(tt, "protect");
+        if (const Json *ts = Obj(tt, "testSave")) { m.hasTestSave = true; m.testSaveFrom = S(ts, "from"); m.testSaveTo = S(ts, "to"); }
+        for (const Json &s : Arr(tt, "states")) m.states.push_back({S(&s, "state"), S(&s, "field"), S(&s, "is"), S(&s, "text"), S(&s, "picture")});
+        if (const Json *en = Obj(tt, "entry")) { m.hasEntry = true; m.entryCommand = S(en, "command"); m.entryRoute = S(en, "route"); }
+        for (const Json &r : Arr(tt, "route")) {
+            ModRouteStep step;
+            step.key = S(&r, "key"); step.input = S(&r, "input"); step.waitState = S(&r, "waitState"); step.waitText = S(&r, "waitText");
+            step.timeout = (long)N(&r, "timeout", 0);
+            m.route.push_back(step);
+        }
+        if (const Json *qu = Obj(tt, "quit")) { m.hasQuit = true; m.quitCommand = S(qu, "command"); m.quitKey = S(qu, "key"); m.quitInput = S(qu, "input"); }
+    }
     if (const Json *i = Obj(&root, "installed")) {
         m.hasInstalled = true;
         m.installedVersion = S(i, "version"); m.commit = S(i, "commit"); m.installedUtc = S(i, "installedUtc");
@@ -657,6 +675,31 @@ std::string DumpModFile(const ModFile &m)
             const std::string q = "selfTest.probes[" + std::to_string(k) + "]";
             w.s(q + ".id", m.probes[k].id); w.s(q + ".type", m.probes[k].type); w.s(q + ".label", m.probes[k].label);
         }
+    }
+    if (!m.hasTest) w.null("test");
+    else {
+        if (!m.hasLaunch) w.null("test.launch");
+        else { w.n("test.launch.steamAppId", (double)m.launchSteamAppId); w.s("test.launch.exe", m.launchExe); w.list("test.launch.args", m.launchArgs); }
+        w.list("test.protect", m.protect);
+        if (!m.hasTestSave) w.null("test.testSave");
+        else { w.s("test.testSave.from", m.testSaveFrom); w.s("test.testSave.to", m.testSaveTo); }
+        w.n("test.states.count", (double)m.states.size());
+        for (size_t k = 0; k < m.states.size(); ++k) {
+            const std::string q = "test.states[" + std::to_string(k) + "]";
+            w.s(q + ".state", m.states[k].state); w.s(q + ".field", m.states[k].field); w.s(q + ".is", m.states[k].is);
+            w.s(q + ".text", m.states[k].text); w.s(q + ".picture", m.states[k].picture);
+        }
+        if (!m.hasEntry) w.null("test.entry");
+        else { w.s("test.entry.command", m.entryCommand); w.s("test.entry.route", m.entryRoute); }
+        w.n("test.route.count", (double)m.route.size());
+        for (size_t k = 0; k < m.route.size(); ++k) {
+            const std::string q = "test.route[" + std::to_string(k) + "]";
+            w.s(q + ".key", m.route[k].key); w.s(q + ".input", m.route[k].input);
+            w.s(q + ".waitState", m.route[k].waitState); w.s(q + ".waitText", m.route[k].waitText);
+            w.n(q + ".timeout", (double)m.route[k].timeout);
+        }
+        if (!m.hasQuit) w.null("test.quit");
+        else { w.s("test.quit.command", m.quitCommand); w.s("test.quit.key", m.quitKey); w.s("test.quit.input", m.quitInput); }
     }
     if (!m.hasInstalled) w.null("installed");
     else {

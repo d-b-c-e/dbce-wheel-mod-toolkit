@@ -32,6 +32,7 @@ names Wheelkit reads today.
 | `controls` | game repo | Wheelkit | `store` is `game` (the game's own controls menu) or the shared profile adapter id. Also `profile`, `settings`, `optIn` (section, key, value, default, appliesAfterRestart), `delivered` actions, `unsupported` (action to reason), `conditions` (actions, transmission, settingsKey, settingsValues, settingsDefault, note) and `gameControls` (id, kind, label, group). |
 | `cameras` | game repo | Wheelkit | STD-046 starting choices for triple screens: `camera` (cockpit, bonnet, bumper, chase, isometric), `start` (realistic or game), and where the choice lives (`file`, `section`, `key`), with the stored `realistic` and `game` values. |
 | `selfTest` | game repo | test scripts | The self-test contract (`04-cross-cutting.md` D.2): the `folder`, the `steps` this build runs, and the `probes` its state dump reports (id, type, label). The script, result and C++ interpreter are in `docs/SELFTEST.md`. No mod ships the self-test yet, so DiRT 4's fixture block is an example. |
+| `test` | game repo | `dbce-pilot` | The testing framework's descriptor (`07-testing-framework.md`): `launch`, `protect`, `testSave`, `states`, `entry`, `route` and `quit`. Every sub-object, and the section itself, is optional; the pilot fills in what it knows. |
 | `installed` | installer only | Wheelkit, installer | `version`, `commit`, `installedUtc`, `loaderInstalledByUs`, `files` (path and lower-case SHA-256, game-relative), `backups` (folder, game-relative) and `flags` (booleans the old receipts carried, read only during migration). |
 
 ### `settings.stored`: the stored-settings list
@@ -66,12 +67,29 @@ panel, the installer and the C++, C# and PowerShell readers ignore it, and it is
 - The installed build declares only the settings it reads. That replaces `RequiresReceiptCapability`,
   `ReviewedTripleSettings` and the DLL pins.
 
+### `test`: the pilot's descriptor
+
+`test` is optional. It is the testing framework's descriptor for `dbce-pilot` (`07-testing-framework.md`): how to
+launch, protect, reach gameplay, recognize states, route there and quit. Every sub-object, and the section itself, is
+optional; the pilot fills in what it knows. The three readers parse it and write it in the canonical dump, but nothing
+else reads it yet.
+
+- `launch`: the Steam app id (`steamAppId`) or `exe`, and its `args`.
+- `protect`: the save and config paths to back up around a run, game-relative or starting with `%LOCALAPPDATA%`.
+- `testSave`: the prepared test save (`from`) restored over the player's save (`to`) for a run, then restored.
+- `states`: how each race state is recognized. Each item has a `state` name and one of `field` + `is` (a state-port
+  field and the value that means this state), `text` (menu text) or `picture` (a picture check).
+- `entry`: the fast path into gameplay, either a mailbox `command` or the id of a saved `route`.
+- `route`: steps, each an optional `key` or `input` followed by a wait for a `waitState` or `waitText`, with a
+  `timeout` in milliseconds.
+- `quit`: how to close the game cleanly: a mailbox `command`, a `key`, or an `input`.
+
 ## Defaults
 
 Every reader fills these in, so all three see the same values:
 
 - Absent strings are empty. Absent lists are empty. `steamAppId` is 0. `package.strict` is false. `package.uiHost` is
-  `game`. `settings.format` is `ini`. Absent `settings`, `controls`, `selfTest`, `installed`, `controls.optIn`,
+  `game`. `settings.format` is `ini`. Absent `settings`, `controls`, `selfTest`, `test`, `installed`, `controls.optIn`,
   `package.loader` and a row's `store` are null.
 - Rows follow the UI-1 reader. `level` defaults to simple and `apply` to live. `min` and `max` are 0, except for a
   percent, which is 0 to 100. `default` is a number: a toggle is 1 or 0, a choice is its index (0 when absent), and a

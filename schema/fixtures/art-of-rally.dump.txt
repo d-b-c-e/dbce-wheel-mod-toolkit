@@ -1173,6 +1173,7 @@ cameras[2].key=ChaseRealistic
 cameras[2].realistic=true
 cameras[2].game=false
 selfTest=null
+test=null
 installed.version=0.4.4
 installed.commit=8f53874c32f393624904b68b84e858fc8f6e0b35
 installed.installedUtc=2026-11-07T16:52:24.5037657Z

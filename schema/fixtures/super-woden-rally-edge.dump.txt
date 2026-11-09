@@ -566,6 +566,7 @@ cameras[3].key=IsometricRealistic
 cameras[3].realistic=true
 cameras[3].game=false
 selfTest=null
+test=null
 installed.version=0.2.16
 installed.commit=38c14a4c2e24159b31d7c452e9fe61bdae8ec877
 installed.installedUtc=2026-11-07T09:22:19.1002418Z

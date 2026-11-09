@@ -106,6 +106,40 @@
       }
     ]
   },
+  "test": {
+    "launch": {
+      "steamAppId": 421020,
+      "exe": "dirt4.exe",
+      "args": [
+        "-nolauncher"
+      ]
+    },
+    "protect": [
+      "%LOCALAPPDATA%\\My Games\\DiRT4\\savegame"
+    ],
+    "testSave": {
+      "from": "saves\\test-save.dirtsave",
+      "to": "%LOCALAPPDATA%\\My Games\\DiRT4\\savegame\\profile.dirtsave"
+    },
+    "states": [
+      { "state": "menu", "field": "race_state", "is": "menu" },
+      { "state": "racing", "field": "race_state", "is": "racing" },
+      { "state": "results", "text": "Race Complete" }
+    ],
+    "entry": {
+      "command": "load_race"
+    },
+    "route": [
+      { "key": "Return", "waitState": "menu", "timeout": 15000 },
+      { "input": "confirm", "waitText": "Quick Race", "timeout": 10000 },
+      { "key": "Down", "timeout": 3000 },
+      { "input": "start", "waitState": "racing", "timeout": 60000 }
+    ],
+    "quit": {
+      "command": "quit",
+      "key": "Escape"
+    }
+  },
   "installed": {
     "version": "0.2.5",
     "commit": "222202185c0adb3f2ed5140806bb9bbff0fa3710",

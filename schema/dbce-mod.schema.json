@@ -28,6 +28,7 @@
     "controls": { "$ref": "#/$defs/controls" },
     "cameras": { "type": "array", "items": { "$ref": "#/$defs/cameraStart" } },
     "selfTest": { "$ref": "#/$defs/selfTest" },
+    "test": { "$ref": "#/$defs/test" },
     "installed": { "$ref": "#/$defs/installed" }
   },
   "$defs": {
@@ -254,6 +255,72 @@
             "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[A-Za-z0-9]+)+$" }, "type": { "enum": ["string", "number", "bool"] }, "label": { "type": "string" } }
           }
         }
+      }
+    },
+    "test": {
+      "type": "object", "additionalProperties": false,
+      "description": "The testing framework's descriptor for dbce-pilot (07-testing-framework.md): how to launch, protect, reach gameplay, recognize states, route there and quit. Every sub-object below, and the section itself, is optional; the pilot fills in what it knows.",
+      "properties": {
+        "launch": { "$ref": "#/$defs/launch" },
+        "protect": { "type": "array", "items": { "$ref": "#/$defs/text" }, "description": "Save and config paths to back up around a run, game-relative or starting with %LOCALAPPDATA%." },
+        "testSave": { "$ref": "#/$defs/testSave", "description": "The prepared test save (from) restored over the player's save (to) for a run, then restored." },
+        "states": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/testState" } },
+        "entry": { "$ref": "#/$defs/testEntry" },
+        "route": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/routeStep" } },
+        "quit": { "$ref": "#/$defs/testQuit" }
+      }
+    },
+    "launch": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "steamAppId": { "type": "integer", "minimum": 1 },
+        "exe": { "$ref": "#/$defs/text" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "testSave": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/$defs/text", "description": "Where the prepared save lives, game-relative or starting with %LOCALAPPDATA%." },
+        "to": { "$ref": "#/$defs/text", "description": "Where it is restored to, game-relative or starting with %LOCALAPPDATA%." }
+      }
+    },
+    "testState": {
+      "type": "object", "additionalProperties": false, "required": ["state"],
+      "properties": {
+        "state": { "$ref": "#/$defs/text", "description": "The race state name, such as menu or racing." },
+        "field": { "$ref": "#/$defs/text", "description": "The state port field that reports this state, such as race_state." },
+        "is": { "type": "string", "description": "The field value that means this state." },
+        "text": { "$ref": "#/$defs/text", "description": "Menu text that means this state." },
+        "picture": { "$ref": "#/$defs/text", "description": "A picture check that means this state." }
+      }
+    },
+    "testEntry": {
+      "type": "object", "additionalProperties": false,
+      "description": "The fast path into gameplay: a mailbox command, or the id of a saved route.",
+      "properties": {
+        "command": { "$ref": "#/$defs/text" },
+        "route": { "$ref": "#/$defs/text" }
+      }
+    },
+    "routeStep": {
+      "type": "object", "additionalProperties": false,
+      "description": "One route step: an optional key or input, then a wait for a state or menu text, with a timeout in milliseconds.",
+      "properties": {
+        "key": { "$ref": "#/$defs/text" },
+        "input": { "$ref": "#/$defs/text" },
+        "waitState": { "$ref": "#/$defs/text" },
+        "waitText": { "$ref": "#/$defs/text" },
+        "timeout": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "testQuit": {
+      "type": "object", "additionalProperties": false,
+      "description": "How to close the game cleanly: a mailbox command, a key, or an input.",
+      "properties": {
+        "command": { "$ref": "#/$defs/text" },
+        "key": { "$ref": "#/$defs/text" },
+        "input": { "$ref": "#/$defs/text" }
       }
     },
     "installed": {

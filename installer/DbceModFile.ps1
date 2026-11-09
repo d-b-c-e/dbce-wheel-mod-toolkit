@@ -125,6 +125,24 @@ function Read-DbceModFile {
         }
     }
 
+    $test = $null
+    $tt = DmProp $j 'test'
+    if ($null -ne $tt) {
+        $launch = DmProp $tt 'launch'
+        $entry = DmProp $tt 'entry'
+        $quit = DmProp $tt 'quit'
+        $ts = DmProp $tt 'testSave'
+        $test = [pscustomobject][ordered]@{
+            Launch = if ($null -eq $launch) { $null } else { [pscustomobject][ordered]@{ SteamAppId = [long](DmNum $launch 'steamAppId' 0); Exe = DmStr $launch 'exe'; Args = @(foreach ($a in (DmList $launch 'args')) { [string]$a }) } }
+            Protect = @(foreach ($p in (DmList $tt 'protect')) { [string]$p })
+            TestSave = if ($null -eq $ts) { $null } else { [pscustomobject][ordered]@{ From = DmStr $ts 'from'; To = DmStr $ts 'to' } }
+            States = @(foreach ($s in (DmList $tt 'states')) { [pscustomobject][ordered]@{ State = DmStr $s 'state'; Field = DmStr $s 'field'; Is = DmStr $s 'is'; Text = DmStr $s 'text'; Picture = DmStr $s 'picture' } })
+            Entry = if ($null -eq $entry) { $null } else { [pscustomobject][ordered]@{ Command = DmStr $entry 'command'; Route = DmStr $entry 'route' } }
+            Route = @(foreach ($r in (DmList $tt 'route')) { [pscustomobject][ordered]@{ Key = DmStr $r 'key'; Input = DmStr $r 'input'; WaitState = DmStr $r 'waitState'; WaitText = DmStr $r 'waitText'; Timeout = [long](DmNum $r 'timeout' 0) } })
+            Quit = if ($null -eq $quit) { $null } else { [pscustomobject][ordered]@{ Command = DmStr $quit 'command'; Key = DmStr $quit 'key'; Input = DmStr $quit 'input' } }
+        }
+    }
+
     $installed = $null
     $i = DmProp $j 'installed'
     if ($null -ne $i) {
@@ -142,7 +160,7 @@ function Read-DbceModFile {
         SteamAppId = [long](DmNum $j 'steamAppId' 0); Folder = DmStr $j 'folder'
         Exe = @(foreach ($e in (DmList $j 'exe')) { [string]$e }); Repository = DmStr $j 'repository'
         LogFile = DmStr $log 'file'; LogStart = DmStr $log 'start'
-        Package = $package; Settings = $settings; Controls = $controls; Cameras = $cameras; SelfTest = $selfTest; Installed = $installed
+        Package = $package; Settings = $settings; Controls = $controls; Cameras = $cameras; SelfTest = $selfTest; Test = $test; Installed = $installed
     }
 }
 
@@ -212,6 +230,20 @@ function Format-DbceModFile {
         & $wS selfTest.folder $t.Folder; & $wL selfTest.steps $t.Steps
         $pr = @($t.Probes); & $wN selfTest.probes.count $pr.Count
         for ($k = 0; $k -lt $pr.Count; $k++) { & $wS "selfTest.probes[$k].id" $pr[$k].Id; & $wS "selfTest.probes[$k].type" $pr[$k].Type; & $wS "selfTest.probes[$k].label" $pr[$k].Label }
+    }
+    $tt = $Mod.Test
+    if ($null -eq $tt) { $out.Add('test=null') } else {
+        if ($null -eq $tt.Launch) { $out.Add('test.launch=null') } else {
+            & $wN test.launch.steamAppId $tt.Launch.SteamAppId; & $wS test.launch.exe $tt.Launch.Exe; & $wL test.launch.args $tt.Launch.Args
+        }
+        & $wL test.protect $tt.Protect
+        if ($null -eq $tt.TestSave) { $out.Add('test.testSave=null') } else { & $wS test.testSave.from $tt.TestSave.From; & $wS test.testSave.to $tt.TestSave.To }
+        $st = @($tt.States); & $wN test.states.count $st.Count
+        for ($k = 0; $k -lt $st.Count; $k++) { $q = "test.states[$k]"; & $wS "$q.state" $st[$k].State; & $wS "$q.field" $st[$k].Field; & $wS "$q.is" $st[$k].Is; & $wS "$q.text" $st[$k].Text; & $wS "$q.picture" $st[$k].Picture }
+        if ($null -eq $tt.Entry) { $out.Add('test.entry=null') } else { & $wS test.entry.command $tt.Entry.Command; & $wS test.entry.route $tt.Entry.Route }
+        $rt = @($tt.Route); & $wN test.route.count $rt.Count
+        for ($k = 0; $k -lt $rt.Count; $k++) { $q = "test.route[$k]"; & $wS "$q.key" $rt[$k].Key; & $wS "$q.input" $rt[$k].Input; & $wS "$q.waitState" $rt[$k].WaitState; & $wS "$q.waitText" $rt[$k].WaitText; & $wN "$q.timeout" $rt[$k].Timeout }
+        if ($null -eq $tt.Quit) { $out.Add('test.quit=null') } else { & $wS test.quit.command $tt.Quit.Command; & $wS test.quit.key $tt.Quit.Key; & $wS test.quit.input $tt.Quit.Input }
     }
     $i = $Mod.Installed
     if ($null -eq $i) { $out.Add('installed=null') } else {

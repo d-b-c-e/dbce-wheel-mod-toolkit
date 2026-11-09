@@ -17,6 +17,8 @@ struct ModCondition {
 struct ModGameControl { std::string id, kind, label, group; };
 struct ModCameraStart { std::string camera, start, file, section, key, realistic, game; };
 struct ModProbe { std::string id, type, label; };
+struct ModTestState { std::string state, field, is, text, picture; };
+struct ModRouteStep { std::string key, input, waitState, waitText; long timeout = 0; };
 struct ModFile {
     std::string schema, id, name, version, folder, repository, logFile, logStart;
     double steamAppId = 0;
@@ -44,6 +46,13 @@ struct ModFile {
     std::string selfTestFolder;
     std::vector<std::string> selfTestSteps;
     std::vector<ModProbe> probes;
+    // test (the pilot's descriptor, 07-testing-framework.md)
+    bool hasTest = false, hasLaunch = false, hasTestSave = false, hasEntry = false, hasQuit = false;
+    long launchSteamAppId = 0;
+    std::string launchExe, testSaveFrom, testSaveTo, entryCommand, entryRoute, quitCommand, quitKey, quitInput;
+    std::vector<std::string> launchArgs, protect;
+    std::vector<ModTestState> states;
+    std::vector<ModRouteStep> route;
     // installed
     bool hasInstalled = false, loaderInstalledByUs = false;
     std::string installedVersion, commit, installedUtc, backups;
