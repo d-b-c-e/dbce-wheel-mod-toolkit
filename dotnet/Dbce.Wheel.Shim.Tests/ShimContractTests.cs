@@ -19,7 +19,9 @@ public class ShimContractTests
         Assert.True(list.Success);
         var ids = Regex.Matches(list.Groups["ids"].Value, "\"([a-zA-Z0-9]+)\"")
             .Select(m => m.Groups[1].Value).ToArray();
-        Assert.Equal(ShimAbi2.ActionNames.ToArray(), ids);
+        // The native list is append-only: ABI 2 is its first 31 names, and later names (camera moves) follow them.
+        Assert.True(ids.Length >= ShimAbi2.ActionNames.Count);
+        Assert.Equal(ShimAbi2.ActionNames.ToArray(), ids.Take(ShimAbi2.ActionNames.Count).ToArray());
         Assert.Equal(ShimAbi2.OpenArgsSize, Marshal.SizeOf<ShimOpenArgs>());
         Assert.Equal((IntPtr)120, Marshal.OffsetOf<ShimOpenArgs>(nameof(ShimOpenArgs.Seconds)));
     }

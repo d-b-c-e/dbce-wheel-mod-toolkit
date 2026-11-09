@@ -8,6 +8,10 @@ src/vendor is owned by this script: it holds exactly the folders below, at those
 two-line VERSION. Never edit a vendored file; change the toolkit and sync again. Text files are compared with CRLF
 read as LF, so a checkout's line endings do not count as an edit.
 
+A game that needs more of the wheel toolkit's native folders names them once with -Extra (folders under native/, such as
+forcemodel, shim, wheelffb, third_party/glaze). VERSION records them on an "extra" line, and later syncs and checks read
+them from there.
+
 .EXAMPLE
 pwsh tools\Sync-Native.ps1 -GameRepo E:\Source\game-modding\dbce-mods-grid-2019            # sync at master + main
 pwsh tools\Sync-Native.ps1 -GameRepo <game> -Commit 08a8c2a -TripleCommit 76dd607 -DryRun  # list deltas, write nothing
@@ -19,6 +23,7 @@ param(
   [string]$TripleCommit = 'main',
   [switch]$Check,
   [switch]$DryRun,
+  [string[]]$Extra = @(),
   [string]$ToolkitRepo = (Join-Path $PSScriptRoot '..'),
   [string]$TripleRepo = (Join-Path $PSScriptRoot '../../dbce-triple-screen-toolkit')
 )
@@ -38,6 +43,16 @@ $newer = @('native/camera')
 $drop = '(^|/)(build|tests?|fixtures|tools)/|(^|/)(test[^/]*|[^/]*_test\.[^/]*|build_[^/]*|[^/]*-vectors\.txt|CMakeLists\.txt|\.git[^/]*|[^/]*\.cs)$'
 $vendor = Join-Path (Resolve-Path -LiteralPath $GameRepo).ProviderPath 'src/vendor'
 $versionFile = Join-Path $vendor 'VERSION'
+# Extra wheel-toolkit folders for this game: from -Extra, else from VERSION's "extra" line. A check never takes -Extra.
+if ($Check -or -not $Extra.Count) {
+  $Extra = @(if (Test-Path -LiteralPath $versionFile) {
+    Get-Content -LiteralPath $versionFile | Where-Object { $_ -like 'extra *' } | ForEach-Object { $_.Substring(6) -split ' ' } | Where-Object { $_ } })
+}
+$Extra = @($Extra | ForEach-Object { $_ -split '[,\s]+' } | Where-Object { $_ } | ForEach-Object { $_.Trim('/', '\').Replace('\', '/') } | Sort-Object -Unique)
+foreach ($e in $Extra) {
+  if ($e -notmatch '^[A-Za-z0-9_][A-Za-z0-9_./-]*$' -or $e -match '\.\.') { throw "-Extra '$e' is not a folder under native/" }
+  $sources[0].Folders["native/$e"] = $e
+}
 
 if ($Check) {  # take both commits from VERSION, never from the command line
   if (-not (Test-Path -LiteralPath $versionFile)) { throw "No $versionFile; run Sync-Native.ps1 without -Check first" }
@@ -68,6 +83,7 @@ try {
     }
     "$($s.Name) $sha"
   }
+  if ($Extra.Count) { $version = @($version) + "extra $($Extra -join ' ')" }
   [IO.File]::WriteAllText((Join-Path $stage 'VERSION'), (($version -join "`n") + "`n"))
 
   # Deltas between what the commits give and what src/vendor holds now.
