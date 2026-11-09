@@ -20,6 +20,7 @@ HWND g_hwnd;
 HHOOK g_hook;
 DWORD g_hookThread;
 bool g_wasOpen;
+bool g_shift;   // the Shift key is down (tracked from the hook's messages): Shift+Tab passes through
 
 struct InputTrace {
     bool enabled = false, open = false;
@@ -95,8 +96,10 @@ bool handle(MSG *m)
         if (vk == VK_F6) { if (down && !repeat) Toggle(); return true; }
         if (vk == VK_F8 && StopFfbAvailable()) { if (down && !repeat) StopFfbFromKey(); return true; }
         if (vk == VK_F7 && CompareAvailable()) { if (down && !repeat) CompareFromKey(); return true; }
+        if (vk == VK_SHIFT) g_shift = down;                         // tracked whenever seen, open or closed
         if (!open) return CameraKeyFromMessage(vk, down, repeat);   // the mod's camera keys, else the game's
         if (alt && (vk == VK_TAB || vk == VK_F4)) return false;     // leave window switching and closing alone
+        if (g_shift && vk == VK_TAB) return false;                  // Shift+Tab reaches the Steam overlay
         if (vk == VK_LWIN || vk == VK_RWIN) return false;
         if (vk == VK_ESCAPE) { if (down && !repeat && !CancelBindingCapture()) SetOpen(false); return true; }
         if (NavigateFromKey(vk, down, repeat)) return true;          // descriptor pages: the same path as the wheel
@@ -221,6 +224,7 @@ void DetachInput()
     g_hwnd = nullptr;
     g_head = g_count = 0;   // queued events belong to the window let go of
     g_wasOpen = false;      // the next open starts from fresh input state
+    g_shift = false;        // no carry-over of a Shift held while the window was let go of
     SetOpen(false);         // inside the lock: no handler admitted before this can reopen it after
     if (g_trace.enabled) { bump(g_trace.detached); traceOpen(false); }
     LeaveCriticalSection(&g_cs);

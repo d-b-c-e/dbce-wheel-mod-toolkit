@@ -243,6 +243,22 @@ int main()
     verify(dbce::panel::handle(&esc) && panelOpen && !captureWaiting, "Esc during a binding capture cancels it, the panel stays open");
     verify(dbce::panel::handle(&esc) && !panelOpen, "the next Esc closes the panel");
     panelOpen = true;
+    // Shift+Tab is the Steam overlay's hotkey: while the panel is open, the Tab of a Shift+Tab chord passes through
+    // (like Alt+Tab) so the overlay sees it; a bare Tab stays the panel's. The Shift key itself is tracked and consumed.
+    g_shift = false;
+    MSG sh{}; sh.hwnd = panelWindow; sh.message = WM_KEYDOWN; sh.wParam = VK_SHIFT;
+    verify(dbce::panel::handle(&sh) && g_shift, "Shift down while open is consumed and tracked");
+    MSG tab{}; tab.hwnd = panelWindow; tab.message = WM_KEYDOWN; tab.wParam = VK_TAB;
+    verify(!dbce::panel::handle(&tab) && g_shift, "the Tab of Shift+Tab passes through to the Steam overlay");
+    tab.message = WM_KEYUP;
+    verify(!dbce::panel::handle(&tab), "its release passes through too");
+    sh.message = WM_KEYUP;
+    verify(dbce::panel::handle(&sh) && !g_shift, "Shift up is consumed and clears the track");
+    tab.message = WM_KEYDOWN;
+    verify(dbce::panel::handle(&tab), "a bare Tab (no Shift) stays the panel's");
+    tab.message = WM_KEYUP;
+    verify(dbce::panel::handle(&tab), "its release too");
+    panelOpen = true;
     panelOpen = false; cameraKeySet = false; cameraKeyConsumes = false;
     DetachInput();
     attachFails = true;
