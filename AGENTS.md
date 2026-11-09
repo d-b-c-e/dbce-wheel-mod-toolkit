@@ -26,6 +26,8 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 - Native dinput8-proxy games use `tools\Sync-Native.ps1 -GameRepo <game> [-Commit <wheel>] [-TripleCommit <triple>]` instead: it copies a fixed folder list (no tests) into `src/vendor` with a two-line `VERSION`. `-Check` exits 1 when any vendored file differs from those commits; `-DryRun` lists the deltas. `-Extra forcemodel,shim,wheelffb` adds more `native/` folders for a game that needs them; VERSION records them on an `extra` line.
 - Which game uses which version and which shared pieces: `E:\Source\dbce-project-mgmt\tools\Get-Adoption.ps1` (the hub) reads it from the game repos.
 
+- **A new native game:** `tools\New-GameMod.ps1 -Id <id> -Name <name> -Exe <exe>` creates a repo that builds and passes its start check, on `native/dinput-proxy/dbce_proxy_core.hpp` (start-up, log, test switches, vtable hooks, wheel presentation, exports). `tools\tests\Test-NewGameMod.ps1` keeps it building. Existing native games still carry their own copies of that code; they move onto the core one at a time (hub queue, AD-5).
+
 ## Changing it safely
 - This repo is public; lanes commit and push here (owner, 2026-11-06). The branch is `master`: `git pull --rebase` before pushing.
 - Small commits; `git pull --rebase` first; run the affected tests and keep consumers building.

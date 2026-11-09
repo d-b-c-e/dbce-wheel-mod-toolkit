@@ -34,7 +34,7 @@ Script 'native\panel\build_test.ps1'
 Script 'native\ui-host\build.ps1'
 Script 'native\selftest\build_test.ps1'
 foreach ($t in 'Test-DbceModFile', 'Test-DbceStore', 'Test-SelfTestSchema', 'Test-SyncToolkit', 'Test-SyncNative', 'Test-NativeBinding',
-               'Test-UnityConsumer', 'Test-ModPackage', 'Test-SetupWheelkit') { Script "tools\tests\$t.ps1" }
+               'Test-UnityConsumer', 'Test-ModPackage', 'Test-SetupWheelkit', 'Test-NewGameMod') { Script "tools\tests\$t.ps1" }
 Script 'tools\powershell\Test-DbceWheel.ps1'
 
 if ($failed.Count) { throw "$($failed.Count) step(s) failed: $($failed -join ', ')" }

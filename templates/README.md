@@ -1,5 +1,18 @@
 # Templates — starting points for a new game
 
+## A native game: one command (2026-11-09)
+
+```powershell
+pwsh tools\New-GameMod.ps1 -Id <id> -Name '<Game name>' -Exe <Game.exe> -SteamAppId <id> -Folder '<steamapps folder>'
+```
+
+It creates `game-modding\dbce-mods-<id>` as a git repo with the toolkit vendored, a `dbce-mod.json`, an agent guide and one
+build command. `pwsh build.ps1` there builds `dinput8.dll` and passes its start check before you write a line: the mod
+loads under the game's exe name, logs, honours the force fence and shows the shared F6 panel. `native-dinput8-proxy/` holds
+that project; it is built on `native/dinput-proxy/dbce_proxy_core.hpp`, and `tools\tests\Test-NewGameMod.ps1` creates and
+builds one on every toolkit test run, so it cannot rot. What is left is the game's own: its hooks, F6 pages and cameras.
+
+The two Unity folders below are still documents, not projects; they get the same treatment with the Unity layer.
 Three shapes cover every consumer so far. Pick by how the game is built, not by
 what you want to add:
 
