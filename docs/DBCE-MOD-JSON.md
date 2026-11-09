@@ -27,8 +27,8 @@ names Wheelkit reads today.
 |---|---|---|---|
 | identity: `schema`, `id`, `name`, `version`, `steamAppId`, `folder`, `exe`, `repository`, `log` | game repo | everyone | `schema` is `dbce.mod@1`. `id` is the catalog and grid id. `log.start` is the regular expression for the mod's first log line, with group `v` for the version. |
 | capability flags: `gearboxFromProfile` | game repo | Wheelkit | Exactly `true` when the build reads the flag's setting. `gearboxFromProfile`: the mod sets the game's own gearbox from `[Controls] Transmission` (Game, Automatic, Sequential, H-pattern, H-pattern clutch) in its INI, so Wheelkit's Apply writes that key from the controls profile. Absent: Apply leaves the gearbox to the player. First used by DiRT 4 0.2.6. |
-| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, dbce-ui-exe, or game for a mod that still draws its own F6), `oldReceipts` (installer only, not in the dump: the game's earlier installer's `receipt` and `backups` folder, read once for migration). |
-| `settings` | game repo | F6 panel, `dbce-ui.exe --setup`, Wheelkit | The UI-1 block, unchanged (see `native/panel/dbce_panel_descriptor.h`), plus two optional fields: `format` (ini or xml) for `config`, and on each row a `role` and a `store`. |
+| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, or game for a mod that still draws its own F6), `oldReceipts` (installer only, not in the dump: the game's earlier installer's `receipt` and `backups` folder, read once for migration). |
+| `settings` | game repo | F6 panel, Wheelkit | The UI-1 block, unchanged (see `native/panel/dbce_panel_descriptor.h`), plus two optional fields: `format` (ini or xml) for `config`, and on each row a `role` and a `store`. |
 | `controls` | game repo | Wheelkit | `store` is `game` (the game's own controls menu) or the shared profile adapter id. Also `profile`, `settings`, `optIn` (section, key, value, default, appliesAfterRestart), `delivered` actions, `unsupported` (action to reason), `conditions` (actions, transmission, settingsKey, settingsValues, settingsDefault, note) and `gameControls` (id, kind, label, group). |
 | `cameras` | game repo | Wheelkit | STD-046 starting choices for triple screens: `camera` (cockpit, bonnet, bumper, chase, isometric), `start` (realistic or game), and where the choice lives (`file`, `section`, `key`), with the stored `realistic` and `game` values. |
 | `selfTest` | game repo | test scripts | The self-test contract (`04-cross-cutting.md` D.2): the `folder`, the `steps` this build runs, and the `probes` its state dump reports (id, type, label). The script, result and C++ interpreter are in `docs/SELFTEST.md`. No mod ships the self-test yet, so DiRT 4's fixture block is an example. |
@@ -105,33 +105,35 @@ Each line is `path=value`, in the order of `installer/DbceModFile.ps1` `Format-D
 
 ## The package and the installer (PKG-1)
 
-`tools\package\New-ModPackage.ps1 -Repo <game repo> [-Out <folder>] [-SetupTool <dbce-ui.exe>]` builds
-`<name> <version>.zip` (for example `DiRT 4 Wheel Mod 0.2.5.zip`) and a `.sha256` file beside it, in `<repo>\dist` by
-default. It refuses uncommitted tracked source, a `dbce-mod.json` that is not committed, fails the schema or has an
+`tools\package\New-ModPackage.ps1 -Repo <game repo> [-Out <folder>] [-WheelkitPackage <Wheelkit-<version>-win-x64.zip>]`
+builds `<name> <version>.zip` (for example `DiRT 4 Wheel Mod 0.2.5.zip`) and a `.sha256` file beside it, in `<repo>\dist`
+by default. It refuses uncommitted tracked source, a `dbce-mod.json` that is not committed, fails the schema or has an
 `installed` section, a missing payload file and an existing zip. Kinds handled so far: `dinput8`, without
-`knownBuilds`; the packager refuses the others until the installer handles them.
+`knownBuilds`; the packager refuses the others until the installer handles them. `-WheelkitPackage` names the Wheelkit
+offline installer the package bundles (defaults to the newest `Wheelkit-*-win-x64.zip` in the sibling dbce-wheelkit
+repo's artifacts folder).
 
 | In the zip | From |
 |---|---|
-| `Install.bat`, `Uninstall.bat`, `Setup.bat` (a mod with `settings`) | `installer\*.bat` |
-| `README.txt` | written from the mod file: install, settings, keys, undo, log, repository |
+| `Install.bat`, `Uninstall.bat` | `installer\*.bat` |
+| `README.txt` | written from the mod file: install, setup, keys, undo, log, repository |
 | `dbce-mod.json` | the repo's file, unchanged |
 | `release-manifest.json` | `schema` `dbce.release-manifest@1`, `id`, `name`, `version`, `commit` and the lower-case SHA-256 of every other file, all computed |
 | payload, optional and seed files | at their `from` path |
 | the loader bundle | `loader.bundle`, when set |
-| `dbce\Install.ps1`, `dbce\DbceModFile.ps1` | `installer\` |
-| `dbce\dbce-ui.exe` (a mod with `settings`) | `native\ui-exe\build\dbce-ui.exe` or `-SetupTool` |
-| `licenses\` | the repo's `LICENSE*`, `THIRD-PARTY-NOTICES*` and `licenses\`, the toolkit's LICENSE and, with the setup tool or a toolkit F6 panel (`uiHost` other than game), Dear ImGui's |
+| `dbce\Install.ps1`, `dbce\DbceModFile.ps1`, `dbce\DbceStore.ps1` | `installer\` |
+| `wheelkit\Wheelkit-<version>-win-x64.zip`, `wheelkit\Setup-Wheelkit.ps1` | `-WheelkitPackage` and `installer\Setup-Wheelkit.ps1` (CFG-3, STD-053) |
+| `licenses\` | the repo's `LICENSE*`, `THIRD-PARTY-NOTICES*` and `licenses\`, the toolkit's LICENSE and, with a toolkit F6 panel (`uiHost` other than game), Dear ImGui's |
 
-`dbce\Install.ps1` runs under Windows PowerShell 5.1 and PowerShell 7. `Install.bat`, `Uninstall.bat` and `Setup.bat`
-at the zip root call it.
+`dbce\Install.ps1` runs under Windows PowerShell 5.1 and PowerShell 7. `Install.bat` and `Uninstall.bat` at the zip root
+call it; `Install.bat` first runs `wheelkit\Setup-Wheelkit.ps1` to install or update the central Wheelkit, then
+`dbce\Install.ps1` to add the mod to it.
 
 | Argument | Meaning |
 |---|---|
 | `-GameDir <path>` | The game folder. Without it the installer finds the game in Steam's libraries from `steamAppId` (the app manifest's install folder) and `folder`, or asks when there are several. |
 | `-Uninstall` | Removes the files `installed.files` lists while their hashes still match, puts back the game files the mod replaced and deletes the backups. Files changed after the install, such as a setting the player changed, stay. |
 | `-Rollback` | Puts back the exact state before the last install from `installed.backups`: the previous install, or the game without the mod. |
-| `-Setup` | Opens `dbce\dbce-ui.exe --setup <game folder>\dbce-mod.json`, for settings with the game closed. |
 | `-Mode <Install\|Uninstall\|Rollback>` | The same three actions as one argument, so Wheelkit's `PackageScriptRunner` and `RepoScriptInstaller` call the installer unchanged. Combined with a switch, it must agree with the switch. |
 | `-PackageRoot <path>` | The unpacked package. It defaults to the folder above `dbce\`. |
 | `-Mode Apply [-StorePath <profiles.json>]` | Wheelkit runs it on Play, with the game closed (CFG-2). It reads the game's profile from the shared store (`docs/STORE.md`; `-StorePath` defaults to `%LOCALAPPDATA%\Wheelkit\store\profiles.json`) and, when the package has the game's `dbce\Apply.ps1` (the repo's `dbce\Apply.ps1`, shipped by `New-ModPackage`), writes the files it returns in one transaction: a hashtable of game-relative path (with `/`) to bytes, `$null` to delete. `Apply.ps1` gets `-GameDir`, `-Choice` (`Get-DbceStoreChoice`: `Profile`, `Screens`, `ScreensFrom`) and `-Mod`. It is the only place a game's boot-time files are written from a profile. The last line names the profile. |

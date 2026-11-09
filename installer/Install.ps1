@@ -1,5 +1,5 @@
 <# The shared installer engine (PKG-1; dbce-project-mgmt docs/architecture/2026-11/04-cross-cutting.md B.2 and B.6).
-   New-ModPackage.ps1 ships it as dbce\Install.ps1 in every mod package; Install.bat, Uninstall.bat and Setup.bat call it.
+   New-ModPackage.ps1 ships it as dbce\Install.ps1 in every mod package; Install.bat and Uninstall.bat call it.
    Runs in Windows PowerShell 5.1 and PowerShell 7. It reads the package's dbce-mod.json and release-manifest.json and
    writes the game folder's dbce-mod.json with the installed section (docs/DBCE-MOD-JSON.md). Kinds handled: dinput8.
 
@@ -20,7 +20,6 @@ param(
     [string]$GameDir = '',
     [switch]$Uninstall,
     [switch]$Rollback,
-    [switch]$Setup,
     [string]$Mode = '',
     [string]$PackageRoot = '',
     [string]$StorePath = ''
@@ -33,10 +32,9 @@ trap { Write-Host ''; Write-Host $_.Exception.Message -ForegroundColor Red; exit
 $action = 'Install'
 if ($Uninstall) { $action = 'Uninstall' }
 if ($Rollback) { if ($Uninstall) { throw 'Choose -Uninstall or -Rollback, not both. Nothing changed.' }; $action = 'Rollback' }
-if ($Setup) { if ($Uninstall -or $Rollback) { throw 'Choose one of -Setup, -Uninstall and -Rollback. Nothing changed.' }; $action = 'Setup' }
 if ($Mode) {
     if ($Mode -notin 'Install', 'Uninstall', 'Rollback', 'Apply') { throw "Unknown -Mode '$Mode'. Use Install, Uninstall, Rollback or Apply. Nothing changed." }
-    if (($Uninstall -or $Rollback -or $Setup) -and $Mode -ne $action) { throw "-Mode $Mode disagrees with -$action. Nothing changed." }
+    if (($Uninstall -or $Rollback) -and $Mode -ne $action) { throw "-Mode $Mode disagrees with -$action. Nothing changed." }
     $action = $Mode
 }
 if (-not $PackageRoot) { $PackageRoot = Split-Path -Parent $PSScriptRoot }
@@ -196,15 +194,6 @@ foreach ($o in $mod.Package.OldReceipts) {
 }
 function Is-Ours([string]$Rel, $Bytes) { $null -ne $Bytes -and $owned.ContainsKey($Rel.ToLowerInvariant()) -and (Hash $Bytes) -ceq $owned[$Rel.ToLowerInvariant()] }
 function Remove-Backups([string]$Path) { Assert-Unlinked $Path; if ([IO.Directory]::Exists($Path)) { [IO.Directory]::Delete($Path, $true) } }
-
-if ($action -eq 'Setup') {
-    $tool = Join-Path $PSScriptRoot 'dbce-ui.exe'
-    if (-not [IO.File]::Exists($tool)) { throw 'This package has no setup tool. Start the game and press F6 for the settings.' }
-    if ($null -eq $current) { throw "$($mod.Name) is not installed in $GameDir. Double-click Install.bat first." }
-    Start-Process -FilePath $tool -ArgumentList @('--setup', ('"' + $receiptPath + '"')) -WorkingDirectory $GameDir
-    Write-Host "The $($mod.Name) setup window is open. Close it when you are done."
-    return
-}
 
 if ($action -eq 'Apply') {
     if ($null -eq $current) { throw "$($mod.Name) is not installed in $GameDir. Install it first. Nothing changed." }

@@ -3,11 +3,12 @@
    Reads the committed dbce-mod.json at the game repo's root and writes "<name> <version>.zip" (name is the mod's
    product name, such as "DiRT 4 Wheel Mod") with a .sha256 file beside it, in <repo>\dist unless -Out says otherwise.
 
-   The zip holds, at the root: Install.bat, Uninstall.bat, Setup.bat (with a setup tool), README.txt, dbce-mod.json and
-   release-manifest.json (version, commit, SHA-256 of every other file, all computed here). Then the payload, optional
-   and seed files at their "from" paths (relative to the repo root here, and to the package root in the zip), the
-   loader bundle when there is one, dbce\Install.ps1 with its reader, dbce\dbce-ui.exe (the setup tool, for a mod with
-   settings) and licenses\ (the repo's LICENSE*, THIRD-PARTY-NOTICES* and licenses\ folder, plus the toolkit's).
+   The zip holds, at the root: Install.bat, Uninstall.bat, README.txt, dbce-mod.json and release-manifest.json
+   (version, commit, SHA-256 of every other file, all computed here). Then the payload, optional and seed files at
+   their "from" paths (relative to the repo root here, and to the package root in the zip), the loader bundle when
+   there is one, dbce\Install.ps1 with its readers, the Wheelkit offline installer (wheelkit\Wheelkit-<version>-win-x64.zip
+   and wheelkit\Setup-Wheelkit.ps1) and licenses\ (the repo's LICENSE*, THIRD-PARTY-NOTICES* and licenses\ folder, plus
+   the toolkit's).
 
    Refuses a repo with uncommitted tracked changes, a dbce-mod.json that is not committed, fails the schema or has an
    installed section, a missing payload file, a kind or knownBuilds the installer does not handle yet, and an
@@ -16,12 +17,21 @@
 param(
     [Parameter(Mandatory)][string]$Repo,
     [string]$Out = '',
-    # dbce-ui.exe for "Setup.bat"; defaults to the toolkit's native\ui-exe\build\dbce-ui.exe.
-    [string]$SetupTool = ''
+    # The Wheelkit offline installer the package bundles (Wheelkit-<version>-win-x64.zip). Defaults to the newest one in
+    # the sibling dbce-wheelkit repo's artifacts folder.
+    [string]$WheelkitPackage = ''
 )
 $ErrorActionPreference = 'Stop'
 $toolkit = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $installer = Join-Path $toolkit 'installer'
+# The newest Wheelkit release package in the sibling dbce-wheelkit repo's artifacts folder.
+function Find-WheelkitPackage {
+    $artifacts = Join-Path $toolkit '..\..\dbce-wheelkit\artifacts'
+    $zips = @(Get-ChildItem -LiteralPath $artifacts -Filter 'Wheelkit-*-win-x64.zip' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^Wheelkit-\d+\.\d+\.\d+-win-x64\.zip$' })
+    if (-not $zips.Count) { throw "No Wheelkit package in $artifacts; build Wheelkit (tools\Publish-Release.ps1) or pass -WheelkitPackage. Nothing packaged." }
+    ($zips | Sort-Object { [Version]([regex]::Match($_.Name, '^Wheelkit-(\d+\.\d+\.\d+)-win-x64\.zip$').Groups[1].Value) } | Select-Object -Last 1).FullName
+}
 . (Join-Path $installer 'DbceModFile.ps1')
 Set-StrictMode -Off
 
@@ -71,25 +81,24 @@ try {
     if ([IO.File]::Exists((Join-Path $Repo 'dbce\Apply.ps1'))) { Put (Join-Path $Repo 'dbce\Apply.ps1') 'dbce\Apply.ps1' }
     Put (Join-Path $installer 'Install.bat') 'Install.bat'
     Put (Join-Path $installer 'Uninstall.bat') 'Uninstall.bat'
+    # The Wheelkit offline installer (CFG-3, STD-053): every package installs or updates the central Wheelkit.
+    if (-not $WheelkitPackage) { $WheelkitPackage = Find-WheelkitPackage }
+    if (-not [IO.File]::Exists($WheelkitPackage)) { throw "The Wheelkit package $WheelkitPackage is missing; build Wheelkit (tools\Publish-Release.ps1) or pass -WheelkitPackage. Nothing packaged." }
+    if ([IO.Path]::GetFileName($WheelkitPackage) -notmatch '^Wheelkit-\d+\.\d+\.\d+-win-x64\.zip$') { throw "The Wheelkit package must be named Wheelkit-<version>-win-x64.zip, not $([IO.Path]::GetFileName($WheelkitPackage)). Nothing packaged." }
+    Put $WheelkitPackage ("wheelkit\" + [IO.Path]::GetFileName($WheelkitPackage))
+    Put (Join-Path $installer 'Setup-Wheelkit.ps1') 'wheelkit\Setup-Wheelkit.ps1'
     Put (Join-Path $toolkit 'LICENSE') 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt'
-    $hasSetup = $null -ne $mod.Settings
-    if ($hasSetup) {
-        if (-not $SetupTool) { $SetupTool = Join-Path $toolkit 'native\ui-exe\build\dbce-ui.exe' }
-        if (-not [IO.File]::Exists($SetupTool)) { throw "The setup tool $SetupTool is missing; run native\ui-exe\build.ps1 or pass -SetupTool. Nothing packaged." }
-        Put $SetupTool 'dbce\dbce-ui.exe'
-        Put (Join-Path $installer 'Setup.bat') 'Setup.bat'
-    }
-    # The setup tool and every toolkit F6 panel (uiHost other than game) compile in Dear ImGui.
-    if ($hasSetup -or $mod.Package.UiHost -ne 'game') { Put (Join-Path $toolkit 'native\third_party\imgui\LICENSE.txt') 'licenses\DearImGui-MIT.txt' }
+    # Every toolkit F6 panel (uiHost other than game) compiles in Dear ImGui.
+    if ($mod.Package.UiHost -ne 'game') { Put (Join-Path $toolkit 'native\third_party\imgui\LICENSE.txt') 'licenses\DearImGui-MIT.txt' }
     foreach ($f in Get-ChildItem -LiteralPath $Repo -File | Where-Object { $_.Name -like 'LICENSE*' -or $_.Name -like 'THIRD-PARTY-NOTICES*' }) { Put $f.FullName "licenses\$($f.Name)" }
     $licenses = Join-Path $Repo 'licenses'
     if ([IO.Directory]::Exists($licenses)) { foreach ($f in [IO.Directory]::GetFiles($licenses, '*', 'AllDirectories')) { Put $f (Join-Path 'licenses' ([IO.Path]::GetRelativePath($licenses, $f))) } }
 
     $game = if ($mod.Folder) { $mod.Folder } else { 'the game' }
     $readme = @("$($mod.Name) $($mod.Version)", '', 'Install', "  1. Close $game.",
-        '  2. Double-click Install.bat. It finds the game through Steam and adds the mod.',
+        '  2. Double-click Install.bat. It installs or updates Wheelkit, then adds the mod.',
         '     If it cannot find the game, it tells you how to point it at the game folder.', '')
-    if ($hasSetup) { $readme += @('Settings', '  In the game: press F6. With the game closed: double-click Setup.bat.', '') }
+    $readme += @('Setup', '  Wheelkit (installed with this package) holds your bindings, screens and profiles.', '  In the game, press F6 for the runtime settings.', '')
     if ($mod.Settings -and $mod.Settings.Keys) { $readme += @('Keys', "  $($mod.Settings.Keys)", '') }
     $readme += @('Undo', "  Close $game and double-click Uninstall.bat. The game's own files come back.",
         '  Settings you changed are kept.', '')

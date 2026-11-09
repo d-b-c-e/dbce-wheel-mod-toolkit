@@ -62,12 +62,9 @@ Set `Config::descriptor` and the panel draws the standard pages itself instead o
 - **Dev channel:** `open <page> [more]` takes a page id or name (`open telemetry more`).
 - The descriptor (and its strings) must outlive the panel. A mod that reads one also compiles
   `dbce_panel_descriptor.cpp`; the hand-drawn pages need nothing new.
-- **Game-closed setup (UI-3):** the settings block's optional `config` names the ini that `dbce-ui.exe --setup`
-  writes (`native/ui-exe`). `Config::gameFrames = false` (that exe) leaves the frame-rate status and Show frame rate
-  out of Display; every in-game host keeps the default.
 
 No game uses descriptor pages yet; the spike (UI-4 onward) moves art and GRID onto them. Non-native mods get the same
-panel through `native/ui-host` (`dbce_ui.dll`); game-closed setup draws it in `native/ui-exe` (`dbce-ui.exe`).
+panel through `native/ui-host` (`dbce_ui.dll`).
 
 ## Using it in a mod
 

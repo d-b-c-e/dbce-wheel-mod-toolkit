@@ -5,6 +5,14 @@
   report's changelog guess and `-All`, the unused menu-edge header, the release check runner, and the review, plan,
   release and setup-guide docs from before STD-053. `TripleLayout` now frames triples with the STD-047 eye distance.
 
+- Every mod package installs or updates the central Wheelkit (CFG-3S, 2026-11-08; STD-053). `New-ModPackage.ps1`
+  bundles the Wheelkit offline installer (`wheelkit\Wheelkit-<version>-win-x64.zip` plus `wheelkit\Setup-Wheelkit.ps1`);
+  `Install.bat` runs the setup first, which installs `%LOCALAPPDATA%\Programs\Wheelkit` when it is missing, updates it
+  when the bundled package is newer and leaves it alone when it is already as new, then installs the mod. The old
+  per-game setup exe is gone: `native/ui-exe` (`dbce-ui.exe`), `installer/Setup.bat`, the `-Setup` mode of
+  `installer/Install.ps1`, `-SetupTool` in the packager, the panel's `Config::gameFrames` and the `dbce-ui-exe` value in
+  `schema/dbce-mod.schema.json` are deleted. `tools/tests/Test-SetupWheelkit.ps1` covers missing, older and equal.
+
 - The in-mod self-test, C++ half (ST-1, 2026-11-07; `docs/SELFTEST.md`). `schema/dbce-selftest.schema.json` and
   `schema/dbce-selftest-result.schema.json` define the dbce.selftest@1 script and `result.json`. Fixture scripts and
   their expected results are in `schema/fixtures/selftest`. `native/selftest/dbce_selftest.hpp` runs a script through
@@ -21,12 +29,12 @@
 
 - One player packager and one installer engine (PKG-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`, "The package and the
   installer"). `tools/package/New-ModPackage.ps1 -Repo <game repo>` builds `<name> <version>.zip` from the committed
-  `dbce-mod.json`: Install.bat, Uninstall.bat, Setup.bat, README.txt, the payload, the loader bundle, `dbce\dbce-ui.exe`
-  as the setup tool, licenses and `release-manifest.json` with computed SHA-256 values. `installer/Install.ps1`, shipped
-  as `dbce\Install.ps1`, does the B.2 steps for the dinput8 kind in PowerShell 5.1 and 7 and writes the `installed`
-  section. `tools/tests/Test-ModPackage.ps1` checks install, reinstall, uninstall, rollback, a foreign dinput8.dll,
-  links, a changed package and a failed write byte for byte on a fixture game folder. No game uses it yet; DiRT 4 is
-  first (PKG-2).
+  `dbce-mod.json`: Install.bat, Uninstall.bat, README.txt, the payload, the loader bundle, the Wheelkit offline
+  installer (`wheelkit\`), licenses and `release-manifest.json` with computed SHA-256 values. `installer/Install.ps1`,
+  shipped as `dbce\Install.ps1`, does the B.2 steps for the dinput8 kind in PowerShell 5.1 and 7 and writes the
+  `installed` section. `tools/tests/Test-ModPackage.ps1` checks install, reinstall, uninstall, rollback, a foreign
+  dinput8.dll, links, a changed package and a failed write byte for byte on a fixture game folder. No game uses it yet;
+  DiRT 4 is first (PKG-2).
 
 - `dbce-mod.json` (XC-1, 2026-11-07; `docs/DBCE-MOD-JSON.md`): one per-mod file for Wheelkit, the installer and F6.
   `schema/dbce-mod.schema.json` covers identity and the log start line, package, settings (the UI-1 block plus a

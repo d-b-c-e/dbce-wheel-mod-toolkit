@@ -51,6 +51,7 @@ dotnet test Dbce.Wheel.sln
 .\tools\tests\Test-SyncToolkit.ps1
 .\tools\tests\Test-SyncNative.ps1
 .\tools\tests\Test-ModPackage.ps1
+.\tools\tests\Test-SetupWheelkit.ps1
 ```
 
 `AGENTS.md` lists every suite. `native\wheelffb\test\build_smoke.bat x86` walks the C ABI against a real wheel and

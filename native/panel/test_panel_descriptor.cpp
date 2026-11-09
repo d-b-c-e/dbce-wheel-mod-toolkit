@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     CHECK(grid.product == "GRID (2019) Wheel Mod" && grid.version == "0.2.26");
     CHECK(grid.keys == "F6 settings \xC2\xB7 F8 force feedback off \xC2\xB7 F7 camera view");
     CHECK(grid.config.empty());
-    {   // "config" names the ini dbce-ui.exe --setup writes (UI-3); optional, and a string.
+    {   // "config" names the mod's settings ini (UI-3); optional, and a string.
         const char ok[] = "{\"settings\":{\"product\":\"T\",\"config\":\"dbce-t.ini\",\"pages\":{}}}";
         Descriptor c;
         std::string e;

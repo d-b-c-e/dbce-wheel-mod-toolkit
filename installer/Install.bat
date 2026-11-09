@@ -7,6 +7,15 @@ if not exist "%~dp0dbce\Install.ps1" (
     pause
     exit /b 1
 )
+REM First install or update the central Wheelkit from the bundled offline installer, then add this mod to it.
+if exist "%~dp0wheelkit\Setup-Wheelkit.ps1" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0wheelkit\Setup-Wheelkit.ps1"
+    if errorlevel 1 (
+        echo.
+        pause
+        exit /b 1
+    )
+)
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0dbce\Install.ps1" %*
 set "result=%errorlevel%"
 echo.

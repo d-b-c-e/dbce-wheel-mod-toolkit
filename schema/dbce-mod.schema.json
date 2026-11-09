@@ -62,7 +62,7 @@
           }
         },
         "strict": { "type": "boolean" },
-        "uiHost": { "enum": ["native-panel", "dbce-ui-dll", "dbce-ui-exe", "game"] },
+        "uiHost": { "enum": ["native-panel", "dbce-ui-dll", "game"] },
         "oldReceipts": {
           "type": "array",
           "description": "Receipts of the game's installer before the shared one ({file, sha256}), read once for migration",

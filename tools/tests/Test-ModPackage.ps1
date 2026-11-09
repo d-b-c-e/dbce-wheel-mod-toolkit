@@ -65,15 +65,20 @@ try {
     Invoke-Git add -A; Invoke-Git commit -q -m v1
     $head1 = (& git -C $repo rev-parse HEAD).Trim()
 
-    $setupTool = Join-Path $work 'dbce-ui.exe'; Write-Bytes $setupTool 'fixture setup tool'
+    # The bundled Wheelkit offline installer (CFG-3): a real zip holding a Wheelkit.exe, named Wheelkit-<v>-win-x64.zip.
+    $wheelkitSrc = Join-Path $work 'wheelkit-src'; Write-Bytes (Join-Path $wheelkitSrc 'Wheelkit.exe') 'fixture wheelkit exe'
+    $wheelkitPackage = Join-Path $work 'Wheelkit-1.0.0-win-x64.zip'
+    if ([IO.File]::Exists($wheelkitPackage)) { [IO.File]::Delete($wheelkitPackage) }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($wheelkitSrc, $wheelkitPackage)
     $dist = Join-Path $work 'dist'
-    & $packager -Repo $repo -Out $dist -SetupTool $setupTool | Out-Null
+    & $packager -Repo $repo -Out $dist -WheelkitPackage $wheelkitPackage | Out-Null
     $zip1 = Join-Path $dist 'Fixture Game Wheel Mod 1.0.0.zip'
     Check ([IO.File]::Exists($zip1)) 'the zip is named "<name> <version>.zip"'
     Check ((Get-Content -LiteralPath "$zip1.sha256" -Raw).StartsWith((Sha $zip1) + '  ')) 'the .sha256 beside the zip matches it'
     $pkg1 = Join-Path $work 'pkg1'; Expand-Archive -LiteralPath $zip1 -DestinationPath $pkg1
-    foreach ($f in 'Install.bat', 'Uninstall.bat', 'Setup.bat', 'README.txt', 'dbce-mod.json', 'release-manifest.json', 'dbce\Install.ps1', 'dbce\DbceModFile.ps1',
-        'dbce\DbceStore.ps1', 'dbce\Apply.ps1', 'dbce\dbce-ui.exe', 'build\dinput8.dll', 'build\dbce\fixture-data.bin', 'config\dbce-fixture.ini', 'licenses\LICENSE', 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt', 'licenses\DearImGui-MIT.txt') {
+    foreach ($f in 'Install.bat', 'Uninstall.bat', 'README.txt', 'dbce-mod.json', 'release-manifest.json', 'dbce\Install.ps1', 'dbce\DbceModFile.ps1',
+        'dbce\DbceStore.ps1', 'dbce\Apply.ps1', 'wheelkit\Wheelkit-1.0.0-win-x64.zip', 'wheelkit\Setup-Wheelkit.ps1', 'build\dinput8.dll', 'build\dbce\fixture-data.bin', 'config\dbce-fixture.ini', 'licenses\LICENSE', 'licenses\dbce-wheel-mod-toolkit-LICENSE.txt', 'licenses\DearImGui-MIT.txt') {
         Check ([IO.File]::Exists((Join-Path $pkg1 $f))) "the zip holds $f"
     }
     $manifest = Get-Content -LiteralPath (Join-Path $pkg1 'release-manifest.json') -Raw | ConvertFrom-Json
@@ -84,9 +89,9 @@ try {
     Check ((Get-Content -LiteralPath (Join-Path $pkg1 'dbce-mod.json') -Raw) -ceq (Get-Content -LiteralPath (Join-Path $repo 'dbce-mod.json') -Raw)) 'the zip ships the committed dbce-mod.json unchanged'
 
     $refused = { param($block) try { & $block | Out-Null; $false } catch { $true } }
-    Check (& $refused { & $packager -Repo $repo -Out $dist -SetupTool $setupTool }) 'the packager refuses an existing zip'
+    Check (& $refused { & $packager -Repo $repo -Out $dist -WheelkitPackage $wheelkitPackage }) 'the packager refuses an existing zip'
     Write-Bytes (Join-Path $repo 'LICENSE') 'edited'
-    Check (& $refused { & $packager -Repo $repo -Out (Join-Path $work 'dist-dirty') -SetupTool $setupTool }) 'the packager refuses uncommitted source'
+    Check (& $refused { & $packager -Repo $repo -Out (Join-Path $work 'dist-dirty') -WheelkitPackage $wheelkitPackage }) 'the packager refuses uncommitted source'
     Invoke-Git checkout -q -- LICENSE
 
     # The fixture game folder.
@@ -131,7 +136,7 @@ try {
     $s1 = Snapshot $game
     Set-Build '1.1.0' 'fixture proxy dll 1.1.0'
     Invoke-Git add -A; Invoke-Git commit -q -m v2
-    & $packager -Repo $repo -Out $dist -SetupTool $setupTool | Out-Null
+    & $packager -Repo $repo -Out $dist -WheelkitPackage $wheelkitPackage | Out-Null
     $pkg2 = Join-Path $work 'pkg2'; Expand-Archive -LiteralPath (Join-Path $dist 'Fixture Game Wheel Mod 1.1.0.zip') -DestinationPath $pkg2
     $r = Invoke-Installer $pkg2 @('-GameDir', $game)
     Check ($r.Code -eq 0 -and (Sha (Join-Path $game 'dinput8.dll')) -eq (Sha (Join-Path $repo 'build\dinput8.dll'))) 'installing 1.1.0 over 1.0.0 replaces the payload'
