@@ -26,7 +26,7 @@ $toolkit = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $installer = Join-Path $toolkit 'installer'
 # The newest Wheelkit release package in the sibling dbce-wheelkit repo's artifacts folder.
 function Find-WheelkitPackage {
-    $artifacts = Join-Path $toolkit '..\..\dbce-wheelkit\artifacts'
+    $artifacts = Join-Path $toolkit '..\dbce-wheelkit\artifacts'
     $zips = @(Get-ChildItem -LiteralPath $artifacts -Filter 'Wheelkit-*-win-x64.zip' -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -match '^Wheelkit-\d+\.\d+\.\d+-win-x64\.zip$' })
     if (-not $zips.Count) { throw "No Wheelkit package in $artifacts; build Wheelkit (tools\Publish-Release.ps1) or pass -WheelkitPackage. Nothing packaged." }
