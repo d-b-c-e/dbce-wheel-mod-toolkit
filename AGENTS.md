@@ -28,6 +28,8 @@ Shared core for mods that add force feedback, telemetry and wheel support to rac
 
 - **A new native game:** `tools\New-GameMod.ps1 -Id <id> -Name <name> -Exe <exe>` creates a repo that builds and passes its start check, on `native/dinput-proxy/dbce_proxy_core.hpp` (start-up, log, test switches, vtable hooks, wheel presentation, exports). `tools\tests\Test-NewGameMod.ps1` keeps it building. Existing native games still carry their own copies of that code; they move onto the core one at a time (hub queue, AD-5).
 
+- **Registry state around a game run:** dot-source `tools\powershell\RegistryState.ps1` and use `Save-RegistryState`, `Restore-RegistryState` and `Compare-RegistryState`. They copy every value as raw bytes through the Win32 API. Never use `reg export` with `reg delete` and `reg import` for this: the export silently loses values, which wiped the owner's DRIVE bindings on 2026-10-07.
+
 ## Changing it safely
 - This repo is public; lanes commit and push here (owner, 2026-11-06). The branch is `master`: `git pull --rebase` before pushing.
 - Small commits; `git pull --rebase` first; run the affected tests and keep consumers building.
