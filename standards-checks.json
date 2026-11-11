@@ -1,0 +1,149 @@
+{
+  "about": "One entry per STD id in STANDARDS.md. A standard is a rule only if something checks it (HOW-WE-WORK.md, Maturity). status: checked (a mechanical per-game-repo test below), advice (cannot be checked by a script; say why), superseded (name the replacement). Run: pwsh tools/Test-Standards.ps1 [-Repo <game>]. tools/tests/Test-StandardsIndex.ps1 (in build.ps1) fails when STANDARDS.md and this file disagree, so a new standard cannot land without deciding its check.",
+  "checkKinds": {
+    "forbid": "{pattern, files, why[, ignoreCase]}: no tracked own-source file whose path matches `files` (a regex) may contain `pattern`. Own source = not vendored (same list as the hub's Get-Adoption.ps1), not a test, not under docs/, not Markdown.",
+    "require": "{pattern, files, why[, ignoreCase]}: at least one tracked file (vendored included, tests and docs excluded) whose path matches `files` must contain `pattern`.",
+    "file": "{path, why}: the tracked file must exist at the repo root path.",
+    "script": "{path}: an existing test already enforces it. Listed, not run. `hub:` prefix = relative to E:\\Source\\dbce-project-mgmt, otherwise relative to this toolkit."
+  },
+  "appliesToValues": "all | native | unreal | unity | web (families in the hub's tools/maturity.json) | triples (the repo has an own-source file named Triple*). A check may be one object or an array of objects. `exempt` maps a game name to the reason it is excused.",
+  "standards": {
+    "STD-001": { "title": "One mod per game", "status": "advice", "why": "repo and package layout; the one-package part is checked under STD-040" },
+    "STD-002": { "title": "Recording and playback from launch", "status": "superseded", "supersededBy": "STD-012" },
+    "STD-003": { "title": "Normalized FFB strength", "status": "advice", "why": "force feel at 50 percent, owner check" },
+    "STD-004": { "title": "Consistent settings UX", "status": "advice", "why": "panel shape and page names are judged against the shared panel; presence of F6 is checked under STD-030" },
+    "STD-005": { "title": "Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5", "status": "advice", "why": "default key tables differ per engine and need a game run; the +/- direction was superseded by STD-048" },
+    "STD-006": { "title": "Camera step sizes are settings", "status": "advice", "why": "defaults and UI placement, judged in the game" },
+    "STD-007": { "title": "Triple screens in one wide window", "status": "advice", "why": "projection and window layout need the rig" },
+    "STD-008": {
+      "title": "Display changes: let the game apply them once",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "forbid", "pattern": "(?<![A-Za-z_])ChangeDisplaySettings(Ex)?[AW]?\\s*\\(", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "why": "monitor and mode changes go only through the MonitorProfileSwitcher CLI; a mod must not call the OS display-mode API itself (hooking the game's own calls is fine)" }
+    },
+    "STD-009": { "title": "Dashboard telemetry matches the HUD", "status": "advice", "why": "compares against what the game shows, owner or capture check" },
+    "STD-010": { "title": "Install the latest build for testing", "status": "advice", "why": "what is installed on the rig is machine state, not repo source" },
+    "STD-011": { "title": "Work lands on main", "status": "checked", "appliesTo": ["all"], "check": { "kind": "script", "path": "hub:tools/Get-BranchDrift.ps1" } },
+    "STD-012": { "title": "Reproduce the route and preserve original signals", "status": "superseded", "supersededBy": "STD-050" },
+    "STD-013": { "title": "The installed build launches plainly", "status": "checked", "appliesTo": ["all"], "check": { "kind": "script", "path": "hub:tools/Test-Installed.ps1" } },
+    "STD-014": { "title": "Request reciprocal review when progress stalls", "status": "superseded", "supersededBy": "HOW-WE-WORK.md (2026-11-06 reset: no reviewer agents)" },
+    "STD-015": { "title": "Triples on Surround and on separate monitors", "status": "advice", "why": "both topologies must be verified at the rig; the selector wording is checked under STD-022" },
+    "STD-016": { "title": "Telemetry: Forza Horizon layout, on by default", "status": "advice", "why": "other layouts are allowed where a game's receiver needs them and the repo documents it, which a pattern cannot tell" },
+    "STD-017": { "title": "Hide settings pages that have nothing to offer", "status": "advice", "why": "page visibility is runtime behaviour of the panel" },
+    "STD-018": { "title": "Handling changes never reach online scores", "status": "advice", "why": "needs the game's upload path and a per-game test" },
+    "STD-019": { "title": "Menus on the centre screen; side screens only in gameplay", "status": "advice", "why": "screen layout, needs the rig" },
+    "STD-020": { "title": "Standard feature checklist per game", "status": "advice", "why": "tracked in the portfolio grid, not in game source" },
+    "STD-021": { "title": "art of rally is the FFB reference", "status": "advice", "why": "force feel, owner check at the rig" },
+    "STD-022": {
+      "title": "One triple-screen selector: Off, Surround, Separate monitors",
+      "status": "checked",
+      "appliesTo": ["triples"],
+      "check": { "kind": "require", "pattern": "Separate monitors", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "the selector's third label appears in the game's source; weak (presence only) but catches a game still on the old labels" }
+    },
+    "STD-023": {
+      "title": "Frame-rate readout in the settings panel and the log",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "require", "pattern": "1\\s?% ?low|OnePercentLow|PercentLow", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "the 1% low statistic exists in the game's source or its vendored panel" }
+    },
+    "STD-024": {
+      "title": "Optional on-screen frame-rate counter",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "require", "pattern": "Show frame rate on screen", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "the setting's player-facing label exists" }
+    },
+    "STD-025": { "title": "One force model for every tyre game, in the toolkit", "status": "advice", "why": "which games have tyre physics, and whether an adapter is faithful, is a judgement" },
+    "STD-026": {
+      "title": "One force model for players: no model choice, no other-mod names",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "exempt": { "art-of-rally": "its own name is the game's name" },
+      "check": [
+        { "kind": "forbid", "pattern": "^(?!.*(\\blog\\w*[.(]|Logger|dlog|logf|ModLog|AppendLine|\\bAdd\\()).*\\b(Bind|Toggle|Switch|Checkbox|Choice|Slider|Percent|Command|Button|Label|Help|Info|Heading|Section|Tooltip|Hint)\\w*\\(.*\"[^\"\\r\\n]*art of rally", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "player-facing text (config descriptions, F6 labels and help) does not name art of rally; log lines may" },
+        { "kind": "forbid", "pattern": "^(?!.*(\\blog\\w*[.(]|Logger|dlog|logf|ModLog|AppendLine|\\bAdd\\()).*\\b(Choice|Combo|Radio|Dropdown|Option)\\w*\\(.*\"[^\"\\r\\n]*\\b(Classic|Grip)\\b", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "why": "the FFB page has no Classic/Grip force-model selector" }
+      ]
+    },
+    "STD-027": {
+      "title": "Independent steering and effect strengths",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "require", "pattern": "Steering strength", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "the Steering strength control exists by that label; whether it scales only steering is a unit test" }
+    },
+    "STD-028": { "title": "Complete raw registry preservation for game tests", "status": "checked", "appliesTo": ["all"], "check": { "kind": "script", "path": "tools/tests/Test-RegistryState.ps1" } },
+    "STD-029": { "title": "New functionality ships installed and turned on", "status": "advice", "why": "installed state on the rig, not repo source" },
+    "STD-030": {
+      "title": "The F6 panel comes first",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "require", "pattern": "\\bF6\\b|VK_F6|KeyCode\\.F6|Key\\.F6", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "why": "the F6 key is wired somewhere in the game's source or its vendored panel" }
+    },
+    "STD-031": { "title": "art of rally's reference level: today's 30% is the new 50%", "status": "advice", "why": "force feel, owner check; applies to art of rally only" },
+    "STD-032": { "title": "Wheelkit reads the portfolio's own records; keep them in step", "status": "advice", "why": "start-line and receipt shapes differ per engine; Wheelkit's catalog build is the real test" },
+    "STD-033": { "title": "Rig profile controls reach the game, and a test proves it", "status": "checked", "appliesTo": ["all"], "check": { "kind": "script", "path": "native/controls/build_test.ps1" } },
+    "STD-034": { "title": "A rig profile Apply is qualified by a closed loop, not by a file", "status": "advice", "why": "a live run at the rig" },
+    "STD-035": { "title": "Profile-controls writers and test injection: identity, provenance and failure rules", "status": "advice", "why": "writer behaviour is tested in Wheelkit and per game with fakes, not by a source pattern" },
+    "STD-036": { "title": "Every profile binding reaches the game from its own device", "status": "advice", "why": "per-game state in CONTROLS-COVERAGE.md; needs a live run" },
+    "STD-037": { "title": "Measured axis endpoints are controls schema 2, opted into end to end", "status": "checked", "appliesTo": ["all"], "check": { "kind": "script", "path": "native/controls/build_test.ps1" } },
+    "STD-038": {
+      "title": "The game window lands on the racing row",
+      "status": "checked",
+      "appliesTo": ["unity"],
+      "check": { "kind": "require", "pattern": "WindowLanding|RacingRow", "files": "\\.(cs)$", "why": "the shared window-landing policy is present in a Unity mod" }
+    },
+    "STD-039": {
+      "title": "Wheel input reaches the game's own steering directly, not through a virtual controller",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "forbid", "pattern": "Nefarius\\.ViGEm|ViGEmClient|IXbox360Controller|vJoyInterface|vJoyWrap|XOutputRedux", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts|csproj|cmake)$|CMakeLists\\.txt$", "why": "no virtual-controller library is referenced (a skip-list of virtual pads is fine)" }
+    },
+    "STD-040": {
+      "title": "One simple download per game, for non-technical players",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": [
+        { "kind": "file", "path": "dbce-mod.json", "why": "the package descriptor the shared packager reads: one package per game" },
+        { "kind": "forbid", "pattern": "^(?!.*(\\blog\\w*[.(]|Logger|dlog|logf|ModLog|AppendLine|\\bAdd\\()).*\\b(Bind|Toggle|Switch|Checkbox|Choice|Slider|Percent|Command|Button|Label|Help|Info|Heading|Section|Tooltip|Hint)\\w*\\(.*\"[^\"\\r\\n]*(?<![.\\w])(colour\\w*|cent(re|ring|red)\\b(?!-)|behaviour\\w*|favourite\\w*|metres?\\b|tyres?\\b|grey\\b|licence\\b|customis\\w*|normalis\\w*|recognis\\w*|initialis\\w*|optimis\\w*|cancelled\\b)", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "player-facing text is plain American English (HOW-WE-WORK.md, Product UI); British spellings in labels, help and config descriptions are forbidden. Log lines are not checked" }
+      ]
+    },
+    "STD-041": { "title": "Triple framing: always corrected; Game or Realistic per mounted camera", "status": "advice", "why": "projection quality, needs the rig; refined by STD-046" },
+    "STD-042": { "title": "Every camera's view is adjustable, remembered and named on screen", "status": "advice", "why": "runtime camera behaviour, needs a game run" },
+    "STD-043": {
+      "title": "Hotkeys wait only for their own keys; a held H-pattern gate wins",
+      "status": "checked",
+      "appliesTo": ["unity"],
+      "check": { "kind": "forbid", "pattern": "^(?!\\s*//).*\\bInput\\.anyKey\\b", "files": "\\.cs$", "why": "Input.anyKey counts joystick buttons, so an H-pattern gate in gear blocks hotkeys forever. A hit may be a non-hotkey use: read the line" }
+    },
+    "STD-044": { "title": "A write changes only what it owns, and keeps the file's bytes", "status": "advice", "why": "element-level, atomic, byte-preserving writes need a unit test per writer; a CRLF Replace pattern was tried and only matched read-side splitting" },
+    "STD-045": {
+      "title": "Force feedback is On by default; My Rig decides and Apply writes it",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "require", "pattern": "stays off until", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "the on-screen message when force is turned off ('It stays off until you turn it on in F6 > FFB') exists; the default itself is a settings default, advice" }
+    },
+    "STD-046": { "title": "Triple cameras: a starting choice per camera, tweaks as offsets", "status": "advice", "why": "calibrated starting values re-checked on the rig per game" },
+    "STD-047": {
+      "title": "One borderless window across all screens; eye distance to the panel-edge plane",
+      "status": "checked",
+      "appliesTo": ["triples"],
+      "check": [
+        { "kind": "forbid", "pattern": "eye\\w*\\s*-=?\\s*[\\w.()]*sagitta", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "never subtract the curve's sagitta from the eye distance" },
+        { "kind": "forbid", "pattern": "SeparateDisplayRenderDriver|displays\\[[^\\]]*\\]\\.Activate\\(", "files": "\\.cs$", "why": "separate per-display game windows are dropped, with no fallback" }
+      ]
+    },
+    "STD-048": { "title": "Numpad + zooms in, - zooms out", "status": "advice", "why": "default key table, needs a game run" },
+    "STD-049": { "title": "Cab-over vehicles: the bonnet camera sits on the roof front edge", "status": "advice", "why": "camera placement on specific vehicles" },
+    "STD-050": {
+      "title": "Recording and playback are developer tools, not player features",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "forbid", "pattern": "\"(REC\\s{1,3}|Saving recording|Start recording|Stop recording|Start playback|Stop playback|Record a (session|drive))", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts)$", "ignoreCase": true, "why": "no recording or playback control or status text in player-facing source" }
+    },
+    "STD-051": {
+      "title": "Virtual-controller routes are removed",
+      "status": "checked",
+      "appliesTo": ["all"],
+      "check": { "kind": "forbid", "pattern": "Nefarius|ViGEm(Client|Bus)|IXbox360Controller|IDualShock4Controller|XOutputRedux|vjoyinterface", "files": "\\.(cs|cpp|h|hpp|c|lua|js|ts|csproj|cmake|ps1)$|CMakeLists\\.txt$", "ignoreCase": true, "why": "no ViGEm or XOutputRedux reference in own source or build files" }
+    },
+    "STD-053": { "title": "Wheelkit comes with every mod; one shared store; F6 is runtime only", "status": "advice", "why": "the bundled installer is the shared packager's job (New-ModPackage.ps1, see STD-040); 'F6 has runtime settings only' is panel content judged against the shared panel" }
+  }
+}
