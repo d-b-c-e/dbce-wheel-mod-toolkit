@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Compile check for the Unity IMGUI renderers in shared/ui/unity (F6Widgets, the session status HUDs, RectBindingPanel
-    and FrameRateReadout) against Unity's managed modules (UnityEngine.Modules 2021.3), as a Unity Mono game compiles them.
-    Nothing ships from here: games compile these sources inside their own plugin.
+    Compile check for the Unity sources games compile inside their own plugin, against Unity's managed modules
+    (UnityEngine.Modules 2021.3), as a Unity Mono game compiles them: the IMGUI renderers in shared/ui/unity (F6Widgets,
+    the session status HUDs, RectBindingPanel and FrameRateReadout) and the racing-row game window in
+    shared/display/unity (span window, window landing host, menu centering) with the engine-free display sources it
+    needs. Nothing ships from here.
   -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -17,6 +19,8 @@
 
   <ItemGroup>
     <Compile Include="../../shared/ui/unity/*.cs" LinkBase="ui/unity" />
+    <Compile Include="../../shared/display/unity/*.cs" LinkBase="display/unity" />
+    <Compile Include="../../shared/display/RacingRow.cs;../../shared/display/WindowsMonitors.cs;../../shared/display/WindowLanding.cs;../../shared/display/RacingWindowLanding.cs" LinkBase="display" />
   </ItemGroup>
 
   <ItemGroup>
