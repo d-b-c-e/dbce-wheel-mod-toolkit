@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compile check for the Unity IMGUI renderers in shared/ui/unity (F6Widgets, the session status HUDs, RectBindingPanel
+    and FrameRateReadout) against Unity's managed modules (UnityEngine.Modules 2021.3), as a Unity Mono game compiles them.
+    Nothing ships from here: games compile these sources inside their own plugin.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Dbce.Wheel.UnityUi</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Ui.Unity</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/ui/unity/*.cs" LinkBase="ui/unity" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dbce.Wheel.Ui\Dbce.Wheel.Ui.csproj" />
+    <ProjectReference Include="..\Dbce.Wheel.Telemetry\Dbce.Wheel.Telemetry.csproj" />
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
