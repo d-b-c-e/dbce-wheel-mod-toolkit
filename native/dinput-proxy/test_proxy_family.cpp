@@ -1,5 +1,6 @@
 // Offline checks for the attach-time proxy pieces: dbce_proxy_core.hpp's attach(), dbce_proxy_span.hpp (span rules,
-// user32 import-slot wrappers, the import patcher), dbce_proxy_dxgi.hpp and dbce_proxy_muted.hpp. The test exe plays
+// user32 import-slot wrappers with the wide-character display and monitor ones, the import patcher), dbce_proxy_dxgi.hpp
+// (with the opt-in CreateSwapChainForHwnd hook) and dbce_proxy_muted.hpp. The test exe plays
 // the game: it attaches, points its own import slots at the wrappers and calls through them. No game, no display
 // change, no device is opened beyond the system keyboard. Built x64 at /W4 /WX by build_proxy_family_test.ps1, which
 // removes the test's log folder (%LOCALAPPDATA%\dbce\proxyfamilytest) afterwards.
@@ -114,7 +115,19 @@ static proxy::imports::Hook g_imports[] = {
     DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, GetSystemMetrics), DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, EnumDisplaySettingsA),
     DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, GetWindowRect), DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, SetWindowLongA),
     DBCE_PROXY_IMPORT("dxgi.dll", dbce::proxy::dxgi, CreateDXGIFactory), DBCE_PROXY_IMPORT("dxgi.dll", dbce::proxy::dxgi, CreateDXGIFactory1),
+    DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, EnumDisplaySettingsW), DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, GetMonitorInfoW),
+    DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, MonitorFromWindow), DBCE_PROXY_IMPORT("user32.dll", dbce::proxy::span, SetWindowPlacement),
 };
+
+// IDXGIFactory2::CreateSwapChainForHwnd's vtable entry on a factory, or null.
+static void *forHwndSlot(IUnknown *f)
+{
+    IDXGIFactory2 *f2 = nullptr;
+    void *slot = nullptr;
+    if (f && SUCCEEDED(f->QueryInterface(__uuidof(IDXGIFactory2), (void **)&f2)) && f2) { slot = (*(void ***)f2)[15]; f2->Release(); }
+    return slot;
+}
+static BOOL CALLBACK noMonitorRead(PINIT_ONCE, PVOID, PVOID *) { return TRUE; }
 
 int main()
 {
@@ -130,7 +143,7 @@ int main()
     // The import slots: this exe calls the six functions through its own import table.
     proxy::imports::resolve(g_imports);
     BYTE *exe = (BYTE *)GetModuleHandleA(nullptr);
-    check(proxy::imports::patch(exe, g_imports, true) == 6, "six import slots wrapped");
+    check(proxy::imports::patch(exe, g_imports, true) == 10, "ten import slots wrapped");
     check(proxy::imports::patch(exe, g_imports, true) == 0, "a second patch leaves wrapped slots alone");
     check(GetSystemMetrics(SM_CXSCREEN) == o_GetSystemMetrics(SM_CXSCREEN) && logHas("GetSystemMetrics(0) = "),
           "GetSystemMetrics goes through the wrapper and answers unchanged");
@@ -149,12 +162,31 @@ int main()
     check(l1 == l2 && e1 == e2 && e1 != 0, "SetWindowLongA on a bad window: same result and last error through the wrapper");
     SetLastError(1234);
     check(GetSystemMetrics(SM_CXSCREEN) > 0 && GetLastError() == 1234, "a successful wrapped call leaves the caller's last error alone");
+    // The wide-character display and monitor questions (DiRT Rally 2.0, GRID (2019)).
+    DEVMODEW aw{}, bw{};
+    aw.dmSize = bw.dmSize = sizeof aw;
+    BOOL rw = EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &aw), rw2 = o_EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &bw);
+    check(rw == rw2 && aw.dmPelsWidth == bw.dmPelsWidth && aw.dmPosition.x == bw.dmPosition.x && logHas("EnumDisplaySettingsW(null, -1) = "),
+          "EnumDisplaySettingsW answers unchanged while the span is off");
+    HMONITOR primary = MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO m1{}, m2{};
+    m1.cbSize = m2.cbSize = sizeof m1;
+    BOOL gm1 = GetMonitorInfoW(primary, &m1), gm2 = o_GetMonitorInfoW(primary, &m2);
+    check(primary && primary == o_MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY) && gm1 && gm1 == gm2 && !memcmp(&m1, &m2, sizeof m1) &&
+          logHas("MonitorFromWindow(") && logHas("GetMonitorInfoW("), "MonitorFromWindow and GetMonitorInfoW answer unchanged while the span is off");
+    WINDOWPLACEMENT wp{};
+    wp.length = sizeof wp;
+    SetLastError(0); BOOL p1 = SetWindowPlacement(bogus, &wp); e1 = GetLastError();
+    SetLastError(0); BOOL p2 = o_SetWindowPlacement(bogus, &wp); e2 = GetLastError();
+    check(p1 == p2 && e1 == e2 && e1 != 0 && logHas("SetWindowPlacement("), "SetWindowPlacement on a bad window: same result and last error through the wrapper");
 
     // DXGI: the factory, adapter and output methods are wrapped through the creation imports.
     IDXGIFactory1 *f1 = nullptr;
     int outputs = 0;
     bool same = true;
+    void *forHwndOff = nullptr;
     if (SUCCEEDED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void **)&f1)) && f1) {
+        forHwndOff = forHwndSlot(f1);
         IDXGIAdapter1 *ad = nullptr;
         for (UINT i = 0; SUCCEEDED(f1->EnumAdapters1(i, &ad)); ++i) {
             IDXGIOutput *o = nullptr;
@@ -182,6 +214,32 @@ int main()
     if (a0) a0->Release();
     if (f0) f0->Release();
     check(ok, "CreateDXGIFactory(IDXGIFactory): adapters, outputs and descriptions work");
+    // IDXGIFactory2::CreateSwapChainForHwnd is wrapped only for a game that asks (DiRT Rally 2.0, GRID (2019)). Called
+    // without a device, which DXGI refuses: the wrapper must give the same answer as the original.
+    proxy::dxgi::g_wrapCreateSwapChainForHwnd = true;
+    IDXGIFactory2 *f2 = nullptr;
+    bool forHwndOn = false;
+    HRESULT viaWrapper = S_OK, viaOriginal = S_OK;
+    IDXGISwapChain1 *sc1 = nullptr, *sc2 = nullptr;
+    if (SUCCEEDED(CreateDXGIFactory1(__uuidof(IDXGIFactory2), (void **)&f2)) && f2) {
+        forHwndOn = forHwndSlot(f2) == (void *)&proxy::dxgi::w_CreateSwapChainForHwnd;
+        DXGI_SWAP_CHAIN_DESC1 sd{};
+        sd.Width = sd.Height = 64;
+        sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        sd.SampleDesc.Count = 1;
+        sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        sd.BufferCount = 2;
+        sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        viaWrapper = f2->CreateSwapChainForHwnd(nullptr, nullptr, &sd, nullptr, nullptr, &sc1);
+        auto original = (HRESULT(STDMETHODCALLTYPE *)(IDXGIFactory2 *, IUnknown *, HWND, const DXGI_SWAP_CHAIN_DESC1 *, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *,
+                                                      IDXGIOutput *, IDXGISwapChain1 **))proxy::orig(proxy::dxgi::H_CREATESWAPHWND, f2);
+        viaOriginal = original ? original(f2, nullptr, nullptr, &sd, nullptr, nullptr, &sc2) : S_OK;
+        f2->Release();
+    }
+    proxy::dxgi::g_wrapCreateSwapChainForHwnd = false;
+    check(forHwndOff && forHwndOff != (void *)&proxy::dxgi::w_CreateSwapChainForHwnd, "CreateSwapChainForHwnd is left alone unless the game asks");
+    check(forHwndOn && FAILED(viaWrapper) && viaWrapper == viaOriginal && !sc1 && !sc2 && logHas("IDXGIFactory2::CreateSwapChainForHwnd(window "),
+          "CreateSwapChainForHwnd, when asked: wrapped, same answer as the original, logged");
 
     // [Triple] Screens.
     char ini[MAX_PATH], temp[MAX_PATH];
@@ -197,6 +255,39 @@ int main()
     DeleteFileA(ini);
     check(off == 0 && separate == 2 && wanted && surround == 1 && !g_wanted && logHas("triple screens: Separate monitors (span over three"),
           "[Triple] Screens: Off, Separate monitors (span wanted) and the Surround default");
+
+    // The span on, set here (the monitors are never read): the wide-character questions about the primary answer a
+    // span three primaries wide, the work area keeping its own top and bottom. Monitor rectangles and display modes are
+    // checked one at a time, because a DPI-unaware test can see them in different units.
+    MONITORINFOEXW pi{};
+    pi.cbSize = sizeof pi;
+    DEVMODEW pm{};
+    pm.dmSize = sizeof pm;
+    const bool havePrimary = primary && o_GetMonitorInfoW(primary, &pi) && o_EnumDisplaySettingsW(pi.szDevice, ENUM_CURRENT_SETTINGS, &pm);
+    InitOnceExecuteOnce(&g_once, noMonitorRead, nullptr, nullptr);
+    wcscpy_s(g_primaryNameW, pi.szDevice);
+    g_wanted = g_active = true;
+    const LONG mw = pi.rcMonitor.right - pi.rcMonitor.left;
+    g_primary = pi.rcMonitor;
+    g_span = R(pi.rcMonitor.left - mw, pi.rcMonitor.top, pi.rcMonitor.right + mw, pi.rcMonitor.bottom);
+    MONITORINFO on{};
+    on.cbSize = sizeof on;
+    const bool monitorOn = GetMonitorInfoW(primary, &on) && SameRect(on.rcMonitor, g_span) && on.rcWork.left == g_span.left &&
+                           on.rcWork.right == g_span.right && on.rcWork.top == pi.rcWork.top && on.rcWork.bottom == pi.rcWork.bottom;
+    const LONG dw = (LONG)pm.dmPelsWidth;
+    g_primary = R(pm.dmPosition.x, pm.dmPosition.y, pm.dmPosition.x + dw, pm.dmPosition.y + (LONG)pm.dmPelsHeight);
+    g_span = R(g_primary.left - dw, g_primary.top, g_primary.right + dw, g_primary.bottom);
+    DEVMODEW mode{};
+    mode.dmSize = sizeof mode;
+    const bool modeOn = EnumDisplaySettingsW(pi.szDevice, ENUM_CURRENT_SETTINGS, &mode) && mode.dmPelsWidth == DWORD(3 * dw) &&
+                        mode.dmPelsHeight == pm.dmPelsHeight && mode.dmPosition.x == g_span.left;
+    mode = DEVMODEW{};
+    mode.dmSize = sizeof mode;
+    const bool otherMode = !EnumDisplaySettingsW(pi.szDevice, ENUM_REGISTRY_SETTINGS, &mode) || mode.dmPelsWidth != DWORD(3 * dw);
+    g_wanted = g_active = false;
+    check(havePrimary && monitorOn && logHas("span: GetMonitorInfoW("), "span on: GetMonitorInfoW answers the primary as the span, work area top and bottom kept");
+    check(havePrimary && modeOn && otherMode && logHas("span: EnumDisplaySettingsW("),
+          "span on: EnumDisplaySettingsW answers the primary's current mode as the span, and only that mode");
 
     // start(): the rest of the start-up, once.
     proxy::start(kTest, nullptr);

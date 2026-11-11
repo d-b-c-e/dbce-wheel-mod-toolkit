@@ -11,19 +11,24 @@
 //
 // The game lists the creation imports its exe has, beside the user32 ones:
 //   DBCE_PROXY_IMPORT("d3d11.dll", dbce::proxy::dxgi, D3D11CreateDevice), ...
+// A game whose swap chain comes from IDXGIFactory2::CreateSwapChainForHwnd (DiRT Rally 2.0, GRID (2019)) also sets
+// dxgi::g_wrapCreateSwapChainForHwnd before it patches the imports; DiRT 4 does not, and that method stays its own.
 // The vtable hooks use dbce::proxy::kFirstGameHook up to dxgi::kNextHook; a game's own hooks start at dxgi::kNextHook.
 #pragma once
 #include "dbce_proxy_span.hpp"
-#include <dxgi.h>
+#include <dxgi1_2.h>
 #include <d3d11.h>
 
 namespace dbce { namespace proxy { namespace dxgi {
 
 enum : int {
     H_ENUMADAPTERS = kFirstGameHook, H_ENUMADAPTERS1, H_CREATESWAP, H_ENUMOUTPUTS, H_OUTDESC, H_RESIZEBUF, H_RESIZETGT, H_CONTOUT,
-    H_SETFS, kNextHook
+    H_SETFS, H_CREATESWAPHWND, kNextHook
 };
 static_assert(kNextHook <= kMaxHooks, "the core's hook table is too small");
+
+// Wrap IDXGIFactory2::CreateSwapChainForHwnd on every factory as well (off unless the game sets it at process attach).
+inline bool g_wrapCreateSwapChainForHwnd;
 
 DBCE_PROXY_ORIG(CreateDXGIFactory) DBCE_PROXY_ORIG(CreateDXGIFactory1) DBCE_PROXY_ORIG(D3D11CreateDeviceAndSwapChain)
 DBCE_PROXY_ORIG(D3D11CreateDevice)
@@ -115,12 +120,31 @@ inline HRESULT STDMETHODCALLTYPE w_EnumAdapters1(IDXGIFactory1 *self, UINT i, ID
     if (SUCCEEDED(hr) && out && *out) hookAdapter(*out);
     return hr;
 }
+inline volatile LONG n_csh;
+inline HRESULT STDMETHODCALLTYPE w_CreateSwapChainForHwnd(IDXGIFactory2 *self, IUnknown *dev, HWND h, const DXGI_SWAP_CHAIN_DESC1 *d,
+                                                          const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *fs, IDXGIOutput *o, IDXGISwapChain1 **out)
+{
+    if (sample(n_csh, 20) && d) {
+        KeepLastError before;
+        log("IDXGIFactory2::CreateSwapChainForHwnd(window %p): %ux%u fmt %d, %u buffers, effect %d, flags 0x%x, fullscreen desc %s windowed %d",
+            (void *)h, d->Width, d->Height, (int)d->Format, d->BufferCount, (int)d->SwapEffect, d->Flags, fs ? "yes" : "no", fs ? fs->Windowed : -1);
+    }
+    DBCE_PROXY_CALL_ORIG(H_CREATESWAPHWND, HRESULT(STDMETHODCALLTYPE *)(IDXGIFactory2 *, IUnknown *, HWND, const DXGI_SWAP_CHAIN_DESC1 *,
+                         const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *, IDXGIOutput *, IDXGISwapChain1 **), self, dev, h, d, fs, o, out);
+    if (SUCCEEDED(hr) && out && *out) hookSwapChain(*out);
+    return hr;
+}
 // The factory functions may hand out any interface the caller asked for (IUnknown, IDXGIObject, IDXGIFactory,
 // IDXGIFactory1, ...). Each method table is wrapped only through an interface pointer obtained by QueryInterface for
 // exactly the interface that declares that method (Astra's review of 3dbbc94).
 inline void hookFactory(IUnknown *u)
 {
     if (!u) return;
+    IDXGIFactory2 *f2 = nullptr;
+    if (g_wrapCreateSwapChainForHwnd && SUCCEEDED(u->QueryInterface(__uuidof(IDXGIFactory2), (void **)&f2)) && f2) {
+        patch(H_CREATESWAPHWND, f2, 15, (void *)&w_CreateSwapChainForHwnd);
+        f2->Release();
+    }
     IDXGIFactory *f = nullptr;
     if (SUCCEEDED(u->QueryInterface(__uuidof(IDXGIFactory), (void **)&f)) && f) {
         patch(H_ENUMADAPTERS, f, 7, (void *)&w_EnumAdapters);

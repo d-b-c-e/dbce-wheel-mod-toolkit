@@ -9,7 +9,8 @@
 //   - the span: [Triple] Screens from the mod's ini at start (readScreens), and the monitors, read once on the game's
 //     thread at its first question (user32 is not used in DllMain);
 //   - logging wrappers for the exe's user32 window and display-mode imports, which change an answer only while the span
-//     is on;
+//     is on (the wide-character display and monitor ones, EnumDisplaySettingsW and GetMonitorInfoW, from DiRT Rally 2.0
+//     and GRID (2019));
 //   - the import-table patcher that points the exe's import slots at wrappers (imports::resolve, imports::patch).
 // Each wrapper calls the original with the same arguments and returns its result unchanged and only logs (bounded),
 // unless the span is on. Originals come from the module's export (GetProcAddress), never from the slot, so a slot the
@@ -128,6 +129,7 @@ inline HWND g_window;                 // the window created borderless over the 
 inline int g_framedW, g_framedH;      // its outer size with the style the game asked for
 inline RECT g_span, g_primary;
 inline char g_primaryName[CCHDEVICENAME];
+inline wchar_t g_primaryNameW[CCHDEVICENAME];
 inline volatile LONG n_spanDesc, n_spanMode, n_spanPlace;
 
 // Reads [Triple] Screens (kernel32 only) and logs it. 0 Off, 1 Surround, 2 Separate monitors (the span is wanted).
@@ -169,6 +171,7 @@ inline BOOL CALLBACK spanInit(PINIT_ONCE, PVOID, PVOID *)
     log("span: racing row %s", row.c_str());
     g_span = span; g_primary = l.primary;
     strcpy_s(g_primaryName, l.primaryName);
+    MultiByteToWideChar(CP_ACP, 0, g_primaryName, -1, g_primaryNameW, CCHDEVICENAME);
     g_active = true;
     log("span: on, %ldx%ld at (%ld,%ld); primary %s (%ld,%ld)-(%ld,%ld) answered as the span", span.right - span.left,
         span.bottom - span.top, span.left, span.top, g_primaryName, l.primary.left, l.primary.top, l.primary.right, l.primary.bottom);
@@ -185,7 +188,8 @@ inline bool active()
 DBCE_PROXY_ORIG(GetSystemMetrics) DBCE_PROXY_ORIG(EnumDisplaySettingsA) DBCE_PROXY_ORIG(SetWindowPos) DBCE_PROXY_ORIG(CreateWindowExA)
 DBCE_PROXY_ORIG(AdjustWindowRect) DBCE_PROXY_ORIG(AdjustWindowRectEx) DBCE_PROXY_ORIG(GetClientRect) DBCE_PROXY_ORIG(GetWindowRect)
 DBCE_PROXY_ORIG(ShowWindow) DBCE_PROXY_ORIG(SetWindowLongA) DBCE_PROXY_ORIG(SetWindowLongPtrA) DBCE_PROXY_ORIG(GetWindowPlacement)
-DBCE_PROXY_ORIG(CreateWindowExW) DBCE_PROXY_ORIG(SetWindowLongPtrW)
+DBCE_PROXY_ORIG(CreateWindowExW) DBCE_PROXY_ORIG(SetWindowLongPtrW) DBCE_PROXY_ORIG(EnumDisplaySettingsW) DBCE_PROXY_ORIG(GetMonitorInfoW)
+DBCE_PROXY_ORIG(MonitorFromWindow) DBCE_PROXY_ORIG(SetWindowPlacement)
 
 inline volatile LONG n_gsm, n_eds, n_swp, n_cwe, n_awr, n_gcr, n_gwr, n_sw, n_swl, n_gwp;
 
@@ -208,6 +212,56 @@ inline BOOL WINAPI w_EnumDisplaySettingsA(LPCSTR dev, DWORD mode, DEVMODEA *dm)
         log("EnumDisplaySettingsA(%s, %ld) = %d: %lux%lu @%lu Hz pos (%ld,%ld)", dev ? dev : "null", (long)mode, r,
             r && dm ? dm->dmPelsWidth : 0, r && dm ? dm->dmPelsHeight : 0, r && dm ? dm->dmDisplayFrequency : 0,
             r && dm ? dm->dmPosition.x : 0, r && dm ? dm->dmPosition.y : 0);
+    return r;
+}
+// Wide-character display mode and monitor questions (DiRT Rally 2.0 and GRID (2019) import EnumDisplaySettingsW and ask
+// through monitor handles).
+inline volatile LONG n_edsw, n_gmi, n_mfw, n_swpl;
+inline BOOL WINAPI w_EnumDisplaySettingsW(LPCWSTR dev, DWORD mode, DEVMODEW *dm)
+{
+    BOOL r = o_EnumDisplaySettingsW(dev, mode, dm);
+    KeepLastError keep;
+    if (r && dm && mode == ENUM_CURRENT_SETTINGS && active() && (!dev || !_wcsicmp(dev, g_primaryNameW)) &&
+        SpanMode(g_primary, g_span, dm->dmPelsWidth, dm->dmPelsHeight, dm->dmPosition) && sample(n_spanMode, 10))
+        log("span: EnumDisplaySettingsW(%ls, current) answered %lux%lu at (%ld,%ld)", dev ? dev : L"null", dm->dmPelsWidth,
+            dm->dmPelsHeight, dm->dmPosition.x, dm->dmPosition.y);
+    if (sample(n_edsw, 60))
+        log("EnumDisplaySettingsW(%ls, %ld) = %d: %lux%lu @%lu Hz pos (%ld,%ld)", dev ? dev : L"null", (long)mode, r,
+            r && dm ? dm->dmPelsWidth : 0, r && dm ? dm->dmPelsHeight : 0, r && dm ? dm->dmDisplayFrequency : 0,
+            r && dm ? dm->dmPosition.x : 0, r && dm ? dm->dmPosition.y : 0);
+    return r;
+}
+// The primary monitor's rectangle is answered as the span; its work area keeps its own top and bottom (taskbar).
+inline BOOL WINAPI w_GetMonitorInfoW(HMONITOR m, LPMONITORINFO mi)
+{
+    BOOL r = o_GetMonitorInfoW(m, mi);
+    KeepLastError keep;
+    if (r && mi && active()) {
+        const RECT work = mi->rcWork;
+        if (SpanDesktop(g_primary, g_span, mi->rcMonitor)) {
+            mi->rcWork = {g_span.left, work.top, g_span.right, work.bottom};
+            if (sample(n_spanDesc, 10)) log("span: GetMonitorInfoW(%p) answered the span", (void *)m);
+        }
+    }
+    if (r && mi && sample(n_gmi, 40))
+        log("GetMonitorInfoW(%p) = monitor (%ld,%ld)-(%ld,%ld) work (%ld,%ld)-(%ld,%ld) flags 0x%lx", (void *)m, mi->rcMonitor.left,
+            mi->rcMonitor.top, mi->rcMonitor.right, mi->rcMonitor.bottom, mi->rcWork.left, mi->rcWork.top, mi->rcWork.right,
+            mi->rcWork.bottom, mi->dwFlags);
+    return r;
+}
+inline HMONITOR WINAPI w_MonitorFromWindow(HWND h, DWORD flags)
+{
+    HMONITOR r = o_MonitorFromWindow(h, flags);
+    KeepLastError keep;
+    if (sample(n_mfw, 40)) log("MonitorFromWindow(%p, %lu) = %p", (void *)h, flags, (void *)r);
+    return r;
+}
+inline BOOL WINAPI w_SetWindowPlacement(HWND h, const WINDOWPLACEMENT *p)
+{
+    BOOL r = o_SetWindowPlacement(h, p);
+    KeepLastError keep;
+    if (sample(n_swpl, 20) && p) log("SetWindowPlacement(%p, show %u, normal (%ld,%ld)-(%ld,%ld)) = %d", (void *)h, p->showCmd,
+                                     p->rcNormalPosition.left, p->rcNormalPosition.top, p->rcNormalPosition.right, p->rcNormalPosition.bottom, r);
     return r;
 }
 inline BOOL WINAPI w_SetWindowPos(HWND h, HWND after, int x, int y, int cx, int cy, UINT f)
