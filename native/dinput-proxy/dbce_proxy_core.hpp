@@ -80,12 +80,13 @@ inline DWORD g_pinError;
 inline void (*g_started)() = nullptr;
 inline const State &state() { return g_state; }
 
-// One line to the mod's log: date, time to the millisecond, seconds since the start-up began, and the text; flushed.
-// Safe from any thread once start() or attach() has run; a no-op before.
+// One line to the mod's log: date, time to the millisecond, seconds since the start-up began, and the text (up to 1,599
+// characters, as V-Rally 4's controls lines need); flushed. Safe from any thread once start() or attach() has run; a
+// no-op before.
 inline void log(const char *fmt, ...)
 {
     if (!g_state.log) return;
-    char buf[640];
+    char buf[1600];
     va_list ap;
     va_start(ap, fmt);
     _vsnprintf_s(buf, sizeof buf, _TRUNCATE, fmt, ap);

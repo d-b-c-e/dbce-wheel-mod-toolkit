@@ -139,6 +139,10 @@ int main()
     check(s.attached && s.pinned && s.logPath[0] && !s.mute && !s.fence, "attach: pinned, log open, no test switch");
     check(logHas("dbce Proxy family test 0.0.0 in test_proxy_family.exe, pid ") && !logHas("could not pin"), "attach writes the start line");
     check(!s.real && !logHas("system dinput8"), "attach loads nothing (the system dinput8 waits for start)");
+    std::string longLine(1500, 'x');
+    longLine.replace(0, 10, "long line ");
+    proxy::log("%s|end", longLine.c_str());
+    check(logHas((longLine + "|end").c_str()), "a 1,504-character line is logged whole");
 
     // The import slots: this exe calls the six functions through its own import table.
     proxy::imports::resolve(g_imports);
