@@ -63,6 +63,24 @@
         },
         "strict": { "type": "boolean" },
         "uiHost": { "enum": ["native-panel", "dbce-ui-dll", "game"] },
+        "uninstall": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "markerBlocks": {
+              "type": "array",
+              "description": "Blocks the mod writes into game files at run time; uninstall strips them (installer only)",
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["file", "begin", "end"],
+                "properties": {
+                  "file": { "$ref": "#/$defs/relPath" },
+                  "begin": { "type": "string", "minLength": 1 },
+                  "end": { "type": "string", "minLength": 1 },
+                  "original": { "type": "string", "minLength": 1, "pattern": "^[^\\\\/:*?\"<>|]+$", "description": "Suffix of the mod's kept copy of the file, such as .dbce-original" }
+                }
+              }
+            }
+          }
+        },
         "oldReceipts": {
           "type": "array",
           "description": "Receipts of the game's installer before the shared one ({file, sha256}), read once for migration",

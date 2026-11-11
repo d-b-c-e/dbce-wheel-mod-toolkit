@@ -8,7 +8,8 @@
    when absent, and writes every file through a temp file, reads it back and puts everything back if one write fails.
    Installing the same build again changes nothing.
    -Uninstall removes the files the install record lists while they are unchanged, puts back game files it replaced,
-   and keeps settings the player changed. -Rollback puts back the exact state before the last install.
+   and keeps settings the player changed; package.uninstall.markerBlocks also strips the blocks the mod wrote into listed
+   game files. -Rollback puts back the exact state before the last install.
    A receipt of the game's earlier installer (package.oldReceipts) is read once, so its file counts as this mod's.
    -Mode Install|Uninstall|Rollback and -PackageRoot are the arguments Wheelkit's PackageScriptRunner passes.
    -Mode Apply (CFG-2; Wheelkit runs it on Play, with the game closed): reads the game's profile from the shared store
@@ -230,10 +231,39 @@ if ($action -eq 'Uninstall') {
             elseif (-not (Same-Bytes $here ([IO.File]::ReadAllBytes($file)))) { $blocked += $rel }
         }
     }
+    # package.uninstall.markerBlocks: blocks the mod wrote into game files at run time. Only the listed files are read,
+    # as Latin-1 so every byte survives. A file with a begin marker and no end marker is left alone. The mod's kept copy
+    # (file + original) goes only when it equals the file after the strip.
+    $latin1 = [Text.Encoding]::GetEncoding(28591)
+    $notes = @()
+    foreach ($m in $mod.Package.MarkerBlocks) {
+        $path = In-Game $m.File; Assert-Unlinked $path
+        $bytes = Read-Bytes $path
+        if ($null -eq $bytes -or $changes.Contains($m.File)) { continue }
+        $text = $latin1.GetString($bytes); $stripped = 0; $balanced = $true
+        while (($b = $text.IndexOf($m.Begin, [StringComparison]::Ordinal)) -ge 0) {
+            $e = $text.IndexOf($m.End, $b + $m.Begin.Length, [StringComparison]::Ordinal)
+            if ($e -lt 0) { $balanced = $false; break }
+            $e += $m.End.Length
+            if ($text.Substring($e).StartsWith("`r`n")) { $e += 2 } elseif ($text.Substring($e).StartsWith("`n")) { $e += 1 }
+            $text = $text.Substring(0, $b) + $text.Substring($e); $stripped++
+        }
+        if (-not $balanced) { $notes += "$($m.File) has a begin marker without an end marker, so it is left as it is."; continue }
+        $now = $latin1.GetBytes($text)
+        if ($stripped) { $changes[$m.File] = $now; $notes += "Removed the mod's block from $($m.File)." }
+        if ($m.Original) {
+            $keepRel = $m.File + $m.Original; $keepPath = In-Game $keepRel; Assert-Unlinked $keepPath
+            $keep = Read-Bytes $keepPath
+            if ($null -ne $keep) {
+                if (Same-Bytes $keep $now) { $changes[$keepRel] = $null } else { $notes += "$keepRel differs from $($m.File), so both stay." }
+            }
+        }
+    }
     $changes['dbce-mod.json'] = $null
     foreach ($o in $oldPresent) { $changes[$o] = $null }
     Set-Files $changes
     Write-Host "Removed $($mod.Name) from $GameDir."
+    foreach ($n in $notes) { Write-Host $n }
     if ($kept.Count) { Write-Host "Kept because they changed after the install (your settings stay): $($kept -join ', ')." }
     if ($blocked.Count) { Write-Host "The game's own copy of $($blocked -join ', ') is kept in $originals; Steam's ""Verify integrity of game files"" also brings it back." }
     else {

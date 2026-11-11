@@ -47,6 +47,8 @@ function Read-DbceModFile {
         UiHost = $(if (DmStr $pk 'uiHost') { DmStr $pk 'uiHost' } else { 'game' })
         # Read by the installer only; not part of the canonical dump.
         OldReceipts = @(foreach ($o in (DmList $pk 'oldReceipts')) { [pscustomobject][ordered]@{ Receipt = DmStr $o 'receipt'; Backups = DmStr $o 'backups' } })
+        # Installer only too: uninstall strips these marker blocks from game files (docs/DBCE-MOD-JSON.md).
+        MarkerBlocks = @(foreach ($m in (DmList (DmProp $pk 'uninstall') 'markerBlocks')) { [pscustomobject][ordered]@{ File = DmStr $m 'file'; Begin = DmStr $m 'begin'; End = DmStr $m 'end'; Original = DmStr $m 'original' } })
     }
 
     $settings = $null

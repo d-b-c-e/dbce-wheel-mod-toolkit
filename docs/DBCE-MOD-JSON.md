@@ -27,7 +27,7 @@ names Wheelkit reads today.
 |---|---|---|---|
 | identity: `schema`, `id`, `name`, `version`, `steamAppId`, `folder`, `exe`, `repository`, `log` | game repo | everyone | `schema` is `dbce.mod@1`. `id` is the catalog and grid id. `log.start` is the regular expression for the mod's first log line, with group `v` for the version. |
 | capability flags: `gearboxFromProfile` | game repo | Wheelkit | Exactly `true` when the build reads the flag's setting. `gearboxFromProfile`: the mod sets the game's own gearbox from `[Controls] Transmission` (Game, Automatic, Sequential, H-pattern, H-pattern clutch) in its INI, so Wheelkit's Apply writes that key from the controls profile. Absent: Apply leaves the gearbox to the player. First used by DiRT 4 0.2.6. |
-| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, or game for a mod that still draws its own F6), `oldReceipts` (installer only, not in the dump: the game's earlier installer's `receipt` and `backups` folder, read once for migration). |
+| `package` | game repo | packager, installer | `kind` (dinput8, bepinex5, bepinex6-il2cpp, umm, ue4ss, electron-asar, standalone), `loader` (name, version, bundle) or null, `payload` and `optional` (`from` relative to the repo root when packaging and the same path inside the zip, `to` in the game folder), `conflicts` (files that mean another loader owns the slot), `seedConfig` (copied only when absent, STD-044), `knownBuilds` (unknown means a warning, unless `strict`), `uiHost` (native-panel, dbce-ui-dll, or game for a mod that still draws its own F6), `oldReceipts` (installer only, not in the dump: the game's earlier installer's `receipt` and `backups` folder, read once for migration), `uninstall.markerBlocks` (installer only: blocks to strip from game files on uninstall, see below). |
 | `settings` | game repo | F6 panel, Wheelkit | The UI-1 block, unchanged (see `native/panel/dbce_panel_descriptor.h`), plus two optional fields: `format` (ini or xml) for `config`, and on each row a `role` and a `store`. |
 | `controls` | game repo | Wheelkit | `store` is `game` (the game's own controls menu) or the shared profile adapter id. Also `profile`, `settings`, `optIn` (section, key, value, default, appliesAfterRestart), `delivered` actions, `unsupported` (action to reason), `conditions` (actions, transmission, settingsKey, settingsValues, settingsDefault, note) and `gameControls` (id, kind, label, group). |
 | `cameras` | game repo | Wheelkit | STD-046 starting choices for triple screens: `camera` (cockpit, bonnet, bumper, chase, isometric), `start` (realistic or game), and where the choice lives (`file`, `section`, `key`), with the stored `realistic` and `game` values. |
@@ -158,6 +158,27 @@ What install does, in order (`04-cross-cutting.md` B.2):
 
 Output is plain American English, and the last line says what to do next. Errors are one sentence that ends with
 "Nothing changed." when nothing did.
+
+Marker blocks (`package.uninstall.markerBlocks`). A mod that writes a block into a game file at run time (V-Rally 4's
+`Common/Settings/InputDeviceConfig.lua` and `InputBindings.lua`) lists it, and `-Uninstall` strips it. Installer only; not
+in the dump. Each item:
+
+| Field | Meaning |
+|---|---|
+| `file` | The game file, relative to the game folder, forward slashes, never `..`. |
+| `begin` | The text that starts a block, matched as a prefix of the block (include a leading tab if the block starts with one). |
+| `end` | The text that ends it. The line break after `end` (CRLF or LF) goes with the block. |
+| `original` | Optional suffix of the mod's kept copy of the file (`.dbce-original`). The copy is deleted only when it equals the file after the strip. |
+
+Safety: only the listed files (and their `original` copies) are read, never anything else. A path that is, or sits under,
+a link or junction is refused, as for every other game file. The file is read and written as Latin-1, so every other
+byte stays exactly as it was. A `begin` with no `end` leaves the file (and its copy) untouched. A kept copy that differs
+from the stripped file stays too. The change goes through the same one-transaction write as the rest of the uninstall,
+so a failure puts it back. Rollback and install do not touch these files.
+
+```json
+"uninstall": { "markerBlocks": [ { "file": "Common/Settings/InputBindings.lua", "begin": "\t-- dbce controls begin:", "end": "\t-- dbce controls end", "original": ".dbce-original" } ] }
+```
 
 Old receipts (`package.oldReceipts`, PKG-2). A game's installer before this one left a receipt such as
 `dbce-dirt4-receipt.json` (`{file, sha256}`) and a backups folder such as `dbce-dirt4-backups`. The installer reads the

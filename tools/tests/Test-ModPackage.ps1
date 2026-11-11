@@ -43,6 +43,7 @@ try {
             payload = @([ordered]@{ from = 'build/dinput8.dll'; to = 'dinput8.dll' }, [ordered]@{ from = 'build/dbce/fixture-data.bin'; to = 'dbce/fixture-data.bin' })
             conflicts = @('dinput8.dll'); seedConfig = @([ordered]@{ from = 'config/dbce-fixture.ini'; to = 'dbce-fixture.ini' }); uiHost = 'native-panel'
             oldReceipts = @([ordered]@{ receipt = 'dbce-fixture-receipt.json'; backups = 'dbce-fixture-backups' })
+            uninstall = [ordered]@{ markerBlocks = @([ordered]@{ file = 'Common/Settings/Input.lua'; begin = "`t-- dbce controls begin:"; end = "`t-- dbce controls end"; original = '.dbce-original' }) }
         }
         settings = [ordered]@{ product = 'Fixture Game Wheel Mod'; keys = 'F6 settings'; config = 'dbce-fixture.ini'
             pages = [ordered]@{ ffb = @([ordered]@{ id = 'ffb.enabled'; kind = 'toggle'; label = 'Force feedback'; default = $true }) } }
@@ -227,6 +228,57 @@ try {
     Remove-Item -LiteralPath (Join-Path $game 'dbce\fixture-profile.txt')
     $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
     Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $s0) 'uninstall after Apply returns the game folder byte-exact'
+
+    # package.uninstall.markerBlocks: the mod wrote a block into Common/Settings/Input.lua (Latin-1 bytes, CRLF) and kept
+    # the original beside it. Uninstall strips the block byte-exactly and touches nothing else.
+    $latin1 = [Text.Encoding]::GetEncoding(28591)
+    $lua = Join-Path $game 'Common\Settings\Input.lua'; $keep = "$lua.dbce-original"
+    $luaOriginal = "-- game table caf$([char]0xE9)`r`nreturn {`r`n`tA = 1,`r`n}`r`n"
+    $luaBlock = "`t-- dbce controls begin: profile`r`n`tB = 2,`r`n`t-- dbce controls end`r`n"
+    $luaWith = "-- game table caf$([char]0xE9)`r`nreturn {`r`n`tA = 1,`r`n" + $luaBlock + "}`r`n"
+    function Set-LuaState([string]$Table, $Kept) {
+        [void][IO.Directory]::CreateDirectory((Split-Path $lua))
+        [IO.File]::WriteAllBytes($lua, $latin1.GetBytes($Table))
+        if ($null -eq $Kept) { Remove-Item -LiteralPath $keep -ErrorAction SilentlyContinue } else { [IO.File]::WriteAllBytes($keep, $latin1.GetBytes($Kept)) }
+    }
+    Set-LuaState $luaOriginal $null
+    $sLua = Snapshot $game
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game)
+    Set-LuaState $luaWith $luaOriginal
+    $untouched = Join-Path $game 'data\track.pak'; $untouchedSha = Sha $untouched
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and $r.Out -match 'Removed the mod''s block from Common/Settings/Input.lua' -and (Snapshot $game) -ceq $sLua) 'uninstall strips a marker block byte-exactly and removes the kept original that matches'
+    Check ((Sha $untouched) -eq $untouchedSha) 'marker-block cleanup touches no other game file'
+    # Block in a file with LF line breaks, two blocks, no kept copy.
+    $lf = $luaWith.Replace("`r`n", "`n"); $lfOriginal = $luaOriginal.Replace("`r`n", "`n")
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game); Set-LuaState ($lf.Replace("}`n", "`t-- dbce controls begin: x`n`t-- dbce controls end`n}`n")) $null
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and [IO.File]::ReadAllText($lua, $latin1) -ceq $lfOriginal) 'uninstall strips every block in an LF file and leaves the rest as it was'
+    # A begin marker without an end marker: the file and its kept copy stay as they are.
+    $broken = $luaOriginal + "`t-- dbce controls begin: half`r`n`tB = 2,`r`n"
+    Set-LuaState $broken $luaOriginal
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game); Set-LuaState $broken $luaOriginal
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and $r.Out -match 'without an end marker' -and [IO.File]::ReadAllText($lua, $latin1) -ceq $broken -and [IO.File]::ReadAllText($keep, $latin1) -ceq $luaOriginal) 'unbalanced markers leave the file and its kept copy alone'
+    # A kept copy that differs from the stripped file stays, and the block still goes.
+    Set-LuaState $luaWith 'the game was updated'
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game); Set-LuaState $luaWith 'the game was updated'
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and [IO.File]::ReadAllText($lua, $latin1) -ceq $luaOriginal -and [IO.File]::ReadAllText($keep, $latin1) -ceq 'the game was updated') 'a kept copy that differs from the stripped file stays'
+    # A listed file reached through a junction is refused and nothing changes.
+    $r = Invoke-Installer $pkg1 @('-GameDir', $game)
+    Remove-Item -LiteralPath $keep; Remove-Item -LiteralPath $lua
+    $outside = Join-Path $work 'outside-settings'; [void][IO.Directory]::CreateDirectory($outside)
+    [IO.File]::WriteAllBytes((Join-Path $outside 'Input.lua'), $latin1.GetBytes($luaWith))
+    [IO.Directory]::Delete((Join-Path $game 'Common\Settings'))
+    New-Item -ItemType Junction -Path (Join-Path $game 'Common\Settings') -Target $outside | Out-Null
+    $sJunction = Snapshot $game
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -ne 0 -and $r.Out -match 'is a link' -and [IO.File]::ReadAllText((Join-Path $outside 'Input.lua'), $latin1) -ceq $luaWith -and (Snapshot $game) -ceq $sJunction) 'a marker file reached through a junction is refused and nothing changes'
+    [IO.Directory]::Delete((Join-Path $game 'Common\Settings'))
+    Remove-Item -LiteralPath (Join-Path $game 'Common') -Recurse
+    $r = Invoke-Installer $pkg1 @('-Uninstall', '-GameDir', $game)
+    Check ($r.Code -eq 0 -and (Snapshot $game) -ceq $s0) 'uninstall with the marker file absent returns the game folder byte-exact'
 
     # Wheelkit's RepoScriptInstaller runs the script in PowerShell 7 with -GameDir and -Uninstall.
     $r = Invoke-Installer $pkg1 @('-GameDir', $game) -Pwsh7
