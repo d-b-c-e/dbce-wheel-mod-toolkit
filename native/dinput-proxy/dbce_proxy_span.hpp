@@ -5,7 +5,8 @@
 // The game's sizing questions about the primary monitor (adapter output 0) are answered with the span over the racing
 // row, and its window is placed over the span, or, when it asks for a captioned window framing the span, created
 // borderless over it. Planar like Surround, not angle-correct. In this header:
-//   - the span rules: pure functions of rectangles, tested offline (test_proxy_family.cpp);
+//   - the span rules: pure functions of rectangles, tested offline (test_proxy_family.cpp), with GRID (2019)'s Center
+//     screen target (the racing row's middle panel);
 //   - the span: [Triple] Screens from the mod's ini at start (readScreens), and the monitors, read once on the game's
 //     thread at its first question (user32 is not used in DllMain);
 //   - logging wrappers for the exe's user32 window and display-mode imports, which change an answer only while the span
@@ -61,15 +62,34 @@ inline bool SameRect(const RECT &a, const RECT &b) { return a.left == b.left && 
 // with an equal display touching each side, no gap or overlap. A display above or below the row, such as the rig's
 // dashboard (2026-10-13), is ignored; any other layout is refused. Only that separate-monitor row is a span: a primary
 // at least 4:1 wide is Surround, one display the game already fills, as before. `reason` says what was found, for the log.
-inline bool SpanFromMonitors(const std::vector<RECT> &r, const RECT &primary, RECT &out, std::string *reason = nullptr)
+inline dbce::display::RacingRow RowFromMonitors(const std::vector<RECT> &r, const RECT &primary, std::string *reason)
 {
     std::vector<dbce::display::MonitorRect> monitors;
     for (const RECT &m : r)
         monitors.push_back({int(m.left), int(m.top), int(m.right - m.left), int(m.bottom - m.top), SameRect(m, primary)});
-    const dbce::display::RacingRow row = dbce::display::select_racing_row(monitors, 4.0);
+    dbce::display::RacingRow row = dbce::display::select_racing_row(monitors, 4.0);
     if (reason) *reason = row.to_string() + " (" + row.reason + ")";
+    return row;
+}
+inline bool SpanFromMonitors(const std::vector<RECT> &r, const RECT &primary, RECT &out, std::string *reason = nullptr)
+{
+    const dbce::display::RacingRow row = RowFromMonitors(r, primary, reason);
     if (row.kind != dbce::display::RacingRowKind::Separate) return false;
     out = {row.x, row.y, row.x + row.width, row.y + row.height};
+    return true;
+}
+// Center screen (GRID (2019), 2026-10-25, while GRID has no real three-view rendering): one view on the racing row's
+// middle panel (STD-038's home display). On Surround that is the primary's middle third, which the span answers then
+// describe; a separate row's primary is the center screen too. Keep placement active even though its dimensions stay
+// unchanged: the game's saved output can name a side monitor, and a primary-size window still needs to be placed on the
+// center.
+inline bool CenterFromMonitors(const std::vector<RECT> &r, const RECT &primary, RECT &out, std::string *reason = nullptr)
+{
+    const dbce::display::RacingRow row = RowFromMonitors(r, primary, reason);
+    if (row.kind == dbce::display::RacingRowKind::Separate) { out = primary; return true; }
+    if (row.kind != dbce::display::RacingRowKind::Surround) return false;
+    const int third = row.width / 3;
+    out = {row.x + third, row.y, row.x + 2 * third, row.y + row.height};
     return true;
 }
 
@@ -121,7 +141,9 @@ inline bool SpanPlacement(const RECT &span, int &x, int &y, int cx, int cy, UINT
 // [Triple] Screens = Off | Surround | Separate monitors in the mod's ini, read at start (default Surround: nothing
 // changes; Surround already opens 7680x1440 by itself). With Separate monitors and a three-monitor racing row, the
 // game's sizing questions about the primary monitor are answered with the span, and its sizing call to that size is
-// placed at the span's corner. The monitors are read once, on the game thread at the first question.
+// placed at the span's corner. The monitors are read once, on the game thread at the first question, by g_init: the
+// separate-monitor racing row (spanInit, below), or a game's own rule that reads them, logs what it found and calls
+// turnOn() with its target (GRID (2019): Center screen or Wide span, from its own [Triple] Screens choices).
 inline bool g_wanted;
 inline INIT_ONCE g_once = INIT_ONCE_STATIC_INIT;
 inline bool g_active;
@@ -156,6 +178,14 @@ inline BOOL CALLBACK collectMonitor(HMONITOR m, HDC, LPRECT rc, LPARAM lp)
     }
     return TRUE;   // every display, so neither the primary nor a side of the row can be cut off
 }
+// The span is on: the primary's sizing answers describe `target` from now on.
+inline void turnOn(const MonitorList &l, const RECT &target)
+{
+    g_span = target; g_primary = l.primary;
+    strcpy_s(g_primaryName, l.primaryName);
+    MultiByteToWideChar(CP_ACP, 0, g_primaryName, -1, g_primaryNameW, CCHDEVICENAME);
+    g_active = true;
+}
 inline BOOL CALLBACK spanInit(PINIT_ONCE, PVOID, PVOID *)
 {
     // Callers hold a KeepLastError, so the game's last-error value survives these calls.
@@ -169,18 +199,17 @@ inline BOOL CALLBACK spanInit(PINIT_ONCE, PVOID, PVOID *)
         return TRUE;
     }
     log("span: racing row %s", row.c_str());
-    g_span = span; g_primary = l.primary;
-    strcpy_s(g_primaryName, l.primaryName);
-    MultiByteToWideChar(CP_ACP, 0, g_primaryName, -1, g_primaryNameW, CCHDEVICENAME);
-    g_active = true;
+    turnOn(l, span);
     log("span: on, %ldx%ld at (%ld,%ld); primary %s (%ld,%ld)-(%ld,%ld) answered as the span", span.right - span.left,
         span.bottom - span.top, span.left, span.top, g_primaryName, l.primary.left, l.primary.top, l.primary.right, l.primary.bottom);
     return TRUE;
 }
+// The once-only monitor read and target choice; a game with its own rule sets this at process attach.
+inline PINIT_ONCE_FN g_init = spanInit;
 inline bool active()
 {
     if (!g_wanted) return false;
-    InitOnceExecuteOnce(&g_once, spanInit, nullptr, nullptr);
+    InitOnceExecuteOnce(&g_once, g_init, nullptr, nullptr);
     return g_active;
 }
 

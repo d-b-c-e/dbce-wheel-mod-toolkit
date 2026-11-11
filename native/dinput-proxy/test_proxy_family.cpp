@@ -51,6 +51,43 @@ static void spanRules()
     span = RECT{};
     check(SpanFromMonitors({R(-5120, 0, 0, 1440), R(0, 0, 5120, 1440), R(5120, 0, 10240, 1440)}, R(0, 0, 5120, 1440), span) &&
           SameRect(span, R(-5120, 0, 10240, 1440)), "three 32:9 monitors span 15360 wide (4:1 rule)");
+    // Center screen (GRID (2019)): Surround's middle third; a separate row's primary is already the center screen.
+    RECT center{};
+    check(CenterFromMonitors({R(0, 0, 7680, 1440)}, R(0, 0, 7680, 1440), center) && SameRect(center, R(2560, 0, 5120, 1440)),
+          "Surround 7680x1440: the center screen is 2560..5120");
+    center = RECT{};
+    check(CenterFromMonitors({dash, R(0, 0, 7680, 1440)}, R(0, 0, 7680, 1440), center) && SameRect(center, R(2560, 0, 5120, 1440)),
+          "Surround with the dashboard display: the dashboard is never the center screen");
+    check(CenterFromMonitors({L, P, Rt, dash}, P, center, &why) && SameRect(center, P) && why.find("Separate") == 0,
+          "separate monitors: enforce the validated primary as the center rectangle");
+    check(CenterFromMonitors({dash, Rt, P, L}, P, center) && SameRect(center, P), "center ignores dashboard and enumeration order");
+    for (const auto &saved : {L, Rt, dash}) {
+        int x = saved.left, y = saved.top;
+        UINT flags = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
+        check(SpanPlacement(center, x, y, 2560, 1440, flags) && x == P.left && y == P.top &&
+              flags == (SWP_NOACTIVATE | SWP_NOZORDER), "an applied panel-size window on a stale output is placed on center without activation/z-order changes");
+    }
+    RECT side = L;
+    check(!SpanDesktop(P, center, side) && SameRect(side, L), "centering never fabricates a side output identity");
+    int keptX = Rt.left, keptY = Rt.top; UINT keptFlags = SWP_NOSIZE | SWP_NOMOVE;
+    check(!SpanPlacement(center, keptX, keptY, 2560, 1440, keptFlags) && keptX == Rt.left && keptFlags == (SWP_NOSIZE | SWP_NOMOVE),
+          "size-preserving calls remain untouched in center mode");
+    check(!SpanPlacement(center, keptX, keptY, 1920, 1080, keptFlags = 0) && keptX == Rt.left,
+          "dashboard-size window is not a center target");
+    center = R(1, 2, 3, 4);
+    check(!CenterFromMonitors({L, P}, P, center) && SameRect(center, R(1, 2, 3, 4)), "incomplete row refuses without changing output");
+    check(!CenterFromMonitors({L, P, R(2570, 0, 5130, 1440)}, P, center), "gapped row cannot select center");
+    check(!CenterFromMonitors({P}, P, center), "one ordinary display: nothing to answer");
+    const RECT c = R(2560, 0, 5120, 1440), wide = R(0, 0, 7680, 1440);
+    RECT dc = wide;
+    check(SpanDesktop(wide, c, dc) && SameRect(dc, c), "the Surround display's rectangle becomes the center screen");
+    DWORD cw0 = 7680, ch0 = 1440; POINTL cp = {0, 0};
+    check(SpanMode(wide, c, cw0, ch0, cp) && cw0 == 2560 && cp.x == 2560, "the Surround mode becomes the center screen's");
+    int px = 0, py = 0; UINT pf = SWP_NOMOVE;
+    check(SpanPlacement(c, px, py, 2560, 1440, pf) && px == 2560 && py == 0, "a center-size window is placed on the center screen");
+    check(RowFromMonitors({L, P, Rt, dash}, P, &why).kind == dbce::display::RacingRowKind::Separate &&
+          RowFromMonitors({R(0, 0, 7680, 1440)}, R(0, 0, 7680, 1440), nullptr).kind == dbce::display::RacingRowKind::Surround,
+          "RowFromMonitors: the rig's separate row, and one Surround display");
 
     const RECT primary = R(0, 0, 2560, 1440), s = R(-2560, 0, 5120, 1440);
     RECT d = primary;
@@ -127,7 +164,10 @@ static void *forHwndSlot(IUnknown *f)
     if (f && SUCCEEDED(f->QueryInterface(__uuidof(IDXGIFactory2), (void **)&f2)) && f2) { slot = (*(void ***)f2)[15]; f2->Release(); }
     return slot;
 }
-static BOOL CALLBACK noMonitorRead(PINIT_ONCE, PVOID, PVOID *) { return TRUE; }
+// A game's own span rule (span::g_init), as GRID's: here it turns the span on with a target the test chose.
+static MonitorList g_ruleRow;
+static RECT g_ruleTarget;
+static BOOL CALLBACK testRule(PINIT_ONCE, PVOID, PVOID *) { turnOn(g_ruleRow, g_ruleTarget); return TRUE; }
 
 int main()
 {
@@ -260,27 +300,34 @@ int main()
     check(off == 0 && separate == 2 && wanted && surround == 1 && !g_wanted && logHas("triple screens: Separate monitors (span over three"),
           "[Triple] Screens: Off, Separate monitors (span wanted) and the Surround default");
 
-    // The span on, set here (the monitors are never read): the wide-character questions about the primary answer a
-    // span three primaries wide, the work area keeping its own top and bottom. Monitor rectangles and display modes are
-    // checked one at a time, because a DPI-unaware test can see them in different units.
+    // The span on, through a game's own rule (span::g_init, which calls turnOn) at the first question; the monitors are
+    // never enumerated: the wide-character questions about the primary answer a span three primaries wide, the work
+    // area keeping its own top and bottom. Monitor rectangles and display modes are checked one at a time, because a
+    // DPI-unaware test can see them in different units.
     MONITORINFOEXW pi{};
     pi.cbSize = sizeof pi;
+    MONITORINFOEXA pa{};
+    pa.cbSize = sizeof pa;
     DEVMODEW pm{};
     pm.dmSize = sizeof pm;
-    const bool havePrimary = primary && o_GetMonitorInfoW(primary, &pi) && o_EnumDisplaySettingsW(pi.szDevice, ENUM_CURRENT_SETTINGS, &pm);
-    InitOnceExecuteOnce(&g_once, noMonitorRead, nullptr, nullptr);
-    wcscpy_s(g_primaryNameW, pi.szDevice);
-    g_wanted = g_active = true;
-    const LONG mw = pi.rcMonitor.right - pi.rcMonitor.left;
-    g_primary = pi.rcMonitor;
-    g_span = R(pi.rcMonitor.left - mw, pi.rcMonitor.top, pi.rcMonitor.right + mw, pi.rcMonitor.bottom);
+    const bool havePrimary = primary && o_GetMonitorInfoW(primary, &pi) && GetMonitorInfoA(primary, &pa) &&
+                             o_EnumDisplaySettingsW(pi.szDevice, ENUM_CURRENT_SETTINGS, &pm);
+    const LONG mw = pa.rcMonitor.right - pa.rcMonitor.left;
+    g_ruleRow.primary = pa.rcMonitor;
+    strcpy_s(g_ruleRow.primaryName, pa.szDevice);
+    g_ruleRow.havePrimary = true;
+    g_ruleTarget = R(pa.rcMonitor.left - mw, pa.rcMonitor.top, pa.rcMonitor.right + mw, pa.rcMonitor.bottom);
+    g_init = testRule;
+    g_wanted = true;
     MONITORINFO on{};
     on.cbSize = sizeof on;
-    const bool monitorOn = GetMonitorInfoW(primary, &on) && SameRect(on.rcMonitor, g_span) && on.rcWork.left == g_span.left &&
-                           on.rcWork.right == g_span.right && on.rcWork.top == pi.rcWork.top && on.rcWork.bottom == pi.rcWork.bottom;
+    const bool monitorOn = GetMonitorInfoW(primary, &on) && g_active && !wcscmp(g_primaryNameW, pi.szDevice) && SameRect(on.rcMonitor, g_ruleTarget) &&
+                           on.rcWork.left == g_ruleTarget.left && on.rcWork.right == g_ruleTarget.right && on.rcWork.top == pi.rcWork.top &&
+                           on.rcWork.bottom == pi.rcWork.bottom;
     const LONG dw = (LONG)pm.dmPelsWidth;
-    g_primary = R(pm.dmPosition.x, pm.dmPosition.y, pm.dmPosition.x + dw, pm.dmPosition.y + (LONG)pm.dmPelsHeight);
-    g_span = R(g_primary.left - dw, g_primary.top, g_primary.right + dw, g_primary.bottom);
+    MonitorList modeRow = g_ruleRow;
+    modeRow.primary = R(pm.dmPosition.x, pm.dmPosition.y, pm.dmPosition.x + dw, pm.dmPosition.y + (LONG)pm.dmPelsHeight);
+    turnOn(modeRow, R(modeRow.primary.left - dw, modeRow.primary.top, modeRow.primary.right + dw, modeRow.primary.bottom));
     DEVMODEW mode{};
     mode.dmSize = sizeof mode;
     const bool modeOn = EnumDisplaySettingsW(pi.szDevice, ENUM_CURRENT_SETTINGS, &mode) && mode.dmPelsWidth == DWORD(3 * dw) &&
@@ -289,7 +336,8 @@ int main()
     mode.dmSize = sizeof mode;
     const bool otherMode = !EnumDisplaySettingsW(pi.szDevice, ENUM_REGISTRY_SETTINGS, &mode) || mode.dmPelsWidth != DWORD(3 * dw);
     g_wanted = g_active = false;
-    check(havePrimary && monitorOn && logHas("span: GetMonitorInfoW("), "span on: GetMonitorInfoW answers the primary as the span, work area top and bottom kept");
+    check(havePrimary && monitorOn && logHas("span: GetMonitorInfoW("),
+          "span on through a game's own rule (g_init, turnOn): GetMonitorInfoW answers the primary as the span, work area top and bottom kept");
     check(havePrimary && modeOn && otherMode && logHas("span: EnumDisplaySettingsW("),
           "span on: EnumDisplaySettingsW answers the primary's current mode as the span, and only that mode");
 
