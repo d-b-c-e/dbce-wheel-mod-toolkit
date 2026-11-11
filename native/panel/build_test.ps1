@@ -38,6 +38,10 @@ $cmd = "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`"
 $outFs = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX test_frame_stats.cpp /Fo`"$build\\`" /Fe`"$build\test_frame_stats.exe`" && `"$build\test_frame_stats.exe`"" 2>&1
 $outFs | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $outFs | Select-Object -Last 25; throw 'frame-rate check failed' }
+# The shared Help "Submit issue" page (native/support/support_report_page.cpp) compiles against this panel and ImGui.
+$outSp = cmd /c "set `"PATH=$env:WINDIR\System32;$env:WINDIR;%PATH%`" && call `"$vcvars`" >nul && cd /d `"$here`" && cl /nologo /c /O2 /MT /EHsc /std:c++17 /W4 /WX /utf-8 /permissive- /I$im ..\support\support_report_page.cpp /Fo`"$build\support_report_page.obj`"" 2>&1
+$outSp | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
+if ($LASTEXITCODE) { $outSp | Select-Object -Last 25; throw 'support report page compile failed' }
 $out = cmd /c $cmd 2>&1
 $out | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $out | Select-Object -Last 25; throw 'panel render check failed' }
