@@ -24,8 +24,13 @@
 //   }
 //   DBCE_PROXY_FORWARD_EXPORTS(kMod, started)     // the other five exports and DllMain
 //
+// A mod whose hooks must be in place before the game's own code runs (import slots patched at process attach, as in
+// the EGO-engine games: dbce_proxy_span.hpp, dbce_proxy_dxgi.hpp) calls attach() from its own DllMain instead, and uses
+// DBCE_PROXY_OTHER_EXPORTS for the five exports without DllMain.
+//
 // Rules this code keeps, each paid for once already:
-//   - nothing heavy under the loader lock: all work happens on the first export call, inside INIT_ONCE;
+//   - nothing heavy under the loader lock: all work happens on the first export call, inside INIT_ONCE (attach() does
+//     only the kernel32 half there: the lock, the log, the paths, the switches and the pin);
 //   - the module is pinned before any hook is installed, because hooks point into it for the rest of the process;
 //     without the pin the proxy is a plain pass-through, and a requested mute or fence refuses DirectInput instead;
 //   - a vtable is shared by every object of its class, so a hook can be reached through a vtable it never patched:
@@ -56,9 +61,11 @@ struct State {
     HMODULE real = nullptr;             // the system dinput8.dll
     FILE *log = nullptr;
     bool pinned = false;                // hooks may be installed
-    bool mute = false;                  // dbce-<id>-mute.txt beside the exe: no force effect ever starts
+    bool attached = false;              // attach() ran at process attach
+    bool mute = false;                  // dbce-<id>-mute.txt beside the exe: no force effect ever starts (or the game's own, attach())
     bool fence = false;                 // ffb-fence.on: the game gets the closed wrapper; no force can reach a device
     bool inject = false;                // inject.on with the fence: test input from inject.txt
+    ULONGLONG t0 = 0;                   // when the start-up began: the log's seconds column
     char exeName[MAX_PATH] = "";        // "Game.exe"
     char exeDir[MAX_PATH] = "";         // with the trailing backslash
     char ini[MAX_PATH] = "";            // <exeDir>dbce-<id>.ini
@@ -67,15 +74,18 @@ struct State {
 };
 inline State g_state;
 inline CRITICAL_SECTION g_lock;
-inline INIT_ONCE g_once = INIT_ONCE_STATIC_INIT;
+inline INIT_ONCE g_prepared = INIT_ONCE_STATIC_INIT;   // the kernel32 half of the start-up
+inline INIT_ONCE g_once = INIT_ONCE_STATIC_INIT;       // the rest, on the first export call
+inline DWORD g_pinError;
 inline void (*g_started)() = nullptr;
 inline const State &state() { return g_state; }
 
-// One line to the mod's log, time-stamped and flushed. Safe from any thread once start() has run; a no-op before.
+// One line to the mod's log: date, time to the millisecond, seconds since the start-up began, and the text; flushed.
+// Safe from any thread once start() or attach() has run; a no-op before.
 inline void log(const char *fmt, ...)
 {
     if (!g_state.log) return;
-    char buf[512];
+    char buf[640];
     va_list ap;
     va_start(ap, fmt);
     _vsnprintf_s(buf, sizeof buf, _TRUNCATE, fmt, ap);
@@ -83,7 +93,8 @@ inline void log(const char *fmt, ...)
     SYSTEMTIME t;
     GetLocalTime(&t);
     EnterCriticalSection(&g_lock);
-    fprintf(g_state.log, "%04d-%02d-%02d %02d:%02d:%02d %s\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, buf);
+    fprintf(g_state.log, "%04d-%02d-%02d %02d:%02d:%02d.%03d +%7.3f %s\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond,
+            t.wMilliseconds, (GetTickCount64() - g_state.t0) / 1000.0, buf);
     fflush(g_state.log);
     LeaveCriticalSection(&g_lock);
 }
@@ -144,9 +155,28 @@ inline void patch(int hook, void *obj, int index, void *fn)
 }
 
 // ---- start-up -----------------------------------------------------------------------------------------------------
-inline BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *)
+namespace detail {
+inline void logStartLine(const char *tail)
+{
+    const State &s = g_state;
+    log("dbce %s %s in %s, pid %lu%s%s%s", s.identity.name, s.identity.version, s.exeName, GetCurrentProcessId(), tail,
+        s.mute ? ", force feedback MUTED (test switch present)" : "",
+        s.fence ? (s.inject ? ", force feedback FENCED (ffb-fence.on): devices visible, no force can reach one; test injection allowed (inject.on)"
+                            : ", force feedback FENCED (ffb-fence.on): devices visible, no force can reach one") : "");
+}
+inline void logPinFailure()
+{
+    log(g_state.mute || g_state.fence ? "could not pin the proxy (%lu): DirectInput refused (the test switch cannot be honoured)"
+                                      : "could not pin the proxy (%lu): plain pass-through, no hooks", g_pinError);
+}
+} // namespace detail
+
+// The kernel32 half of the start-up, safe under the loader lock: the lock, the log, the exe and ini paths, the test
+// switches and the pin. attach() runs it from DllMain; otherwise start() runs it first.
+inline BOOL CALLBACK prepareOnce(PINIT_ONCE, PVOID, PVOID *)
 {
     State &s = g_state;
+    s.t0 = GetTickCount64();
     InitializeCriticalSection(&g_lock);
     char dir[MAX_PATH];
     const DWORD n = GetEnvironmentVariableA("LOCALAPPDATA", dir, MAX_PATH);
@@ -169,25 +199,39 @@ inline BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *)
         sprintf_s(s.ini, "%sdbce-%s.ini", s.exeDir, s.identity.id);
         char mute[MAX_PATH];
         sprintf_s(mute, "%sdbce-%s-mute.txt", s.exeDir, s.identity.id);
-        s.mute = GetFileAttributesA(mute) != INVALID_FILE_ATTRIBUTES;
+        if (!s.attached) s.mute = GetFileAttributesA(mute) != INVALID_FILE_ATTRIBUTES;   // attached: the game's own switch
     }
-    s.fence = dbce::testing::switchFile(s.identity.id, "ffb-fence.on");
+    // A game's own mute (attach()) is a different DirectInput, so it wins over the fence.
+    s.fence = !(s.attached && s.mute) && dbce::testing::switchFile(s.identity.id, "ffb-fence.on");
     s.inject = s.fence && dbce::testing::switchFile(s.identity.id, "inject.on");
     if (s.inject) dbce::fence::settings().injections = &s.injections;
     dbce::fence::settings().log = logLine;
+    HMODULE self;
+    s.pinned = GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, (LPCWSTR)&prepareOnce, &self) != 0;
+    g_pinError = s.pinned ? 0 : GetLastError();
+    if (s.attached) {
+        detail::logStartLine("");
+        if (!s.pinned) detail::logPinFailure();
+    }
+    return TRUE;
+}
+
+inline BOOL CALLBACK initOnce(PINIT_ONCE, PVOID, PVOID *)
+{
+    InitOnceExecuteOnce(&g_prepared, prepareOnce, nullptr, nullptr);
+    State &s = g_state;
     char sys[MAX_PATH];
     GetSystemDirectoryA(sys, MAX_PATH);
     strcat_s(sys, "\\dinput8.dll");   // by full path: "dinput8.dll" by name would find this proxy
     s.real = LoadLibraryA(sys);
-    log("dbce %s %s in %s, pid %lu, system dinput8 %p%s%s", s.identity.name, s.identity.version, s.exeName, GetCurrentProcessId(), (void *)s.real,
-        s.mute ? ", force feedback MUTED (test switch present)" : "",
-        s.fence ? (s.inject ? ", force feedback FENCED (ffb-fence.on): devices visible, no force can reach one; test injection allowed (inject.on)"
-                            : ", force feedback FENCED (ffb-fence.on): devices visible, no force can reach one") : "");
-    HMODULE self;
-    s.pinned = GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, (LPCWSTR)&initOnce, &self) != 0;
+    if (s.attached) log("system dinput8 %p", (void *)s.real);   // the start line was written at process attach
+    else {
+        char tail[48];
+        sprintf_s(tail, ", system dinput8 %p", (void *)s.real);
+        detail::logStartLine(tail);
+    }
     if (!s.pinned) {
-        log(s.mute || s.fence ? "could not pin the proxy (%lu): DirectInput refused (the test switch cannot be honoured)"
-                              : "could not pin the proxy (%lu): plain pass-through, no hooks", GetLastError());
+        if (!s.attached) detail::logPinFailure();
         return TRUE;
     }
     if (g_started) g_started();
@@ -202,6 +246,21 @@ inline void start(const Identity &identity, void (*started)())
 {
     if (!g_state.identity.id) { g_state.identity = identity; g_started = started; }
     InitOnceExecuteOnce(&g_once, initOnce, nullptr, nullptr);
+}
+
+// For a mod whose hooks must be in place before the game's own code runs, such as the exe's import slots: call from
+// DllMain at DLL_PROCESS_ATTACH, before anything else. It runs the kernel32 half of the start-up there and writes the
+// start line, so the mod's attach-time hooks can use log(), patch() and state(). `mute` is the game's own mute switch,
+// read by the caller with kernel32 calls only (such as dbce_proxy_muted.hpp's requested()); it replaces
+// dbce-<id>-mute.txt and wins over the fence. The system dinput8.dll, `started` and the inject reader still wait for
+// the first export call (start()).
+inline void attach(const Identity &identity, void (*started)(), bool mute)
+{
+    g_state.identity = identity;
+    g_started = started;
+    g_state.attached = true;
+    g_state.mute = mute;
+    InitOnceExecuteOnce(&g_prepared, prepareOnce, nullptr, nullptr);
 }
 
 // ---- a direct-drive base presented as a driving wheel ---------------------------------------------------------------
@@ -343,14 +402,15 @@ inline HRESULT create(HINSTANCE h, DWORD ver, REFIID riid, LPVOID *out, LPUNKNOW
     return hr;
 }
 
-// DllGetClassObject: the class-factory route to DirectInput gets the same guard as DirectInput8Create.
+// DllGetClassObject: the class-factory route to DirectInput is refused while muted or fenced, because the DirectInput it
+// hands out has none of the mute's or the fence's hooks.
 inline HRESULT getClassObject(REFCLSID c, REFIID i, LPVOID *o)
 {
     const State &s = g_state;
-    if ((s.mute && !s.pinned) || s.fence) {
+    if (s.mute || s.fence) {
         if (o) *o = nullptr;
         log(s.fence ? "DllGetClassObject refused: fenced (the class factory would hand out unfenced DirectInput)"
-                    : "DllGetClassObject refused: force feedback mute requested but the proxy could not be pinned");
+                    : "DllGetClassObject refused: muted (the class factory would hand out unmuted DirectInput)");
         return CLASS_E_CLASSNOTAVAILABLE;
     }
     auto f = (HRESULT(WINAPI *)(REFCLSID, REFIID, LPVOID *))(s.real ? GetProcAddress(s.real, "DllGetClassObject") : nullptr);
@@ -365,14 +425,17 @@ template <typename Ret> inline Ret forward(const char *name, Ret fail)
 
 }} // namespace dbce::proxy
 
-// The five other exports and DllMain, for the mod's one .cpp file. The .def file lists the same six names:
+// The five other exports, for the mod's one .cpp file. The .def file lists the same six names:
 //   DirectInput8Create, DllCanUnloadNow PRIVATE, DllGetClassObject PRIVATE, DllRegisterServer PRIVATE,
 //   DllUnregisterServer PRIVATE, GetdfDIJoystick.
-#define DBCE_PROXY_FORWARD_EXPORTS(identity, started)                                                                          \
+#define DBCE_PROXY_OTHER_EXPORTS(identity, started)                                                                            \
     extern "C" HRESULT WINAPI DllCanUnloadNow(void) { dbce::proxy::start(identity, started); return dbce::proxy::forward<HRESULT>("DllCanUnloadNow", S_FALSE); } \
     extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID c, REFIID i, LPVOID *o) { dbce::proxy::start(identity, started); return dbce::proxy::getClassObject(c, i, o); } \
     extern "C" HRESULT WINAPI DllRegisterServer(void) { dbce::proxy::start(identity, started); return dbce::proxy::forward<HRESULT>("DllRegisterServer", E_FAIL); } \
     extern "C" HRESULT WINAPI DllUnregisterServer(void) { dbce::proxy::start(identity, started); return dbce::proxy::forward<HRESULT>("DllUnregisterServer", E_FAIL); } \
-    extern "C" LPCDIDATAFORMAT WINAPI GetdfDIJoystick(void) { dbce::proxy::start(identity, started); return dbce::proxy::forward<LPCDIDATAFORMAT>("GetdfDIJoystick", nullptr); } \
+    extern "C" LPCDIDATAFORMAT WINAPI GetdfDIJoystick(void) { dbce::proxy::start(identity, started); return dbce::proxy::forward<LPCDIDATAFORMAT>("GetdfDIJoystick", nullptr); }
+// The five other exports and DllMain (for a mod that does nothing at process attach).
+#define DBCE_PROXY_FORWARD_EXPORTS(identity, started)                                                                          \
+    DBCE_PROXY_OTHER_EXPORTS(identity, started)                                                                                \
     /* Nothing at detach: no lock, log or CRT flush under the loader lock (each log line is already flushed). */              \
     BOOL WINAPI DllMain(HINSTANCE self, DWORD reason, LPVOID) { if (reason == DLL_PROCESS_ATTACH) DisableThreadLibraryCalls(self); return TRUE; }
