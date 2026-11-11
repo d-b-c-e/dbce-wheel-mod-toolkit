@@ -52,7 +52,7 @@ internal static class TripleChecks
             Check(Near(matched[1].Right / matched[1].Top, rig.PanelWidthMm / rig.PanelHeightMm), "Center aspect is not the panel aspect");
             Check(Near(matched[2].YawDegrees, views[2].YawDegrees, 5) && matched[2].YawDegrees > 0, "Matched framing changed the side turn direction");
         }
-        foreach (double bad in new[] { 0.0, 1.0, 179.0, double.NaN })
+        foreach (double bad in new[] { 0.0, 180.0, -5.0, double.NaN })
         {
             bool refused = false; try { TriplePanels.Compute(rig, bad); } catch (ArgumentOutOfRangeException) { refused = true; }
             Check(refused, "Unusable game FOV accepted: " + bad);

@@ -24,6 +24,7 @@ function Batch([string]$Path, [string]$Arguments = '') { Step "$Path $Arguments"
 Step 'dotnet test Dbce.Wheel.sln' { dotnet test Dbce.Wheel.sln --nologo -v q }
 Step 'dotnet run Dbce.Wheel.ModFile.Tests' { dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests -v q }
 Step 'dotnet run Dbce.Wheel.Cameras.Tests (net35 and net6.0 build, then the C++ case list)' { dotnet build dotnet/Dbce.Wheel.Cameras -v q --nologo; if ($LASTEXITCODE) { return }; dotnet run --project dotnet/Dbce.Wheel.Cameras.Tests -v q }
+Step 'dotnet run tests/TripleSettings (shared/display TripleLayout and the settings draft)' { dotnet run --project tests/TripleSettings -v q }
 Step 'dotnet build Dbce.Wheel.UnityUi (shared/ui/unity against UnityEngine 2021.3 modules)' { dotnet build dotnet/Dbce.Wheel.UnityUi -c Release -v q --nologo }
 Script 'native\cameras\build_test.ps1'
 Script 'native\wheelffb\build.ps1'

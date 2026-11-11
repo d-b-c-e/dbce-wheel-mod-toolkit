@@ -37,13 +37,34 @@ internal static class CurveChecks
         var curvedSource = TriplePanels.ComputeWarped(curved, 60, out var curvedWarps);
         var curvedChord = TriplePanels.Compute(curved, 60);
         Check(curvedWarps.All(w => !w.IsFlat && w.RadiusMm == 1500), "Curved warps are not 1500R");
-        // Game framing with the redraw: the virtual eye is at the glass middle, so the chord (one sagitta nearer) shows
-        // more than 60 degrees and the redrawn glass middle shows 60 (lulu, 2026-10-29: 54.42 when the sagitta was added).
-        double glassEye = TripleRigDefinition.EyeDistanceForVerticalFov(curved.PanelHeightMm, 60);
-        Check(Math.Abs(-curvedWarps[1].Panel.Center.Z - (glassEye - curved.CurveDepth())) < 1e-9, "Warped game framing did not put the eye at the glass");
-        Check(TriplePanels.VerticalFov(curvedSource[1]) > 60 && Math.Abs(2 * Math.Atan(curved.PanelHeightMm / 2 / glassEye) * 180 / Math.PI - 60) < 1e-9,
-            "Chord frustum is not wider than the glass framing");
+        // Game framing with the redraw is framed as without it (STD-047: the eye to the panel-edge plane, no curve depth
+        // added or taken off, as art of rally), and the warp stays the real eye's (STD-041): its panel is the measured
+        // rig's, and it samples the virtual views exactly as the measured-eye warp does.
+        for (int i = 0; i < 3; i++)
+            Check(Near(curvedSource[i], curvedChord[i]), "Warped game framing differs from the chord framing (a curve depth crept in)");
+        Check(Math.Abs(TriplePanels.VerticalFov(curvedSource[1]) - 60) < 1e-9, "Warped game framing lost the game's vertical FOV on the chord");
+        Check(Math.Abs(-curvedWarps[1].Panel.Center.Z - 660) < 1e-9, "The warp is not the real eye's (measured rig)");
         var measured = TriplePanels.ComputeWarped(curved, null, out var measuredWarps);
+        curvedWarps[1].SourceUv(.25, 1, out double gu, out double gv);
+        measuredWarps[1].SourceUv(.25, 1, out double mu, out double mv);
+        Check(Math.Abs(gu - mu) < 1e-12 && Math.Abs(gv - mv) < 1e-12, "Game framing's warp is not the real eye's mapping");
+        // Every physical ray lands inside the drawn source, for the measured eye and for game lenses either side of it
+        // (from DRIVE Rally's camera-set checks), and the zoom limits still frame.
+        foreach (double? lens in new double?[] { null, 35, 65, 80 })
+        {
+            TriplePanels.ComputeWarped(curved, lens, out var lensWarps);
+            for (int i = 0; i < 3; i++)
+            {
+                Check(Math.Abs(lensWarps[i].Panel.Center.Z - measuredWarps[i].Panel.Center.Z) < 1e-9, "Warp left the physical rig at lens " + lens);
+                for (int y = 0; y <= 36; y++) for (int x = 0; x <= 64; x++)
+                {
+                    lensWarps[i].SourceUv(x / 64d, y / 36d, out double u, out double v);
+                    if (!(double.IsFinite(u) && double.IsFinite(v) && u >= -1e-9 && u <= 1 + 1e-9 && v >= -1e-9 && v <= 1 + 1e-9))
+                        throw new Exception($"Physical ray outside the drawn source at lens {lens}, panel {i}, sample {x},{y}");
+                }
+            }
+        }
+        Check(TriplePanels.Compute(flat, 1).Length == 3 && TriplePanels.Compute(flat, 179).Length == 3, "The zoom limits (1 and 179 degrees) do not frame");
         var measuredChord = TriplePanels.Compute(curved);
         Check(Math.Abs(-measuredWarps[1].Panel.Center.Z - 660) < 1e-9, "Measured-eye warped chord left the panel-edge plane");
         for (int i = 0; i < 3; i++)
