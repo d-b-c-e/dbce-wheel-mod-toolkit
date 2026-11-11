@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Managed twin of native/cameras/camera_sets.hpp: shared/cameras/CameraSets.cs, compiled for the two runtimes a
+    Unity mod has: net35 (Mono 2.0; Mono 4.x takes the same file) and net6.0 (BepInEx 6 on IL2CPP).
+    Games compile the source itself through shared/cameras; Dbce.Wheel.Cameras.Tests checks it against the C++ cases.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net35;net6.0</TargetFrameworks>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>Dbce.Wheel.Cameras</AssemblyName>
+    <RootNamespace>Dbce.Wheel.Cameras</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/cameras/CameraSets.cs" Link="cameras/CameraSets.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net35'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -23,6 +23,8 @@ function Batch([string]$Path, [string]$Arguments = '') { Step "$Path $Arguments"
 
 Step 'dotnet test Dbce.Wheel.sln' { dotnet test Dbce.Wheel.sln --nologo -v q }
 Step 'dotnet run Dbce.Wheel.ModFile.Tests' { dotnet run --project dotnet/Dbce.Wheel.ModFile.Tests -v q }
+Step 'dotnet run Dbce.Wheel.Cameras.Tests (net35 and net6.0 build, then the C++ case list)' { dotnet build dotnet/Dbce.Wheel.Cameras -v q --nologo; if ($LASTEXITCODE) { return }; dotnet run --project dotnet/Dbce.Wheel.Cameras.Tests -v q }
+Script 'native\cameras\build_test.ps1'
 Script 'native\wheelffb\build.ps1'
 Batch 'native\wheelffb\build.bat' 'x86'
 Batch 'native\forza\build_test.bat'
